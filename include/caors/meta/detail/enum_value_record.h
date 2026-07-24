@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_ENUM_VALUE_DATA_H_
-#define CAORS_META_DETAIL_ENUM_VALUE_DATA_H_
+#ifndef CAORS_META_DETAIL_ENUM_VALUE_RECORD_H_
+#define CAORS_META_DETAIL_ENUM_VALUE_RECORD_H_
 
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/metadata.h"
@@ -13,15 +13,15 @@
 namespace caors::meta::detail {
 
 /** @brief 枚举项反射元信息。 */
-class enum_value_data final {
+class enum_value_record final {
 public:
-  enum_value_data() noexcept = default;
+  enum_value_record() noexcept = default;
 
-  enum_value_data(string_name enum_name, std::int64_t signed_value,
+  enum_value_record(string_name enum_name, std::int64_t signed_value,
                   std::uint64_t unsigned_value) noexcept
       : name_(enum_name), signed_value_(signed_value), unsigned_value_(unsigned_value) {}
 
-  enum_value_data(const enum_value_data& other)
+  enum_value_record(const enum_value_record& other)
       : name_(other.name_), signed_value_(other.signed_value_),
         unsigned_value_(other.unsigned_value_) {
     if (other.metadata_ != nullptr) {
@@ -30,7 +30,7 @@ public:
     }
   }
 
-  enum_value_data& operator=(const enum_value_data& other) {
+  enum_value_record& operator=(const enum_value_record& other) {
     if (this == &other) {
       return *this;
     }
@@ -47,9 +47,9 @@ public:
     return *this;
   }
 
-  enum_value_data(enum_value_data&&) noexcept = default;
-  enum_value_data& operator=(enum_value_data&&) noexcept = default;
-  ~enum_value_data() = default;
+  enum_value_record(enum_value_record&&) noexcept = default;
+  enum_value_record& operator=(enum_value_record&&) noexcept = default;
+  ~enum_value_record() = default;
 
   [[nodiscard]] bool valid() const noexcept { return !name_.empty(); }
   [[nodiscard]] string_name name() const noexcept { return name_; }

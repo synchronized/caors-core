@@ -15,11 +15,11 @@ namespace caors::meta {
 namespace {
 
 [[nodiscard]] std::optional<type_id> find_existing_type_id(const detail::registry_state& state,
-                                                           const detail::type_data& type,
+                                                           const detail::type_record& type,
                                                            error& conflict) {
   std::optional<type_id> existing_id;
 
-  const auto merge_candidate = [&](const detail::type_data* candidate, error result) {
+  const auto merge_candidate = [&](const detail::type_record* candidate, error result) {
     if (candidate == nullptr || !candidate->id()) {
       conflict = {error_domain::meta, errc::invalid_type};
       return false;
@@ -63,7 +63,7 @@ namespace {
 }
 
 [[nodiscard]] error duplicate_identity_error(const detail::registry_state& state,
-                                             const detail::type_data& type, type_id existing_id) {
+                                             const detail::type_record& type, type_id existing_id) {
   if (type.name()) {
     const auto name_position = state.names.find(type.name());
     if (name_position != state.names.end() && name_position->second != nullptr &&
@@ -83,8 +83,8 @@ namespace {
   return {error_domain::meta, errc::invalid_type};
 }
 
-[[nodiscard]] error merge_type_data(detail::registry_state& state, detail::type_data& stored,
-                                    const detail::type_data& incoming) {
+[[nodiscard]] error merge_type_record(detail::registry_state& state, detail::type_record& stored,
+                                    const detail::type_record& incoming) {
   if (!incoming.valid() || !incoming.id() || incoming.id() != stored.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -143,7 +143,7 @@ namespace {
   return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
-[[nodiscard]] error store_new_type(detail::registry_state& state, detail::type_data&& incoming,
+[[nodiscard]] error store_new_type(detail::registry_state& state, detail::type_record&& incoming,
                                    type_id* stored_id = nullptr) {
   if (!incoming.valid() || !incoming.id()) {
     return {error_domain::meta, errc::invalid_type};
@@ -178,12 +178,12 @@ namespace {
 
   const type_id id = incoming.id();
   auto [position, inserted] = state.types.try_emplace(
-      id.value(), memory::make_unique<detail::type_data>(state.resource, std::move(incoming)));
+      id.value(), memory::make_unique<detail::type_record>(state.resource, std::move(incoming)));
   if (!inserted) {
     return {error_domain::meta, errc::duplicate_id};
   }
 
-  detail::type_data* stored = position->second.get();
+  detail::type_record* stored = position->second.get();
   if (stored->name()) {
     state.names.emplace(stored->name(), stored);
   }
@@ -199,13 +199,13 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error store_static_type_data(detail::registry_state& state,
-                                           const detail::type_data& fallback) {
+[[nodiscard]] error store_static_type_record(detail::registry_state& state,
+                                           const detail::type_record& fallback) {
   if (!fallback.valid() || !fallback.id() || !fallback.value_ops().valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  detail::type_data* stored = detail::find_type_data(state, fallback.id());
+  detail::type_record* stored = detail::find_type_record(state, fallback.id());
   if (stored == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -246,7 +246,7 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error register_type_impl(detail::registry_state& state, detail::type_data type,
+[[nodiscard]] error register_type_impl(detail::registry_state& state, detail::type_record type,
                                        type_id* stored_id = nullptr) {
   if (!type.valid() || !type.id()) {
     return {error_domain::meta, errc::invalid_type};
@@ -260,12 +260,12 @@ namespace {
   }
 
   if (existing_id.has_value()) {
-    detail::type_data* existing = detail::find_type_data(state, *existing_id);
+    detail::type_record* existing = detail::find_type_record(state, *existing_id);
     if (existing == nullptr) {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    const error status = merge_type_data(state, *existing, type);
+    const error status = merge_type_record(state, *existing, type);
     if (status.value() == errc::invalid_type) {
       return duplicate_identity_error(state, type, *existing_id);
     }
@@ -283,7 +283,7 @@ namespace {
 } // namespace
 
 error registry::register_type(type_id id, string_name name, type_guid guid, type_id parent_id) {
-  return register_type_impl(*state_, detail::type_data{id, name, guid, parent_id});
+  return register_type_impl(*state_, detail::type_record{id, name, guid, parent_id});
 }
 
 error registry::commit_type(detail::pending_type_record pending, const std::type_info& cpp_type) {
@@ -293,7 +293,7 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   }
 
   std::lock_guard lock(state_->mutex);
-  const detail::type_data& candidate = pending.data();
+  const detail::type_record& candidate = pending.data();
   if (state_->types.contains(candidate.id().value())) {
     return {error_domain::meta, errc::duplicate_id};
   }
@@ -309,7 +309,7 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
     return status;
   }
 
-  detail::type_data* stored = detail::find_type_data(*state_, expected_id);
+  detail::type_record* stored = detail::find_type_record(*state_, expected_id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -319,13 +319,13 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   return {};
 }
 
-error registry::ensure_static_type_data(const detail::type_data& fallback) {
+error registry::ensure_static_type_record(const detail::type_record& fallback) {
   std::lock_guard lock(state_->mutex);
   if (!fallback.valid() || !fallback.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  return store_static_type_data(*state_, fallback);
+  return store_static_type_record(*state_, fallback);
 }
 
 error registry::set_type_guid(type_id id, type_guid guid) {
@@ -334,7 +334,7 @@ error registry::set_type_guid(type_id id, type_guid guid) {
   }
 
   std::lock_guard lock(state_->mutex);
-  detail::type_data* stored = detail::find_type_data(*state_, id);
+  detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -375,7 +375,7 @@ error registry::register_cpp_type_info(const std::type_info& info, type_id id) {
                : error{error_domain::meta, errc::invalid_type};
   }
 
-  detail::type_data* stored = detail::find_type_data(*state_, id);
+  detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -394,7 +394,7 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
   }
 
   std::lock_guard lock(state_->mutex);
-  detail::type_data* stored = detail::find_type_data(*state_, id);
+  detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
   }

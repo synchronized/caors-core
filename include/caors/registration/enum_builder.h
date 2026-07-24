@@ -5,9 +5,9 @@
 #define CAORS_REGISTRATION_ENUM_BUILDER_H_
 
 #include "caors/meta/capability_bind.h"
-#include "caors/meta/detail/enum_value_data.h"
+#include "caors/meta/detail/enum_value_record.h"
 #include "caors/meta/detail/pending_type_record.h"
-#include "caors/meta/detail/static_type_data_model.h"
+#include "caors/meta/detail/static_type_record_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
@@ -159,7 +159,7 @@ public:
       return status_;
     }
 
-    const meta::detail::type_data* fallback = meta::detail::static_type_data_ptr_of<value_type>();
+    const meta::detail::type_record* fallback = meta::detail::static_type_record_ptr_of<value_type>();
     if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return status_;
@@ -218,7 +218,7 @@ private:
 
     using underlying_type = std::underlying_type_t<value_type>;
     const underlying_type raw = static_cast<underlying_type>(enum_value);
-    pending_.add_enum_value(meta::detail::enum_value_data{name, static_cast<std::int64_t>(raw),
+    pending_.add_enum_value(meta::detail::enum_value_record{name, static_cast<std::int64_t>(raw),
                                                           static_cast<std::uint64_t>(raw)});
     return *this;
   }

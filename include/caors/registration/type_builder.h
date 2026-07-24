@@ -10,7 +10,7 @@
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/pending_type_record.h"
 #include "caors/meta/detail/property_model.h"
-#include "caors/meta/detail/static_type_data_model.h"
+#include "caors/meta/detail/static_type_record_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method_registration.h"
 #include "caors/meta/object.h"
@@ -113,7 +113,7 @@ template <typename Child, typename Parent>
  *
  * builder 在注册阶段持有独立的 `pending_type_record`，meta 属性/方法、serialization schema 和
  * object capability 都写入 pending 记录；`commit()` 校验成功后一次性发布为 registry 内的
- * `type_data`。
+ * `type_record`。
  */
 template <typename T> class type_builder {
 public:
@@ -169,7 +169,7 @@ public:
       return status_;
     }
 
-    const meta::detail::type_data* fallback = meta::detail::static_type_data_ptr_of<value_type>();
+    const meta::detail::type_record* fallback = meta::detail::static_type_record_ptr_of<value_type>();
     if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return status_;
@@ -355,8 +355,8 @@ private:
       return {};
     }
 
-    meta::detail::property_data property =
-        meta::detail::make_property_data<value_type, typename traits_type::property_type>(
+    meta::detail::property_record property =
+        meta::detail::make_property_record<value_type, typename traits_type::property_type>(
             name, type_name, meta::detail::member_offset(member));
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
@@ -424,8 +424,8 @@ private:
     static_assert(std::is_member_function_pointer_v<Setter>,
                   "registration::type_builder::property setter must be a member function pointer");
 
-    meta::detail::property_data property =
-        meta::detail::make_accessor_property_data<value_type>(name, getter, setter);
+    meta::detail::property_record property =
+        meta::detail::make_accessor_property_record<value_type>(name, getter, setter);
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
                  property.valid() ? errc::duplicate_field : errc::invalid_field};
@@ -448,8 +448,8 @@ private:
         std::is_member_function_pointer_v<Getter>,
         "registration::type_builder::property_readonly requires a member function pointer");
 
-    meta::detail::property_data property =
-        meta::detail::make_readonly_property_data<value_type>(name, getter);
+    meta::detail::property_record property =
+        meta::detail::make_readonly_property_record<value_type>(name, getter);
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
                  property.valid() ? errc::duplicate_field : errc::invalid_field};
@@ -476,7 +476,7 @@ private:
     static_assert(std::is_same_v<owner_type, value_type>,
                   "Method member pointer owner must match builder type");
 
-    meta::detail::method_data method = meta::detail::make_method_data<value_type>(name, member);
+    meta::detail::method_record method = meta::detail::make_method_record<value_type>(name, member);
     if (!method.valid()) {
       status_ = {error_domain::meta, errc::invalid_field};
       return {};

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_TYPE_DATA_H_
-#define CAORS_META_DETAIL_TYPE_DATA_H_
+#ifndef CAORS_META_DETAIL_TYPE_RECORD_H_
+#define CAORS_META_DETAIL_TYPE_RECORD_H_
 
 #include "caors/core/string_name.h"
 #include "caors/error.h"
@@ -23,10 +23,10 @@
 namespace caors::meta::detail {
 
 class registry_state;
-class enum_value_data;
-class method_data;
-class method_set_data;
-class property_data;
+class enum_value_record;
+class method_record;
+class method_set_record;
+class property_record;
 struct type_details;
 
 /** @brief C++ 类型的运行期语义摘要。 */
@@ -46,20 +46,20 @@ struct nested_type_data {
 };
 
 /** @brief 注册表内部保存的完整 meta 类型数据。 */
-class type_data {
+class type_record {
 public:
-  type_data() = default;
-  type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
+  type_record() = default;
+  type_record(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
             type_id parent_id = type_id::invalid());
-  type_data(type_id id, string_name name, type_guid guid, value_storage_ops value,
+  type_record(type_id id, string_name name, type_guid guid, value_storage_ops value,
             type_semantics semantics, builtin_ops builtin,
             const capability_entry* static_capabilities, std::size_t static_capability_count,
             bool registered) noexcept;
-  type_data(const type_data& other) = delete;
-  type_data& operator=(const type_data& other) = delete;
-  type_data(type_data&&) noexcept;
-  type_data& operator=(type_data&&) noexcept;
-  ~type_data();
+  type_record(const type_record& other) = delete;
+  type_record& operator=(const type_record& other) = delete;
+  type_record(type_record&&) noexcept;
+  type_record& operator=(type_record&&) noexcept;
+  ~type_record();
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
@@ -76,32 +76,32 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   void set_parent_id(type_id parent_id);
-  void set_static_data(const type_data& source) noexcept;
+  void set_static_data(const type_record& source) noexcept;
   void set_parent_cast(parent_cast_ops cast);
 
   [[nodiscard]] bool members_valid() const noexcept;
   [[nodiscard]] std::size_t property_count() const noexcept;
-  [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept;
-  [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept;
-  [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept;
-  void add_property(property_data property);
+  [[nodiscard]] const property_record* property_at(std::size_t index) const noexcept;
+  [[nodiscard]] const property_record* find_property_ptr(string_name name) const noexcept;
+  [[nodiscard]] property_record* mutable_find_property_ptr(string_name name) noexcept;
+  void add_property(property_record property);
   [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] const method_set_data* method_at(std::size_t index) const noexcept;
-  [[nodiscard]] const method_set_data* find_method_ptr(string_name name) const noexcept;
-  [[nodiscard]] method_set_data* mutable_find_method_ptr(string_name name) noexcept;
-  [[nodiscard]] std::optional<std::size_t> add_method(method_data method);
+  [[nodiscard]] const method_set_record* method_at(std::size_t index) const noexcept;
+  [[nodiscard]] const method_set_record* find_method_ptr(string_name name) const noexcept;
+  [[nodiscard]] method_set_record* mutable_find_method_ptr(string_name name) noexcept;
+  [[nodiscard]] std::optional<std::size_t> add_method(method_record method);
   [[nodiscard]] std::size_t nested_type_count() const noexcept;
   [[nodiscard]] const nested_type_data* nested_type_at(std::size_t index) const noexcept;
   [[nodiscard]] const nested_type_data* find_nested_type_ptr(string_name name) const noexcept;
   [[nodiscard]] bool contains_nested_type(type_id id) const noexcept;
   [[nodiscard]] error add_nested_type(nested_type_data nested_type);
   [[nodiscard]] std::size_t enum_value_count() const noexcept;
-  [[nodiscard]] const enum_value_data* enum_value_at(std::size_t index) const noexcept;
-  [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept;
-  [[nodiscard]] enum_value_data* mutable_find_enum_value_ptr(string_name name) noexcept;
-  [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::int64_t value) const noexcept;
-  [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::uint64_t value) const noexcept;
-  void add_enum_value(enum_value_data value);
+  [[nodiscard]] const enum_value_record* enum_value_at(std::size_t index) const noexcept;
+  [[nodiscard]] const enum_value_record* find_enum_value_ptr(string_name name) const noexcept;
+  [[nodiscard]] enum_value_record* mutable_find_enum_value_ptr(string_name name) noexcept;
+  [[nodiscard]] const enum_value_record* find_enum_value_ptr(std::int64_t value) const noexcept;
+  [[nodiscard]] const enum_value_record* find_enum_value_ptr(std::uint64_t value) const noexcept;
+  void add_enum_value(enum_value_record value);
   [[nodiscard]] const void* find_capability(capability_key key) const noexcept;
   [[nodiscard]] const void* find_static_capability(capability_key key) const noexcept;
   [[nodiscard]] bool contains_capability(capability_key key) const noexcept;
@@ -132,30 +132,30 @@ private:
 
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] type_data make_type_data(string_name name,
+[[nodiscard]] type_record make_type_record(string_name name,
                                        type_id parent_id = type_id::invalid()) noexcept {
-  return type_data{detail::type_id_of_cpp_type<T>(), name, type_guid::nil(), parent_id};
+  return type_record{detail::type_id_of_cpp_type<T>(), name, type_guid::nil(), parent_id};
 }
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] type_data make_type_data(string_name name, type_guid guid,
+[[nodiscard]] type_record make_type_record(string_name name, type_guid guid,
                                        type_id parent_id = type_id::invalid()) noexcept {
-  return type_data{detail::type_id_of_cpp_type<T>(), name, guid, parent_id};
+  return type_record{detail::type_id_of_cpp_type<T>(), name, guid, parent_id};
 }
 
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] type_data make_type_data(std::string_view name,
+[[nodiscard]] type_record make_type_record(std::string_view name,
                                        type_id parent_id = type_id::invalid()) {
-  return make_type_data<T>(string_name{name}, parent_id);
+  return make_type_record<T>(string_name{name}, parent_id);
 }
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] type_data make_type_data(std::string_view name, type_guid guid,
+[[nodiscard]] type_record make_type_record(std::string_view name, type_guid guid,
                                        type_id parent_id = type_id::invalid()) {
-  return make_type_data<T>(string_name{name}, guid, parent_id);
+  return make_type_record<T>(string_name{name}, guid, parent_id);
 }
 
 } // namespace caors::meta::detail

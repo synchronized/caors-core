@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/meta/detail/method_data.h"
+#include "caors/meta/detail/method_record.h"
 
 #include "caors/meta/value/value.h"
 
@@ -47,7 +47,7 @@ make_arguments(std::span<const meta::value> values) {
 } // namespace
 
 invoke_value_result
-method_data::invoke_runtime_value(const void* object, bool mutable_object,
+method_record::invoke_runtime_value(const void* object, bool mutable_object,
                                   std::span<const meta::value> arguments,
                                   argument_match_options options) const {
   if (matches_arguments(arguments, options)) {
@@ -62,7 +62,7 @@ method_data::invoke_runtime_value(const void* object, bool mutable_object,
 }
 
 invoke_value_result
-method_set_data::invoke_runtime_value(const void* object, bool mutable_object,
+method_set_record::invoke_runtime_value(const void* object, bool mutable_object,
                                       std::span<const meta::value> arguments,
                                       argument_match_options options) const {
   const method_resolution value_match = match(arguments, options);
@@ -90,7 +90,7 @@ method_set_data::invoke_runtime_value(const void* object, bool mutable_object,
 }
 
 invoke_result
-method_set_data::invoke_result_of(const void* object, bool mutable_object,
+method_set_record::invoke_result_of(const void* object, bool mutable_object,
                                   std::span<const argument> arguments,
                                   argument_match_options options) const {
   const method_resolution result = match(arguments, options);
@@ -104,7 +104,7 @@ method_set_data::invoke_result_of(const void* object, bool mutable_object,
 }
 
 invoke_result
-method_set_data::invoke_result_of(const void* object, bool mutable_object,
+method_set_record::invoke_result_of(const void* object, bool mutable_object,
                                   std::span<const named_argument> arguments,
                                   argument_match_options options) const {
   const method_resolution result = match(arguments, options);

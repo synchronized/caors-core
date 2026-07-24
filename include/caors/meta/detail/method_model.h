@@ -6,7 +6,7 @@
 
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/detail/callable_signature.h"
-#include "caors/meta/detail/method_data.h"
+#include "caors/meta/detail/method_record.h"
 #include "caors/meta/detail/value_conversion.h"
 
 namespace caors::meta::detail {
@@ -53,7 +53,7 @@ template <typename Parameter>
 
 template <typename... Arguments>
 [[nodiscard]] argument_match_rank
-method_value_arguments_rank(const method_data&, std::span<const meta::value> arguments,
+method_value_arguments_rank(const method_record&, std::span<const meta::value> arguments,
                             argument_match_options) noexcept {
   if constexpr (!method_value_arguments_supported_v<Arguments...>) {
     return argument_match_rank::none;
@@ -194,7 +194,7 @@ invoke_member_value_impl(Return (Class::*member)(Arguments...) const, const Clas
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_member_method(const method_data& method, const void* object,
+[[nodiscard]] invoke_result invoke_member_method(const method_record& method, const void* object,
                                                  bool mutable_object,
                                                  std::span<const argument> arguments) {
   if (object == nullptr || !mutable_object || !arguments_match<Arguments...>(arguments)) {
@@ -207,7 +207,7 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_const_member_method(const method_data& method,
+[[nodiscard]] invoke_result invoke_const_member_method(const method_record& method,
                                                        const void* object, bool /*mutable_object*/,
                                                        std::span<const argument> arguments) {
   if (object == nullptr || !arguments_match<Arguments...>(arguments)) {
@@ -221,7 +221,7 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] invoke_value_result
-invoke_member_method_value(const method_data& method, const void* object, bool mutable_object,
+invoke_member_method_value(const method_record& method, const void* object, bool mutable_object,
                            std::span<const meta::value> arguments) {
   if (object == nullptr || !mutable_object ||
       method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
@@ -237,7 +237,7 @@ invoke_member_method_value(const method_data& method, const void* object, bool m
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] invoke_value_result
-invoke_const_member_method_value(const method_data& method, const void* object,
+invoke_const_member_method_value(const method_record& method, const void* object,
                                  bool /*mutable_object*/, std::span<const meta::value> arguments) {
   if (object == nullptr || method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
                                argument_match_rank::none) {
@@ -250,12 +250,12 @@ invoke_const_member_method_value(const method_data& method, const void* object,
                                   std::index_sequence_for<Arguments...>{});
 }
 
-template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_data&) noexcept {
+template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_record&) noexcept {
   return meta::resolve<Class>();
 }
 
 template <typename Return>
-[[nodiscard]] meta::type method_return_type(const method_data&) noexcept {
+[[nodiscard]] meta::type method_return_type(const method_record&) noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
     return {};
   } else {
@@ -264,12 +264,12 @@ template <typename Return>
 }
 
 template <typename... Arguments>
-[[nodiscard]] std::size_t method_parameter_count(const method_data&) noexcept {
+[[nodiscard]] std::size_t method_parameter_count(const method_record&) noexcept {
   return sizeof...(Arguments);
 }
 
 template <typename... Arguments>
-[[nodiscard]] std::optional<meta::type> method_parameter_type(const method_data&,
+[[nodiscard]] std::optional<meta::type> method_parameter_type(const method_record&,
                                                               std::size_t index) noexcept {
   if constexpr (sizeof...(Arguments) == 0) {
     return std::nullopt;
@@ -289,14 +289,14 @@ template <typename... Arguments>
 }
 
 template <typename... Arguments>
-[[nodiscard]] argument_match_rank method_arguments_rank(const method_data&,
+[[nodiscard]] argument_match_rank method_arguments_rank(const method_record&,
                                                         std::span<const argument> arguments,
                                                         argument_match_options options) noexcept {
   return arguments_rank<Arguments...>(arguments, options);
 }
 
 template <typename... Arguments>
-[[nodiscard]] vector<argument> method_prepare_arguments(const method_data&,
+[[nodiscard]] vector<argument> method_prepare_arguments(const method_record&,
                                                         std::span<const argument> arguments,
                                                         argument_match_options options) {
   return prepare_arguments<Arguments...>(arguments, options);
@@ -333,9 +333,9 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_data make_method_data(std::string_view name,
+[[nodiscard]] method_record make_method_record(std::string_view name,
                                            Return (Class::*member)(Arguments...)) {
-  method_data method{
+  method_record method{
       string_name{name},
       member_method_ops<Class, Return, Arguments...>(),
       false,
@@ -345,9 +345,9 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_data make_method_data(std::string_view name,
+[[nodiscard]] method_record make_method_record(std::string_view name,
                                            Return (Class::*member)(Arguments...) const) {
-  method_data method{
+  method_record method{
       string_name{name},
       const_member_method_ops<Class, Return, Arguments...>(),
       true,
@@ -386,7 +386,7 @@ template <typename Return, typename... Arguments, std::size_t... Index>
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_global_method(const method_data& method, const void*, bool,
+[[nodiscard]] invoke_result invoke_global_method(const method_record& method, const void*, bool,
                                                  std::span<const argument> arguments) {
   if (!arguments_match<Arguments...>(arguments)) {
     return invoke_result::failed();
@@ -402,7 +402,7 @@ template <typename Return, typename... Arguments>
 
 template <typename Return, typename... Arguments>
 [[nodiscard]] invoke_value_result
-invoke_global_method_value(const method_data& method, const void*, bool,
+invoke_global_method_value(const method_record& method, const void*, bool,
                            std::span<const meta::value> arguments) {
   if (method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
       argument_match_rank::none) {
@@ -447,7 +447,7 @@ invoke_global_callable_value_impl(const Callable& callable, std::span<const meta
 }
 
 template <typename Callable, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_global_callable_method(const method_data& method, const void*,
+[[nodiscard]] invoke_result invoke_global_callable_method(const method_record& method, const void*,
                                                           bool,
                                                           std::span<const argument> arguments) {
   if (!arguments_match<Arguments...>(arguments)) {
@@ -465,7 +465,7 @@ template <typename Callable, typename Return, typename... Arguments>
 
 template <typename Callable, typename Return, typename... Arguments>
 [[nodiscard]] invoke_value_result
-invoke_global_callable_method_value(const method_data& method, const void*, bool,
+invoke_global_callable_method_value(const method_record& method, const void*, bool,
                                     std::span<const meta::value> arguments) {
   if (method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
       argument_match_rank::none) {
@@ -482,7 +482,7 @@ invoke_global_callable_method_value(const method_data& method, const void*, bool
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] meta::type global_method_owner_type(const method_data&) noexcept {
+[[nodiscard]] meta::type global_method_owner_type(const method_record&) noexcept {
   return {};
 }
 
@@ -502,9 +502,9 @@ template <typename Return, typename... Arguments>
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] method_data make_global_method_data(std::string_view name,
+[[nodiscard]] method_record make_global_method_record(std::string_view name,
                                                   Return (*function)(Arguments...)) {
-  method_data method{
+  method_record method{
       string_name{name},
       global_method_ops<Return, Arguments...>(),
       true,
@@ -532,8 +532,8 @@ struct global_callable_method_factory<Callable, function_signature<Return, Argum
   }
 
   template <typename Value>
-  [[nodiscard]] static method_data make(std::string_view name, Value&& callable) {
-    method_data method{
+  [[nodiscard]] static method_record make(std::string_view name, Value&& callable) {
+    method_record method{
         string_name{name},
         ops(),
         true,
@@ -544,7 +544,7 @@ struct global_callable_method_factory<Callable, function_signature<Return, Argum
 };
 
 template <typename Callable>
-[[nodiscard]] method_data make_global_callable_method_data(std::string_view name,
+[[nodiscard]] method_record make_global_callable_method_record(std::string_view name,
                                                            Callable&& callable) {
   using value_type = std::decay_t<Callable>;
   using signature = callable_signature_t<value_type>;

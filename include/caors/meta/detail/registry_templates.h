@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_REGISTRY_TEMPLATES_H_
 #define CAORS_META_DETAIL_REGISTRY_TEMPLATES_H_
 
-#include "caors/meta/detail/static_type_data_model.h"
+#include "caors/meta/detail/static_type_record_model.h"
 #include "caors/meta/registry.h"
 
 #include <type_traits>
@@ -30,12 +30,12 @@ template <typename T>
     return type_info_status;
   }
 
-  const detail::type_data* fallback = detail::static_type_data_ptr_of<value_type>();
+  const detail::type_record* fallback = detail::static_type_record_ptr_of<value_type>();
   if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  const error static_data_status = ensure_static_type_data(*fallback);
+  const error static_data_status = ensure_static_type_record(*fallback);
   if (static_data_status) {
     return static_data_status;
   }

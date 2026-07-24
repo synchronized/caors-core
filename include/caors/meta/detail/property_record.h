@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_PROPERTY_DATA_H_
-#define CAORS_META_DETAIL_PROPERTY_DATA_H_
+#ifndef CAORS_META_DETAIL_PROPERTY_RECORD_H_
+#define CAORS_META_DETAIL_PROPERTY_RECORD_H_
 
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/metadata.h"
@@ -25,7 +25,7 @@
 
 namespace caors::meta::detail {
 
-class property_data;
+class property_record;
 
 /** @brief 属性底层存储形式，用于热路径选择安全的访问方式。 */
 enum class property_storage_kind {
@@ -37,13 +37,13 @@ enum class property_storage_kind {
 
 /** @brief 属性访问函数表，负责把属性底层存储转换成运行期值和引用。 */
 struct property_ops {
-  using type_fn = meta::type (*)(const property_data& property) noexcept;
-  using const_data_fn = const void* (*)(const property_data& property, const void* object) noexcept;
-  using mutable_data_fn = void* (*)(const property_data& property, void* object) noexcept;
-  using get_value_fn = any (*)(const property_data& property, const void* object);
-  using get_const_ref_fn = any_ref (*)(const property_data& property, const void* object);
-  using get_mutable_ref_fn = any_ref (*)(const property_data& property, void* object);
-  using set_value_fn = bool (*)(const property_data& property, void* object, const any& source);
+  using type_fn = meta::type (*)(const property_record& property) noexcept;
+  using const_data_fn = const void* (*)(const property_record& property, const void* object) noexcept;
+  using mutable_data_fn = void* (*)(const property_record& property, void* object) noexcept;
+  using get_value_fn = any (*)(const property_record& property, const void* object);
+  using get_const_ref_fn = any_ref (*)(const property_record& property, const void* object);
+  using get_mutable_ref_fn = any_ref (*)(const property_record& property, void* object);
+  using set_value_fn = bool (*)(const property_record& property, void* object, const any& source);
 
   type_fn get_owner_type = nullptr;
   type_fn get_type = nullptr;
@@ -68,18 +68,18 @@ struct property_ops {
  * 只保存属性名、成员偏移和可写标记；属性所有者和值类型 由对应 ops 模型通过 `meta::resolve<T>()`
  * 返回，避免属性数据重复缓存静态类型节点。
  */
-class property_data final {
+class property_record final {
 public:
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
-  property_data() noexcept = default;
+  property_record() noexcept = default;
 
-  property_data(string_name property_name, std::size_t property_offset, bool property_writable,
+  property_record(string_name property_name, std::size_t property_offset, bool property_writable,
                 property_storage_kind storage_kind, property_ops property_operations) noexcept
       : name_(property_name), offset_(property_offset), writable_(property_writable),
         kind_(storage_kind), ops_(property_operations) {}
 
-  property_data(const property_data& other)
+  property_record(const property_record& other)
       : name_(other.name_), storage_(other.storage_), offset_(other.offset_),
         writable_(other.writable_), kind_(other.kind_), ops_(other.ops_), schema_(other.schema_) {
     if (other.metadata_ != nullptr) {
@@ -88,7 +88,7 @@ public:
     }
   }
 
-  property_data& operator=(const property_data& other) {
+  property_record& operator=(const property_record& other) {
     if (this == &other) {
       return *this;
     }
@@ -109,9 +109,9 @@ public:
     return *this;
   }
 
-  property_data(property_data&&) noexcept = default;
-  property_data& operator=(property_data&&) noexcept = default;
-  ~property_data() = default;
+  property_record(property_record&&) noexcept = default;
+  property_record& operator=(property_record&&) noexcept = default;
+  ~property_record() = default;
 
   [[nodiscard]] bool valid() const noexcept {
     const meta::type type = get_type();

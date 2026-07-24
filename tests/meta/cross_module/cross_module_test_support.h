@@ -33,7 +33,7 @@ struct cross_module_static_type {
   int value = 0;
 };
 
-[[nodiscard]] const void* static_type_data_from_support_tu() noexcept;
+[[nodiscard]] const void* static_type_record_from_support_tu() noexcept;
 [[nodiscard]] const void* sequence_ops_from_support_tu() noexcept;
 [[nodiscard]] const void* codec_ops_from_support_tu() noexcept;
 

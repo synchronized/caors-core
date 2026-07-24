@@ -49,7 +49,7 @@ template <typename T> [[nodiscard]] type find();
 
 namespace detail {
 
-class type_data;
+class type_record;
 class type_access;
 
 enum class builtin_ops_kind {
@@ -235,11 +235,11 @@ public:
 private:
   friend class detail::type_access;
 
-  constexpr type(const registry* registry, const detail::type_data* data) noexcept
+  constexpr type(const registry* registry, const detail::type_record* data) noexcept
       : registry_(registry), data_(data) {}
 
   const registry* registry_ = nullptr;
-  const detail::type_data* data_ = nullptr;
+  const detail::type_record* data_ = nullptr;
 };
 
 } // namespace caors::meta

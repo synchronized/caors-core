@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_STATIC_TYPE_DATA_MODEL_H_
-#define CAORS_META_DETAIL_STATIC_TYPE_DATA_MODEL_H_
+#ifndef CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
+#define CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
 
 #include "caors/meta/detail/builtin_ops_model.h"
 #include "caors/meta/detail/static_type_name.h"
-#include "caors/meta/detail/type_data.h"
+#include "caors/meta/detail/type_record.h"
 #include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/type_semantics.h"
 #include "caors/traits/container.h"
@@ -64,7 +64,7 @@ template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
   return result;
 }
 
-template <typename T> [[nodiscard]] type_data make_static_type_data() {
+template <typename T> [[nodiscard]] type_record make_static_type_record() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   const meta::value_storage_ops value{
       meta::type_layout{sizeof(type), alignof(type)},
@@ -82,7 +82,7 @@ template <typename T> [[nodiscard]] type_data make_static_type_data() {
           std::is_trivially_default_constructible_v<type>,
       },
   };
-  return type_data{
+  return type_record{
       static_type_id<type>(),
       static_type_name<type>(),
       traits::type_identity<type>::guid(),
@@ -95,9 +95,9 @@ template <typename T> [[nodiscard]] type_data make_static_type_data() {
   };
 }
 
-template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const type_record* static_type_record_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const type_data data = make_static_type_data<type>();
+  static const type_record data = make_static_type_record<type>();
   return &data;
 }
 

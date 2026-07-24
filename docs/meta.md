@@ -138,7 +138,7 @@ meta 类型记录由当前 `meta::context` 指向的注册表内部保存，普�
 才有稳定注册名、GUID、父类型和可挂载 extension。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析静态类型节点，也会返回空视图。
 `registration::type_<T>("name")` 链式 builder 在 `commit()` 时一次性发布完整类型数据；发布后的
-`type_data` 不再通过 builder 修改。已有 `meta::type` 视图引用稳定注册数据，重复提交同一类型会返回重复错误。
+`type_record` 不再通过 builder 修改。已有 `meta::type` 视图引用稳定注册数据，重复提交同一类型会返回重复错误。
 属性和成员方法也挂在同一份类型数据上，应在同一次注册提交前通过 `.meta()` 段写入。
 
 `meta::type` 是对外查询返回的只读视图：
@@ -397,7 +397,7 @@ caors::registration::type_<actor>("game.actor")
 
 ### 普通入口：facade 和 view
 
-普通业务代码优先使用公开 facade，而不是直接操作内部 `type_data` 或 raw ops：
+普通业务代码优先使用公开 facade，而不是直接操作内部 `type_record` 或 raw ops：
 
 - 类型查询使用 `meta::resolve<T>()` 或 `meta::find<T>()`。
 - 类型级能力使用 `meta::type::get_capability<Capability>()`，例如
@@ -414,7 +414,7 @@ caors::registration::type_<actor>("game.actor")
 只有实现新的 capability facade、调试工具、序列化桥接或性能敏感适配层时，才直接使用
 `meta::type::get_raw_ops<Ops>()`。
 
-### 分层边界：type_data、registry、capability
+### 分层边界：type_record、registry、capability
 
 当前 meta 层按公共 API、注册表和能力三类边界分工：
 
@@ -425,7 +425,7 @@ caors::registration::type_<actor>("game.actor")
 - static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们通过 `meta::type` 查询，不要求类型先注册到 registry。
-- dynamic capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_data` 上，
+- dynamic capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_record` 上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
   `registration::type_<T>("name").meta().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
   `registration::type_<T>("name").meta().factory()` 也是该机制的高级封装，会把构造策略注册为内部
@@ -451,11 +451,11 @@ static capability 依赖模板特化可见性。用户类型及其 `codec_traits
 不同翻译单元必须采用一致的 adapter 边界；CAORS 不支持先实例化静态节点、再补充特化的包含顺序。
 `caors/serialization.h`、`caors/object/serialization.h` 和各模块 adapter 聚合头用于建立这一边界。
 
-### 内部结构：type_data 和 ops
+### 内部结构：type_record 和 ops
 
-每个 C++ 类型拥有一份静态 `type_data` 节点，其中直接保存布局、值操作、类型语义、内置 ops
+每个 C++ 类型拥有一份静态 `type_record` 节点，其中直接保存布局、值操作、类型语义、内置 ops
 和静态能力表；未注册结构类型也可以通过 `any`、`any_ref` 或反射属性携带的静态类型节点访问同一套能力。
-显式注册后，registry 中的 `type_data` 复制这些固有字段，并增加属性、方法和动态扩展详情。
+显式注册后，registry 中的 `type_record` 复制这些固有字段，并增加属性、方法和动态扩展详情。
 静态名称和稳定 GUID 统一由 `traits::type_identity<T>` 提供；默认名称兼容
 `traits::type_name<T>`，object 模块将 `object_type_name/static_type_guid` 适配到同一入口。
 显式注册名称或 GUID 与静态声明冲突时，pending 校验返回 `errc::inconsistent_type`，不会发布部分记录。
@@ -474,9 +474,9 @@ static capability 依赖模板特化可见性。用户类型及其 `codec_traits
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
-文件边界上，`meta/detail/type_data.h` 保存统一静态/注册类型节点及其可选详情；
+文件边界上，`meta/detail/type_record.h` 保存统一静态/注册类型节点及其可选详情；
 `meta/detail/static_type_name.h` 负责静态节点默认显示名生成；
-`meta/detail/static_type_data_model.h` 负责静态节点的语义填充和构建实现；
+`meta/detail/static_type_record_model.h` 负责静态节点的语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入
 `meta/detail/builtin/*.h` 并选择当前类型的内置 ops；`builtin/enum_ops_model.h`、
 `builtin/indirect_ops_model.h`、`builtin/sequence_ops_model.h`、`builtin/set_ops_model.h`、
@@ -575,11 +575,11 @@ capability 和 registry 的边界：
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
   把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
-统一 `value_type` / `key_type` 不再作为 `type_data` 顶层属性保存。普通值和枚举直接使用
+统一 `value_type` / `key_type` 不再作为 `type_record` 顶层属性保存。普通值和枚举直接使用
 静态节点自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
-类型形态和通用类型关系只从静态 `type_data` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
+类型形态和通用类型关系只从静态 `type_record` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
 独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `meta::type` 视图，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型。未注册类型不会拥有反射属性、对象工厂或序列化 extension；如果
@@ -696,8 +696,8 @@ caors::registration::type_<actor>("game.actor")
 类的 `static` 成员变量和 `static` 成员函数也按同一套 global 入口注册到 module 上；它们不属于某个
 `meta::type` 的成员属性或成员方法，调用时不需要传入 instance。
 
-module 的公开注册 API 只保留 `property()` 和 `function()`。底层 `module_data`、`property_data` 和
-`method_data` 是内部存储结构，不作为普通扩展入口使用。
+module 的公开注册 API 只保留 `property()` 和 `function()`。底层 `module_record`、`property_record` 和
+`method_record` 是内部存储结构，不作为普通扩展入口使用。
 
 ```cpp
 int version = 1;
@@ -1086,7 +1086,7 @@ caors::registration::type_<actor>("game.actor")
 
 - `has_extension<T>(type_id)`：判断类型是否拥有扩展数据。
 - `find_extension<T>(type_id)`：获取扩展数据副本。
-- `find_extension_ptr<T>(type_id)`：获取扩展数据只读指针。扩展数据存放在对应 `type_data`
+- `find_extension_ptr<T>(type_id)`：获取扩展数据只读指针。扩展数据存放在对应 `type_record`
   内，地址在 append-only 注册表生命周期内保持稳定。
 - `extension_count<T>()`：统计拥有指定扩展数据的类型数量。
 - `extension_view<T...>()`：查询同时拥有指定扩展数据集合的类型。
@@ -1109,7 +1109,7 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 
 当前注册表仍是 append-only 语义，不支持扩展数据替换；如果后续支持热重载，应在替换 API 上显式处理旧数据生命周期和读者同步。
 
-扩展数据的事实源是 `type_data` 内部的 extension 列表；`extension_view<T...>()`
+扩展数据的事实源是 `type_record` 内部的 extension 列表；`extension_view<T...>()`
 通过遍历已注册类型并匹配 extension key 完成跨模块查询。普通代码不应把 extension 当成独立 ECS
 component 使用，它只是注册后类型数据的模块扩展槽。
 
@@ -1150,7 +1150,7 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- 内部静态 `type_data` 节点：布局、值操作、类型语义、内置 ops 和静态能力表，不属于公开 API。
+- 内部静态 `type_record` 节点：布局、值操作、类型语义、内置 ops 和静态能力表，不属于公开 API。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：类型只读视图，注册数据可选。

@@ -9,7 +9,7 @@
 
 #include <vector>
 
-namespace caors::tests::serialization::static_type_data {
+namespace caors::tests::serialization::static_type_record {
 
 enum class static_enum_color : unsigned char {
   red = 1,
@@ -47,4 +47,4 @@ inline void require_context_resource_holder_metadata() {
                                      .commit()));
 }
 
-} // namespace caors::tests::serialization::static_type_data
+} // namespace caors::tests::serialization::static_type_record

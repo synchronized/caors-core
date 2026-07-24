@@ -83,7 +83,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、序列化和自定义 extension 数据。
 - [x] 提供 `meta::registry::extension_view<T...>()`，查询同时拥有指定 extension 数据的类型。
 - [x] 补充 meta 属性和序列化 extension 的跨模块查询测试。
-- [x] 将 registry extension 数据收进 `type_data`，extension 查询直接遍历注册类型记录，不再维护重复反向索引。
+- [x] 将 registry extension 数据收进 `type_record`，extension 查询直接遍历注册类型记录，不再维护重复反向索引。
 - [x] 将动态 capability 挂到注册类型数据，支持 `type_id + capability_key` 查询模块扩展能力。
 - [x] 将 serialization codec 接入 `meta::type` 静态 capability；编译期已知 `T` 或携带 `meta::type` 的
   `any` / `any_ref` 路径都可直接查询静态 codec 能力。
@@ -110,7 +110,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释内部类型缓存。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 descriptor 本体收进 `meta::detail`，公开 API 只通过 `meta::type` 暴露类型视图和能力查询。
-- [x] 统一静态与注册 `type_data` 节点，删除 `type_descriptor` 中转结构和 registry descriptor 注册链。
+- [x] 统一静态与注册 `type_record` 节点，删除 `type_descriptor` 中转结构和 registry descriptor 注册链。
 - [x] 增加统一 `traits::type_identity<T>`，让普通类型和 object 类型共享静态名称/GUID 身份及冲突校验。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterator_ops_model.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和

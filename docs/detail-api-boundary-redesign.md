@@ -38,8 +38,8 @@ serialization 和 object 容易直接依赖 meta 的具体存储，模块内部�
 
 ### 节点层
 
-保存 registry 中稳定的运行时数据，例如 `type_data`、`type_details`、`property_data` 和
-`method_data`。节点层不依赖 registration、serialization、object 或 resources。
+保存 registry 中稳定的运行时数据，例如 `type_record`、`type_details`、`property_record` 和
+`method_record`。节点层不依赖 registration、serialization、object 或 resources。
 
 ### 模型层
 
@@ -67,8 +67,8 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 - 盘点公开头中 `detail` 类型的跨模块使用；
 - 确认 registration 直接调用 `serialization::detail::compile_type_schema`；
-- 确认 serialization 通过 `property_access::data_of()` 保存 `property_data*`；
-- 明确本计划不改变 `type_data + type_details` 主结构。
+- 确认 serialization 通过 `property_access::data_of()` 保存 `property_record*`；
+- 明确本计划不改变 `type_record + type_details` 主结构。
 
 ### 阶段 1：收敛 serialization schema 提交（已完成）
 
@@ -90,16 +90,16 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 ### 阶段 2：收敛属性快速访问（已完成）
 
 - 在 meta 中定义只包含字段取引用操作的窄型已编译访问器；
-- serialization 缓存该访问器，不缓存 `property_data*`；
+- serialization 缓存该访问器，不缓存 `property_record*`；
 - 删除 `property_access::data_of()`；
 - 保留继承属性、只读属性和 accessor property 的现有行为。
 
-完成标准：serialization 不再包含 `meta/detail/property_data.h`，也不持有其裸指针。
+完成标准：serialization 不再包含 `meta/detail/property_record.h`，也不持有其裸指针。
 
 实现结果：
 
 - 新增 `meta::property_accessor` 窄型访问对象，隐藏属性节点布局并保留 unchecked 热路径；
-- serialization 字段缓存改为保存 accessor，不再保存或解释 `property_data*`；
+- serialization 字段缓存改为保存 accessor，不再保存或解释 `property_record*`；
 - 删除 `property_access::data_of()` 任意节点提取入口；
 - 新增成员、只读、const 和可写访问测试，Clang/MSVC Debug 各 75 项全量测试全部通过；
 - Release 快速复测：`to_value` 约 `0.68 us/iter`，JSON 文本读取约 `1.52 us/iter`，
@@ -107,8 +107,8 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 ### 阶段 3：分离节点与模板模型（已完成）
 
-- 将 `property_data.h` 中的节点、ops、model 和 factory 按职责拆分；
-- 将 `method_data.h` 按相同方式拆分；
+- 将 `property_record.h` 中的节点、ops、model 和 factory 按职责拆分；
+- 将 `method_record.h` 按相同方式拆分；
 - 公共 registration 模板只包含必要的 model/factory 头；
 - 清理重复的 query、helper 和 access 包装。
 
@@ -116,10 +116,10 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 实现结果：
 
-- `property_data.h` 已只保留属性节点及其运行时操作，成员、accessor、global 模型和 factory
+- `property_record.h` 已只保留属性节点及其运行时操作，成员、accessor、global 模型和 factory
   已迁移到 `property_model.h`；
 - 节点头体积由约 30 KB 降至约 14 KB；
-- `method_data.h` 已只保留方法节点、重载集合及其运行时匹配操作，调用模型和 factory
+- `method_record.h` 已只保留方法节点、重载集合及其运行时匹配操作，调用模型和 factory
   已迁移到 `method_model.h`；
 - 方法节点头体积由约 50 KB 降至约 27 KB；
 - Clang Debug 的头文件自包含、属性、方法、模块和注册构建器专项测试全部通过。
@@ -137,7 +137,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 - 属性 metadata、属性 schema、方法 metadata、默认参数、参数名及枚举项 metadata
   已改由 `pending_type_record` 的语义化事务方法修改；
-- builder 不再取得对应的 `property_data*`、`method_set_data*` 或 `enum_value_data*`；
+- builder 不再取得对应的 `property_record*`、`method_set_record*` 或 `enum_value_record*`；
 - 枚举类型级 metadata 已改由事务方法按需创建并更新 extension；
 - registration builder 已不再取得 pending 内部节点的可变指针；
 - type 与 enum builder 统一提供 `result()` 和 `succeeded()` 状态查询；
@@ -169,7 +169,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
   `serialization.to_value` 约 68.93 ms、复用 buffer JSON 写出约 94.21 ms、
   JSON 文本读取约 152.50 ms，保持既有性能基线；
 - `serialization.to_value` 仍为零分配，复用 buffer 写出为每 1000 次 1 次分配；
-- 删除无调用的 `module_data::mutable_find_property_ptr()`；
+- 删除无调用的 `module_record::mutable_find_property_ptr()`；
 - 当前 Windows 环境没有可用 Linux/WSL 工具链，因此未执行 Linux GCC/Clang preset。
 
 ## 非目标

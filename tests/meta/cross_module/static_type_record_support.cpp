@@ -9,7 +9,7 @@
 
 namespace caors::tests::cross_module {
 
-const void* static_type_data_from_support_tu() noexcept {
+const void* static_type_record_from_support_tu() noexcept {
   return meta::detail::type_access::data_of(meta::resolve<cross_module_static_type>());
 }
 

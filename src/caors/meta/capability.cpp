@@ -15,7 +15,7 @@
 namespace caors::meta::detail {
 
 const void* find_type_builtin_ops(const meta::type& type, builtin_ops_kind kind) noexcept {
-  const type_data* data = type_access::data_of(type);
+  const type_record* data = type_access::data_of(type);
   if (data == nullptr) {
     return nullptr;
   }
@@ -58,7 +58,7 @@ error register_capability(registry& registry, type_id id, capability_key key,
 
   registry_state* state = registry_access::state(registry);
   std::lock_guard lock(state->mutex);
-  type_data* type = find_type_data(*state, id);
+  type_record* type = find_type_record(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -82,7 +82,7 @@ error register_owned_capability(registry& registry, type_id id, capability_key k
 
   registry_state* state = registry_access::state(registry);
   std::lock_guard lock(state->mutex);
-  type_data* type = find_type_data(*state, id);
+  type_record* type = find_type_record(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -102,7 +102,7 @@ const void* find_capability(const registry& registry, type_id id, capability_key
 
   const registry_state* state = registry_access::state(registry);
   std::lock_guard lock(state->mutex);
-  const type_data* type = find_type_data(*state, id);
+  const type_record* type = find_type_record(*state, id);
   if (type == nullptr) {
     return nullptr;
   }
@@ -119,7 +119,7 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
     return nullptr;
   }
 
-  const type_data* data = type_access::data_of(type);
+  const type_record* data = type_access::data_of(type);
   if (data != nullptr) {
     if (const void* static_capability = data->find_static_capability(key);
         static_capability != nullptr) {

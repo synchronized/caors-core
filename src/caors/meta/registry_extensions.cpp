@@ -11,7 +11,7 @@
 namespace caors::meta {
 namespace {
 
-[[nodiscard]] bool contains_all_extensions(const detail::type_data& type,
+[[nodiscard]] bool contains_all_extensions(const detail::type_record& type,
                                            const detail::extension_key* keys,
                                            std::size_t count) noexcept {
   for (std::size_t index = 0; index < count; ++index) {
@@ -35,7 +35,7 @@ error registry::add_extension(type_id id, detail::extension_data extension) {
   }
 
   std::lock_guard lock(state_->mutex);
-  detail::type_data* stored = detail::find_type_data(*state_, id);
+  detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr || !stored->registered()) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -49,7 +49,7 @@ bool registry::has_extension(type_id id, detail::extension_key key) const {
   }
 
   std::lock_guard lock(state_->mutex);
-  const detail::type_data* stored = detail::find_type_data(*state_, id);
+  const detail::type_record* stored = detail::find_type_record(*state_, id);
   return stored != nullptr && stored->registered() && stored->contains_extension(key);
 }
 
@@ -60,7 +60,7 @@ const detail::extension_data* registry::find_extension_data(type_id id,
   }
 
   std::lock_guard lock(state_->mutex);
-  const detail::type_data* stored = detail::find_type_data(*state_, id);
+  const detail::type_record* stored = detail::find_type_record(*state_, id);
   return stored != nullptr && stored->registered() ? stored->find_extension(key) : nullptr;
 }
 

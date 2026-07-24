@@ -20,8 +20,8 @@
 namespace caors::meta {
 
 namespace detail {
-class method_data;
-class method_set_data;
+class method_record;
+class method_set_record;
 class method_access;
 } // namespace detail
 
@@ -284,10 +284,10 @@ public:
 private:
   friend class detail::method_access;
 
-  explicit method(const detail::method_data* reflected_method) noexcept;
-  [[nodiscard]] const detail::method_data* info() const noexcept;
+  explicit method(const detail::method_record* reflected_method) noexcept;
+  [[nodiscard]] const detail::method_record* info() const noexcept;
 
-  const detail::method_data* method_ = nullptr;
+  const detail::method_record* method_ = nullptr;
 };
 
 /** @brief 同名方法重载集合的结构化匹配结果。 */
@@ -373,10 +373,10 @@ public:
 private:
   friend class detail::method_access;
 
-  explicit method_set(const detail::method_set_data* reflected_method_set) noexcept;
-  [[nodiscard]] const detail::method_set_data* info() const noexcept;
+  explicit method_set(const detail::method_set_record* reflected_method_set) noexcept;
+  [[nodiscard]] const detail::method_set_record* info() const noexcept;
 
-  const detail::method_set_data* method_set_ = nullptr;
+  const detail::method_set_record* method_set_ = nullptr;
 };
 
 } // namespace caors::meta

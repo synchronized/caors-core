@@ -18,10 +18,10 @@ namespace caors::meta {
 class module_builder;
 
 namespace detail {
-class method_data;
+class method_record;
 class module_access;
-class module_data;
-class property_data;
+class module_record;
+class property_record;
 } // namespace detail
 
 /** @brief 全局 module 只读视图，用于查询全局属性和全局函数。 */
@@ -43,9 +43,9 @@ public:
 
 private:
   friend class detail::module_access;
-  explicit module_view(const detail::module_data* data) noexcept;
+  explicit module_view(const detail::module_record* data) noexcept;
 
-  const detail::module_data* data_ = nullptr;
+  const detail::module_record* data_ = nullptr;
 };
 
 /**
@@ -73,12 +73,12 @@ public:
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 
 private:
-  [[nodiscard]] error add_property(detail::property_data property);
-  [[nodiscard]] error add_method(detail::method_data method);
+  [[nodiscard]] error add_property(detail::property_record property);
+  [[nodiscard]] error add_method(detail::method_record method);
   void refresh() noexcept;
 
   string_name name_{};
-  detail::module_data* module_ = nullptr;
+  detail::module_record* module_ = nullptr;
   error status_{};
 };
 

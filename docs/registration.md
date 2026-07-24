@@ -77,13 +77,13 @@ caors::error register_game_types(caors::meta::context& ctx) {
 ## 内部实现边界
 
 当前聚合入口使用 registry pending model：builder 在注册阶段收集 meta 属性/方法、序列化 schema、
-对象 factory capability 和其他类型能力，`commit()` 时一次性发布完整 `type_data`。发布后的
-`type_data` 不会再通过 `registration::type_<T>(name)` 或 `registration::enum_<T>(name)` 修改；重复提交
+对象 factory capability 和其他类型能力，`commit()` 时一次性发布完整 `type_record`。发布后的
+`type_record` 不会再通过 `registration::type_<T>(name)` 或 `registration::enum_<T>(name)` 修改；重复提交
 同一个类型会返回 `errc::duplicate_id`，并保留已有注册数据。
 
 业务类型注册统一使用 `registration::type_<T>(name)`。object 和 serialization 不再提供独立公共
 builder；当 `T` 继承自 `meta::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过
-`.serialization()` 写入，同一次 `commit()` 发布完整 `type_data`。显式序列化字段会在提交阶段绑定到
+`.serialization()` 写入，同一次 `commit()` 发布完整 `type_record`。显式序列化字段会在提交阶段绑定到
 已注册属性，未显式填写字段时会按当前属性列表生成默认 schema。`meta::init_registry()` 仍负责执行
 延迟注册函数并校验注册表。
 
@@ -92,7 +92,7 @@ builder；当 `T` 继承自 `meta::object` 时，`commit()` 会自动写入对�
 如果枚举项名称重复或类型名为空，builder 会保存错误状态，`commit()` 不会发布半成品类型。
 
 当前 registry 使用 append-only 生命周期。普通注册不提供 replace、update 或覆盖语义；一旦
-`commit()` 成功发布 `type_data`，后续重复类型、重复名称或重复 GUID 注册都会返回错误，已经发布的
+`commit()` 成功发布 `type_record`，后续重复类型、重复名称或重复 GUID 注册都会返回错误，已经发布的
 属性、方法、nested 关系、序列化 schema、对象能力、metadata 和 capability 保持不变。已经获取的
 `meta::type` view 也继续指向旧的稳定数据。
 

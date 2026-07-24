@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_METHOD_DATA_H_
-#define CAORS_META_DETAIL_METHOD_DATA_H_
+#ifndef CAORS_META_DETAIL_METHOD_RECORD_H_
+#define CAORS_META_DETAIL_METHOD_RECORD_H_
 
 #include "caors/core/containers.h"
 #include "caors/memory/resource.h"
@@ -26,10 +26,10 @@
 
 namespace caors::meta::detail {
 
-class method_data;
+class method_record;
 
 struct method_resolution {
-  const method_data* method = nullptr;
+  const method_record* method = nullptr;
   method_match_kind kind = method_match_kind::none;
 
   [[nodiscard]] bool matched() const noexcept {
@@ -52,22 +52,22 @@ method_match_kind_from_rank(argument_match_rank rank) noexcept {
 
 /** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
 struct method_ops {
-  using type_fn = meta::type (*)(const method_data& method) noexcept;
-  using parameter_count_fn = std::size_t (*)(const method_data& method) noexcept;
-  using parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
+  using type_fn = meta::type (*)(const method_record& method) noexcept;
+  using parameter_count_fn = std::size_t (*)(const method_record& method) noexcept;
+  using parameter_type_fn = std::optional<meta::type> (*)(const method_record& method,
                                                           std::size_t index) noexcept;
-  using rank_arguments_fn = argument_match_rank (*)(const method_data& method,
+  using rank_arguments_fn = argument_match_rank (*)(const method_record& method,
                                                     std::span<const argument> arguments,
                                                     argument_match_options options) noexcept;
-  using prepare_arguments_fn = vector<argument> (*)(const method_data& method,
+  using prepare_arguments_fn = vector<argument> (*)(const method_record& method,
                                                     std::span<const argument> arguments,
                                                     argument_match_options options);
-  using invoke_fn = invoke_result (*)(const method_data& method, const void* object,
+  using invoke_fn = invoke_result (*)(const method_record& method, const void* object,
                                       bool mutable_object, std::span<const argument> arguments);
-  using rank_value_arguments_fn = argument_match_rank (*)(const method_data& method,
+  using rank_value_arguments_fn = argument_match_rank (*)(const method_record& method,
                                                           std::span<const meta::value> arguments,
                                                           argument_match_options options) noexcept;
-  using invoke_value_fn = invoke_value_result (*)(const method_data& method, const void* object,
+  using invoke_value_fn = invoke_value_result (*)(const method_record& method, const void* object,
                                                   bool mutable_object,
                                                   std::span<const meta::value> arguments);
 
@@ -95,7 +95,7 @@ struct method_ops {
  * 方法调用支持成员函数指针、全局函数指针和 module 级 callable。参数通过 `argument` 传入，
  * 返回值通过 `invoke_result` 区分失败、`void` 成功、拥有值返回和引用返回。
  */
-class method_data final {
+class method_record final {
 private:
   struct callable_storage_base {
     virtual ~callable_storage_base() = default;
@@ -111,12 +111,12 @@ private:
 public:
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
-  method_data() noexcept = default;
+  method_record() noexcept = default;
 
-  method_data(string_name method_name, method_ops method_operations, bool is_const_method) noexcept
+  method_record(string_name method_name, method_ops method_operations, bool is_const_method) noexcept
       : name_(method_name), ops_(method_operations), const_method_(is_const_method) {}
 
-  method_data(const method_data& other)
+  method_record(const method_record& other)
       : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
         const_method_(other.const_method_), callable_(other.callable_),
         default_arguments_(other.default_arguments_), parameter_names_(other.parameter_names_) {
@@ -126,7 +126,7 @@ public:
     }
   }
 
-  method_data& operator=(const method_data& other) {
+  method_record& operator=(const method_record& other) {
     if (this == &other) {
       return *this;
     }
@@ -147,9 +147,9 @@ public:
     return *this;
   }
 
-  method_data(method_data&&) noexcept = default;
-  method_data& operator=(method_data&&) noexcept = default;
-  ~method_data() = default;
+  method_record(method_record&&) noexcept = default;
+  method_record& operator=(method_record&&) noexcept = default;
+  ~method_record() = default;
 
   [[nodiscard]] bool valid() const noexcept { return !name_.empty() && ops_.valid(); }
 
@@ -237,7 +237,7 @@ public:
                               : argument_match_rank::none;
   }
 
-  [[nodiscard]] bool same_signature(const method_data& other) const noexcept {
+  [[nodiscard]] bool same_signature(const method_record& other) const noexcept {
     if (!valid() || !other.valid() || name() != other.name() ||
         const_method() != other.const_method() || parameter_count() != other.parameter_count()) {
       return false;
@@ -569,17 +569,17 @@ private:
 };
 
 /** @brief 同名成员方法的一组重载。 */
-class method_set_data final {
+class method_set_record final {
 public:
-  method_set_data() noexcept = default;
-  explicit method_set_data(string_name method_name) noexcept : name_(method_name) {}
+  method_set_record() noexcept = default;
+  explicit method_set_record(string_name method_name) noexcept : name_(method_name) {}
 
   [[nodiscard]] bool valid() const noexcept {
     if (!name_ || overloads_.empty()) {
       return false;
     }
 
-    for (const method_data& method : overloads_) {
+    for (const method_record& method : overloads_) {
       if (!method.valid() || method.name() != name_) {
         return false;
       }
@@ -591,28 +591,28 @@ public:
   [[nodiscard]] string_name name() const noexcept { return name_; }
   [[nodiscard]] std::size_t overload_count() const noexcept { return overloads_.size(); }
 
-  [[nodiscard]] const method_data* overload_at(std::size_t index) const noexcept {
+  [[nodiscard]] const method_record* overload_at(std::size_t index) const noexcept {
     return index < overloads_.size() ? &overloads_[index] : nullptr;
   }
 
-  [[nodiscard]] method_data* mutable_overload_at(std::size_t index) noexcept {
+  [[nodiscard]] method_record* mutable_overload_at(std::size_t index) noexcept {
     return index < overloads_.size() ? &overloads_[index] : nullptr;
   }
 
-  [[nodiscard]] const method_data* single() const noexcept {
+  [[nodiscard]] const method_record* single() const noexcept {
     return overloads_.size() == 1U ? &overloads_.front() : nullptr;
   }
 
-  [[nodiscard]] const method_data* resolve(std::span<const argument> arguments,
+  [[nodiscard]] const method_record* resolve(std::span<const argument> arguments,
                                            argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 
   [[nodiscard]] method_resolution match(std::span<const argument> arguments,
                                         argument_match_options options = {}) const noexcept {
-    const method_data* matched = nullptr;
+    const method_record* matched = nullptr;
     argument_match_rank best_rank = argument_match_rank::none;
-    for (const method_data& method : overloads_) {
+    for (const method_record& method : overloads_) {
       const argument_match_rank rank = method.match_rank(arguments, options);
       if (rank == argument_match_rank::none) {
         continue;
@@ -632,16 +632,16 @@ public:
     return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
 
-  [[nodiscard]] const method_data* resolve(std::span<const meta::value> arguments,
+  [[nodiscard]] const method_record* resolve(std::span<const meta::value> arguments,
                                            argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 
   [[nodiscard]] method_resolution match(std::span<const meta::value> arguments,
                                         argument_match_options options = {}) const noexcept {
-    const method_data* matched = nullptr;
+    const method_record* matched = nullptr;
     argument_match_rank best_rank = argument_match_rank::none;
-    for (const method_data& method : overloads_) {
+    for (const method_record& method : overloads_) {
       const argument_match_rank rank = method.match_rank(arguments, options);
       if (rank == argument_match_rank::none) {
         continue;
@@ -676,16 +676,16 @@ public:
                    std::span<const named_argument> arguments,
                    argument_match_options options = {}) const;
 
-  [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
+  [[nodiscard]] const method_record* resolve(std::span<const named_argument> arguments,
                                            argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 
   [[nodiscard]] method_resolution match(std::span<const named_argument> arguments,
                                         argument_match_options options = {}) const noexcept {
-    const method_data* matched = nullptr;
+    const method_record* matched = nullptr;
     argument_match_rank best_rank = argument_match_rank::none;
-    for (const method_data& method : overloads_) {
+    for (const method_record& method : overloads_) {
       const argument_match_rank rank = method.match_rank(arguments, options);
       if (rank == argument_match_rank::none) {
         continue;
@@ -705,8 +705,8 @@ public:
     return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
 
-  [[nodiscard]] bool contains_signature(const method_data& method) const noexcept {
-    for (const method_data& overload : overloads_) {
+  [[nodiscard]] bool contains_signature(const method_record& method) const noexcept {
+    for (const method_record& overload : overloads_) {
       if (overload.same_signature(method)) {
         return true;
       }
@@ -715,7 +715,7 @@ public:
     return false;
   }
 
-  [[nodiscard]] std::optional<std::size_t> add_overload(method_data method) {
+  [[nodiscard]] std::optional<std::size_t> add_overload(method_record method) {
     if (!method.valid() || method.name() != name_ || contains_signature(method)) {
       return std::nullopt;
     }
@@ -726,7 +726,7 @@ public:
 
 private:
   string_name name_{};
-  vector<method_data> overloads_{};
+  vector<method_record> overloads_{};
 };
 
 } // namespace caors::meta::detail

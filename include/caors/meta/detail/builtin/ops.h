@@ -14,9 +14,9 @@ namespace caors::meta {
 
 namespace detail {
 
-class type_data;
+class type_record;
 
-template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept;
+template <typename T> [[nodiscard]] const type_record* static_type_record_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id static_type_id() noexcept {
   return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }

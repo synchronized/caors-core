@@ -25,7 +25,7 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
     return make_type_view(static_type_id<alternative_type>(),
-                          static_type_data_ptr_of<alternative_type>());
+                          static_type_record_ptr_of<alternative_type>());
   }
 
   [[nodiscard]] static const void* alternative(const void* storage) noexcept {

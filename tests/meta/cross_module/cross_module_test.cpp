@@ -13,7 +13,7 @@ using namespace caors::tests::cross_module;
 
 TEST_CASE("meta static type data is unique across translation units", "[meta]") {
   const caors::meta::type local = caors::meta::resolve<cross_module_static_type>();
-  CHECK(caors::meta::detail::type_access::data_of(local) == static_type_data_from_support_tu());
+  CHECK(caors::meta::detail::type_access::data_of(local) == static_type_record_from_support_tu());
 
   const caors::meta::type sequence = caors::meta::resolve<std::vector<int>>();
   CHECK(sequence.get_raw_ops<caors::meta::sequence_ops>() == sequence_ops_from_support_tu());

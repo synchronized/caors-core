@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_type_builder_meta_type_builder_commits_complete_type_data_test.cpp
+// 原测试文件：meta_type_builder_meta_type_builder_commits_complete_type_record_test.cpp
 
 #include "meta_type_builder_test_support.h"
 

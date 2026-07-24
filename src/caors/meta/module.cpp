@@ -22,10 +22,10 @@ class module_registry {
 public:
   module_registry()
       : modules_(typename core::hash_map<core::string_name,
-                                         memory::unique_ptr<detail::module_data>>::allocator_type{
+                                         memory::unique_ptr<detail::module_record>>::allocator_type{
             &memory::library_resource()}) {}
 
-  detail::module_data* ensure(core::string_name name) {
+  detail::module_record* ensure(core::string_name name) {
     if (!name) {
       return nullptr;
     }
@@ -36,13 +36,13 @@ public:
       return position->second.get();
     }
 
-    auto data = memory::make_unique<detail::module_data>(&memory::library_resource(), name);
-    detail::module_data* result = data.get();
+    auto data = memory::make_unique<detail::module_record>(&memory::library_resource(), name);
+    detail::module_record* result = data.get();
     modules_.try_emplace(name, std::move(data));
     return result;
   }
 
-  const detail::module_data* find(core::string_name name) const {
+  const detail::module_record* find(core::string_name name) const {
     if (!name) {
       return nullptr;
     }
@@ -54,7 +54,7 @@ public:
 
 private:
   mutable std::mutex mutex_;
-  core::hash_map<core::string_name, memory::unique_ptr<detail::module_data>> modules_;
+  core::hash_map<core::string_name, memory::unique_ptr<detail::module_record>> modules_;
 };
 
 module_registry& modules() {
@@ -66,18 +66,18 @@ module_registry& modules() {
 
 namespace detail {
 
-bool module_data::valid() const noexcept {
+bool module_record::valid() const noexcept {
   if (!name_) {
     return false;
   }
 
-  for (const property_data& property : properties_) {
+  for (const property_record& property : properties_) {
     if (!property.valid()) {
       return false;
     }
   }
 
-  for (const method_set_data& method : methods_) {
+  for (const method_set_record& method : methods_) {
     if (!method.valid()) {
       return false;
     }
@@ -86,18 +86,18 @@ bool module_data::valid() const noexcept {
   return true;
 }
 
-std::size_t module_data::property_count() const noexcept { return properties_.size(); }
+std::size_t module_record::property_count() const noexcept { return properties_.size(); }
 
-const property_data* module_data::property_at(std::size_t index) const noexcept {
+const property_record* module_record::property_at(std::size_t index) const noexcept {
   return index < properties_.size() ? &properties_[index] : nullptr;
 }
 
-const property_data* module_data::find_property_ptr(core::string_name name) const noexcept {
+const property_record* module_record::find_property_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (const property_data& property : properties_) {
+  for (const property_record& property : properties_) {
     if (property.name() == name) {
       return &property;
     }
@@ -106,7 +106,7 @@ const property_data* module_data::find_property_ptr(core::string_name name) cons
   return nullptr;
 }
 
-error module_data::add_property(property_data property) {
+error module_record::add_property(property_record property) {
   if (!property.valid()) {
     return {error_domain::meta, errc::invalid_argument};
   }
@@ -119,18 +119,18 @@ error module_data::add_property(property_data property) {
   return {};
 }
 
-std::size_t module_data::method_count() const noexcept { return methods_.size(); }
+std::size_t module_record::method_count() const noexcept { return methods_.size(); }
 
-const method_set_data* module_data::method_at(std::size_t index) const noexcept {
+const method_set_record* module_record::method_at(std::size_t index) const noexcept {
   return index < methods_.size() ? &methods_[index] : nullptr;
 }
 
-method_set_data* module_data::mutable_find_method_ptr(core::string_name name) noexcept {
+method_set_record* module_record::mutable_find_method_ptr(core::string_name name) noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (method_set_data& method : methods_) {
+  for (method_set_record& method : methods_) {
     if (method.name() == name) {
       return &method;
     }
@@ -139,12 +139,12 @@ method_set_data* module_data::mutable_find_method_ptr(core::string_name name) no
   return nullptr;
 }
 
-const method_set_data* module_data::find_method_ptr(core::string_name name) const noexcept {
+const method_set_record* module_record::find_method_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (const method_set_data& method : methods_) {
+  for (const method_set_record& method : methods_) {
     if (method.name() == name) {
       return &method;
     }
@@ -153,17 +153,17 @@ const method_set_data* module_data::find_method_ptr(core::string_name name) cons
   return nullptr;
 }
 
-std::optional<std::size_t> module_data::add_method(method_data method) {
+std::optional<std::size_t> module_record::add_method(method_record method) {
   if (!method.valid() || !method.name()) {
     return std::nullopt;
   }
 
-  method_set_data* existing = mutable_find_method_ptr(method.name());
+  method_set_record* existing = mutable_find_method_ptr(method.name());
   if (existing != nullptr) {
     return existing->add_overload(std::move(method));
   }
 
-  method_set_data method_set{method.name()};
+  method_set_record method_set{method.name()};
   std::optional<std::size_t> overload_index = method_set.add_overload(std::move(method));
   if (!overload_index.has_value()) {
     return std::nullopt;
@@ -175,27 +175,27 @@ std::optional<std::size_t> module_data::add_method(method_data method) {
 
 } // namespace detail
 
-module_view::module_view(const detail::module_data* data) noexcept : data_(data) {}
+module_view::module_view(const detail::module_record* data) noexcept : data_(data) {}
 
 bool module_view::valid() const noexcept { return data_ != nullptr && data_->valid(); }
 
 core::string_name module_view::name() const noexcept {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->name() : core::string_name{};
 }
 
 std::size_t module_view::property_count() const noexcept {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->property_count() : 0;
 }
 
 property module_view::property_at(std::size_t index) const {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::property_access::make(module->property_at(index)) : property{};
 }
 
 property module_view::find_property(core::string_name name) const {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::property_access::make(module->find_property_ptr(name))
                            : property{};
 }
@@ -206,18 +206,18 @@ property module_view::find_property(std::string_view name) const {
 }
 
 std::size_t module_view::method_count() const noexcept {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->method_count() : 0;
 }
 
 method_set module_view::method_at(std::size_t index) const {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::method_access::make_set(module->method_at(index))
                            : method_set{};
 }
 
 method_set module_view::find_method(core::string_name name) const {
-  const detail::module_data* module = detail::module_access::data_of(*this);
+  const detail::module_record* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::method_access::make_set(module->find_method_ptr(name))
                            : method_set{};
 }
@@ -234,7 +234,7 @@ module_builder::module_builder(std::string_view name) : name_(name) {
   }
 }
 
-error module_builder::add_property(detail::property_data property) {
+error module_builder::add_property(detail::property_record property) {
   if (module_ == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
@@ -242,7 +242,7 @@ error module_builder::add_property(detail::property_data property) {
   return module_->add_property(std::move(property));
 }
 
-error module_builder::add_method(detail::method_data method) {
+error module_builder::add_method(detail::method_record method) {
   if (module_ == nullptr || !module_->add_method(std::move(method)).has_value()) {
     return {error_domain::meta, errc::duplicate_method};
   }

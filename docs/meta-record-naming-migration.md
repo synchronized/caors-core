@@ -49,3 +49,11 @@
 - 不改变 record 的所有权、生命周期或内存布局设计；
 - 不改变 ops table 与模板 model 的职责；
 - 不为纯数据结构机械套用 `record` 后缀。
+
+## 实施结果
+
+- 六类运行时记录及对应内部文件已统一为 `*_record`；
+- 静态类型节点辅助接口统一为 `static_type_record_*`；
+- `nested_type_data`、`capability_data` 和 `extension_data` 按职责继续保留原名；
+- 架构术语已统一为 `handle -> record -> ops -> model`；
+- Windows Clang Debug 全仓库单线程构建完成，75 项测试全部通过。

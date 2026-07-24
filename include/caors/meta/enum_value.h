@@ -19,7 +19,7 @@ class enum_value_view;
 
 namespace detail {
 
-class enum_value_data;
+class enum_value_record;
 class enum_value_access;
 
 } // namespace detail
@@ -63,10 +63,10 @@ public:
 private:
   friend class detail::enum_value_access;
 
-  explicit enum_value_view(const detail::enum_value_data* enum_value) noexcept;
-  [[nodiscard]] const detail::enum_value_data* info() const noexcept;
+  explicit enum_value_view(const detail::enum_value_record* enum_value) noexcept;
+  [[nodiscard]] const detail::enum_value_record* info() const noexcept;
 
-  const detail::enum_value_data* value_ = nullptr;
+  const detail::enum_value_record* value_ = nullptr;
 };
 
 } // namespace caors::meta

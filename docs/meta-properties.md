@@ -489,7 +489,7 @@ ref.try_set(9);
 ### any
 
 `any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 `meta::type` 视图。
-静态 `type_data` 节点通过 layout、value ops、type semantics 和固定运行期能力集合记录大小、对齐、默认构造、复制、析构、
+静态 `type_record` 节点通过 layout、value ops、type semantics 和固定运行期能力集合记录大小、对齐、默认构造、复制、析构、
 赋值和可创建的运行期视图；如果值来自只按 `type_id` 构造的已注册业务类型，则会回退到同一 `type_id`
 的 meta 类型信息。
 它不引用原对象，因此可以安全地脱离属性所属对象生命周期使用。

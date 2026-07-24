@@ -7,7 +7,7 @@
 
 namespace caors::meta::detail {
 
-type_data* find_type_data(registry_state& state, type_id id) {
+type_record* find_type_record(registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
   if (position == state.types.end()) {
     return nullptr;
@@ -16,7 +16,7 @@ type_data* find_type_data(registry_state& state, type_id id) {
   return position->second.get();
 }
 
-const type_data* find_type_data(const registry_state& state, type_id id) {
+const type_record* find_type_record(const registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
   if (position == state.types.end()) {
     return nullptr;
@@ -72,7 +72,7 @@ error validate_registry(const registry_state& state) {
 
   for (const auto& [index, stored] : state.cpp_types) {
     (void)index;
-    if (stored == nullptr || find_type_data(state, stored->id()) != stored) {
+    if (stored == nullptr || find_type_record(state, stored->id()) != stored) {
       return {error_domain::meta, errc::inconsistent_type};
     }
   }

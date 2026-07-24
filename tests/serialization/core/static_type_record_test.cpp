@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：serialization_static_type_data_context_memory_resource_constructs_empty_wrapper_values_test.cpp
+// 原测试文件：serialization_static_type_record_context_memory_resource_constructs_empty_wrapper_values_test.cpp
 
-#include "serialization_static_type_data_test_support.h"
+#include "serialization_static_type_record_test_support.h"
 
 using namespace caors::tests::serialization;
-using namespace caors::tests::serialization::static_type_data;
+using namespace caors::tests::serialization::static_type_record;
 
 TEST_CASE("serialization - context memory resource constructs empty wrapper values",
           "[serialization]") {
@@ -49,12 +49,12 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 原测试文件：serialization_static_type_data_enum_ops_handles_unregistered_enum_values_test.cpp
+// 原测试文件：serialization_static_type_record_enum_ops_handles_unregistered_enum_values_test.cpp
 
-#include "serialization_static_type_data_test_support.h"
+#include "serialization_static_type_record_test_support.h"
 
 using namespace caors::tests::serialization;
-using namespace caors::tests::serialization::static_type_data;
+using namespace caors::tests::serialization::static_type_record;
 
 TEST_CASE("serialization - static enum data handles unregistered enum values",
           "[serialization]") {

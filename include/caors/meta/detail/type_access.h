@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_TYPE_ACCESS_H_
 #define CAORS_META_DETAIL_TYPE_ACCESS_H_
 
-#include "caors/meta/detail/type_data.h"
+#include "caors/meta/detail/type_record.h"
 #include "caors/meta/type.h"
 
 namespace caors::meta::detail {
@@ -18,7 +18,7 @@ namespace caors::meta::detail {
 class type_access final {
 public:
   [[nodiscard]] static constexpr type make(const registry* registry,
-                                           const type_data* data) noexcept {
+                                           const type_record* data) noexcept {
     return type{registry, data};
   }
 
@@ -26,12 +26,12 @@ public:
     return value.registry_;
   }
 
-  [[nodiscard]] static constexpr const type_data* data_of(const type& value) noexcept {
+  [[nodiscard]] static constexpr const type_record* data_of(const type& value) noexcept {
     return value.data_;
   }
 
-  [[nodiscard]] static const type_data* registered_data_of(const type& value) noexcept {
-    const type_data* data = data_of(value);
+  [[nodiscard]] static const type_record* registered_data_of(const type& value) noexcept {
+    const type_record* data = data_of(value);
     return data != nullptr && data->registered() ? data : nullptr;
   }
 };

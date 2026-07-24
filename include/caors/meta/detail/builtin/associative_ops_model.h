@@ -23,11 +23,11 @@ template <typename T> struct associative_ops_model {
   using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
   [[nodiscard]] static meta::type get_key_type() noexcept {
-    return make_type_view(static_type_id<key_type>(), static_type_data_ptr_of<key_type>());
+    return make_type_view(static_type_id<key_type>(), static_type_record_ptr_of<key_type>());
   }
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return make_type_view(static_type_id<mapped_type>(), static_type_data_ptr_of<mapped_type>());
+    return make_type_view(static_type_id<mapped_type>(), static_type_record_ptr_of<mapped_type>());
   }
 
   [[nodiscard]] static std::size_t size(const void* storage) noexcept {

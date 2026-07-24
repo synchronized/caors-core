@@ -36,7 +36,7 @@ namespace caors::meta::detail {
 class registry_state;
 class registry_access;
 class pending_type_record;
-class type_data;
+class type_record;
 
 } // namespace caors::meta::detail
 
@@ -94,7 +94,7 @@ public:
   /**
    * @brief 获取指定类型上的扩展数据只读指针。
    *
-   * 扩展数据由对应 `type_data` 以 append-only
+   * 扩展数据由对应 `type_record` 以 append-only
    * 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出， 指针地址保持稳定。
    */
   template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
@@ -118,7 +118,7 @@ private:
   template <typename T>
   [[nodiscard]] error register_type_for(string_name name, type_guid guid = type_guid::nil(),
                                         type_id parent_id = type_id::invalid());
-  [[nodiscard]] error ensure_static_type_data(const detail::type_data& fallback);
+  [[nodiscard]] error ensure_static_type_record(const detail::type_record& fallback);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);

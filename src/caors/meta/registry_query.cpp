@@ -18,12 +18,12 @@ bool registry::contains(type_id id) const {
 
 type registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
-  const detail::type_data* type_data = detail::find_type_data(*state_, id);
-  if (type_data == nullptr) {
+  const detail::type_record* type_record = detail::find_type_record(*state_, id);
+  if (type_record == nullptr) {
     return {};
   }
 
-  return detail::type_access::make(this, type_data);
+  return detail::type_access::make(this, type_record);
 }
 
 type registry::find_type(core::type_guid guid) const {
@@ -37,12 +37,12 @@ type registry::find_type(core::type_guid guid) const {
     return {};
   }
 
-  const detail::type_data* type_data = guid_position->second;
-  if (type_data == nullptr) {
+  const detail::type_record* type_record = guid_position->second;
+  if (type_record == nullptr) {
     return {};
   }
 
-  return detail::type_access::make(this, type_data);
+  return detail::type_access::make(this, type_record);
 }
 
 type registry::find_type(const std::type_info& info) const {
@@ -52,12 +52,12 @@ type registry::find_type(const std::type_info& info) const {
     return {};
   }
 
-  const detail::type_data* type_data = position->second;
-  if (type_data == nullptr) {
+  const detail::type_record* type_record = position->second;
+  if (type_record == nullptr) {
     return {};
   }
 
-  return detail::type_access::make(this, type_data);
+  return detail::type_access::make(this, type_record);
 }
 
 type registry::find_type(std::string_view name) const {
@@ -76,12 +76,12 @@ type registry::find_type(core::string_name name) const {
     return {};
   }
 
-  const detail::type_data* type_data = name_position->second;
-  if (type_data == nullptr) {
+  const detail::type_record* type_record = name_position->second;
+  if (type_record == nullptr) {
     return {};
   }
 
-  return detail::type_access::make(this, type_data);
+  return detail::type_access::make(this, type_record);
 }
 
 bool registry::is_a(type_id id, type_id base_id) const {
@@ -96,7 +96,7 @@ bool registry::is_a(type_id id, type_id base_id) const {
       return true;
     }
 
-    const detail::type_data* type = detail::find_type_data(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(*state_, current_id);
     if (type == nullptr) {
       return false;
     }
@@ -120,7 +120,7 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
   type_id current_id = id;
   const void* current_value = value;
   while (current_id) {
-    const detail::type_data* type = detail::find_type_data(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(*state_, current_id);
     if (type == nullptr) {
       return nullptr;
     }
@@ -163,7 +163,7 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
   type_id current_id = id;
   void* current_value = value;
   while (current_id) {
-    const detail::type_data* type = detail::find_type_data(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(*state_, current_id);
     if (type == nullptr) {
       return nullptr;
     }

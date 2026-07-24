@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/meta/detail/property_data.h"
+#include "caors/meta/detail/property_record.h"
 
 #include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/value/value.h"
@@ -112,15 +112,15 @@ template <typename... Targets>
 
 } // namespace
 
-meta::value property_data::get_runtime_value(const void* object) const {
+meta::value property_record::get_runtime_value(const void* object) const {
   return make_runtime_value(get_ref(object), get_value(object));
 }
 
-meta::value property_data::get_runtime_value(void* object) const {
+meta::value property_record::get_runtime_value(void* object) const {
   return make_runtime_value(get_ref(object), get_value(object));
 }
 
-bool property_data::try_set_runtime_value(void* object, const meta::value& source) const {
+bool property_record::try_set_runtime_value(void* object, const meta::value& source) const {
   if (try_assign_runtime_value(get_ref(object), source)) {
     return true;
   }

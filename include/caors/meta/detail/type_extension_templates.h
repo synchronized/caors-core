@@ -16,7 +16,7 @@ template <typename Extension>
 [[nodiscard]] const Extension* find_type_extension(const type& source) noexcept {
   using extension_type = std::decay_t<Extension>;
 
-  const type_data* data = type_access::registered_data_of(source);
+  const type_record* data = type_access::registered_data_of(source);
   if (data == nullptr) {
     return nullptr;
   }

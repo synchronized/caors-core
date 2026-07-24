@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_MODULE_TEMPLATES_H_
 #define CAORS_META_DETAIL_MODULE_TEMPLATES_H_
 
-#include "caors/meta/detail/module_data.h"
+#include "caors/meta/detail/module_record.h"
 #include "caors/meta/detail/method_model.h"
 #include "caors/meta/detail/property_model.h"
 
@@ -16,7 +16,7 @@ module_builder& module_builder::property(std::string_view name, Property* value)
     return *this;
   }
 
-  detail::property_data property = detail::make_global_property_data(name, value);
+  detail::property_record property = detail::make_global_property_record(name, value);
   if (!property.valid()) {
     status_ = {error_domain::meta, errc::invalid_argument};
     return *this;
@@ -33,7 +33,7 @@ module_builder& module_builder::function(std::string_view name, Return (*functio
     return *this;
   }
 
-  detail::method_data method = detail::make_global_method_data(name, function);
+  detail::method_record method = detail::make_global_method_record(name, function);
   if (!method.valid()) {
     status_ = {error_domain::meta, errc::invalid_argument};
     return *this;
@@ -52,8 +52,8 @@ module_builder& module_builder::function(std::string_view name, Callable&& calla
     return *this;
   }
 
-  detail::method_data method =
-      detail::make_global_callable_method_data(name, std::forward<Callable>(callable));
+  detail::method_record method =
+      detail::make_global_callable_method_record(name, std::forward<Callable>(callable));
   if (!method.valid()) {
     status_ = {error_domain::meta, errc::invalid_argument};
     return *this;

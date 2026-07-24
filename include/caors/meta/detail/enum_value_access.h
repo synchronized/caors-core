@@ -11,7 +11,7 @@ namespace caors::meta::detail {
 /** @brief `meta::enum_value_view` 的内部构造访问口。 */
 class enum_value_access final {
 public:
-  [[nodiscard]] static enum_value_view make(const enum_value_data* data) noexcept {
+  [[nodiscard]] static enum_value_view make(const enum_value_record* data) noexcept {
     return enum_value_view{data};
   }
 };
