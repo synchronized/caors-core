@@ -32,6 +32,7 @@
 - `type_record` 只保留获取 value vtable 的函数指针，不保存一份重复 vtable；
 - 保留私有擦除入口，服务只有 `meta::type + void*` 的内部运行期流程；
 - 将动态创建与普通值实例生命周期解耦，创建时仍先查询 factory/constructor。
+- 为注册模型增加可诊断签名，在 Debug 和专项测试中尽早发现跨翻译单元 adapter 可见性不一致。
 
 ## 非目标
 
@@ -41,6 +42,7 @@
 - 不在本轮设计 DLL 卸载协议；
 - 不把注册期 capability 或动态 extension 合并进 value vtable；
 - 不允许仅凭 `T*` 自动推断其多态动态派生类型。
+- 不承诺仅靠链接器或运行时签名检测所有 C++ ODR 违反。
 
 ## 目标结构
 
@@ -153,6 +155,77 @@ template <typename T>
 provider 是完全擦除路径的桥梁，不是实例操作的长期查询入口。`any` 或 `any_ref` 获得 vtable 后
 应自行保存。
 
+### ODR 与模型签名
+
+`value_vtable_of<T>()`、builtin traits 和模块静态 capability 都可能受模板特化可见性影响。
+如果不同翻译单元首次实例化时看到的 adapter 不同，即使链接器最终只保留一个同名 COMDAT，
+程序也已经违反 ODR，保留哪一份实现不可依赖。
+
+根本约束是为每个接入 meta 系统的类型提供统一 adapter 头，例如：
+
+```cpp
+// player_meta.h
+#include "player.h"
+#include "caors/meta.h"
+#include "caors/object.h"
+#include "caors/serialization.h"
+
+// type_name<Player>
+// codec_traits<Player>
+// builtin traits
+// static capability
+```
+
+所有调用 `resolve<T>()`、`any::from<T>()`、`any_ref::from<T>()` 或
+`registration::type_<T>()` 的翻译单元，都必须在首次模板实例化前包含同一份完整 adapter。
+运行时签名是违反该约束后的诊断工具，不能替代统一可见性。
+
+#### 签名内容
+
+Debug 构建为本地生成的类型模型计算：
+
+```cpp
+struct type_model_signature {
+  type_id id{};
+  type_layout layout{};
+  type_kind kind = type_kind::value;
+  std::uint64_t builtin_mask = 0;
+  std::uint64_t static_capability_hash = 0;
+  std::uint64_t adapter_version = 0;
+};
+```
+
+- `builtin_mask` 为 scalar、enum、indirect、sequence、set、associative、pair、tuple 和
+  variant 分配固定 bit；
+- `static_capability_hash` 根据排序后的稳定 capability 描述计算，不使用 ops 地址或
+  `capability_key` 指针数值；
+- capability 优先使用 `capability_traits<Capability>` 的 stable GUID、name 和 version；
+- 没有稳定描述的 custom capability 只能参与当前进程内的详细集合比较，不能作为跨 DLL
+  稳定签名；
+- `adapter_version` 是可选的用户显式版本，供重大 adapter 变更和 MSVC
+  `detect_mismatch` 诊断使用。
+
+`pending_type_record` 携带当前注册点生成的签名；`validate()` 与同一 registry 中已经发布的
+`type_record` 比较布局、类型形态、builtin mask 和静态 capability 集合。发现同一 `type_id`
+对应不同模型时，返回专用错误，例如 `errc::inconsistent_type_model`，并在 Debug 诊断中列出
+缺失和新增的 capability。
+
+#### 检测边界
+
+不能只在普通 inline `resolve<T>()` 内调用签名校验。`resolve<T>()` 自身也可能作为 COMDAT
+被链接器合并，最终所有调用再次使用同一翻译单元的签名，形成漏报。
+
+诊断分为两级：
+
+1. 注册流程自动比较 `pending_type_record` 与已发布记录，检测重复注册、插件提交或合并路径中的
+   模型不一致；
+2. Debug 专项测试提供 `CAORS_VALIDATE_META_TYPE(T)`，在匿名 namespace 中生成 TU-local probe，
+   让每个测试翻译单元把自己直接计算的签名提交给进程级 validator。
+
+TU-local probe 主要用于构造“一个 cpp 可见 codec、另一个 cpp 不可见”的反例测试，不要求普通
+业务 cpp 全部手写该宏。MSVC 可选地根据显式 adapter version 生成
+`#pragma detect_mismatch`，但链接器检查和 GCC LTO `-Wodr` 都只作为补充，不能作为正确性保证。
+
 ### any_ref 入口
 
 公开静态类型路径应优先使用已有 `from(T&)`，并增加需要显式类型校验的模板入口：
@@ -243,7 +316,19 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 完成标准：已注册与未注册类型都能从 `meta::type` 获得地址稳定的 value vtable。
 
-### 阶段 3：迁移 any 与 owned_value
+### 阶段 3：增加模型签名诊断
+
+- 增加 `type_model_signature`，稳定编码 layout、kind、builtin mask、静态 capability 和
+  adapter version；
+- 让 `pending_type_record::validate()` 和 registry commit 比较同一 `type_id` 的模型签名；
+- 增加 `inconsistent_type_model` 错误和 capability 差异诊断；
+- 增加仅用于 Debug/测试的 TU-local `CAORS_VALIDATE_META_TYPE(T)` probe；
+- 评估 MSVC `detect_mismatch` 与 GCC LTO `-Wodr` 的 CI 补充配置；
+- 编写统一 adapter 头的使用规范。
+
+完成标准：注册或专项测试遇到不同 adapter 可见性时明确失败，而不是由链接器静默任选一份模型。
+
+### 阶段 4：迁移 any 与 owned_value
 
 - 让 `any`、`any_ref`、`owned_value` 保存 `const value_vtable*`；
 - 创建、复制、移动、赋值和销毁流程使用实例 vtable；
@@ -255,7 +340,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 完成标准：值实例完成绑定后，其生命周期操作不再依赖 registry 查询。
 
-### 阶段 4：收敛 any_ref 创建 API
+### 阶段 5：收敛 any_ref 创建 API
 
 - 让 `from(T&)` 和 `from_const(const T&)` 直接走模板绑定路径；
 - 增加显式 `meta::type + T*` 的类型安全模板入口；
@@ -265,7 +350,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 完成标准：普通调用者不能自行组合错误的类型、地址和 writable 标志。
 
-### 阶段 5：迁移运行期擦除调用点
+### 阶段 6：迁移运行期擦除调用点
 
 - `any` 和 `owned_value` 向 `any_ref` 直接传递自身 vtable；
 - 各类容器 view 在构建时绑定元素相关 vtable，或在首次访问时通过 provider 获取；
@@ -275,7 +360,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 完成标准：所有擦除调用点都明确标注其 vtable 来源和 writable 来源。
 
-### 阶段 6：拆分创建职责
+### 阶段 7：拆分创建职责
 
 - 将默认创建 fallback 与值实例 vtable 分离；
 - 保持 factory/constructor 优先级；
@@ -302,6 +387,10 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - object 注册：自动 factory、不可构造 object 和重复 capability 的提交行为；
 - serialization：字段读写、多态对象、codec、默认构造开关和错误回滚；
 - 跨翻译单元：同一类型的 vtable 行为一致，不以 vtable 地址作为类型身份；
+- ODR 正例：两个 cpp 包含同一完整 adapter 头，签名一致；
+- ODR 反例：两个 cpp 对 codec、容器 traits 或 custom capability 的可见性不同，TU-local probe
+  报告 `inconsistent_type_model`；
+- registry 反例：同一 `type_id` 的 pending/registered 签名不一致时 commit 失败且不污染现有记录；
 - Windows MSVC Debug 单线程构建与测试；
 - Windows Clang Debug 单线程构建与测试。
 
@@ -313,6 +402,9 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - `builtin_ops` 当前是互斥分发表；本轮不把它改造成任意 capability 集合；
 - value vtable 只保存通用静态 capability entry，不直接引用 object 或 serialization 的 ops 类型；
 - 静态 capability 特化必须在首次实例化 `value_vtable_of<T>()` 前可见；
+- 类型模型签名只用于一致性校验，不参与类型身份、序列化格式或 capability 查询；
+- 不允许用 vtable、ops 或 capability 指针地址计算稳定签名；
+- 普通 inline `resolve<T>()` 内的校验不能替代 TU-local probe；
 - provider、vtable 和其函数地址依赖定义它们的模块生命周期，模块卸载前必须清理相关类型记录和值；
 - 注册记录复制 provider 时不能把不同 C++ 类型的 provider 合并到同一 `type_id`；
 - 模板入口中的 `T*` 只描述静态 `T`，不会把基类指针自动提升为派生类型；
