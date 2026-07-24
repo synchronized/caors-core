@@ -9,6 +9,7 @@
 
 - [build.md](build.md)：环境要求、CMake preset、构建、测试、安装和 CMake 选项。
 - [benchmarking.md](benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
+- [meta-wrapper-model-redesign.md](meta-wrapper-model-redesign.md)：meta 内部 wrapper、ops 和模板 model 的行为内聚计划。
 - [beta.md](beta.md)：beta 前推荐稳定主入口、质量门槛和实验性能力清单。
 - [api_stability.md](api_stability.md)：当前 alpha 阶段 API 稳定性草案、beta gate 和公开边界扫描规则。
 - [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
