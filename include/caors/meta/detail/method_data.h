@@ -299,6 +299,11 @@ public:
                   : invoke_value_result::failed(invoke_failure_reason::invocation_failed);
   }
 
+  [[nodiscard]] invoke_value_result
+  invoke_runtime_value(const void* object, bool mutable_object,
+                       std::span<const meta::value> arguments,
+                       argument_match_options options = {}) const;
+
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const {
@@ -655,6 +660,11 @@ public:
 
     return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
+
+  [[nodiscard]] invoke_value_result
+  invoke_runtime_value(const void* object, bool mutable_object,
+                       std::span<const meta::value> arguments,
+                       argument_match_options options = {}) const;
 
   [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
                                            argument_match_options options = {}) const noexcept {

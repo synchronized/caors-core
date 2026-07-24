@@ -58,7 +58,7 @@ property_model.h / method_model.h
 - `property.cpp` 仅检查公共 handle 与 instance 状态，然后转发给内部 wrapper；
 - Clang Debug 的头文件自包含、属性、value 和序列化核心专项测试全部通过。
 
-### 阶段 2：方法行为内聚
+### 阶段 2：方法行为内聚（已完成）
 
 - 盘点 `method.cpp` 中可下沉到 `method_data`、`method_set_data` 的结果转换和重载调用逻辑；
 - 将单方法调用编排收敛到 `method_data`；
@@ -67,13 +67,23 @@ property_model.h / method_model.h
 
 完成标准：公共 method handle 只负责对象状态检查、参数入口适配和 wrapper 转发。
 
-### 阶段 3：constructor 边界确认
+实施结果：
+
+- `method_data` 统一负责 `meta::value` 参数的直接调用、`argument` 回退和结果转换；
+- `method_set_data` 统一负责 value 重载匹配、歧义判断、参数回退和最终调用；
+- `method.cpp` 删除对应匿名 helper，公共 handle 仅检查自身与 instance 状态并转发。
+
+### 阶段 3：constructor 边界确认（已完成）
 
 - `constructor_ops` 当前是类型 capability，不单独创建重复的注册节点；
 - 将参数匹配、构造和 owned value 生命周期继续内聚在 capability/ops；
 - 只有出现多个独立 constructor 元数据节点需求时，才引入 `constructor_data`。
 
 完成标准：明确 constructor 保持 capability 的理由，不为了目录对称增加无用抽象。
+
+确认结果：当前每个类型只有一组默认构造/复制/移动/析构能力，没有独立的构造函数
+重载元数据、名称或 metadata 节点，因此继续由 `constructor_ops` 表达最小类型能力。
+若未来开放多个带参构造函数注册，再引入 `constructor_data` 与 `constructor_set_data`。
 
 ### 阶段 4：清理与验证
 

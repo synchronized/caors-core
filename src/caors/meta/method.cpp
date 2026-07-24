@@ -20,49 +20,6 @@ namespace {
   return empty;
 }
 
-struct value_arguments {
-  core::vector<argument> arguments = core::make_vector<argument>();
-  bool valid = true;
-};
-
-[[nodiscard]] value_arguments make_value_arguments(std::span<const meta::value> values) {
-  value_arguments result{};
-  result.arguments.reserve(values.size());
-
-  for (const meta::value& value : values) {
-    argument converted = value.to_argument();
-    if (!converted) {
-      result.valid = false;
-      result.arguments.clear();
-      return result;
-    }
-
-    result.arguments.push_back(std::move(converted));
-  }
-
-  return result;
-}
-
-[[nodiscard]] invoke_value_result make_invoke_value_result(invoke_result result) {
-  switch (result.kind()) {
-  case invoke_result_kind::void_value:
-    return invoke_value_result::void_value();
-  case invoke_result_kind::value:
-    if (std::optional<meta::value> fast_value =
-            detail::try_make_value_from_any(result.mutable_value());
-        fast_value.has_value()) {
-      return invoke_value_result::from_value(std::move(*fast_value));
-    }
-    return invoke_value_result::from_value(
-        meta::value::from_any(std::move(result.mutable_value())));
-  case invoke_result_kind::reference:
-    return invoke_value_result::from_value(meta::value::from_ref(result.ref()));
-  case invoke_result_kind::failed:
-  default:
-    return invoke_value_result::failed(result.failure_reason());
-  }
-}
-
 } // namespace
 
 invoke_result invoke_result::value(any value) {
@@ -205,19 +162,8 @@ invoke_value_result method::invoke(const instance& object, std::span<const meta:
                                                          : invoke_failure_reason::invalid_object);
   }
 
-  if (method->matches_arguments(arguments, options)) {
-    return method->invoke_value_result_of(object.writable() ? object.mutable_data() : object.data(),
-                                          object.writable(), arguments, options);
-  }
-
-  value_arguments converted = make_value_arguments(arguments);
-  if (!converted.valid) {
-    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
-  }
-
-  return make_invoke_value_result(invoke_result_of(
-      object, std::span<const argument>{converted.arguments.data(), converted.arguments.size()},
-      options));
+  return method->invoke_runtime_value(object.writable() ? object.mutable_data() : object.data(),
+                                      object.writable(), arguments, options);
 }
 
 invoke_value_result method::invoke(std::span<const meta::value> arguments,
@@ -227,17 +173,7 @@ invoke_value_result method::invoke(std::span<const meta::value> arguments,
     return invoke_value_result::failed(invoke_failure_reason::invalid_method);
   }
 
-  if (method->matches_arguments(arguments, options)) {
-    return method->invoke_value_result_of(nullptr, false, arguments, options);
-  }
-
-  value_arguments converted = make_value_arguments(arguments);
-  if (!converted.valid) {
-    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
-  }
-
-  return make_invoke_value_result(invoke_result_of(
-      std::span<const argument>{converted.arguments.data(), converted.arguments.size()}, options));
+  return method->invoke_runtime_value(nullptr, false, arguments, options);
 }
 
 const detail::method_data* method::info() const noexcept {
@@ -378,22 +314,9 @@ invoke_value_result method_set::invoke(const instance& object,
                                            : invoke_failure_reason::invalid_object);
   }
 
-  const detail::method_resolution value_match = method_set->match(arguments, options);
-  if (value_match.kind == method_match_kind::ambiguous) {
-    return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
-  }
-  if (value_match.matched()) {
-    return detail::method_access::make(value_match.method).invoke(object, arguments, options);
-  }
-
-  value_arguments converted = make_value_arguments(arguments);
-  if (!converted.valid) {
-    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
-  }
-
-  return make_invoke_value_result(invoke_result_of(
-      object, std::span<const argument>{converted.arguments.data(), converted.arguments.size()},
-      options));
+  return method_set->invoke_runtime_value(
+      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
+      options);
 }
 
 invoke_value_result method_set::invoke(std::span<const meta::value> arguments,
@@ -403,21 +326,7 @@ invoke_value_result method_set::invoke(std::span<const meta::value> arguments,
     return invoke_value_result::failed(invoke_failure_reason::invalid_method);
   }
 
-  const detail::method_resolution value_match = method_set->match(arguments, options);
-  if (value_match.kind == method_match_kind::ambiguous) {
-    return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
-  }
-  if (value_match.matched()) {
-    return detail::method_access::make(value_match.method).invoke(arguments, options);
-  }
-
-  value_arguments converted = make_value_arguments(arguments);
-  if (!converted.valid) {
-    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
-  }
-
-  return make_invoke_value_result(invoke_result_of(
-      std::span<const argument>{converted.arguments.data(), converted.arguments.size()}, options));
+  return method_set->invoke_runtime_value(nullptr, false, arguments, options);
 }
 
 const detail::method_set_data* method_set::info() const noexcept {
