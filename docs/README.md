@@ -30,6 +30,8 @@
 - [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry` 和类型 extension 数据。
 - [meta-type-data-redesign.md](meta-type-data-redesign.md)：静态类型数据与 registry 注册数据重构需求、
   外部方案调研、分阶段开发计划和开放问题。
+- [meta-record-naming-migration.md](meta-record-naming-migration.md)：meta 运行时记录的 `*_record`
+  命名迁移计划。
 - [object-type-identity-migration.md](object-type-identity-migration.md)：object 类型身份命名收敛计划。
 - [object.md](object.md)：对象基类、对象类型 API 和对象创建销毁入口。
 - [meta-properties.md](meta-properties.md)：meta 内建字段/方法能力和手写注册入口。
