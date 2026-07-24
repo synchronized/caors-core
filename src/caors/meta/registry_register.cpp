@@ -233,10 +233,8 @@ namespace {
   }
 
   if (stored->value_ops().valid()) {
-    if (stored->id() != fallback.id() ||
-        stored->value_ops().layout.size != fallback.value_ops().layout.size ||
-        stored->value_ops().layout.alignment != fallback.value_ops().layout.alignment) {
-      return {error_domain::meta, errc::invalid_type};
+    if (!stored->static_model_matches(fallback)) {
+      return {error_domain::meta, errc::inconsistent_type_model};
     }
 
     return {};
@@ -295,7 +293,10 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   std::lock_guard lock(state_->mutex);
   const detail::type_record& candidate = pending.data();
   if (state_->types.contains(candidate.id().value())) {
-    return {error_domain::meta, errc::duplicate_id};
+    const detail::type_record* existing = detail::find_type_record(*state_, candidate.id());
+    return existing != nullptr && !existing->static_model_matches(candidate)
+               ? error{error_domain::meta, errc::inconsistent_type_model}
+               : error{error_domain::meta, errc::duplicate_id};
   }
 
   const std::type_index cpp_index{cpp_type};

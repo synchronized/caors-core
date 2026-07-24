@@ -72,6 +72,7 @@ public:
 
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
   [[nodiscard]] constexpr bool registered() const noexcept { return valid() && registered_; }
+  [[nodiscard]] bool static_model_matches(const type_record& other) const noexcept;
 
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }

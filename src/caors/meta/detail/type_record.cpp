@@ -70,6 +70,46 @@ type_record::~type_record() {
   }
 }
 
+bool type_record::static_model_matches(const type_record& other) const noexcept {
+  if (!valid() || !other.valid() || id_ != other.id_ ||
+      value_.layout.size != other.value_.layout.size ||
+      value_.layout.alignment != other.value_.layout.alignment ||
+      value_.traits.trivially_copyable != other.value_.traits.trivially_copyable ||
+      value_.traits.trivially_destructible != other.value_.traits.trivially_destructible ||
+      value_.traits.trivially_default_constructible !=
+          other.value_.traits.trivially_default_constructible ||
+      (value_.ops.default_construct != nullptr) !=
+          (other.value_.ops.default_construct != nullptr) ||
+      (value_.ops.clone != nullptr) != (other.value_.ops.clone != nullptr) ||
+      (value_.ops.destroy != nullptr) != (other.value_.ops.destroy != nullptr) ||
+      (value_.ops.assign != nullptr) != (other.value_.ops.assign != nullptr) ||
+      (value_.ops.resource_construct != nullptr) !=
+          (other.value_.ops.resource_construct != nullptr) ||
+      (value_.ops.resource_destroy != nullptr) !=
+          (other.value_.ops.resource_destroy != nullptr) ||
+      semantics_.kind != other.semantics_.kind || semantics_.wrapper != other.semantics_.wrapper ||
+      semantics_.indirect != other.semantics_.indirect ||
+      semantics_.nullable != other.semantics_.nullable || builtin_.index() != other.builtin_.index() ||
+      static_capability_count_ != other.static_capability_count_) {
+    return false;
+  }
+
+  if (static_capability_count_ > 0 &&
+      (static_capabilities_ == nullptr || other.static_capabilities_ == nullptr)) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < static_capability_count_; ++index) {
+    const capability_entry& lhs = static_capabilities_[index];
+    const capability_entry& rhs = other.static_capabilities_[index];
+    if (lhs.key != rhs.key || (lhs.data != nullptr) != (rhs.data != nullptr)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void type_record::set_static_data(const type_record& source) noexcept {
   value_ = source.value_;
   semantics_ = source.semantics_;

@@ -40,6 +40,8 @@ public:
       return "duplicate method";
     case errc::inconsistent_type:
       return "inconsistent type";
+    case errc::inconsistent_type_model:
+      return "inconsistent type model";
     case errc::missing_parent:
       return "missing parent";
     case errc::frozen:

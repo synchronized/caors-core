@@ -35,6 +35,29 @@ template <typename T> [[nodiscard]] caors::type_id type_id_of() {
 
 } // namespace
 
+TEST_CASE("meta static type data - detects incompatible runtime models", "[meta]") {
+  const caors::meta::detail::type_record* expected =
+      caors::meta::detail::static_type_record_ptr_of<int>();
+  REQUIRE(expected != nullptr);
+  CHECK(expected->static_model_matches(*expected));
+
+  caors::meta::value_storage_ops incompatible_value = expected->value_ops();
+  ++incompatible_value.layout.size;
+  const caors::meta::detail::type_record incompatible{
+      expected->id(),
+      expected->name(),
+      expected->guid(),
+      incompatible_value,
+      expected->semantics(),
+      expected->builtin(),
+      nullptr,
+      0,
+      false,
+  };
+
+  CHECK_FALSE(expected->static_model_matches(incompatible));
+}
+
 TEST_CASE("meta static type data - scalar capability describes primitive aliases and strings",
           "[meta]") {
   const caors::meta::type int_type = caors::meta::resolve<int>();

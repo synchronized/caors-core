@@ -27,6 +27,7 @@ enum class errc {
   duplicate_field,
   duplicate_method,
   inconsistent_type,
+  inconsistent_type_model,
   missing_parent,
   frozen,
   pending,
