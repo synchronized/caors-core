@@ -93,7 +93,8 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   auto builder =
       caors::registration::type_<reflected_meta_actor>("caors.test.meta.reflected_actor");
-  auto meta = builder.meta().metadata("category", "gameplay");
+  auto meta =
+      builder.meta().metadata("category", "gameplay").metadata("display_name", "Actor");
   meta.property("health", &reflected_meta_actor::health,
                 caors::meta::registration::metadata("display", "Health"))
       .method("add_health", &reflected_meta_actor::add_health,
@@ -108,6 +109,9 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   const caors::string_name category_key{"category"};
   REQUIRE(type.find_metadata(category_key) != nullptr);
   CHECK(type.find_metadata(category_key)->as_string() == "gameplay");
+  const caors::string_name display_name_key{"display_name"};
+  REQUIRE(type.find_metadata(display_name_key) != nullptr);
+  CHECK(type.find_metadata(display_name_key)->as_string() == "Actor");
 
   const caors::meta::property health = type.find_property("health");
   REQUIRE(health);

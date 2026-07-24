@@ -257,11 +257,8 @@ private:
       return *this;
     }
 
-    meta::type_metadata data{};
-    data.values = meta::make_metadata_map(&memory::library_resource());
-    meta::set_metadata(data.values, key, meta::make_metadata_value(std::forward<Value>(value)));
-    status_ = pending_.add_extension(
-        meta::detail::make_extension_data<meta::type_metadata>(&memory::library_resource(), data));
+    status_ = pending_.set_type_metadata(
+        key, meta::make_metadata_value(std::forward<Value>(value)));
     return *this;
   }
 
