@@ -12,7 +12,7 @@ namespace caors::tests::serialization::polymorphic_object {
 class actor : public caors::object_base<actor> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.serialization.poly.actor";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0x65, 0xa4, 0x1f, 0x25, 0xf8, 0xe1, 0x40, 0xd7, 0x8a, 0x89, 0xf2,
                               0x37, 0x8d, 0xe5, 0x10, 0x01})};
 };
@@ -20,7 +20,7 @@ public:
 class player : public caors::object_base<player, actor> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.serialization.poly.player";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0x65, 0xa4, 0x1f, 0x25, 0xf8, 0xe1, 0x40, 0xd7, 0x8a, 0x89, 0xf2,
                               0x37, 0x8d, 0xe5, 0x10, 0x02})};
 
@@ -31,7 +31,7 @@ public:
 class enemy : public caors::object_base<enemy> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.serialization.poly.enemy";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0x65, 0xa4, 0x1f, 0x25, 0xf8, 0xe1, 0x40, 0xd7, 0x8a, 0x89, 0xf2,
                               0x37, 0x8d, 0xe5, 0x10, 0x03})};
 

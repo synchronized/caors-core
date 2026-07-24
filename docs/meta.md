@@ -457,7 +457,7 @@ static capability 依赖模板特化可见性。用户类型及其 `codec_traits
 和静态能力表；未注册结构类型也可以通过 `any`、`any_ref` 或反射属性携带的静态类型节点访问同一套能力。
 显式注册后，registry 中的 `type_data` 复制这些固有字段，并增加属性、方法和动态扩展详情。
 静态名称和稳定 GUID 统一由 `traits::type_identity<T>` 提供；默认名称兼容
-`traits::type_name<T>`，object 模块将 `object_type_name/object_type_guid` 适配到同一入口。
+`traits::type_name<T>`，object 模块将 `object_type_name/static_type_guid` 适配到同一入口。
 显式注册名称或 GUID 与静态声明冲突时，pending 校验返回 `errc::inconsistent_type`，不会发布部分记录。
 普通用户通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或

@@ -58,7 +58,7 @@ object* manager::find(handle target) const {
   return stored->instance;
 }
 
-object* manager::create(object_type_id id) {
+object* manager::create(type_id id) {
   if (!id) {
     return nullptr;
   }
@@ -90,7 +90,7 @@ object* manager::create(object_type_id id) {
 #endif
 }
 
-object* manager::create_with_guid(object_type_id id, object_guid guid) {
+object* manager::create_with_guid(type_id id, object_guid guid) {
   if (index_ == nullptr || !guid) {
     return nullptr;
   }
@@ -232,7 +232,7 @@ manager::entry* manager::find_entry(object_id id) {
   return position != entries_.end() ? &position->second : nullptr;
 }
 
-bool manager::store(object* instance, object_type_id type, memory_resource* resource) {
+bool manager::store(object* instance, type_id type, memory_resource* resource) {
   if (instance == nullptr || !type) {
     return false;
   }

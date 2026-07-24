@@ -11,16 +11,16 @@ object::~object() = default;
 
 object_id object::id() const noexcept { return id_; }
 
-object_type_id object::type_id() const noexcept { return static_type_id(); }
+type_id object::type_id() const noexcept { return static_type_id(); }
 
 std::string_view object::type_name() const noexcept { return static_type_name(); }
 
-object_type_id object::static_type_id() noexcept {
+type_id object::static_type_id() noexcept {
 #if CAORS_HAS_EXCEPTIONS
   try {
     return caors::meta::find<object>().id();
   } catch (...) {
-    return object_type_id::invalid();
+    return type_id::invalid();
   }
 #else
   return caors::meta::find<object>().id();

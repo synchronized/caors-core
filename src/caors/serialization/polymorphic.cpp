@@ -17,14 +17,14 @@ namespace detail {
 
 bool object_requires_polymorphic_envelope(type_id declared_id,
                                           const meta::object& object) noexcept {
-  const meta::object_type_id dynamic_id = object.type_id();
+  const meta::type_id dynamic_id = object.type_id();
   return declared_id && dynamic_id && dynamic_id != declared_id;
 }
 
 variant_result to_polymorphic_object_serialization_value(const serialization::context& context,
                                                          type_id declared_id,
                                                          const meta::object& object) {
-  const meta::object_type_id dynamic_id = object.type_id();
+  const meta::type_id dynamic_id = object.type_id();
   if (!declared_id || !dynamic_id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }

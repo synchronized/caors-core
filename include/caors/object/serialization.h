@@ -46,7 +46,7 @@ struct object_polymorphic_factory final : serialization::polymorphic_factory_ops
 
 /** @brief 构造运行期对象 id 形式的外部引用。 */
 [[nodiscard]] inline serialization::external_ref make_object_external_ref(object_id id,
-                                                                          object_type_id type) {
+                                                                          type_id type) {
   return serialization::external_ref{
       object_ref_domain(), {}, type, id.value(), serialization::external_ref_identity::integer,
   };
@@ -54,7 +54,7 @@ struct object_polymorphic_factory final : serialization::polymorphic_factory_ops
 
 /** @brief 构造持久对象 GUID 形式的外部引用。 */
 [[nodiscard]] inline serialization::external_ref make_object_external_ref(object_guid guid,
-                                                                          object_type_id type) {
+                                                                          type_id type) {
   return serialization::external_ref{
       object_ref_domain(), guid, type, 0, serialization::external_ref_identity::guid,
   };
@@ -263,7 +263,7 @@ read_persistent_object_ref(std::string_view encoded_guid, type_id type, error& s
     return status;
   }
 
-  value = objects::handle{object_id{id}, object_type_id{object_type}};
+  value = objects::handle{object_id{id}, type_id{object_type}};
   return {};
 }
 

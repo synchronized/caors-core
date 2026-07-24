@@ -155,11 +155,12 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
 using namespace caors::tests::object;
 
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
-  CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
+  CHECK(caors::traits::type_identity<persistent_actor>::guid() ==
+        persistent_actor::static_type_guid);
 
   REQUIRE(register_object_test_type<persistent_actor>() == caors::error{});
 
   auto stored = caors::objects::find<persistent_actor>();
   REQUIRE(stored);
-  CHECK(stored.guid() == persistent_actor::object_type_guid);
+  CHECK(stored.guid() == persistent_actor::static_type_guid);
 }

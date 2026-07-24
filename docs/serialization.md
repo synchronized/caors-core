@@ -777,7 +777,7 @@ caors::resources::replace_resource_dependencies(graph, material_resource_guid, d
 ### object handles
 
 `caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
-它们序列化时不需要对象引用 resolver，因为句柄本身已经保存 `object_id` 和 `object_type_id`：
+它们序列化时不需要对象引用 resolver，因为句柄本身已经保存 `object_id` 和 `type_id`：
 
 ```json
 {

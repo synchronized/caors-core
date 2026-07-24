@@ -55,7 +55,6 @@ struct object_id_hash {
  */
 [[nodiscard]] CAORS_API object_id generate_object_id() noexcept;
 
-using object_type_id = type_id;
 using object_guid = core::guid;
 using object_guid_hash = core::guid_hash;
 
@@ -74,7 +73,6 @@ template <> struct hash<caors::meta::object_id> {
 namespace caors {
 
 using object_id = meta::object_id;
-using object_type_id = meta::object_type_id;
 using object_guid = meta::object_guid;
 using object_guid_hash = meta::object_guid_hash;
 using meta::generate_object_id;

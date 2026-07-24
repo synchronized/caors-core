@@ -97,10 +97,10 @@ public:
   [[nodiscard]] bool alive(handle target) const { return find(target) != nullptr; }
 
   /** @brief 创建默认构造对象。对象类型必须已注册且支持默认构造。 */
-  [[nodiscard]] object* create(object_type_id id);
+  [[nodiscard]] object* create(type_id id);
 
   /** @brief 创建默认构造对象并绑定持久 GUID。需要 manager 关联 `object_index`。 */
-  [[nodiscard]] object* create_with_guid(object_type_id id, object_guid guid);
+  [[nodiscard]] object* create_with_guid(type_id id, object_guid guid);
 
   /** @brief 创建指定 C++ 类型对象。类型必须已注册，可使用构造参数。 */
   template <typename T, typename... Args> [[nodiscard]] T* create(Args&&... args) {
@@ -203,7 +203,7 @@ public:
 private:
   struct entry {
     object_id id{};
-    object_type_id type{};
+    type_id type{};
     object* instance = nullptr;
     memory_resource* resource = nullptr;
   };
@@ -213,7 +213,7 @@ private:
 
   [[nodiscard]] const entry* find_entry(object_id id) const;
   [[nodiscard]] entry* find_entry(object_id id);
-  bool store(object* instance, object_type_id type, memory_resource* resource);
+  bool store(object* instance, type_id type, memory_resource* resource);
   void destroy_entry(const entry& stored) noexcept;
 
   memory_resource* resource_ = nullptr;

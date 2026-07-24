@@ -25,10 +25,10 @@ namespace caors::objects::detail {
 namespace caors::objects {
 
 /** @brief 根据已注册对象类型名查询对象类型标识。 */
-[[nodiscard]] inline object_type_id id(std::string_view name) { return meta::id(name); }
+[[nodiscard]] inline type_id id(std::string_view name) { return meta::id(name); }
 
 /** @brief 根据指定类型上下文中的已注册对象类型名查询对象类型标识。 */
-[[nodiscard]] inline object_type_id id(meta::context& context, std::string_view name) {
+[[nodiscard]] inline type_id id(meta::context& context, std::string_view name) {
   return meta::id(context, name);
 }
 
@@ -45,10 +45,10 @@ namespace caors::objects {
 [[nodiscard]] CAORS_API bool constructible(meta::type type) noexcept;
 
 /** @brief 在指定类型上下文中按对象类型 id 查找对象类型。 */
-[[nodiscard]] CAORS_API meta::type find(meta::context& context, object_type_id id);
+[[nodiscard]] CAORS_API meta::type find(meta::context& context, type_id id);
 
 /** @brief 在默认类型上下文中按对象类型 id 查找对象类型。 */
-[[nodiscard]] inline meta::type find(object_type_id id) {
+[[nodiscard]] inline meta::type find(type_id id) {
   return ::caors::objects::find(meta::default_context(), id);
 }
 
@@ -74,19 +74,19 @@ template <typename T> [[nodiscard]] meta::type find() {
 }
 
 /** @brief 判断指定类型上下文中是否已注册对象类型。 */
-[[nodiscard]] CAORS_API bool contains(meta::context& context, object_type_id id);
+[[nodiscard]] CAORS_API bool contains(meta::context& context, type_id id);
 
 /** @brief 判断默认类型上下文中是否已注册对象类型。 */
-[[nodiscard]] inline bool contains(object_type_id id) {
+[[nodiscard]] inline bool contains(type_id id) {
   return contains(meta::default_context(), id);
 }
 
 /** @brief 判断指定类型上下文中的对象类型继承关系。 */
-[[nodiscard]] CAORS_API bool is_a(meta::context& context, object_type_id id,
-                                  object_type_id base_id);
+[[nodiscard]] CAORS_API bool is_a(meta::context& context, type_id id,
+                                  type_id base_id);
 
 /** @brief 判断默认类型上下文中的对象类型继承关系。 */
-[[nodiscard]] inline bool is_a(object_type_id id, object_type_id base_id) {
+[[nodiscard]] inline bool is_a(type_id id, type_id base_id) {
   return ::caors::objects::is_a(meta::default_context(), id, base_id);
 }
 
@@ -101,11 +101,11 @@ template <typename T> [[nodiscard]] meta::type find() {
                                            memory_resource* resource = nullptr) noexcept;
 
 /** @brief 按对象类型 id 尝试默认构造对象；类型未注册、不可构造或分配失败时返回空指针。 */
-[[nodiscard]] CAORS_API object* try_create(meta::context& context, object_type_id id,
+[[nodiscard]] CAORS_API object* try_create(meta::context& context, type_id id,
                                            memory_resource* resource = nullptr) noexcept;
 
 /** @brief 在默认类型上下文中按对象类型 id 尝试默认构造对象。 */
-[[nodiscard]] inline object* try_create(object_type_id id,
+[[nodiscard]] inline object* try_create(type_id id,
                                         memory_resource* resource = nullptr) noexcept {
   return try_create(meta::default_context(), id, resource);
 }
@@ -124,11 +124,11 @@ template <typename T> [[nodiscard]] meta::type find() {
 [[nodiscard]] CAORS_API object* create(meta::type type, memory_resource* resource = nullptr);
 
 /** @brief 按对象类型 id 默认构造对象；类型未注册或不可构造时返回空指针。 */
-[[nodiscard]] CAORS_API object* create(meta::context& context, object_type_id id,
+[[nodiscard]] CAORS_API object* create(meta::context& context, type_id id,
                                        memory_resource* resource = nullptr);
 
 /** @brief 在默认类型上下文中按对象类型 id 默认构造对象。 */
-[[nodiscard]] inline object* create(object_type_id id, memory_resource* resource = nullptr) {
+[[nodiscard]] inline object* create(type_id id, memory_resource* resource = nullptr) {
   return create(meta::default_context(), id, resource);
 }
 
@@ -146,11 +146,11 @@ CAORS_API bool destroy(meta::type type, object* instance,
                        memory_resource* resource = nullptr) noexcept;
 
 /** @brief 销毁通过对象类型工厂创建的对象。 */
-CAORS_API bool destroy(meta::context& context, object_type_id id, object* instance,
+CAORS_API bool destroy(meta::context& context, type_id id, object* instance,
                        memory_resource* resource = nullptr) noexcept;
 
 /** @brief 在默认类型上下文中销毁通过对象类型工厂创建的对象。 */
-inline bool destroy(object_type_id id, object* instance,
+inline bool destroy(type_id id, object* instance,
                     memory_resource* resource = nullptr) noexcept {
   return destroy(meta::default_context(), id, instance, resource);
 }

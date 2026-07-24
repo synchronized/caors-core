@@ -136,7 +136,7 @@ TEST_CASE("serialization - ordinary object API writes runtime type envelopes", "
   REQUIRE(type_member->value.is_string());
   CHECK(std::string_view{type_member->value.as_string().data(),
                          type_member->value.as_string().size()} ==
-        std::string_view{player::object_type_guid.value.string()});
+        std::string_view{player::static_type_guid.value.string()});
 
   const caors::meta::variant_member* stored_value =
       value.value.find_member(caors::string_name{"$value"});
@@ -185,7 +185,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   REQUIRE(type_member->value.is_string());
   CHECK(std::string_view{type_member->value.as_string().data(),
                          type_member->value.as_string().size()} ==
-        std::string_view{player::object_type_guid.value.string()});
+        std::string_view{player::static_type_guid.value.string()});
 
   const caors::meta::variant_member* type_name_member =
       value.value.find_member(caors::string_name{"debug_type"});
@@ -239,7 +239,7 @@ TEST_CASE("serialization - polymorphic object writes type envelope", "[serializa
   REQUIRE(type_member->value.is_string());
   CHECK(std::string_view{type_member->value.as_string().data(),
                          type_member->value.as_string().size()} ==
-        std::string_view{player::object_type_guid.value.string()});
+        std::string_view{player::static_type_guid.value.string()});
 
   const caors::meta::variant_member* stored_value =
       value.value.find_member(caors::string_name{"$value"});

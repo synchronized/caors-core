@@ -23,11 +23,11 @@ class handle {
 public:
   constexpr handle() noexcept = default;
   constexpr handle(std::nullptr_t) noexcept {}
-  constexpr handle(object_id id, object_type_id type) noexcept : id_(id), type_(type) {}
+  constexpr handle(object_id id, type_id type) noexcept : id_(id), type_(type) {}
 
   [[nodiscard]] static constexpr handle invalid() noexcept { return {}; }
   [[nodiscard]] constexpr object_id id() const noexcept { return id_; }
-  [[nodiscard]] constexpr object_type_id type() const noexcept { return type_; }
+  [[nodiscard]] constexpr type_id type() const noexcept { return type_; }
   [[nodiscard]] explicit constexpr operator bool() const noexcept { return id_ && type_; }
 
   constexpr void reset() noexcept {
@@ -42,7 +42,7 @@ public:
 
 private:
   object_id id_{};
-  object_type_id type_{};
+  type_id type_{};
 };
 
 [[nodiscard]] constexpr bool operator==(handle lhs, handle rhs) noexcept {
@@ -61,13 +61,13 @@ template <typename T> class typed_handle {
 public:
   constexpr typed_handle() noexcept = default;
   constexpr typed_handle(std::nullptr_t) noexcept {}
-  constexpr typed_handle(object_id id, object_type_id type) noexcept : value_(id, type) {}
+  constexpr typed_handle(object_id id, type_id type) noexcept : value_(id, type) {}
   explicit constexpr typed_handle(handle value) noexcept : value_(value) {}
   explicit typed_handle(const T& instance) noexcept : value_(instance.id(), instance.type_id()) {}
 
   [[nodiscard]] static constexpr typed_handle invalid() noexcept { return {}; }
   [[nodiscard]] constexpr object_id id() const noexcept { return value_.id(); }
-  [[nodiscard]] constexpr object_type_id type() const noexcept { return value_.type(); }
+  [[nodiscard]] constexpr type_id type() const noexcept { return value_.type(); }
   [[nodiscard]] explicit constexpr operator bool() const noexcept {
     return static_cast<bool>(value_);
   }

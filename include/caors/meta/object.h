@@ -30,10 +30,10 @@ public:
   object& operator=(object&&) = delete;
 
   [[nodiscard]] object_id id() const noexcept;
-  [[nodiscard]] virtual object_type_id type_id() const noexcept;
+  [[nodiscard]] virtual meta::type_id type_id() const noexcept;
   [[nodiscard]] virtual std::string_view type_name() const noexcept;
 
-  [[nodiscard]] static object_type_id static_type_id() noexcept;
+  [[nodiscard]] static meta::type_id static_type_id() noexcept;
   [[nodiscard]] static std::string_view static_type_name() noexcept;
 
 private:
@@ -41,24 +41,6 @@ private:
 };
 
 namespace detail {
-
-template <typename T, typename = void> struct object_type_guid_traits {
-  [[nodiscard]] static constexpr type_guid get() noexcept { return type_guid::nil(); }
-};
-
-template <typename T>
-struct object_type_guid_traits<T, std::void_t<decltype(T::object_type_guid)>> {
-  static_assert(
-      std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(T::object_type_guid)>>,
-                     type_guid>,
-      "object_type_guid must be caors::type_guid");
-
-  [[nodiscard]] static constexpr type_guid get() noexcept { return T::object_type_guid; }
-};
-
-template <typename T> [[nodiscard]] constexpr type_guid object_type_guid_of() noexcept {
-  return object_type_guid_traits<T>::get();
-}
 
 template <typename T, typename = void> struct object_base_type_traits {
   using type = object;
@@ -74,7 +56,7 @@ template <typename T> struct object_base_type_traits<T, std::void_t<typename T::
  * @brief 为派生对象提供默认运行期类型名实现。
  *
  * `Derived` 需要提供 `static constexpr std::string_view object_type_name`。可序列化、可反射或跨插件
- * 暴露的类型建议额外提供 `static constexpr caors::type_guid object_type_guid`。
+ * 暴露的类型建议额外提供 `static constexpr caors::type_guid static_type_guid`。
  */
 template <typename Derived, typename Base = object> class object_base : public Base {
   static_assert(std::is_base_of_v<object, Base>, "Base must derive from caors::object");
@@ -82,7 +64,7 @@ template <typename Derived, typename Base = object> class object_base : public B
 public:
   using base_type = Base;
 
-  [[nodiscard]] static object_type_id static_type_id() noexcept {
+  [[nodiscard]] static meta::type_id static_type_id() noexcept {
     return caors::meta::id_of<Derived>();
   }
 
@@ -90,11 +72,7 @@ public:
     return Derived::object_type_name;
   }
 
-  [[nodiscard]] static constexpr type_guid static_type_guid() noexcept {
-    return detail::object_type_guid_of<Derived>();
-  }
-
-  [[nodiscard]] object_type_id type_id() const noexcept override { return static_type_id(); }
+  [[nodiscard]] meta::type_id type_id() const noexcept override { return static_type_id(); }
 
   [[nodiscard]] std::string_view type_name() const noexcept override { return static_type_name(); }
 };
@@ -119,12 +97,12 @@ struct type_identity<T, std::enable_if_t<std::is_base_of_v<meta::object, T>>> {
   }
 
   [[nodiscard]] static constexpr core::type_guid guid() noexcept {
-    if constexpr (requires { T::object_type_guid; }) {
+    if constexpr (requires { T::static_type_guid; }) {
       static_assert(
-          std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(T::object_type_guid)>>,
+          std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(T::static_type_guid)>>,
                          core::type_guid>,
-          "object_type_guid must be caors::type_guid");
-      return T::object_type_guid;
+          "static_type_guid must be caors::type_guid");
+      return T::static_type_guid;
     } else {
       return core::type_guid::nil();
     }

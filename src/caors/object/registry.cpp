@@ -33,7 +33,7 @@ object_factory_capability factory(meta::type type) noexcept {
 
 bool constructible(meta::type type) noexcept { return factory(type).constructible(); }
 
-meta::type find(meta::context& context, object_type_id id) {
+meta::type find(meta::context& context, type_id id) {
   return make_object_type(meta::find(context, id));
 }
 
@@ -41,11 +41,11 @@ meta::type find(meta::context& context, std::string_view name) {
   return make_object_type(meta::find(context, name));
 }
 
-bool contains(meta::context& context, object_type_id id) {
+bool contains(meta::context& context, type_id id) {
   return static_cast<bool>(::caors::objects::find(context, id));
 }
 
-bool is_a(meta::context& context, object_type_id id, object_type_id base_id) {
+bool is_a(meta::context& context, type_id id, type_id base_id) {
   return meta::is_a(context, id, base_id);
 }
 
@@ -58,7 +58,7 @@ object* try_create(meta::type type, memory_resource* resource) noexcept {
   return factory(type).try_create(resource);
 }
 
-object* try_create(meta::context& context, object_type_id id, memory_resource* resource) noexcept {
+object* try_create(meta::context& context, type_id id, memory_resource* resource) noexcept {
   return try_create(::caors::objects::find(context, id), resource);
 }
 
@@ -71,7 +71,7 @@ object* create(meta::type type, memory_resource* resource) {
   return factory(type).create(resource);
 }
 
-object* create(meta::context& context, object_type_id id, memory_resource* resource) {
+object* create(meta::context& context, type_id id, memory_resource* resource) {
   return create(::caors::objects::find(context, id), resource);
 }
 
@@ -87,7 +87,7 @@ bool destroy(meta::type type, object* instance, memory_resource* resource) noexc
   return factory(type).destroy(instance, resource);
 }
 
-bool destroy(meta::context& context, object_type_id id, object* instance,
+bool destroy(meta::context& context, type_id id, object* instance,
              memory_resource* resource) noexcept {
   return destroy(::caors::objects::find(context, id), instance, resource);
 }

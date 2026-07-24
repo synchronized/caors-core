@@ -16,9 +16,9 @@ TEST_CASE("serialization - deserializes object handles without resolving objects
       actor, R"({"target":{"id":77,"type":99},"typed":{"id":88,"type":111}})");
 
   REQUIRE(result.succeeded());
-  CHECK(actor.target == caors::object_handle{caors::object_id{77}, caors::object_type_id{99}});
+  CHECK(actor.target == caors::object_handle{caors::object_id{77}, caors::type_id{99}});
   CHECK(actor.typed.handle() ==
-        caors::object_handle{caors::object_id{88}, caors::object_type_id{111}});
+        caors::object_handle{caors::object_id{88}, caors::type_id{111}});
 }
 
 // 原测试文件：serialization_object_handle_serialization_object_manager_resolves_deserialized_typed_handles_test.cpp
@@ -67,7 +67,7 @@ using namespace caors::tests::serialization::object_handle;
 TEST_CASE("serialization - serializes object handles as identity objects", "[serialization]") {
   require_object_handle_actor_metadata();
 
-  const caors::objects::handle handle{caors::object_id{42}, caors::object_type_id{84}};
+  const caors::objects::handle handle{caors::object_id{42}, caors::type_id{84}};
   const caors::serialization::variant_result direct =
       caors::serialization::to_variant(caors::any_ref::from_const(handle));
   REQUIRE(direct.succeeded());

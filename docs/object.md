@@ -41,7 +41,7 @@ resolver、构造策略和格式后端仍由 `serialization` 模块负责。
 `meta::detail` 的对象 traits 作为对象模块公共扩展点转发；对象注册器内部直接复用 `meta` 的对象类型信息。
 
 为了保持常用 API 简洁，根命名空间保留带对象语义的别名：`caors::object`、`caors::object_id`、
-`caors::object_type_id`、`caors::object_base<T>`、`caors::object_ptr<T>`、`caors::object_handle`、
+`caors::type_id`、`caors::object_base<T>`、`caors::object_ptr<T>`、`caors::object_handle`、
 `caors::typed_object_handle<T>`、`caors::object_ref<T>` 和 `caors::object_weak_ref<T>`。对象 manager、
 object_index、序列化 resolver 和工厂 helper 等低频组合件统一使用 `caors::objects::*`。
 
@@ -116,10 +116,11 @@ registry；序列化等 context-first 入口可以通过 `serialization::context
 其中名称、GUID 和父类型属于 meta 类型记录；大小、对齐和默认值操作函数通过同一 `type_id`
 对应的 `meta::type` 查询。对象模块只通过 `meta::type` 查询这些信息，不直接暴露底层实现对象。
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。它由 C++ 对象类型的运行期 key 派生，不由对象类型名派生：
+对象 API 直接使用 meta 的 `type_id`，不再定义单独的对象类型 id 别名。该 id 由 C++ 对象类型的
+运行期 key 派生，不由对象类型名派生：
 
 ```cpp
-caors::object_type_id id = player::static_type_id();
+caors::type_id id = player::static_type_id();
 ```
 
 对象类型名用于查找、调试和工具展示；稳定序列化身份应由显式 `type_guid`、上层格式和迁移策略
@@ -227,7 +228,7 @@ caors::object* target = object.get_ptr("target");
 
 ### objects::handle 和 objects::typed_handle
 
-`objects::handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
+`objects::handle` 是只保存 `object_id` 和 `type_id` 的身份描述，不拥有对象，也不提供解引用：
 
 ```cpp
 caors::objects::handle handle{instance.id(), instance.type_id()};
@@ -357,7 +358,7 @@ manager.destroy(instance);
 enemy* instance = manager.create<enemy>(spawn_level, spawn_position);
 ```
 
-`manager.create(object_type_id)` 只支持已注册且默认构造的对象类型；`manager.create<T>(args...)`
+`manager.create(type_id)` 只支持已注册且默认构造的对象类型；`manager.create<T>(args...)`
 要求 `T` 已注册，但允许构造参数。对象销毁时会使用 manager 记录的注册类型和内存资源，因此不依赖对象虚函数返回的类型 id。
 
 类型化身份句柄不会自动解引用，必须显式通过 manager 查询：
@@ -409,13 +410,13 @@ public:
 class player : public caors::object_base<player, actor> {
 public:
   static constexpr std::string_view object_type_name = "game.player";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0x92, 0x8d, 0x35, 0x70, 0x54, 0x68, 0x46, 0x5c,
                               0x9d, 0xc4, 0x30, 0x7f, 0xb7, 0x45, 0xf2, 0x2c})};
 };
 ```
 
-`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
+`static_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
 `static_type_id()` 返回 C++ 类型 id；对象类型尚未通过 `registration::type_<T>().commit()`
 注册时，`objects::find<T>()`、对象工厂、类型名、GUID 和父类型关系仍不可用。对象类型应在启动注册阶段
@@ -488,7 +489,7 @@ caors::object* instance = caors::objects::create(player_type);
 caors::objects::destroy(player_type, instance);
 ```
 
-也可以把 `object_type_id` 或对象类型名作为便捷入口传入，内部会先查询同一个 `meta::context`
+也可以把 `type_id` 或对象类型名作为便捷入口传入，内部会先查询同一个 `meta::context`
 中的 `meta::type`。
 
 也可以直接使用 C++ 类型创建已注册对象：
@@ -517,7 +518,7 @@ auto* instance = caors::objects::create<player>(&resource, constructor_arg);
 caors::objects::destroy(instance, &resource);
 ```
 
-非默认构造类型仍可注册类型描述，但不能通过 `objects::create(meta::type)`、`objects::create(object_type_id)`
+非默认构造类型仍可注册类型描述，但不能通过 `objects::create(meta::type)`、`objects::create(type_id)`
 或对象类型名默认创建。
 
 生命周期管理器适合应用层持有运行期对象：
@@ -539,7 +540,7 @@ manager.destroy(instance);
   `object_id`。
 - `object_guid`：对象系统对 `guid` 的语义别名，用于持久对象身份。
 - `objects::object_index`：持久对象 GUID 和运行期对象 id 的双向索引。
-- `object_type_id`：运行期对象类型标识。
+- `type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。

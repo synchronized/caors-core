@@ -36,7 +36,7 @@ public:
 class persistent_actor : public caors::object_base<persistent_actor> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.object.persistent_actor";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0x92, 0x8d, 0x35, 0x70, 0x54, 0x68, 0x46, 0x5c, 0x9d, 0xc4, 0x30,
                               0x7f, 0xb7, 0x45, 0xf2, 0x2c})};
 };
@@ -54,7 +54,7 @@ public:
 class guid_owner_actor : public caors::object_base<guid_owner_actor> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.object.guid_owner_actor";
-  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+  static constexpr caors::type_guid static_type_guid{caors::guid::from_bytes(
       caors::guid::byte_array{0xf8, 0x23, 0x42, 0x4e, 0xc4, 0x3b, 0x4a, 0xe2, 0x9a, 0x8e, 0x55,
                               0xc7, 0xe4, 0xf8, 0x3a, 0x11})};
 };
@@ -62,7 +62,7 @@ public:
 class duplicate_guid_player : public caors::object_base<duplicate_guid_player> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.object.duplicate_guid_player";
-  static constexpr caors::type_guid object_type_guid = guid_owner_actor::object_type_guid;
+  static constexpr caors::type_guid static_type_guid = guid_owner_actor::static_type_guid;
 };
 
 class relation_actor : public caors::object_base<relation_actor> {
@@ -186,7 +186,7 @@ constexpr caors::object_guid test_object_guid_b{caors::guid::from_bytes(
 
 template <typename T>
 [[nodiscard]] caors::error
-register_object_test_type(caors::object_type_id parent_id = caors::object_type_id::invalid()) {
+register_object_test_type(caors::type_id parent_id = caors::type_id::invalid()) {
   auto builder = caors::registration::type_<T>();
   if (parent_id) {
     builder.parent(parent_id);
@@ -198,7 +198,7 @@ register_object_test_type(caors::object_type_id parent_id = caors::object_type_i
 template <typename T>
 [[nodiscard]] caors::error
 register_object_test_type(std::string_view name,
-                          caors::object_type_id parent_id = caors::object_type_id::invalid()) {
+                          caors::type_id parent_id = caors::type_id::invalid()) {
   auto builder = caors::registration::type_<T>(name);
   if (parent_id) {
     builder.parent(parent_id);
