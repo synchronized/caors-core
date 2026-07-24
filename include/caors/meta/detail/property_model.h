@@ -26,7 +26,7 @@ template <typename Property>
 }
 
 [[nodiscard]] inline const void* member_property_record(const property_record& property,
-                                                      const void* object) noexcept {
+                                                        const void* object) noexcept {
   return property.member_data(object);
 }
 
@@ -49,7 +49,8 @@ template <typename Property>
 }
 
 template <typename Property>
-[[nodiscard]] any_ref member_property_get_mutable_ref(const property_record& property, void* object) {
+[[nodiscard]] any_ref member_property_get_mutable_ref(const property_record& property,
+                                                      void* object) {
   using property_type = std::remove_cv_t<Property>;
   return property.member_get_ref(meta::resolve<property_type>(), object);
 }
@@ -131,7 +132,7 @@ decltype(auto) invoke_property_getter(const property_record& property, const voi
 
 template <typename Getter>
 [[nodiscard]] const void* accessor_property_record(const property_record& property,
-                                                 const void* object) noexcept {
+                                                   const void* object) noexcept {
   using traits_type = const_member_getter_traits<Getter>;
   using return_type = typename traits_type::return_type;
   if (object == nullptr) {
@@ -190,7 +191,7 @@ template <typename Getter>
 
   if constexpr (std::is_lvalue_reference_v<return_type>) {
     decltype(auto) value = invoke_property_getter<Getter>(property, object);
-    return any_ref::from_raw(meta::resolve<value_type>(), std::addressof(value), false);
+    return any_ref::from(meta::resolve<value_type>(), std::addressof(value));
   } else {
     return {};
   }
@@ -209,7 +210,7 @@ template <typename Getter>
   if constexpr (std::is_lvalue_reference_v<return_type> &&
                 !std::is_const_v<std::remove_reference_t<return_type>>) {
     decltype(auto) value = invoke_property_getter<Getter>(property, object);
-    return any_ref::from_raw(meta::resolve<value_type>(), std::addressof(value), true);
+    return any_ref::from(meta::resolve<value_type>(), std::addressof(value));
   } else {
     return {};
   }
@@ -255,35 +256,27 @@ bool accessor_property_set_value(const property_record& property, void* object, 
 template <typename Class, typename Getter>
 [[nodiscard]] property_ops readonly_accessor_property_ops() noexcept {
   return property_ops{
-      &accessor_property_owner_type<Class>,
-      &accessor_property_type<Getter>,
-      &accessor_property_record<Getter>,
-      &accessor_property_mutable_data<Getter>,
-      &accessor_property_get_value<Getter>,
-      &accessor_property_get_const_ref<Getter>,
-      &accessor_property_get_mutable_ref<Getter>,
-      &readonly_accessor_property_set_value<Getter>,
+      &accessor_property_owner_type<Class>,       &accessor_property_type<Getter>,
+      &accessor_property_record<Getter>,          &accessor_property_mutable_data<Getter>,
+      &accessor_property_get_value<Getter>,       &accessor_property_get_const_ref<Getter>,
+      &accessor_property_get_mutable_ref<Getter>, &readonly_accessor_property_set_value<Getter>,
   };
 }
 
 template <typename Class, typename Getter, typename Setter>
 [[nodiscard]] property_ops accessor_property_ops() noexcept {
   return property_ops{
-      &accessor_property_owner_type<Class>,
-      &accessor_property_type<Getter>,
-      &accessor_property_record<Getter>,
-      &accessor_property_mutable_data<Getter>,
-      &accessor_property_get_value<Getter>,
-      &accessor_property_get_const_ref<Getter>,
-      &accessor_property_get_mutable_ref<Getter>,
-      &accessor_property_set_value<Getter, Setter>,
+      &accessor_property_owner_type<Class>,       &accessor_property_type<Getter>,
+      &accessor_property_record<Getter>,          &accessor_property_mutable_data<Getter>,
+      &accessor_property_get_value<Getter>,       &accessor_property_get_const_ref<Getter>,
+      &accessor_property_get_mutable_ref<Getter>, &accessor_property_set_value<Getter, Setter>,
   };
 }
 
 /** @brief 创建属性反射元信息。 */
 template <typename Class, typename Property>
-[[nodiscard]] property_record make_property_record(std::string_view name, std::string_view type_name,
-                                               std::size_t offset) {
+[[nodiscard]] property_record make_property_record(std::string_view name,
+                                                   std::string_view type_name, std::size_t offset) {
   using property_type = std::remove_cv_t<Property>;
   if (!meta::resolve<property_type>()) {
     return {};
@@ -317,7 +310,7 @@ template <typename Property>
 
 template <typename Property>
 [[nodiscard]] const void* global_property_record(const property_record& property,
-                                               const void*) noexcept {
+                                                 const void*) noexcept {
   return property.template load_pointer<Property*>(0);
 }
 
@@ -340,8 +333,7 @@ template <typename Property>
 [[nodiscard]] any_ref global_property_get_const_ref(const property_record& property, const void*) {
   using property_type = std::remove_cv_t<Property>;
   const auto* value = property.template load_pointer<Property*>(0);
-  return value != nullptr ? any_ref::from_raw(meta::resolve<property_type>(), value, false)
-                          : any_ref{};
+  return value != nullptr ? any_ref::from(meta::resolve<property_type>(), value) : any_ref{};
 }
 
 template <typename Property>
@@ -351,8 +343,7 @@ template <typename Property>
   } else {
     using property_type = std::remove_cv_t<Property>;
     auto* value = property.template load_pointer<Property*>(0);
-    return value != nullptr ? any_ref::from_raw(meta::resolve<property_type>(), value, true)
-                            : any_ref{};
+    return value != nullptr ? any_ref::from(meta::resolve<property_type>(), value) : any_ref{};
   }
 }
 
@@ -383,19 +374,16 @@ bool global_property_set_value(const property_record& property, void*, const any
 
 template <typename Property> [[nodiscard]] property_ops global_property_ops() noexcept {
   return property_ops{
-      &global_property_owner_type<Property>,
-      &global_property_type<Property>,
-      &global_property_record<Property>,
-      &global_property_mutable_data<Property>,
-      &global_property_get_value<Property>,
-      &global_property_get_const_ref<Property>,
-      &global_property_get_mutable_ref<Property>,
-      &global_property_set_value<Property>,
+      &global_property_owner_type<Property>,      &global_property_type<Property>,
+      &global_property_record<Property>,          &global_property_mutable_data<Property>,
+      &global_property_get_value<Property>,       &global_property_get_const_ref<Property>,
+      &global_property_get_mutable_ref<Property>, &global_property_set_value<Property>,
   };
 }
 
 template <typename Property>
-[[nodiscard]] property_record make_global_property_record(std::string_view name, Property* pointer) {
+[[nodiscard]] property_record make_global_property_record(std::string_view name,
+                                                          Property* pointer) {
   using property_type = std::remove_cv_t<Property>;
   if (pointer == nullptr || !meta::resolve<property_type>()) {
     return {};
@@ -435,7 +423,7 @@ template <typename Class, typename Getter>
 
 template <typename Class, typename Getter, typename Setter>
 [[nodiscard]] property_record make_accessor_property_record(std::string_view name, Getter getter,
-                                                        Setter setter) {
+                                                            Setter setter) {
   using getter_traits = const_member_getter_traits<Getter>;
   using setter_traits = member_setter_traits<Setter>;
   static_assert(std::is_same_v<typename getter_traits::class_type, Class>,

@@ -348,7 +348,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  any_ref value = any_ref::from_raw(value_type, instance.data(), true);
+  any_ref value = meta::detail::any_ref_access::from_erased(value_type, instance.data(), true);
   if (!value.valid() || !value.writable()) {
     return {error_domain::serialization, errc::invalid_field};
   }

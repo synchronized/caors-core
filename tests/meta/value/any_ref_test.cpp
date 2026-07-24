@@ -10,6 +10,28 @@
 
 using namespace test_meta;
 
+TEST_CASE("meta any_ref - validates explicit runtime types and pointer constness", "[meta]") {
+  int mutable_value = 42;
+  const int readonly_value = 7;
+
+  const caors::meta::type int_type = caors::meta::resolve<int>();
+  const caors::meta::type float_type = caors::meta::resolve<float>();
+
+  const caors::any_ref mutable_ref = caors::any_ref::from(int_type, &mutable_value);
+  REQUIRE(mutable_ref);
+  CHECK(mutable_ref.writable());
+  CHECK(mutable_ref.try_get<int>() == &mutable_value);
+
+  const caors::any_ref readonly_ref = caors::any_ref::from(int_type, &readonly_value);
+  REQUIRE(readonly_ref);
+  CHECK_FALSE(readonly_ref.writable());
+  CHECK(readonly_ref.try_get<int>() == &readonly_value);
+  CHECK(readonly_ref.try_get_mutable<int>() == nullptr);
+
+  CHECK_FALSE(caors::any_ref::from(float_type, &mutable_value));
+  CHECK_FALSE(caors::any_ref::from(int_type, static_cast<int*>(nullptr)));
+}
+
 TEST_CASE("meta - container views can be created from any_ref", "[meta]") {
   caors::vector<int> scores{};
   caors::any_ref scores_ref = caors::any_ref::from(scores);

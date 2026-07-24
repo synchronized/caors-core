@@ -136,7 +136,7 @@ any_ref indirect_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(get_value_type(), value, value_writable);
+  return detail::any_ref_access::from_erased(get_value_type(), value, value_writable);
 }
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
@@ -179,7 +179,7 @@ any_ref indirect_view::dynamic_value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(get_dynamic_value_type(), value, value_writable);
+  return detail::any_ref_access::from_erased(get_dynamic_value_type(), value, value_writable);
 }
 
 bool indirect_view::can_set_value() const noexcept {
@@ -302,7 +302,7 @@ any_ref pair_view::first_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(get_first_type(), value, value_writable);
+  return detail::any_ref_access::from_erased(get_first_type(), value, value_writable);
 }
 
 any_ref pair_view::second_ref() const {
@@ -324,7 +324,7 @@ any_ref pair_view::second_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(get_value_type(), value, value_writable);
+  return detail::any_ref_access::from_erased(get_value_type(), value, value_writable);
 }
 
 any_ref pair_view::value_ref() const { return second_ref(); }
@@ -401,7 +401,7 @@ any_ref tuple_view::element_ref(std::size_t index) const {
 
   const meta::type element_type =
       element_data.get_value_type != nullptr ? element_data.get_value_type() : meta::type{};
-  return any_ref::from_raw(element_type, value, value_writable);
+  return detail::any_ref_access::from_erased(element_type, value, value_writable);
 }
 
 bool tuple_view::set_element(std::size_t index, const any& value) const {
@@ -495,7 +495,7 @@ any_ref variant_view::value_ref() const {
 
   const meta::type value_type =
       alternative_data.get_value_type != nullptr ? alternative_data.get_value_type() : meta::type{};
-  return any_ref::from_raw(value_type, value, value_writable);
+  return detail::any_ref_access::from_erased(value_type, value, value_writable);
 }
 
 bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
@@ -641,7 +641,7 @@ any_ref sequence_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(get_value_type(), element, element_writable);
+  return detail::any_ref_access::from_erased(get_value_type(), element, element_writable);
 }
 
 bool sequence_view::clear() const {
@@ -729,7 +729,7 @@ any_ref set_view::iterator::operator*() const {
   const void* value = info->iterator_value(iterator_);
   const meta::type value_type =
       info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
-  return any_ref::from_raw(value_type, value, false);
+  return detail::any_ref_access::from_erased(value_type, value, false);
 }
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
@@ -900,10 +900,10 @@ associative_entry_ref associative_view::iterator::operator*() const {
   const void* key = info->iterator_key(iterator_);
   const void* value = info->iterator_value(iterator_);
   return associative_entry_ref{
-      any_ref::from_raw(info->get_key_type != nullptr ? info->get_key_type() : meta::type{}, key,
-                        false),
-      any_ref::from_raw(info->get_value_type != nullptr ? info->get_value_type() : meta::type{},
-                        value, false),
+      detail::any_ref_access::from_erased(
+          info->get_key_type != nullptr ? info->get_key_type() : meta::type{}, key, false),
+      detail::any_ref_access::from_erased(
+          info->get_value_type != nullptr ? info->get_value_type() : meta::type{}, value, false),
   };
 }
 

@@ -8,6 +8,10 @@
 
 namespace caors::meta {
 
+namespace detail {
+struct any_ref_access;
+}
+
 /**
  * @brief 运行期 C++ 类型引用。
  *
@@ -21,7 +25,7 @@ public:
   /** @brief 从可写 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::resolve<type>(), &source, !std::is_const_v<T>);
+    return from(meta::resolve<type>(), &source);
   }
 
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -32,13 +36,13 @@ public:
       return {};
     }
 
-    return from_raw(registered, &source, !std::is_const_v<T>);
+    return from(registered, &source);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::resolve<type>(), &source, false);
+    return from(meta::resolve<type>(), &source);
   }
 
   /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -50,7 +54,32 @@ public:
       return {};
     }
 
-    return from_raw(registered, &source, false);
+    return from(registered, &source);
+  }
+
+  /**
+   * @brief 从显式运行期类型和已知 C++ 类型地址创建引用。
+   *
+   * `runtime_type` 必须与 `T` 的类型 ID、大小和对齐一致。引用的可写性由 `T` 的 const
+   * 修饰自动推导；空地址、volatile 类型或类型不匹配时返回无效引用。
+   */
+  template <typename T>
+  [[nodiscard]] static any_ref from(meta::type runtime_type, T* source) noexcept {
+    using value_type = std::remove_cv_t<T>;
+    static_assert(!std::is_void_v<value_type>, "any_ref cannot reference void");
+
+    if constexpr (std::is_volatile_v<T>) {
+      return {};
+    } else {
+      const meta::type expected = meta::resolve<value_type>();
+      if (source == nullptr || !runtime_type || !expected || runtime_type.id() != expected.id() ||
+          runtime_type.size() != sizeof(value_type) ||
+          runtime_type.alignment() != alignof(value_type)) {
+        return {};
+      }
+
+      return from_erased(runtime_type, source, !std::is_const_v<T>);
+    }
   }
 
   [[nodiscard]] bool valid() const noexcept;
@@ -137,14 +166,8 @@ public:
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
   [[nodiscard]] any to_any() const;
 
-  /**
-   * @brief 从运行期类型视图和原始地址创建引用。
-   *
-   * 调用方必须保证 `data` 指向与 `type` 匹配的有效对象，并且对象生命周期覆盖返回引用的使用期。
-   */
-  [[nodiscard]] static any_ref from_raw(meta::type type, const void* data, bool writable) noexcept;
-
 private:
+  friend struct detail::any_ref_access;
   friend class any;
   friend class indirect_view;
   friend class sequence_view;
@@ -154,10 +177,25 @@ private:
   friend class tuple_view;
   friend class variant_view;
 
+  [[nodiscard]] static any_ref from_erased(meta::type type, const void* data,
+                                           bool writable) noexcept;
+
   meta::type type_{};
   const void* data_ = nullptr;
   bool writable_ = false;
 };
+
+namespace detail {
+
+/** @brief 为内部完全擦除流程提供 any_ref 构造入口。 */
+struct any_ref_access final {
+  [[nodiscard]] static any_ref from_erased(meta::type type, const void* data,
+                                           bool writable) noexcept {
+    return any_ref::from_erased(type, data, writable);
+  }
+};
+
+} // namespace detail
 
 } // namespace caors::meta
 

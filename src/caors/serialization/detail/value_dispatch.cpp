@@ -64,7 +64,8 @@ namespace {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
+  const meta::instance instance{
+      meta::detail::any_ref_access::from_erased(field_schema.owner_type, object, true)};
   return field.try_set_value(instance, value)
              ? error{}
              : error{error_domain::serialization, errc::invalid_field};
@@ -256,7 +257,8 @@ any_ref get_field_ref(const field_runtime_schema& field_schema, const void* obje
     return field_schema.accessor.get_ref(object);
   }
 
-  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
+  const meta::instance instance{
+      meta::detail::any_ref_access::from_erased(field_schema.owner_type, object, false)};
   return field_schema.property.get_ref(instance);
 }
 
@@ -265,7 +267,8 @@ any_ref get_field_ref(const field_runtime_schema& field_schema, void* object) {
     return field_schema.accessor.get_ref(object);
   }
 
-  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
+  const meta::instance instance{
+      meta::detail::any_ref_access::from_erased(field_schema.owner_type, object, true)};
   return field_schema.property.get_ref(instance);
 }
 

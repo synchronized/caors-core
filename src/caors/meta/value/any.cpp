@@ -72,9 +72,11 @@ const void* owned_value::data() const noexcept { return valid() ? data_ : nullpt
 
 void* owned_value::mutable_data() noexcept { return valid() ? data_ : nullptr; }
 
-any_ref owned_value::ref() { return any_ref::from_raw(get_type(), data_, true); }
+any_ref owned_value::ref() { return detail::any_ref_access::from_erased(get_type(), data_, true); }
 
-any_ref owned_value::ref() const { return any_ref::from_raw(get_type(), data_, false); }
+any_ref owned_value::ref() const {
+  return detail::any_ref_access::from_erased(get_type(), data_, false);
+}
 
 any owned_value::into_any() && { return any::take_ownership(std::move(*this)); }
 
@@ -161,9 +163,9 @@ const void* any::data() const noexcept { return valid() ? data_ : nullptr; }
 
 void* any::mutable_data() noexcept { return valid() ? data_ : nullptr; }
 
-any_ref any::ref() { return any_ref::from_raw(get_type(), data_, true); }
+any_ref any::ref() { return detail::any_ref_access::from_erased(get_type(), data_, true); }
 
-any_ref any::ref() const { return any_ref::from_raw(get_type(), data_, false); }
+any_ref any::ref() const { return detail::any_ref_access::from_erased(get_type(), data_, false); }
 
 std::size_t any::size() const noexcept { return layout_of(type_).size; }
 
@@ -366,7 +368,7 @@ bool any_ref::try_set(const any_ref& source) const {
 
 any any_ref::to_any() const { return any::copy_from_raw(get_type(), data_); }
 
-any_ref any_ref::from_raw(meta::type type, const void* data, bool writable) noexcept {
+any_ref any_ref::from_erased(meta::type type, const void* data, bool writable) noexcept {
   if (data == nullptr || !type) {
     return {};
   }

@@ -38,7 +38,8 @@ enum class property_storage_kind {
 /** @brief 属性访问函数表，负责把属性底层存储转换成运行期值和引用。 */
 struct property_ops {
   using type_fn = meta::type (*)(const property_record& property) noexcept;
-  using const_data_fn = const void* (*)(const property_record& property, const void* object) noexcept;
+  using const_data_fn = const void* (*)(const property_record& property,
+                                        const void* object) noexcept;
   using mutable_data_fn = void* (*)(const property_record& property, void* object) noexcept;
   using get_value_fn = any (*)(const property_record& property, const void* object);
   using get_const_ref_fn = any_ref (*)(const property_record& property, const void* object);
@@ -75,7 +76,7 @@ public:
   property_record() noexcept = default;
 
   property_record(string_name property_name, std::size_t property_offset, bool property_writable,
-                property_storage_kind storage_kind, property_ops property_operations) noexcept
+                  property_storage_kind storage_kind, property_ops property_operations) noexcept
       : name_(property_name), offset_(property_offset), writable_(property_writable),
         kind_(storage_kind), ops_(property_operations) {}
 
@@ -215,7 +216,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(type, property_value, false);
+    return detail::any_ref_access::from_erased(type, property_value, false);
   }
 
   /** @brief 获取成员属性值的可写运行期引用。 */
@@ -225,7 +226,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(type, property_value, true);
+    return detail::any_ref_access::from_erased(type, property_value, true);
   }
 
   /** @brief 从运行期值写入成员属性。 */

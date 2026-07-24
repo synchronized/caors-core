@@ -202,7 +202,8 @@ metadata_to_runtime_value(const meta::metadata_value& value) {
 
 inline void validate_config_field(config_validation_result& result, const meta::property& field,
                                   const void* object) {
-  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, false)};
+  const meta::instance instance{
+      meta::detail::any_ref_access::from_erased(field.get_owner_type(), object, false)};
   const any_ref value = field.get_ref(instance);
   if (!value) {
     core::string reason =
@@ -262,7 +263,8 @@ inline error apply_config_default_field(const meta::property& field, void* objec
     return {error_domain::serialization, errc::unsupported};
   }
 
-  meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, true)};
+  meta::instance instance{
+      meta::detail::any_ref_access::from_erased(field.get_owner_type(), object, true)};
   return field.try_set_value(instance, *runtime_value)
              ? error{}
              : error{error_domain::serialization, errc::invalid_field};
