@@ -15,6 +15,7 @@
 namespace caors::meta {
 
 struct indirect_ops;
+struct enum_ops;
 struct sequence_ops;
 struct set_ops;
 struct associative_ops;
@@ -37,6 +38,7 @@ class any_ref;
 class owned_value;
 class value;
 class indirect_view;
+class enum_view;
 class sequence_view;
 class set_view;
 class associative_view;

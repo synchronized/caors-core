@@ -852,6 +852,21 @@ caors::meta::enum_value_view hidden = values.find_value("hidden");
 按数值查询时返回第一条注册项。`meta::type` 本身不暴露枚举专用 API，具体类型级行为统一走
 `get_capability<Capability>()`。
 
+实际枚举实例通过 `enum_capability::bind()` 获得 `enum_view`，实例转换不需要在每次调用时重复
+传入 source：
+
+```cpp
+actor_state state = actor_state::running;
+caors::meta::enum_view state_view =
+    values.bind(caors::meta::any_ref::from(state));
+
+std::optional<std::int64_t> encoded = state_view.to_i64();
+state_view.from_i64(0);
+```
+
+`enum_value_view` 表示注册表中的枚举项元数据，`enum_view` 表示绑定的实际枚举实例，两者生命周期
+和职责不同。
+
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
 明确的 capability、反射属性、属性 schema、序列化 options 或资源配置对象；metadata 只承载可选标签和
 非标准工具提示。
@@ -1160,6 +1175,8 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
   `meta::type::kind()` 为 `meta::type_kind::enumeration`。
 - `registration::value(name, value)` / `registration::enum_<T>().value(name, value)`：注册枚举项；查询时通过
   `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
+- `meta::enum_view`：由 `enum_capability::bind(any_ref)` 或
+  `any_ref::get_capability<enum_capability>()` 获得，负责实际枚举实例的整数读取和写入。
 - `registration::type_<T>(name).parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `registration::type_<T>(name).meta().factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
 - `registration::type_<T>(name).meta().constructor<Args...>()`：注册运行期参数构造策略；查询时使用

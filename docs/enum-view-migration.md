@@ -36,3 +36,10 @@ enum_view
 - capability facade 与 any_ref 直接绑定测试；
 - 错误类型、只读 source 和无效 view 测试；
 - Windows Clang Debug 单线程构建及相关测试。
+
+## 实施结果
+
+- `enum_view` 已基于通用 `capability_view_base<enum_ops>` 实现；
+- enum 实例转换和写入已从 `enum_capability` 迁移到绑定 view；
+- capability bind、any_ref 快捷绑定、只读 source 与错误类型测试均已覆盖；
+- Windows Clang Debug 的 capability 与头文件自包含测试通过。

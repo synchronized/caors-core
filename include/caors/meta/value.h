@@ -12,6 +12,7 @@
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/associative_view.h"
 #include "caors/meta/value/capabilities.h"
+#include "caors/meta/value/enum_view.h"
 #include "caors/meta/value/indirect_view.h"
 #include "caors/meta/value/pair_view.h"
 #include "caors/meta/value/sequence_view.h"

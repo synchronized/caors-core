@@ -395,12 +395,30 @@ TEST_CASE("meta - enum type capability facade converts bound enum values", "[met
   CHECK(capability.is_signed());
 
   caors::meta::any_ref ref = caors::meta::any_ref::from(value);
-  const std::optional<std::int64_t> encoded = capability.to_i64(ref);
+  const caors::meta::enum_view view = capability.bind(ref);
+  REQUIRE(view);
+  CHECK(view.writable());
+
+  const std::optional<std::int64_t> encoded = view.to_i64();
   REQUIRE(encoded.has_value());
   CHECK(*encoded == 9);
 
-  CHECK(capability.from_i64(ref, -1));
+  CHECK(view.from_i64(-1));
   CHECK(value == facade_enum::low);
+
+  const caors::meta::enum_view direct = ref.get_capability<caors::meta::enum_capability>();
+  REQUIRE(direct);
+  CHECK(direct.to_i64() == -1);
+
+  const facade_enum readonly_value = facade_enum::high;
+  const caors::meta::enum_view readonly =
+      capability.bind(caors::meta::any_ref::from(readonly_value));
+  REQUIRE(readonly);
+  CHECK_FALSE(readonly.writable());
+  CHECK_FALSE(readonly.from_i64(-1));
+
+  int wrong_type = 0;
+  CHECK_FALSE(capability.bind(caors::meta::any_ref::from(wrong_type)));
 }
 
 TEST_CASE("meta - capability static provider can be registered into type data", "[meta]") {
