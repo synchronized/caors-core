@@ -16,8 +16,8 @@
   `*_record` 命名迁移计划。
 - [meta-wrapper-model-redesign.md](meta-wrapper-model-redesign.md)：meta 内部 wrapper、ops
   和模板 model 的行为内聚计划。
-- [value-vtable-redesign.md](value-vtable-redesign.md)：value vtable、`any_ref` 类型安全入口
-  和运行期擦除桥梁的重构计划。
+- [value-boundary-redesign.md](value-boundary-redesign.md)：保留 `type_record` 单一事实源，
+  收敛 `any_ref`、object factory 和 adapter/ODR 边界的开发计划。
 - [enum-view-migration.md](enum-view-migration.md)：enum capability 与实例 view 的迁移计划。
 
 ## Object
