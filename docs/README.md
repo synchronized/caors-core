@@ -22,6 +22,8 @@
 
 - [assets.md](assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
+- [codec-view-migration.md](codec-view-migration.md)：serialization codec 的 capability/view
+  职责收敛计划。
 - [error.md](error.md)：统一错误码、错误来源域和 `std::error_code` 适配。
 - [events.md](events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher、连接句柄和事件系统边界。
 - [enum-view-migration.md](enum-view-migration.md)：enum capability 统一绑定 `enum_view` 的迁移计划。
