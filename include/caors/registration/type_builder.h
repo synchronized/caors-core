@@ -399,14 +399,7 @@ private:
       return *this;
     }
 
-    meta::detail::property_data* property = pending_.mutable_find_property_ptr(property_name);
-    if (property == nullptr) {
-      status_ = {error_domain::meta, errc::invalid_field};
-      return *this;
-    }
-
-    property->set_metadata(key, std::move(value));
-    status_ = {};
+    status_ = pending_.set_property_metadata(property_name, key, std::move(value));
     return *this;
   }
 
@@ -417,14 +410,7 @@ private:
       return *this;
     }
 
-    meta::detail::property_data* property = pending_.mutable_find_property_ptr(property_name);
-    if (property == nullptr) {
-      status_ = {error_domain::meta, errc::invalid_field};
-      return *this;
-    }
-
-    property->apply_schema_entry(std::move(entry));
-    status_ = {};
+    status_ = pending_.apply_property_schema_entry(property_name, std::move(entry));
     return *this;
   }
 
@@ -498,12 +484,6 @@ private:
       return {};
     }
 
-    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method.name());
-    if (method_set != nullptr && method_set->contains_signature(method)) {
-      status_ = {error_domain::meta, errc::duplicate_method};
-      return {};
-    }
-
     const core::string_name method_name = method.name();
     const std::optional<std::size_t> overload_index = pending_.add_method(std::move(method));
     if (!overload_index.has_value()) {
@@ -574,16 +554,8 @@ private:
       return *this;
     }
 
-    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method_name);
-    meta::detail::method_data* method =
-        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
-    if (method == nullptr) {
-      status_ = {error_domain::meta, errc::invalid_field};
-      return *this;
-    }
-
-    method->set_metadata(key, std::move(value));
-    status_ = {};
+    status_ =
+        pending_.set_method_metadata(method_name, overload_index, key, std::move(value));
     return *this;
   }
 
@@ -594,15 +566,8 @@ private:
       return *this;
     }
 
-    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method_name);
-    meta::detail::method_data* method =
-        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
-    if (method == nullptr || !method->add_default_argument(std::move(value))) {
-      status_ = {error_domain::meta, errc::invalid_field};
-      return *this;
-    }
-
-    status_ = {};
+    status_ =
+        pending_.add_method_default_argument(method_name, overload_index, std::move(value));
     return *this;
   }
 
@@ -613,15 +578,7 @@ private:
       return *this;
     }
 
-    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method_name);
-    meta::detail::method_data* method =
-        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
-    if (method == nullptr || !method->add_parameter_name(name)) {
-      status_ = {error_domain::meta, errc::invalid_field};
-      return *this;
-    }
-
-    status_ = {};
+    status_ = pending_.add_method_parameter_name(method_name, overload_index, name);
     return *this;
   }
 

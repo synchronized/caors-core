@@ -240,13 +240,7 @@ private:
       return *this;
     }
 
-    meta::detail::enum_value_data* enum_value = pending_.mutable_find_enum_value_ptr(value_name);
-    if (enum_value == nullptr) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return *this;
-    }
-
-    enum_value->set_metadata(key, std::move(value));
+    status_ = pending_.set_enum_value_metadata(value_name, key, std::move(value));
     return *this;
   }
 

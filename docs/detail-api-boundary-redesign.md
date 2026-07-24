@@ -133,6 +133,14 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 完成标准：registration builder 不直接取得 pending 内部节点的可变指针。
 
+当前进展：
+
+- 属性 metadata、属性 schema、方法 metadata、默认参数、参数名及枚举项 metadata
+  已改由 `pending_type_record` 的语义化事务方法修改；
+- builder 不再取得对应的 `property_data*`、`method_set_data*` 或 `enum_value_data*`；
+- 枚举类型级 metadata 仍通过可变 extension 指针写入，下一步将其收敛为事务方法；
+- Clang Debug 单线程全量构建完成，75 项测试全部通过。
+
 ### 阶段 5：验证和文档
 
 - 运行 MSVC、Clang 的 Debug/Release 单线程全量构建与测试；

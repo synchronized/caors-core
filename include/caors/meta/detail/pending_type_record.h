@@ -62,13 +62,56 @@ public:
   [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept {
     return data_.find_property_ptr(name);
   }
-  [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept {
-    return data_.mutable_find_property_ptr(name);
+  [[nodiscard]] error set_property_metadata(string_name name, metadata_key key,
+                                            metadata_value value) {
+    property_data* property = data_.mutable_find_property_ptr(name);
+    if (property == nullptr || !key) {
+      return {error_domain::meta, errc::invalid_field};
+    }
+    property->set_metadata(key, std::move(value));
+    return {};
+  }
+  [[nodiscard]] error apply_property_schema_entry(
+      string_name name, registration::property_schema_entry entry) {
+    property_data* property = data_.mutable_find_property_ptr(name);
+    if (property == nullptr) {
+      return {error_domain::meta, errc::invalid_field};
+    }
+    property->apply_schema_entry(std::move(entry));
+    return {};
   }
   void add_property(property_data property) { data_.add_property(std::move(property)); }
 
-  [[nodiscard]] method_set_data* mutable_find_method_ptr(string_name name) noexcept {
-    return data_.mutable_find_method_ptr(name);
+  [[nodiscard]] error set_method_metadata(string_name name, std::size_t overload_index,
+                                          metadata_key key, metadata_value value) {
+    method_set_data* method_set = data_.mutable_find_method_ptr(name);
+    method_data* method =
+        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
+    if (method == nullptr || !key) {
+      return {error_domain::meta, errc::invalid_field};
+    }
+    method->set_metadata(key, std::move(value));
+    return {};
+  }
+  [[nodiscard]] error add_method_default_argument(string_name name, std::size_t overload_index,
+                                                  any value) {
+    method_set_data* method_set = data_.mutable_find_method_ptr(name);
+    method_data* method =
+        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
+    if (method == nullptr || !method->add_default_argument(std::move(value))) {
+      return {error_domain::meta, errc::invalid_field};
+    }
+    return {};
+  }
+  [[nodiscard]] error add_method_parameter_name(string_name method_name,
+                                                std::size_t overload_index, string_name name) {
+    method_set_data* method_set = data_.mutable_find_method_ptr(method_name);
+    method_data* method =
+        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
+    if (method == nullptr || !method->add_parameter_name(name)) {
+      return {error_domain::meta, errc::invalid_field};
+    }
+    return {};
   }
   [[nodiscard]] std::optional<std::size_t> add_method(method_data method) {
     return data_.add_method(std::move(method));
@@ -81,8 +124,14 @@ public:
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept {
     return data_.find_enum_value_ptr(name);
   }
-  [[nodiscard]] enum_value_data* mutable_find_enum_value_ptr(string_name name) noexcept {
-    return data_.mutable_find_enum_value_ptr(name);
+  [[nodiscard]] error set_enum_value_metadata(string_name name, metadata_key key,
+                                              metadata_value value) {
+    enum_value_data* enum_value = data_.mutable_find_enum_value_ptr(name);
+    if (enum_value == nullptr || !key) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+    enum_value->set_metadata(key, std::move(value));
+    return {};
   }
   void add_enum_value(enum_value_data value) { data_.add_enum_value(std::move(value)); }
 
