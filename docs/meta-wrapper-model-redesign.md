@@ -41,7 +41,7 @@ property_model.h / method_model.h
 
 ## 阶段
 
-### 阶段 1：属性行为内聚
+### 阶段 1：属性行为内聚（已完成）
 
 - 将 `meta::value` 读取、赋值和精确类型回退移入 `property_data`；
 - `property.cpp` 只保留公共对象有效性检查和转发；
@@ -49,6 +49,14 @@ property_model.h / method_model.h
 - 保持 `property_accessor` 的提交期快速访问路径不变。
 
 完成标准：属性运行时转换不再由 `property.cpp` 的匿名 namespace helper 编排。
+
+实施结果：
+
+- `property_data` 新增统一运行期值读取和写入成员函数；
+- `meta::value` 快速转换、已知标量转换和精确类型回退已迁移到
+  `src/caors/meta/detail/property_data.cpp`；
+- `property.cpp` 仅检查公共 handle 与 instance 状态，然后转发给内部 wrapper；
+- Clang Debug 的头文件自包含、属性、value 和序列化核心专项测试全部通过。
 
 ### 阶段 2：方法行为内聚
 

@@ -312,6 +312,15 @@ public:
     return valid() && ops_.set_value(*this, object, source);
   }
 
+  /** @brief 读取只读对象属性并转换为统一运行期值。 */
+  [[nodiscard]] meta::value get_runtime_value(const void* object) const;
+
+  /** @brief 读取可写对象属性并转换为统一运行期值。 */
+  [[nodiscard]] meta::value get_runtime_value(void* object) const;
+
+  /** @brief 将统一运行期值转换并写入属性。 */
+  [[nodiscard]] bool try_set_runtime_value(void* object, const meta::value& source) const;
+
   /** @brief 按指定类型读取属性值。 */
   template <typename Property>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Property>>>

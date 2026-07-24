@@ -3,7 +3,6 @@
 
 #include "caors/meta/property.h"
 #include "caors/meta/detail/property_data.h"
-#include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
@@ -11,10 +10,6 @@
 #include "caors/meta/value/any_ref.h"
 #include "caors/meta/value/value.h"
 #include "caors/meta/value_ops.h"
-
-#include <optional>
-#include <string>
-#include <utility>
 
 namespace caors::meta {
 namespace {
@@ -28,90 +23,6 @@ namespace {
 [[nodiscard]] const meta::property_schema& empty_property_schema() noexcept {
   static const meta::property_schema empty{};
   return empty;
-}
-
-[[nodiscard]] bool try_assign_value(any_ref target, const meta::value& source) {
-  if (!target) {
-    return false;
-  }
-
-  if (source.is_ref()) {
-    return target.try_set(source.as_ref());
-  }
-
-  if (source.is_any()) {
-    const any* source_any = source.try_as_any();
-    return source_any != nullptr && target.try_set(*source_any);
-  }
-
-  if (detail::try_assign_value_to_known_ref<
-          bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
-          unsigned long, long long, unsigned long long, float, double, long double,
-          core::string_name, core::string, std::string, meta::object*>(target, source)) {
-    return true;
-  }
-
-  any copied = source.to_any();
-  return copied && target.try_set(copied);
-}
-
-template <typename Target>
-[[nodiscard]] std::optional<any> try_make_exact_any_for_type(meta::type expected,
-                                                             const meta::value& source) {
-  using target_type = detail::value_conversion_type<Target>;
-  const meta::type actual = meta::resolve<target_type>();
-  if (!expected || !actual || expected.id() != actual.id()) {
-    return std::nullopt;
-  }
-
-  std::optional<target_type> converted = detail::try_value_convert<target_type>(source);
-  if (!converted.has_value()) {
-    return std::nullopt;
-  }
-
-  return any::from(*converted);
-}
-
-template <typename... Targets>
-[[nodiscard]] std::optional<any> try_make_exact_any_from_known(meta::type expected,
-                                                               const meta::value& source) {
-  std::optional<any> result{};
-  (([&] {
-     if (!result.has_value()) {
-       result = try_make_exact_any_for_type<Targets>(expected, source);
-     }
-   }()),
-   ...);
-  return result;
-}
-
-[[nodiscard]] std::optional<any> try_make_exact_property_any(meta::type expected,
-                                                             const meta::value& source) {
-  if (!expected) {
-    return std::nullopt;
-  }
-
-  if (source.is_ref()) {
-    meta::any_ref ref = source.as_ref();
-    if (ref && ref.get_type().id() == expected.id()) {
-      return ref.to_any();
-    }
-    return std::nullopt;
-  }
-
-  if (source.is_any()) {
-    const any* source_any = source.try_as_any();
-    if (source_any != nullptr && source_any->valid() &&
-        source_any->get_type().id() == expected.id()) {
-      return *source_any;
-    }
-    return std::nullopt;
-  }
-
-  return try_make_exact_any_from_known<
-      bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
-      unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
-      core::string, std::string, std::string_view, meta::object*>(expected, source);
 }
 
 } // namespace
@@ -221,31 +132,19 @@ any property::get_any() const {
 }
 
 meta::value property::get_value(const instance& object) const {
-  if (std::optional<meta::value> fast_value = detail::try_make_value_from_ref(get_ref(object));
-      fast_value.has_value()) {
-    return std::move(*fast_value);
+  const detail::property_data* property = info();
+  if (property == nullptr || !object) {
+    return {};
   }
-
-  any result = get_any(object);
-  if (std::optional<meta::value> fast_value = detail::try_make_value_from_any(result);
-      fast_value.has_value()) {
-    return std::move(*fast_value);
-  }
-  return result ? meta::value::from_any(std::move(result)) : meta::value{};
+  return object.writable() ? property->get_runtime_value(object.mutable_data())
+                           : property->get_runtime_value(object.data());
 }
 
 meta::value property::get_value() const {
-  if (std::optional<meta::value> fast_value = detail::try_make_value_from_ref(get_ref());
-      fast_value.has_value()) {
-    return std::move(*fast_value);
-  }
-
-  any result = get_any();
-  if (std::optional<meta::value> fast_value = detail::try_make_value_from_any(result);
-      fast_value.has_value()) {
-    return std::move(*fast_value);
-  }
-  return result ? meta::value::from_any(std::move(result)) : meta::value{};
+  const detail::property_data* property = info();
+  return property != nullptr
+             ? property->get_runtime_value(static_cast<const void*>(nullptr))
+             : meta::value{};
 }
 
 any_ref property::get_ref(const instance& object) const {
@@ -286,31 +185,16 @@ bool property::try_set_any(const any& source) const {
 }
 
 bool property::try_set_value(const instance& object, const meta::value& source) const {
-  if (try_assign_value(get_ref(object), source)) {
-    return true;
-  }
-
   const detail::property_data* property = info();
   if (property == nullptr || !object.writable()) {
     return false;
   }
-
-  std::optional<any> exact = try_make_exact_property_any(get_type(), source);
-  return exact.has_value() && property->try_set_value(object.mutable_data(), *exact);
+  return property->try_set_runtime_value(object.mutable_data(), source);
 }
 
 bool property::try_set_value(const meta::value& source) const {
-  if (try_assign_value(get_ref(), source)) {
-    return true;
-  }
-
   const detail::property_data* property = info();
-  if (property == nullptr) {
-    return false;
-  }
-
-  std::optional<any> exact = try_make_exact_property_any(get_type(), source);
-  return exact.has_value() && property->try_set_value(nullptr, *exact);
+  return property != nullptr && property->try_set_runtime_value(nullptr, source);
 }
 
 bool property::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }
