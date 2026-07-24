@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计完成，尚未实施；
+- 当前状态：property 迁移已完成，method 尚未实施；
 - 首要范围：property 注册模型与运行时记录边界；
 - 后续范围：method，必要时再评估 constructor 与 type model；
 - 设计取代：本计划取代
@@ -389,6 +389,20 @@ constructor 暂不随 property 第一阶段迁移。property 和 method 完成�
 - 保持 metadata/schema 行为；
 - 更新 pending/commit/module property 所有权链路。
 
+实施结果：
+
+- 新增非拥有 `request_payload` 和 move-only `property_wrapper`；
+- `property_record` 已删除固定 `property_ops`、四指针内联 storage、offset、kind 和 writable
+  状态，只保留名称、schema、metadata 与 opaque wrapper；
+- member、accessor 和 global property 已统一为
+  `state + invoke + destroy + resource` 模型；
+- property 记录在 pending、type 和 module 链路中按移动传递；
+- 公共 `meta::property` API、注册语法和序列化格式未改变。
+
+现有成员属性注册接口接收运行期成员指针，member model 因此仍需保存提交期计算的 offset，
+当前由 wrapper 通过 library resource 持有。未来若增加 `property<&T::member>()` 非类型模板参数
+入口，可进一步生成无状态 member wrapper；该优化不阻塞本轮 ABI 边界迁移。
+
 ### 阶段 3：Property 热路径与验证
 
 - 迁移 `compile_property_accessor()`；
@@ -396,6 +410,16 @@ constructor 暂不随 property 第一阶段迁移。property 和 method 完成�
 - 验证精确 any、高层 value、const 与 writable 语义；
 - 验证 serialization property 路径；
 - 对比迁移前后尺寸、分配和访问性能。
+
+实施结果：
+
+- compiled member accessor 在编译时缓存 offset、value type 和 writable，读取与写入不经过
+  wrapper dispatch；
+- accessor/global compiled accessor 继续通过稳定 `property_record` 转发；
+- Windows Clang Debug 使用单线程完成 cross-module、property、registry、registry-view、
+  value 和 serialization-core 构建；
+- 上述 6 项测试及公共头文件自包含测试全部通过；
+- property 尺寸与分配 benchmark 尚未补充，作为后续性能复验项保留。
 
 ### 阶段 4：Method wrapper
 

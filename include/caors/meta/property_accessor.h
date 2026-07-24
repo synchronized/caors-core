@@ -7,6 +7,8 @@
 #include "caors/export.h"
 #include "caors/meta/property.h"
 
+#include <cstddef>
+
 namespace caors::meta {
 
 /**
@@ -31,11 +33,16 @@ public:
 private:
   friend property_accessor compile_property_accessor(const property& source) noexcept;
 
-  property_accessor(const void* state, meta::type value_type) noexcept
-      : state_(state), value_type_(value_type) {}
+  property_accessor(const void* state, meta::type value_type, std::size_t offset, bool member,
+                    bool writable) noexcept
+      : state_(state), value_type_(value_type), offset_(offset), member_(member),
+        writable_(writable) {}
 
   const void* state_ = nullptr;
   meta::type value_type_{};
+  std::size_t offset_ = 0;
+  bool member_ = false;
+  bool writable_ = false;
 };
 
 /**
