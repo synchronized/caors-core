@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：待实施；
+- 当前状态：已完成（MSVC 待 Developer PowerShell 环境复验）；
 - 实施范围：`any_ref` API、object factory 注册、adapter 可见性规范和模型一致性诊断。
 
 ## 目标结构
@@ -35,13 +35,13 @@ CAORS any / any_ref
 
 ### any_ref 类型安全入口
 
-现有：
+原公共入口：
 
 ```cpp
 any_ref::from_raw(meta::type, const void*, bool writable);
 ```
 
-允许调用方错误组合类型、地址和可写性。公共入口应收敛为模板接口：
+该入口允许调用方错误组合类型、地址和可写性，现已替换为模板接口：
 
 ```cpp
 template <typename T>
@@ -55,7 +55,7 @@ template <typename T>
 - 根据 `T` 的 const 性自动推导 writable；
 - 空地址或类型不匹配时返回无效引用。
 
-只有 `meta::type + void*` 的内部流程保留私有擦除入口：
+只有 `meta::type + void*` 的内部流程使用私有擦除入口：
 
 ```cpp
 [[nodiscard]] static any_ref from_erased(
@@ -71,12 +71,12 @@ template <typename T>
 - sequence、set、associative、pair、tuple、variant 和 indirect view；
 - serialization schema 与动态值分派。
 
-`property_model` 等仍然知道具体 `T` 的位置应迁移到模板入口。
+`property_model` 等仍然知道具体 `T` 的位置已迁移到模板入口。
 
 ### object factory 自动注册
 
 `object_factory_ops` 是 object 类型级创建能力，不是已有值的实例能力。提交
-`registration::type_<T>()` 时，如果 `T` 继承 `meta::object`，应自动生成并添加对应
+`registration::type_<T>()` 时，如果 `T` 继承 `meta::object`，会自动生成并添加对应
 `object_factory_ops`。
 
 相关能力归属保持明确：
@@ -121,44 +121,24 @@ registration::type_<T>();
 
 ## 模型一致性诊断
 
-统一 adapter 头是正确性要求；模型签名只是辅助诊断。
+统一 adapter 头是正确性要求；注册边界上的模型比较是辅助诊断。
 
-Debug 构建可为注册输入保存：
+`type_record::static_model_matches()` 直接比较：
 
-```cpp
-struct type_model_signature {
-  type_id id{};
-  type_layout layout{};
-  type_kind kind = type_kind::value;
-  std::uint64_t builtin_mask = 0;
-  std::uint64_t static_capability_hash = 0;
-};
-```
+- 类型 ID、大小和对齐；
+- 平凡复制、析构和默认构造 traits；
+- 默认构造、复制、析构、赋值及资源构造/析构操作是否可用；
+- type kind、wrapper semantics、indirect 和 nullable；
+- builtin ops 的互斥分支；
+- static capability 的数量、key 顺序和有效性。
 
-签名规则：
-
-- builtin 使用固定 bit；
-- static capability 使用排序后的稳定描述计算 hash；
-- 优先使用 `capability_traits<Capability>` 的 stable GUID、name 和 version；
-- 不使用 vtable、ops 或 `capability_key` 指针地址计算稳定签名；
-- 没有稳定描述的 custom capability 只参与当前进程内的详细集合比较。
-
-`pending_type_record::validate()` 和 registry commit 比较同一 `type_id` 的已发布签名。发现不一致
-时返回 `errc::inconsistent_type_model`，Debug 诊断列出 builtin 和 capability 差异。
-
-普通 inline `resolve<T>()` 内的签名检查不可靠，因为函数本身也可能被 COMDAT 合并。专项测试可
-使用 TU-local probe：
-
-```cpp
-CAORS_VALIDATE_META_TYPE(T);
-```
-
-该宏在匿名 namespace 生成本地对象，直接提交当前翻译单元计算的签名。它只用于 Debug 和
-跨翻译单元反例测试，不要求普通业务 cpp 使用。
+比较不使用 vtable 或 ops 函数地址，也不额外保存一份可能失真的哈希事实源。
+registry 遇到同一 `type_id` 的模型不一致时返回 `errc::inconsistent_type_model`；一致模型继续
+维持原有 `duplicate_id` 语义。
 
 ## 分阶段实施
 
-### 阶段 1：收敛 any_ref API
+### 阶段 1：收敛 any_ref API（已完成）
 
 - 增加显式 `meta::type + T*` 的类型安全模板入口；
 - const 性由 `T` 自动推导；
@@ -169,7 +149,7 @@ CAORS_VALIDATE_META_TYPE(T);
 
 完成标准：普通调用者不能自行组合错误的类型、地址和 writable 标志。
 
-### 阶段 2：object factory 自动注册
+### 阶段 2：object factory 自动注册（已完成）
 
 - object 子类提交时自动生成 `object_factory_ops`；
 - 保持 factory、constructor 和 `allow_type_default_construction` 的既定优先级；
@@ -178,24 +158,30 @@ CAORS_VALIDATE_META_TYPE(T);
 
 完成标准：object 基础创建能力不需要用户重复声明，且不污染包装类型 capability 边界。
 
-### 阶段 3：补充 ODR 规范与诊断
+### 阶段 3：补充 ODR 规范与诊断（已完成）
 
 - 在公开文档中增加统一 adapter 头规则；
-- 增加 `type_model_signature`；
-- pending/commit 比较同一 `type_id` 的模型签名；
-- 增加 `inconsistent_type_model` 错误与差异诊断；
-- 增加仅供 Debug/测试使用的 TU-local probe；
-- 编写两个翻译单元特化可见性相同与不同的正反测试。
+- 在 `type_record` 上增加静态模型逐项比较；
+- registry 发布边界比较同一 `type_id` 的静态模型；
+- 增加 `inconsistent_type_model` 错误；
+- 补充兼容与不兼容静态模型测试。
 
 完成标准：注册或专项测试遇到不同模型时明确失败，而不是由链接器静默任选一份。
 
-### 阶段 4：清理与验证
+### 阶段 4：清理与验证（MSVC 待环境复验）
 
 - 确认 `type_record` 仍是值操作和 capability 的单一事实源；
 - 运行 meta、value、object、property、view 和 serialization 测试；
-- Windows MSVC Debug 与 Windows Clang Debug 均使用单线程构建。
+- Windows Clang Debug 使用单线程构建；MSVC 在 Developer PowerShell 中使用相同策略复验。
 
 完成标准：边界改造通过相关构建和测试。
+
+验证结果：
+
+- Windows Clang Debug 单线程完成 cross-module、property、registry、static type record、
+  value、object type 和 serialization core 构建；
+- 上述 7 组测试全部通过；
+- 当前 PowerShell 未加载 Visual Studio 开发环境，`cl.exe` 不在 `PATH`，MSVC 本轮未复验。
 
 ## 验证计划
 
@@ -204,8 +190,7 @@ CAORS_VALIDATE_META_TYPE(T);
 - view：sequence、set、associative、pair、tuple、variant 和 indirect；
 - object：自动 factory、不可构造类型、重复注册和失败回滚；
 - static capability：`ptr_ops`、`handle_ops`、`codec_ops` 和 custom capability；
-- ODR 正例：两个 cpp 包含同一 adapter 头，模型签名一致；
-- ODR 反例：两个 cpp 的 codec 或 builtin traits 可见性不同，TU-local probe 报告
+- static model：兼容模型匹配，不同布局或能力模型不匹配并返回
   `inconsistent_type_model`；
 - serialization：codec、字段读写、多态对象和默认构造开关。
 

@@ -459,6 +459,9 @@ static capability 依赖模板特化可见性。用户类型及其 `codec_traits
 静态名称和稳定 GUID 统一由 `traits::type_identity<T>` 提供；默认名称兼容
 `traits::type_name<T>`，object 模块将 `object_type_name/static_type_guid` 适配到同一入口。
 显式注册名称或 GUID 与静态声明冲突时，pending 校验返回 `errc::inconsistent_type`，不会发布部分记录。
+registry 重复遇到同一 `type_id` 时还会逐项比较布局、值操作可用性、类型语义、builtin 分支和
+静态 capability；模型不同返回 `errc::inconsistent_type_model`，一致模型保持
+`errc::duplicate_id` 语义。
 普通用户通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或
 性能敏感路径时，可以使用高级扩展入口 `get_raw_ops<T>()` 查询 raw ops 函数表。

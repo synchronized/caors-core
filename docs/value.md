@@ -185,10 +185,13 @@ caors::meta::owned_value value =
 常见来源：
 
 - `caors::any_ref::from(value)`：引用普通 C++ 对象。
+- `caors::any_ref::from(runtime_type, pointer)`：显式传入运行期类型，并校验其与指针静态类型的
+  ID、大小和对齐；可写性由指针的 const 性自动推导。
 - `meta::property::get_ref(object)`：引用反射属性。
 - view 的 `element_ref()`、`value_ref()`、`first_ref()` 等：引用容器元素或结构内部值。
 
 `any_ref` 可以写回同类型值；只读引用、类型不匹配或底层类型不支持赋值时返回失败。
+完全擦除的 `meta::type + void*` 构造入口仅供 any、property、view 和 serialization 内部使用。
 
 ## 运行期视图
 

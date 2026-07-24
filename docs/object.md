@@ -545,7 +545,8 @@ manager.destroy(instance);
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力；底层 raw
-  ops 保存在 `objects::detail::object_factory_ops`，不作为普通公开入口。
+  ops 保存在 `objects::detail::object_factory_ops`，在 object 子类提交注册时自动挂载，不作为
+  未注册类型的 static capability 或普通公开入口。
 - `objects::contains(meta::type)` / `objects::factory()` / `objects::constructible()`：基于 `meta::type`
   查询对象类型语义和对象工厂能力。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
