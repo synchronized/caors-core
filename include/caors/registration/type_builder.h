@@ -325,7 +325,7 @@ private:
       }
 
       const objects::detail::object_factory_ops* factory =
-          meta::capabilities::get<objects::detail::object_factory_ops, value_type>();
+          objects::detail::object_factory_ops_ptr_of<value_type>();
       if (factory != nullptr &&
           !pending_.contains_capability(
               meta::capability_key_of<objects::detail::object_factory_ops>())) {

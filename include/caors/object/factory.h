@@ -79,27 +79,6 @@ template <typename T> [[nodiscard]] const object_factory_ops* object_factory_ops
 
 } // namespace caors::objects::detail
 
-namespace caors::meta::capabilities {
-
-template <typename T> struct static_capability<objects::detail::object_factory_ops, T> {
-  [[nodiscard]] static const objects::detail::object_factory_ops* get() {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (std::is_base_of_v<meta::object, value_type>) {
-      return objects::detail::object_factory_ops_ptr_of<value_type>();
-    } else {
-      return nullptr;
-    }
-  }
-};
-
-template <typename T>
-  requires std::is_base_of_v<meta::object, std::remove_cv_t<std::remove_reference_t<T>>>
-struct module_static_capability_list<object_static_capability_module, T> {
-  using type = type_list<objects::detail::object_factory_ops>;
-};
-
-} // namespace caors::meta::capabilities
-
 namespace caors::objects {
 
 /** @brief 直接创建指定 C++ 类型的对象。 */
