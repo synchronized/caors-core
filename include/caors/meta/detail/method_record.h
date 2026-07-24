@@ -8,6 +8,7 @@
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/detail/argument_access.h"
+#include "caors/meta/detail/request_payload.h"
 #include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
@@ -89,6 +90,235 @@ struct method_ops {
   }
 };
 
+enum class method_request_kind : std::uint32_t {
+  owner_type = 1,
+  return_type = 2,
+  parameter_count = 3,
+  parameter_type = 4,
+  rank_arguments = 5,
+  prepare_arguments = 6,
+  invoke = 7,
+  rank_value_arguments = 8,
+  invoke_value = 9,
+};
+
+struct method_type_request {
+  const method_record* method = nullptr;
+  meta::type result{};
+};
+
+struct method_parameter_count_request {
+  const method_record* method = nullptr;
+  std::size_t result = 0;
+};
+
+struct method_parameter_type_request {
+  const method_record* method = nullptr;
+  std::size_t index = 0;
+  std::optional<meta::type> result{};
+};
+
+struct method_rank_arguments_request {
+  const method_record* method = nullptr;
+  std::span<const argument> arguments{};
+  argument_match_options options{};
+  argument_match_rank result = argument_match_rank::none;
+};
+
+struct method_prepare_arguments_request {
+  const method_record* method = nullptr;
+  std::span<const argument> arguments{};
+  argument_match_options options{};
+  vector<argument> result{};
+};
+
+struct method_invoke_request {
+  const method_record* method = nullptr;
+  const void* object = nullptr;
+  bool mutable_object = false;
+  std::span<const argument> arguments{};
+  invoke_result result{};
+};
+
+struct method_rank_value_arguments_request {
+  const method_record* method = nullptr;
+  std::span<const meta::value> arguments{};
+  argument_match_options options{};
+  argument_match_rank result = argument_match_rank::none;
+};
+
+struct method_invoke_value_request {
+  const method_record* method = nullptr;
+  const void* object = nullptr;
+  bool mutable_object = false;
+  std::span<const meta::value> arguments{};
+  invoke_value_result result{};
+};
+
+struct method_callable_storage_base {
+  virtual ~method_callable_storage_base() = default;
+};
+
+template <typename Callable>
+struct method_callable_storage_model final : method_callable_storage_base {
+  template <typename Value>
+  explicit method_callable_storage_model(Value&& stored) : value(std::forward<Value>(stored)) {}
+
+  Callable value;
+};
+
+struct method_wrapper_state {
+  static constexpr std::size_t storage_size = sizeof(void*) * 4U;
+
+  method_ops ops{};
+  alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
+  std::shared_ptr<const method_callable_storage_base> callable{};
+};
+
+class method_wrapper final {
+public:
+  using invoke_fn = bool (*)(void*, method_request_kind, request_payload);
+  using destroy_fn = void (*)(void*, memory::memory_resource*) noexcept;
+
+  method_wrapper() noexcept = default;
+  explicit method_wrapper(method_ops ops)
+      : resource_(&memory::library_resource()),
+        state_(memory::make<method_wrapper_state>(resource_, method_wrapper_state{ops})),
+        invoke_(&dispatch), destroy_(&destroy) {}
+
+  method_wrapper(const method_wrapper&) = delete;
+  method_wrapper& operator=(const method_wrapper&) = delete;
+  method_wrapper(method_wrapper&& other) noexcept
+      : resource_(std::exchange(other.resource_, nullptr)),
+        state_(std::exchange(other.state_, nullptr)),
+        invoke_(std::exchange(other.invoke_, nullptr)),
+        destroy_(std::exchange(other.destroy_, nullptr)) {}
+  method_wrapper& operator=(method_wrapper&& other) noexcept {
+    if (this != &other) {
+      reset();
+      resource_ = std::exchange(other.resource_, nullptr);
+      state_ = std::exchange(other.state_, nullptr);
+      invoke_ = std::exchange(other.invoke_, nullptr);
+      destroy_ = std::exchange(other.destroy_, nullptr);
+    }
+    return *this;
+  }
+  ~method_wrapper() { reset(); }
+
+  [[nodiscard]] bool valid() const noexcept {
+    return state_ != nullptr && invoke_ != nullptr &&
+           static_cast<const method_wrapper_state*>(state_)->ops.valid();
+  }
+
+  [[nodiscard]] bool invoke(method_request_kind kind, request_payload payload) const {
+    return valid() && invoke_(state_, kind, payload);
+  }
+
+  template <typename Member> void store_member(Member member) noexcept {
+    static_assert(std::is_trivially_copyable_v<Member>);
+    static_assert(sizeof(Member) <= method_wrapper_state::storage_size);
+    std::memcpy(static_cast<method_wrapper_state*>(state_)->storage.data(), &member,
+                sizeof(Member));
+  }
+
+  template <typename Member> [[nodiscard]] Member load_member() const noexcept {
+    Member member{};
+    std::memcpy(&member, static_cast<const method_wrapper_state*>(state_)->storage.data(),
+                sizeof(Member));
+    return member;
+  }
+
+  template <typename Callable> void store_callable(Callable&& callable) {
+    using value_type = std::decay_t<Callable>;
+    static_cast<method_wrapper_state*>(state_)->callable =
+        std::make_shared<method_callable_storage_model<value_type>>(
+            std::forward<Callable>(callable));
+  }
+
+  template <typename Callable> [[nodiscard]] const Callable* callable() const noexcept {
+    const auto* storage = dynamic_cast<const method_callable_storage_model<Callable>*>(
+        static_cast<const method_wrapper_state*>(state_)->callable.get());
+    return storage != nullptr ? &storage->value : nullptr;
+  }
+
+private:
+  static bool dispatch(void* erased, method_request_kind kind, request_payload payload) {
+    auto& state = *static_cast<method_wrapper_state*>(erased);
+    switch (kind) {
+    case method_request_kind::owner_type: {
+      auto& request = payload.get<method_type_request>();
+      request.result = state.ops.get_owner_type(*request.method);
+      return true;
+    }
+    case method_request_kind::return_type: {
+      auto& request = payload.get<method_type_request>();
+      request.result = state.ops.get_return_type(*request.method);
+      return true;
+    }
+    case method_request_kind::parameter_count: {
+      auto& request = payload.get<method_parameter_count_request>();
+      request.result = state.ops.parameter_count(*request.method);
+      return true;
+    }
+    case method_request_kind::parameter_type: {
+      auto& request = payload.get<method_parameter_type_request>();
+      request.result = state.ops.get_parameter_type(*request.method, request.index);
+      return true;
+    }
+    case method_request_kind::rank_arguments: {
+      auto& request = payload.get<method_rank_arguments_request>();
+      request.result =
+          state.ops.rank_arguments(*request.method, request.arguments, request.options);
+      return true;
+    }
+    case method_request_kind::prepare_arguments: {
+      auto& request = payload.get<method_prepare_arguments_request>();
+      request.result =
+          state.ops.prepare_arguments(*request.method, request.arguments, request.options);
+      return true;
+    }
+    case method_request_kind::invoke: {
+      auto& request = payload.get<method_invoke_request>();
+      request.result = state.ops.invoke(*request.method, request.object, request.mutable_object,
+                                        request.arguments);
+      return true;
+    }
+    case method_request_kind::rank_value_arguments: {
+      auto& request = payload.get<method_rank_value_arguments_request>();
+      request.result =
+          state.ops.rank_value_arguments(*request.method, request.arguments, request.options);
+      return true;
+    }
+    case method_request_kind::invoke_value: {
+      auto& request = payload.get<method_invoke_value_request>();
+      request.result = state.ops.invoke_value(*request.method, request.object,
+                                              request.mutable_object, request.arguments);
+      return true;
+    }
+    }
+    return false;
+  }
+
+  static void destroy(void* state, memory::memory_resource* resource) noexcept {
+    memory::destroy(static_cast<method_wrapper_state*>(state), resource);
+  }
+
+  void reset() noexcept {
+    if (state_ != nullptr && destroy_ != nullptr) {
+      destroy_(state_, resource_);
+    }
+    resource_ = nullptr;
+    state_ = nullptr;
+    invoke_ = nullptr;
+    destroy_ = nullptr;
+  }
+
+  memory::memory_resource* resource_ = nullptr;
+  void* state_ = nullptr;
+  invoke_fn invoke_ = nullptr;
+  destroy_fn destroy_ = nullptr;
+};
+
 /**
  * @brief 底层成员方法反射元信息。
  *
@@ -96,62 +326,19 @@ struct method_ops {
  * 返回值通过 `invoke_result` 区分失败、`void` 成功、拥有值返回和引用返回。
  */
 class method_record final {
-private:
-  struct callable_storage_base {
-    virtual ~callable_storage_base() = default;
-  };
-
-  template <typename Callable> struct callable_storage_model final : callable_storage_base {
-    template <typename Value>
-    explicit callable_storage_model(Value&& stored) : value(std::forward<Value>(stored)) {}
-
-    Callable value;
-  };
-
 public:
-  static constexpr std::size_t storage_size = sizeof(void*) * 4U;
-
   method_record() noexcept = default;
 
-  method_record(string_name method_name, method_ops method_operations, bool is_const_method) noexcept
-      : name_(method_name), ops_(method_operations), const_method_(is_const_method) {}
+  method_record(string_name method_name, method_ops method_operations, bool is_const_method)
+      : name_(method_name), const_method_(is_const_method), wrapper_(method_operations) {}
 
-  method_record(const method_record& other)
-      : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
-        const_method_(other.const_method_), callable_(other.callable_),
-        default_arguments_(other.default_arguments_), parameter_names_(other.parameter_names_) {
-    if (other.metadata_ != nullptr) {
-      metadata_ =
-          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
-    }
-  }
-
-  method_record& operator=(const method_record& other) {
-    if (this == &other) {
-      return *this;
-    }
-
-    name_ = other.name_;
-    storage_ = other.storage_;
-    ops_ = other.ops_;
-    const_method_ = other.const_method_;
-    callable_ = other.callable_;
-    default_arguments_ = other.default_arguments_;
-    parameter_names_ = other.parameter_names_;
-    if (other.metadata_ != nullptr) {
-      metadata_ =
-          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
-    } else {
-      metadata_.reset();
-    }
-    return *this;
-  }
-
+  method_record(const method_record&) = delete;
+  method_record& operator=(const method_record&) = delete;
   method_record(method_record&&) noexcept = default;
   method_record& operator=(method_record&&) noexcept = default;
   ~method_record() = default;
 
-  [[nodiscard]] bool valid() const noexcept { return !name_.empty() && ops_.valid(); }
+  [[nodiscard]] bool valid() const noexcept { return !name_.empty() && wrapper_.valid(); }
 
   [[nodiscard]] string_name name() const noexcept { return name_; }
   [[nodiscard]] bool const_method() const noexcept { return const_method_; }
@@ -171,12 +358,30 @@ public:
     meta::set_metadata(*metadata_, key, std::move(value));
   }
 
-  [[nodiscard]] meta::type get_owner_type() const noexcept { return ops_.get_owner_type(*this); }
-  [[nodiscard]] meta::type get_return_type() const noexcept { return ops_.get_return_type(*this); }
-  [[nodiscard]] std::size_t parameter_count() const noexcept { return ops_.parameter_count(*this); }
+  [[nodiscard]] meta::type get_owner_type() const noexcept {
+    method_type_request request{this};
+    return wrapper_.invoke(method_request_kind::owner_type, request_payload{request})
+               ? request.result
+               : meta::type{};
+  }
+  [[nodiscard]] meta::type get_return_type() const noexcept {
+    method_type_request request{this};
+    return wrapper_.invoke(method_request_kind::return_type, request_payload{request})
+               ? request.result
+               : meta::type{};
+  }
+  [[nodiscard]] std::size_t parameter_count() const noexcept {
+    method_parameter_count_request request{this};
+    return wrapper_.invoke(method_request_kind::parameter_count, request_payload{request})
+               ? request.result
+               : 0;
+  }
 
   [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept {
-    return ops_.get_parameter_type(*this, index);
+    method_parameter_type_request request{this, index};
+    return wrapper_.invoke(method_request_kind::parameter_type, request_payload{request})
+               ? request.result
+               : std::nullopt;
   }
 
   [[nodiscard]] string_name get_parameter_name(std::size_t index) const noexcept {
@@ -200,40 +405,40 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const argument> arguments,
                                                argument_match_options options = {}) const noexcept {
-    if (ops_.rank_arguments(*this, arguments, {}) == argument_match_rank::exact) {
+    if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
 
-    const argument_match_rank direct_rank = ops_.rank_arguments(*this, arguments, options);
+    const argument_match_rank direct_rank = rank_model_arguments(arguments, options);
     if (direct_rank != argument_match_rank::none) {
       return direct_rank;
     }
 
     vector<argument> completed = complete_positional_arguments(arguments, options);
-    return !completed.empty() ? ops_.rank_arguments(*this, completed, options)
+    return !completed.empty() ? rank_model_arguments(completed, options)
                               : argument_match_rank::none;
   }
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const meta::value> arguments,
                                                argument_match_options options = {}) const noexcept {
-    if (ops_.rank_value_arguments(*this, arguments, {}) == argument_match_rank::exact) {
+    if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
 
-    const argument_match_rank direct_rank = ops_.rank_value_arguments(*this, arguments, options);
+    const argument_match_rank direct_rank = rank_model_value_arguments(arguments, options);
     if (direct_rank != argument_match_rank::none) {
       return direct_rank;
     }
 
     vector<meta::value> completed = complete_value_arguments(arguments, options);
-    return !completed.empty() ? ops_.rank_value_arguments(*this, completed, options)
+    return !completed.empty() ? rank_model_value_arguments(completed, options)
                               : argument_match_rank::none;
   }
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const noexcept {
     vector<argument> completed = normalize_named_arguments(arguments, options);
-    return !completed.empty() ? ops_.rank_arguments(*this, completed, options)
+    return !completed.empty() ? rank_model_arguments(completed, options)
                               : argument_match_rank::none;
   }
 
@@ -271,7 +476,7 @@ public:
       return invoke_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    invoke_result result = ops_.invoke(*this, object, mutable_object, completed);
+    invoke_result result = invoke_model(object, mutable_object, completed);
     return result ? std::move(result)
                   : invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
@@ -294,15 +499,14 @@ public:
       return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    invoke_value_result result = ops_.invoke_value(*this, object, mutable_object, completed);
+    invoke_value_result result = invoke_model_value(object, mutable_object, completed);
     return result ? std::move(result)
                   : invoke_value_result::failed(invoke_failure_reason::invocation_failed);
   }
 
-  [[nodiscard]] invoke_value_result
-  invoke_runtime_value(const void* object, bool mutable_object,
-                       std::span<const meta::value> arguments,
-                       argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke_runtime_value(const void* object, bool mutable_object,
+                                                         std::span<const meta::value> arguments,
+                                                         argument_match_options options = {}) const;
 
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const named_argument> arguments,
@@ -321,12 +525,12 @@ public:
       return invoke_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    vector<argument> prepared = ops_.prepare_arguments(*this, completed, options);
+    vector<argument> prepared = prepare_model_arguments(completed, options);
     if (prepared.empty() && parameter_count() > 0) {
       return invoke_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    invoke_result result = ops_.invoke(*this, object, mutable_object, prepared);
+    invoke_result result = invoke_model(object, mutable_object, prepared);
     return result ? std::move(result)
                   : invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
@@ -338,28 +542,19 @@ public:
   }
 
   template <typename Member> [[nodiscard]] Member load_member_pointer() const noexcept {
-    Member member{};
-    std::memcpy(&member, storage_.data(), sizeof(Member));
-    return member;
+    return wrapper_.template load_member<Member>();
   }
 
   template <typename Member> void store_member_pointer(Member member) noexcept {
-    static_assert(std::is_trivially_copyable_v<Member>,
-                  "Member pointers must be trivially copyable");
-    static_assert(sizeof(Member) <= storage_size,
-                  "Member pointer is too large for meta method storage");
-    std::memcpy(storage_.data(), &member, sizeof(Member));
+    wrapper_.store_member(member);
   }
 
   template <typename Callable> void store_callable(Callable&& callable) {
-    using value_type = std::decay_t<Callable>;
-    callable_ =
-        std::make_shared<callable_storage_model<value_type>>(std::forward<Callable>(callable));
+    wrapper_.store_callable(std::forward<Callable>(callable));
   }
 
   template <typename Callable> [[nodiscard]] const Callable* callable() const noexcept {
-    const auto* storage = dynamic_cast<const callable_storage_model<Callable>*>(callable_.get());
-    return storage != nullptr ? &storage->value : nullptr;
+    return wrapper_.template callable<Callable>();
   }
 
   [[nodiscard]] std::size_t default_argument_count() const noexcept {
@@ -398,6 +593,46 @@ public:
   }
 
 private:
+  [[nodiscard]] argument_match_rank
+  rank_model_arguments(std::span<const argument> arguments,
+                       argument_match_options options) const noexcept {
+    method_rank_arguments_request request{this, arguments, options};
+    return wrapper_.invoke(method_request_kind::rank_arguments, request_payload{request})
+               ? request.result
+               : argument_match_rank::none;
+  }
+
+  [[nodiscard]] argument_match_rank
+  rank_model_value_arguments(std::span<const meta::value> arguments,
+                             argument_match_options options) const noexcept {
+    method_rank_value_arguments_request request{this, arguments, options};
+    return wrapper_.invoke(method_request_kind::rank_value_arguments, request_payload{request})
+               ? request.result
+               : argument_match_rank::none;
+  }
+
+  [[nodiscard]] vector<argument> prepare_model_arguments(std::span<const argument> arguments,
+                                                         argument_match_options options) const {
+    method_prepare_arguments_request request{this, arguments, options};
+    (void)wrapper_.invoke(method_request_kind::prepare_arguments, request_payload{request});
+    return std::move(request.result);
+  }
+
+  [[nodiscard]] invoke_result invoke_model(const void* object, bool mutable_object,
+                                           std::span<const argument> arguments) const {
+    method_invoke_request request{this, object, mutable_object, arguments};
+    (void)wrapper_.invoke(method_request_kind::invoke, request_payload{request});
+    return std::move(request.result);
+  }
+
+  [[nodiscard]] invoke_value_result
+  invoke_model_value(const void* object, bool mutable_object,
+                     std::span<const meta::value> arguments) const {
+    method_invoke_value_request request{this, object, mutable_object, arguments};
+    (void)wrapper_.invoke(method_request_kind::invoke_value, request_payload{request});
+    return std::move(request.result);
+  }
+
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
         typename meta::metadata_map::allocator_type{&memory::library_resource()}};
@@ -473,8 +708,8 @@ private:
 
   [[nodiscard]] vector<meta::value> prepare_value_arguments(std::span<const meta::value> arguments,
                                                             argument_match_options options) const {
-    if (ops_.rank_value_arguments(*this, arguments, {}) == argument_match_rank::exact ||
-        ops_.rank_value_arguments(*this, arguments, options) != argument_match_rank::none) {
+    if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact ||
+        rank_model_value_arguments(arguments, options) != argument_match_rank::none) {
       return vector<meta::value>{arguments.begin(), arguments.end()};
     }
 
@@ -484,11 +719,11 @@ private:
   [[nodiscard]] vector<argument>
   prepare_positional_arguments(std::span<const argument> arguments,
                                argument_match_options options) const {
-    if (ops_.rank_arguments(*this, arguments, {}) == argument_match_rank::exact) {
-      return ops_.prepare_arguments(*this, arguments, {});
+    if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
+      return prepare_model_arguments(arguments, {});
     }
 
-    vector<argument> prepared = ops_.prepare_arguments(*this, arguments, options);
+    vector<argument> prepared = prepare_model_arguments(arguments, options);
     if (!prepared.empty() || parameter_count() == 0) {
       return prepared;
     }
@@ -498,7 +733,7 @@ private:
       return {};
     }
 
-    return ops_.prepare_arguments(*this, completed, options);
+    return prepare_model_arguments(completed, options);
   }
 
   [[nodiscard]] vector<argument>
@@ -559,13 +794,11 @@ private:
   }
 
   string_name name_{};
-  alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
-  method_ops ops_{};
   bool const_method_ = false;
-  std::shared_ptr<const callable_storage_base> callable_{};
   vector<any> default_arguments_{};
   vector<string_name> parameter_names_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
+  method_wrapper wrapper_{};
 };
 
 /** @brief 同名成员方法的一组重载。 */
@@ -604,7 +837,7 @@ public:
   }
 
   [[nodiscard]] const method_record* resolve(std::span<const argument> arguments,
-                                           argument_match_options options = {}) const noexcept {
+                                             argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 
@@ -633,7 +866,7 @@ public:
   }
 
   [[nodiscard]] const method_record* resolve(std::span<const meta::value> arguments,
-                                           argument_match_options options = {}) const noexcept {
+                                             argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 
@@ -661,23 +894,20 @@ public:
     return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
 
-  [[nodiscard]] invoke_value_result
-  invoke_runtime_value(const void* object, bool mutable_object,
-                       std::span<const meta::value> arguments,
-                       argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke_runtime_value(const void* object, bool mutable_object,
+                                                         std::span<const meta::value> arguments,
+                                                         argument_match_options options = {}) const;
 
-  [[nodiscard]] invoke_result
-  invoke_result_of(const void* object, bool mutable_object,
-                   std::span<const argument> arguments,
-                   argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
+                                               std::span<const argument> arguments,
+                                               argument_match_options options = {}) const;
 
-  [[nodiscard]] invoke_result
-  invoke_result_of(const void* object, bool mutable_object,
-                   std::span<const named_argument> arguments,
-                   argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
+                                               std::span<const named_argument> arguments,
+                                               argument_match_options options = {}) const;
 
   [[nodiscard]] const method_record* resolve(std::span<const named_argument> arguments,
-                                           argument_match_options options = {}) const noexcept {
+                                             argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;
   }
 

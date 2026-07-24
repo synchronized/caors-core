@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：property 迁移已完成，method 尚未实施；
+- 当前状态：property 与 method record 边界迁移已完成；
 - 首要范围：property 注册模型与运行时记录边界；
 - 后续范围：method，必要时再评估 constructor 与 type model；
 - 设计取代：本计划取代
@@ -333,6 +333,20 @@ invoke_value
 ```
 
 `method_set_record` 继续负责重载集合、歧义判断和公共调用编排，不为集合增加模板 wrapper。
+
+实施结果：
+
+- `method_record` 已改为 move-only，不再直接保存成员函数指针 storage、callable storage 或
+  `method_ops` 字段；
+- 新增 move-only `method_wrapper` 和独立 `method_request_kind`，owner/return/parameter
+  查询、参数 rank/prepare、argument/value 调用统一通过 request dispatch；
+- 默认参数、参数名、metadata 和重载集合继续由 runtime record 管理；
+- member、const member、global function 和有状态 global callable 继续复用已验证的模板
+  model 算法，但固定 `method_ops` 已收进 wrapper 私有状态，不再构成 `method_record` 布局；
+- 后续可以逐项把 wrapper 内部 `method_ops` 转成 model 直接处理 request；该实现精简不再改变
+  record ABI，也不阻塞当前边界迁移；
+- Windows Clang Debug 单线程完成 cross-module、method、property、registry、registry-view、
+  value、serialization-core 和公共头文件自包含构建，相关测试全部通过。
 
 ## Constructor 与 type model
 
