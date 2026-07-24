@@ -93,8 +93,7 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   auto builder =
       caors::registration::type_<reflected_meta_actor>("caors.test.meta.reflected_actor");
-  auto meta =
-      builder.meta().metadata("category", "gameplay").metadata("display_name", "Actor");
+  auto meta = builder.meta().metadata("category", "gameplay").metadata("display_name", "Actor");
   meta.property("health", &reflected_meta_actor::health,
                 caors::meta::registration::metadata("display", "Health"))
       .method("add_health", &reflected_meta_actor::add_health,
@@ -162,19 +161,19 @@ TEST_CASE("meta enum - builder registers values and metadata", "[meta]") {
   REQUIRE(values);
   CHECK(values.value_count() == 3);
 
-  const caors::meta::enum_value_view idle = values.find_value("idle");
+  const caors::meta::enum_value idle = values.find_value("idle");
   REQUIRE(idle);
   CHECK(idle.name() == "idle");
   REQUIRE(idle.get<reflected_meta_state>().has_value());
   CHECK(*idle.get<reflected_meta_state>() == reflected_meta_state::idle);
 
-  const caors::meta::enum_value_view running = values.find_value(reflected_meta_state::running);
+  const caors::meta::enum_value running = values.find_value(reflected_meta_state::running);
   REQUIRE(running);
   CHECK(running.name() == "running");
   CHECK(running.to_i64() == 2);
   CHECK(running.to_u64() == 2U);
 
-  const caors::meta::enum_value_view hidden = values.value_at(2);
+  const caors::meta::enum_value hidden = values.value_at(2);
   REQUIRE(hidden);
   CHECK(hidden.name() == "hidden");
   const caors::string_name editor_hidden_key{"editor_hidden"};

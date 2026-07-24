@@ -13,13 +13,13 @@
 namespace caors::meta::detail {
 
 [[nodiscard]] CAORS_API std::size_t enum_value_count(const type& source) noexcept;
-[[nodiscard]] CAORS_API enum_value_view enum_value_at(const type& source, std::size_t index);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, string_name name);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, std::string_view name);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_i64(const type& source,
-                                                               std::int64_t value) noexcept;
-[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_u64(const type& source,
-                                                               std::uint64_t value) noexcept;
+[[nodiscard]] CAORS_API enum_value enum_value_at(const type& source, std::size_t index);
+[[nodiscard]] CAORS_API enum_value find_enum_value(const type& source, string_name name);
+[[nodiscard]] CAORS_API enum_value find_enum_value(const type& source, std::string_view name);
+[[nodiscard]] CAORS_API enum_value find_enum_value_by_i64(const type& source,
+                                                          std::int64_t value) noexcept;
+[[nodiscard]] CAORS_API enum_value find_enum_value_by_u64(const type& source,
+                                                          std::uint64_t value) noexcept;
 
 } // namespace caors::meta::detail
 

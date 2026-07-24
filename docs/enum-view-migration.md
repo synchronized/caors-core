@@ -14,7 +14,7 @@ sequence、set、associative、pair、tuple、variant 和 indirect capability �
 - 新增绑定实际枚举实例的 `enum_view`；
 - `enum_capability` 只保留类型级枚举信息和 `bind()`；
 - `to_i64/to_u64/from_i64/from_u64` 移入 `enum_view`；
-- `enum_value_view` 继续表示 registry 中注册的枚举项，不与实例 view 合并；
+- `enum_value` 继续表示 registry 中注册的枚举项，不与实例 view 合并；
 - 支持通过 `any_ref::get_capability<enum_capability>()` 直接获得绑定 view。
 
 ## 目标结构

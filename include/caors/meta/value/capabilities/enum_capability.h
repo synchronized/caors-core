@@ -31,31 +31,31 @@ public:
     return valid() ? detail::enum_value_count(type_) : 0;
   }
 
-  [[nodiscard]] enum_value_view value_at(std::size_t index) const {
-    return valid() ? detail::enum_value_at(type_, index) : enum_value_view{};
+  [[nodiscard]] enum_value value_at(std::size_t index) const {
+    return valid() ? detail::enum_value_at(type_, index) : enum_value{};
   }
 
-  [[nodiscard]] enum_value_view find_value(string_name name) const {
-    return valid() ? detail::find_enum_value(type_, name) : enum_value_view{};
+  [[nodiscard]] enum_value find_value(string_name name) const {
+    return valid() ? detail::find_enum_value(type_, name) : enum_value{};
   }
 
-  [[nodiscard]] enum_value_view find_value(std::string_view name) const {
-    return valid() ? detail::find_enum_value(type_, name) : enum_value_view{};
+  [[nodiscard]] enum_value find_value(std::string_view name) const {
+    return valid() ? detail::find_enum_value(type_, name) : enum_value{};
   }
 
   template <typename Enum>
     requires std::is_enum_v<std::remove_cv_t<std::remove_reference_t<Enum>>>
-  [[nodiscard]] enum_value_view find_value(Enum value) const noexcept {
+  [[nodiscard]] enum_value find_value(Enum value) const noexcept {
     using enum_type = std::remove_cv_t<std::remove_reference_t<Enum>>;
     using underlying_type = std::underlying_type_t<enum_type>;
     if constexpr (std::is_signed_v<underlying_type>) {
       return valid() ? detail::find_enum_value_by_i64(
                            type_, static_cast<std::int64_t>(static_cast<underlying_type>(value)))
-                     : enum_value_view{};
+                     : enum_value{};
     } else {
       return valid() ? detail::find_enum_value_by_u64(
                            type_, static_cast<std::uint64_t>(static_cast<underlying_type>(value)))
-                     : enum_value_view{};
+                     : enum_value{};
     }
   }
 };

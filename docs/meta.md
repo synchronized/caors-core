@@ -843,7 +843,7 @@ caors::registration::enum_<actor_state>("game.actor_state")
 caors::meta::type state_type = caors::meta::find<actor_state>();
 caors::meta::enum_capability values =
     state_type.get_capability<caors::meta::enum_capability>();
-caors::meta::enum_value_view hidden = values.find_value("hidden");
+caors::meta::enum_value hidden = values.find_value("hidden");
 ```
 
 枚举项按注册顺序保存，通过 `meta::enum_capability` 查询：
@@ -864,7 +864,7 @@ std::optional<std::int64_t> encoded = state_view.to_i64();
 state_view.from_i64(0);
 ```
 
-`enum_value_view` 表示注册表中的枚举项元数据，`enum_view` 表示绑定的实际枚举实例，两者生命周期
+`enum_value` 表示注册表中的枚举项元数据，`enum_view` 表示绑定的实际枚举实例，两者生命周期
 和职责不同。
 
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
@@ -1174,7 +1174,7 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
 - `registration::enum_<T>("name")`：枚举类型注册入口；调用 `.commit()` 后发布枚举类型数据，注册后
   `meta::type::kind()` 为 `meta::type_kind::enumeration`。
 - `registration::value(name, value)` / `registration::enum_<T>().value(name, value)`：注册枚举项；查询时通过
-  `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
+  `meta::enum_capability` 返回的 `meta::enum_value` 访问名称、整数值和 metadata。
 - `meta::enum_view`：由 `enum_capability::bind(any_ref)` 或
   `any_ref::get_capability<enum_capability>()` 获得，负责实际枚举实例的整数读取和写入。
 - `registration::type_<T>(name).parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。

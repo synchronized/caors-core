@@ -15,7 +15,7 @@
 namespace caors::meta {
 
 class type;
-class enum_value_view;
+class enum_value;
 
 namespace detail {
 
@@ -27,12 +27,12 @@ class enum_value_access;
 /**
  * @brief 枚举项只读视图。
  *
- * `meta::enum_value_view` 不拥有枚举项数据，只引用全局 `meta::registry`
+ * `meta::enum_value` 不拥有枚举项数据，只引用全局 `meta::registry`
  * 中的内部记录。枚举项按注册顺序保存，可通过名称或枚举值查询。
  */
-class CAORS_API enum_value_view final {
+class CAORS_API enum_value final {
 public:
-  enum_value_view() noexcept = default;
+  enum_value() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -46,7 +46,7 @@ public:
   /** @brief 按指定枚举类型读取枚举项值。 */
   template <typename Enum> [[nodiscard]] std::optional<Enum> get() const noexcept {
     using enum_type = std::remove_cv_t<std::remove_reference_t<Enum>>;
-    static_assert(std::is_enum_v<enum_type>, "meta::enum_value_view::get requires an enum type");
+    static_assert(std::is_enum_v<enum_type>, "meta::enum_value::get requires an enum type");
 
     if (!valid()) {
       return std::nullopt;
@@ -63,7 +63,7 @@ public:
 private:
   friend class detail::enum_value_access;
 
-  explicit enum_value_view(const detail::enum_value_record* enum_value) noexcept;
+  explicit enum_value(const detail::enum_value_record* enum_value) noexcept;
   [[nodiscard]] const detail::enum_value_record* info() const noexcept;
 
   const detail::enum_value_record* value_ = nullptr;
