@@ -89,4 +89,32 @@ method_set_data::invoke_runtime_value(const void* object, bool mutable_object,
       argument_match.method->invoke_result_of(object, mutable_object, converted, options));
 }
 
+invoke_result
+method_set_data::invoke_result_of(const void* object, bool mutable_object,
+                                  std::span<const argument> arguments,
+                                  argument_match_options options) const {
+  const method_resolution result = match(arguments, options);
+  if (result.kind == method_match_kind::ambiguous) {
+    return invoke_result::failed(invoke_failure_reason::ambiguous_overload);
+  }
+  if (!result.matched()) {
+    return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+  return result.method->invoke_result_of(object, mutable_object, arguments, options);
+}
+
+invoke_result
+method_set_data::invoke_result_of(const void* object, bool mutable_object,
+                                  std::span<const named_argument> arguments,
+                                  argument_match_options options) const {
+  const method_resolution result = match(arguments, options);
+  if (result.kind == method_match_kind::ambiguous) {
+    return invoke_result::failed(invoke_failure_reason::ambiguous_overload);
+  }
+  if (!result.matched()) {
+    return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+  return result.method->invoke_result_of(object, mutable_object, arguments, options);
+}
+
 } // namespace caors::meta::detail

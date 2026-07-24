@@ -666,6 +666,16 @@ public:
                        std::span<const meta::value> arguments,
                        argument_match_options options = {}) const;
 
+  [[nodiscard]] invoke_result
+  invoke_result_of(const void* object, bool mutable_object,
+                   std::span<const argument> arguments,
+                   argument_match_options options = {}) const;
+
+  [[nodiscard]] invoke_result
+  invoke_result_of(const void* object, bool mutable_object,
+                   std::span<const named_argument> arguments,
+                   argument_match_options options = {}) const;
+
   [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
                                            argument_match_options options = {}) const noexcept {
     return match(arguments, options).method;

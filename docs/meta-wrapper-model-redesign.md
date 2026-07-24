@@ -71,6 +71,8 @@ property_model.h / method_model.h
 
 - `method_data` 统一负责 `meta::value` 参数的直接调用、`argument` 回退和结果转换；
 - `method_set_data` 统一负责 value 重载匹配、歧义判断、参数回退和最终调用；
+- `method_set_data` 同时负责位置参数和命名参数的匹配与调用，避免公共 handle 重复执行
+  `resolve + match`；
 - `method.cpp` 删除对应匿名 helper，公共 handle 仅检查自身与 instance 状态并转发。
 
 ### 阶段 3：constructor 边界确认（已完成）

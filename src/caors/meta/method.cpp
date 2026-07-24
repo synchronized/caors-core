@@ -257,51 +257,49 @@ method method_set::resolve(std::span<const named_argument> arguments,
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const argument> arguments,
                                            argument_match_options options) const {
-  const method target = resolve(arguments, options);
-  if (target) {
-    return target.invoke_result_of(object, arguments, options);
+  const detail::method_set_data* method_set = info();
+  if (method_set == nullptr || !object) {
+    return invoke_result::failed(method_set == nullptr ? invoke_failure_reason::invalid_method
+                                                       : invoke_failure_reason::invalid_object);
   }
 
-  const method_match_result result = match(arguments, options);
-  return invoke_result::failed(result.is_ambiguous() ? invoke_failure_reason::ambiguous_overload
-                                                     : invoke_failure_reason::argument_mismatch);
+  return method_set->invoke_result_of(
+      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
+      options);
 }
 
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const named_argument> arguments,
                                            argument_match_options options) const {
-  const method target = resolve(arguments, options);
-  if (target) {
-    return target.invoke_result_of(object, arguments, options);
+  const detail::method_set_data* method_set = info();
+  if (method_set == nullptr || !object) {
+    return invoke_result::failed(method_set == nullptr ? invoke_failure_reason::invalid_method
+                                                       : invoke_failure_reason::invalid_object);
   }
 
-  const method_match_result result = match(arguments, options);
-  return invoke_result::failed(result.is_ambiguous() ? invoke_failure_reason::ambiguous_overload
-                                                     : invoke_failure_reason::argument_mismatch);
+  return method_set->invoke_result_of(
+      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
+      options);
 }
 
 invoke_result method_set::invoke_result_of(std::span<const argument> arguments,
                                            argument_match_options options) const {
-  const method target = resolve(arguments, options);
-  if (target) {
-    return target.invoke_result_of(arguments, options);
+  const detail::method_set_data* method_set = info();
+  if (method_set == nullptr) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
   }
 
-  const method_match_result result = match(arguments, options);
-  return invoke_result::failed(result.is_ambiguous() ? invoke_failure_reason::ambiguous_overload
-                                                     : invoke_failure_reason::argument_mismatch);
+  return method_set->invoke_result_of(nullptr, false, arguments, options);
 }
 
 invoke_result method_set::invoke_result_of(std::span<const named_argument> arguments,
                                            argument_match_options options) const {
-  const method target = resolve(arguments, options);
-  if (target) {
-    return target.invoke_result_of(arguments, options);
+  const detail::method_set_data* method_set = info();
+  if (method_set == nullptr) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
   }
 
-  const method_match_result result = match(arguments, options);
-  return invoke_result::failed(result.is_ambiguous() ? invoke_failure_reason::ambiguous_overload
-                                                     : invoke_failure_reason::argument_mismatch);
+  return method_set->invoke_result_of(nullptr, false, arguments, options);
 }
 
 invoke_value_result method_set::invoke(const instance& object,
