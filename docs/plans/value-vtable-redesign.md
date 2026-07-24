@@ -15,14 +15,16 @@
 - `value_storage_ops` 既承担值实例 vtable，又承担运行期默认创建 fallback，职责偏宽；
 - 静态已知 `T` 的路径没有利用模板信息直接校验类型和推导 const 性。
 
-本计划将值实例操作收敛为由 `any` 和 `any_ref` 持有的轻量 fake vtable，同时在
-`type_record` 中保留一个最小 provider，使序列化、容器 view 等完全擦除路径仍可由
-`meta::type` 获得对应 vtable。
+本计划将值实例操作和由具体 C++ 类型静态决定的 builtin 实例能力收敛为由 `any` 和
+`any_ref` 持有的轻量 fake vtable，同时在 `type_record` 中保留一个最小 provider，使
+序列化、容器 view 等完全擦除路径仍可由 `meta::type` 获得对应 vtable。
 
 ## 目标
 
 - `any`、`any_ref` 和 `owned_value` 在创建时绑定 `const value_vtable*`；
 - 后续值复制、赋值、析构和布局查询优先使用实例已经绑定的 vtable；
+- scalar、enum、indirect、sequence、set、associative、pair、tuple 和 variant 等
+  builtin 实例能力通过同一 vtable 分发；
 - 静态类型入口通过模板生成 vtable，并验证显式 `meta::type` 与 `T` 一致；
 - `const T*` 自动生成只读 `any_ref`，不再由外部传入可写标志；
 - `type_record` 只保留获取 value vtable 的函数指针，不保存一份重复 vtable；
@@ -35,7 +37,7 @@
 - 不要求用户为了使用内建 codec 或普通静态能力手动注册类型；
 - 不改变属性、方法、容器 view 和序列化的公开行为；
 - 不在本轮设计 DLL 卸载协议；
-- 不把全部 capability 合并进 value vtable；
+- 不把注册期 capability、模块静态 capability 或动态 extension 全部合并进 value vtable；
 - 不允许仅凭 `T*` 自动推断其多态动态派生类型。
 
 ## 目标结构
@@ -44,6 +46,8 @@
 静态类型路径
 T / T*
   └─ value_vtable_of<T>()
+       ├─ value lifetime ops
+       ├─ builtin instance ops
        └─ any / any_ref 保存 const value_vtable*
 
 运行期擦除路径
@@ -64,22 +68,48 @@ meta::type
 
 ### value_vtable
 
-`value_vtable` 表达一个已经存在的 C++ 值所需的最小类型擦除协议。初步包含：
+`value_vtable` 表达一个已经存在的 C++ 值所需的类型擦除协议，同时携带由 `T` 静态决定的
+builtin 实例能力。它不仅是复制和析构函数表，因此继续使用 `value_vtable`，而不改成语义
+更窄的 `value_ops`。
+
+初步结构为：
 
 ```cpp
 struct value_vtable {
   type_layout layout{};
   value_traits traits{};
-  value_ops::clone_fn clone = nullptr;
-  value_ops::assign_fn assign = nullptr;
-  value_ops::destroy_fn destroy = nullptr;
-  value_ops::resource_destroy_fn resource_destroy = nullptr;
+  value_lifetime_ops lifetime{};
+  builtin_ops builtin{};
 };
 ```
 
-最终字段应以 `any`、`any_ref` 和 `owned_value` 的实际调用需求为准。默认构造和带参构造不属于
-“已存在值”的实例行为，应继续由创建路径负责，避免为了动态创建把 factory/constructor
-职责重新塞回 value vtable。
+其中：
+
+- `value_lifetime_ops` 负责 clone、assign、destroy 和 resource-aware destroy；
+- `builtin_ops` 继续表达当前互斥的 scalar、enum、indirect、sequence、set、associative、
+  pair、tuple 或 variant 函数表；
+- layout 和 traits 服务 `any` 的内联存储、类型校验和生命周期选择。
+
+最终字段应以 `any`、`any_ref`、`owned_value` 和各 builtin view 的实际调用需求为准。
+默认构造和带参构造不属于“已存在值”的实例行为，应继续由创建路径负责，避免为了动态创建
+把 factory/constructor 职责重新塞回 value vtable。
+
+### capability 边界
+
+进入 `value_vtable` 的条件是：能力完全由具体 C++ 类型 `T` 静态确定，并且需要绑定或操作一个
+值实例。当前 `detail::builtin_ops` 满足该条件，应随 value vtable 一起绑定到 `any`、
+`any_ref` 和 `owned_value`。
+
+以下内容不进入 value vtable：
+
+- property、method、nested type 和注册枚举项等 registry 元数据；
+- factory、constructor 和默认构造 fallback 等创建策略；
+- object、serialization codec 和 custom 模块贡献的 `static_capability`；
+- 注册后附加的动态 capability 与 extension。
+
+模块静态 capability 虽然也由模板产生，但拥有独立 capability key、模块扩展和查询语义，
+继续由 `type_record` 的静态 capability 表公开。以后若要把 codec 等能力下沉到实例 vtable，
+应另立迁移计划，不在本轮隐式扩大 ABI 和模块边界。
 
 ### type_record provider
 
@@ -168,11 +198,12 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 ### 阶段 1：建立 value_vtable
 
 - 盘点 `any`、`any_ref`、`owned_value` 对 `value_storage_ops` 的全部使用；
-- 确定 value vtable 的最小字段集合；
+- 盘点 builtin view 对 `detail::builtin_ops` 的全部使用；
+- 确定 value vtable 的最小生命周期字段和 builtin 分发表；
 - 增加 `value_vtable_of<T>()` 模板 model；
 - 为可拷贝、不可拷贝、可赋值、不可赋值、平凡和非平凡类型补充单元测试。
 
-完成标准：模板 vtable 能独立描述已有值的布局、复制、赋值和销毁行为。
+完成标准：模板 vtable 能独立描述已有值的布局、复制、赋值、销毁和 builtin 实例能力。
 
 ### 阶段 2：增加 type_record provider
 
@@ -188,6 +219,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 - 让 `any`、`any_ref`、`owned_value` 保存 `const value_vtable*`；
 - 创建、复制、移动、赋值和销毁流程使用实例 vtable；
+- builtin capability 绑定优先使用实例 vtable，不再为每次 view 查询重复访问类型记录；
 - 动态创建成功后立即绑定对应 vtable；
 - 保留必要的内联存储判断和 memory resource 销毁路径；
 - 移除这些值对象对 `type.get_raw_ops<value_storage_ops>()` 的重复查询。
@@ -233,6 +265,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - registry：未注册 fallback、注册后重新 resolve、重复注册和 commit 失败回滚；
 - 属性：成员字段、访问器、全局变量、const getter 和只读属性；
 - view：sequence、set、associative、pair、tuple、variant 和 indirect；
+- builtin：scalar、enum 与所有容器/包装类型的 capability 查询和实例绑定；
 - serialization：字段读写、多态对象、codec、默认构造开关和错误回滚；
 - 跨翻译单元：同一类型的 vtable 行为一致，不以 vtable 地址作为类型身份；
 - Windows MSVC Debug 单线程构建与测试；
@@ -243,6 +276,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 ## 风险与约束
 
 - vtable 地址只用于调用，不作为 `type_id` 或 C++ 类型相等判断依据；
+- `builtin_ops` 当前是互斥分发表；本轮不把它改造成任意 capability 集合；
 - provider、vtable 和其函数地址依赖定义它们的模块生命周期，模块卸载前必须清理相关类型记录和值；
 - 注册记录复制 provider 时不能把不同 C++ 类型的 provider 合并到同一 `type_id`；
 - 模板入口中的 `T*` 只描述静态 `T`，不会把基类指针自动提升为派生类型；
