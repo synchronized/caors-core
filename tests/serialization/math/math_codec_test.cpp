@@ -50,7 +50,7 @@ void require_math_codec_actor_registered() {
 
 TEST_CASE("serialization - math codecs are available without math type registration",
           "[serialization][math]") {
-  const caors::serialization::codec vec3_codec =
+  const caors::serialization::codec_capability vec3_codec =
       caors::serialization::codec_of<caors::math::vec3>();
   REQUIRE(vec3_codec);
   CHECK(vec3_codec.can_write());

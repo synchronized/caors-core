@@ -44,3 +44,11 @@ codec_view
 - 可写、只读、错误类型与 any_ref 快捷绑定；
 - writer、reader、DOM value 三条路径；
 - Windows Clang Debug 单线程构建及相关测试。
+
+## 实施结果
+
+- 重复的 `serialization::codec` 已删除；
+- `codec_of<T>()` 和 `find_codec(meta::type)` 已统一返回 `codec_capability`；
+- 实例 write/read/make_value 已迁移到绑定的 `codec_view`；
+- serialization detail 的缓存 ops 路径未改变；
+- Windows Clang Debug 的头文件自包含、codec 和 math serialization 测试通过。

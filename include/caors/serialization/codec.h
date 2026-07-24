@@ -4,7 +4,7 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
-#include "caors/meta/capability_facade.h"
+#include "caors/meta/capability_bind.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
@@ -24,8 +24,8 @@ namespace caors::serialization {
 
 struct context;
 
-class codec;
 class codec_capability;
+class codec_view;
 
 /** @brief 可特化的类型序列化 codec。 */
 template <typename T> struct codec_traits {
@@ -310,33 +310,28 @@ template <> struct codec_traits<std::chrono::system_clock::time_point> {
   }
 };
 
-/** @brief 序列化 codec 只读视图。 */
-class CAORS_API codec final {
+/** @brief 绑定运行期值实例的序列化 codec 视图。 */
+class CAORS_API codec_view final : public meta::capability_view_base<codec_ops> {
 public:
-  constexpr codec() noexcept = default;
+  using base_type = meta::capability_view_base<codec_ops>;
+  using base_type::base_type;
 
-  [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  codec_view() noexcept = default;
 
-  [[nodiscard]] type_id type() const noexcept;
-  [[nodiscard]] bool can_write() const noexcept;
-  [[nodiscard]] bool can_read() const noexcept;
-  [[nodiscard]] bool can_make_value() const noexcept;
+  /** @brief 写出当前绑定值。 */
+  [[nodiscard]] error write(const serialization::context& context, writer& writer) const;
 
-private:
-  template <typename T> friend codec codec_of();
-  friend codec find_codec(meta::type type);
+  /** @brief 读入当前绑定值；只读 view 返回不支持。 */
+  [[nodiscard]] error read(const serialization::context& context, reader& reader) const;
 
-  constexpr codec(meta::type type, const codec_ops* ops) noexcept : type_(type), ops_(ops) {}
-
-  meta::type type_{};
-  const codec_ops* ops_ = nullptr;
+  /** @brief 从当前绑定值构造序列化中间值。 */
+  [[nodiscard]] variant_result make_value(const serialization::context& context) const;
 };
 
 /** @brief 序列化 codec 的类型级能力 facade。 */
-class CAORS_API codec_capability final : public meta::type_capability_base<codec_ops> {
+class CAORS_API codec_capability final : public meta::type_capability_base<codec_ops, codec_view> {
 public:
-  using base_type = meta::type_capability_base<codec_ops>;
+  using base_type = meta::type_capability_base<codec_ops, codec_view>;
 
   codec_capability() noexcept = default;
   explicit codec_capability(meta::type type) noexcept : base_type(type) {}
@@ -345,24 +340,6 @@ public:
   [[nodiscard]] bool can_write() const noexcept;
   [[nodiscard]] bool can_read() const noexcept;
   [[nodiscard]] bool can_make_value() const noexcept;
-
-  /** @brief 使用该 codec 写出一份运行期值。 */
-  [[nodiscard]] error write(const serialization::context& context, writer& writer,
-                            const any& data) const;
-  /** @brief 使用该 codec 写出一份运行期引用，避免中间拷贝。 */
-  [[nodiscard]] error write(const serialization::context& context, writer& writer,
-                            const any_ref& data) const;
-
-  /** @brief 使用该 codec 读入一份运行期引用。 */
-  [[nodiscard]] error read(const serialization::context& context, reader& reader,
-                           const any_ref& target) const;
-
-  /** @brief 使用该 codec 构造序列化中间值。 */
-  [[nodiscard]] variant_result make_value(const serialization::context& context,
-                                          const any& data) const;
-  /** @brief 使用该 codec 从运行期引用构造序列化中间值，避免中间拷贝。 */
-  [[nodiscard]] variant_result make_value(const serialization::context& context,
-                                          const any_ref& data) const;
 };
 
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
@@ -371,11 +348,11 @@ public:
 /** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
 [[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
 
-/** @brief 按 meta 类型查询 codec 视图。 */
-[[nodiscard]] CAORS_API codec find_codec(meta::type type);
+/** @brief 按 meta 类型查询 codec capability。 */
+[[nodiscard]] CAORS_API codec_capability find_codec(meta::type type);
 
-/** @brief 按 C++ 类型查询静态 codec 视图；类型不要求已经显式注册。 */
-template <typename T> [[nodiscard]] codec codec_of();
+/** @brief 按 C++ 类型查询静态 codec capability；类型不要求已经显式注册。 */
+template <typename T> [[nodiscard]] codec_capability codec_of();
 
 } // namespace caors::serialization
 
@@ -579,7 +556,7 @@ struct module_static_capability_list<serialization_static_capability_module, T> 
 
 namespace caors::serialization {
 
-template <typename T> [[nodiscard]] codec codec_of() {
+template <typename T> [[nodiscard]] codec_capability codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   return find_codec(meta::resolve<type>());
 }

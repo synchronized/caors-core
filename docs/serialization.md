@@ -807,15 +807,15 @@ if (player* current = manager.find(target)) {
 ### serialization codec
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
-直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时可以通过
+直接取得静态 codec capability；运行期拿得到 `meta::type` 视图时可以通过
 `serialization::find_codec(meta::type)` 或
 `meta::type::get_capability<serialization::codec_capability>()` 查询 codec 能力。`any` / `any_ref`
 和反射字段路径会先从它们携带的 `meta::type` 查询 codec capability。未命中时继续走标量、枚举、
 容器 view、wrapper view、pair、tuple、variant 和已注册对象字段递归路径。
-`serialization::codec` 是 `codec_of<T>()` / `find_codec()` 返回的只读查询视图，适合检查某个类型是否有
-codec；`serialization::codec_capability` 是接入 `meta::type::get_capability<T>()` 的类型级 facade，
-可直接转发 `write()`、`read()` 和 `make_value()`。普通业务代码优先使用 capability facade；需要按
-C++ 类型查询时使用 `codec_of<T>()`，已经有 `meta::type` 时使用 `find_codec(meta::type)`。
+`codec_of<T>()`、`find_codec()` 和 `meta::type::get_capability<T>()` 均返回
+`serialization::codec_capability`。它负责类型级能力查询，并通过 `bind(any_ref)` 返回
+`codec_view`；实例级 `write()`、`read()` 和 `make_value()` 由绑定 view 提供。需要按 C++ 类型查询时
+使用 `codec_of<T>()`，已经有 `meta::type` 时使用 `find_codec(meta::type)`。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::type` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
@@ -1244,9 +1244,10 @@ caors::string text = *result;
 - `serialization::external_ref_resolver_ops`：通用外部引用解析函数表，资源模块通过 adapter 接入。
 - `serialization::external_ref_collector_ops`：通用外部引用收集函数表，资源模块用它收集资源依赖。
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
-- `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec 视图；类型不要求已经显式 meta 注册。
-- `serialization::find_codec(meta::type)`：按 meta 类型查询静态 codec 视图。
-- `serialization::codec_capability`：通过 `meta::type::get_capability<T>()` 查询的可调用 codec facade。
+- `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec capability；类型不要求已经显式 meta 注册。
+- `serialization::find_codec(meta::type)`：按 meta 类型查询静态 codec capability。
+- `serialization::codec_capability`：类型级 codec 查询 facade，通过 `bind(any_ref)` 创建实例 view。
+- `serialization::codec_view`：绑定实际运行期值，负责 codec 的 write、read 和 make_value。
 - `serialization::schema_view`：序列化 schema 的只读查询视图。
 - `serialization::find_schema()` / `serialization::contains()`：基于 `meta::type` 查询是否挂载了序列化 schema。
 - `serialization::size(meta::context&)`：统计指定类型上下文中已注册序列化 schema 的数量；无参数版本使用默认类型上下文。

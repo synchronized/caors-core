@@ -29,7 +29,8 @@ TEST_CASE("serialization - built in guid codecs use static capabilities without 
   CHECK_FALSE(caors::meta::find<caors::guid>());
   CHECK_FALSE(caors::meta::find<caors::type_guid>());
 
-  const caors::serialization::codec guid_codec = caors::serialization::codec_of<caors::guid>();
+  const caors::serialization::codec_capability guid_codec =
+      caors::serialization::codec_of<caors::guid>();
   REQUIRE(guid_codec);
   CHECK(guid_codec.type() == caors::meta::id_of<caors::guid>());
   CHECK(guid_codec.can_write());
