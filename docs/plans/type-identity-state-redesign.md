@@ -5,9 +5,18 @@
 
 ## 文档状态
 
-- 当前状态：待实施；
+- 当前状态：已完成；
 - 实施范围：C++ 类型运行期身份、跨 DLL 统一、registry 主索引与 RTTI fallback；
 - 非实施范围：`type_guid` 格式、property/method wrapper、builtin capability 和序列化格式。
+
+## 实施结果
+
+- 阶段 0 至阶段 5 已完成并按阶段提交；
+- `type_id`、capability key 和 meta extension key 已统一经过共享 runtime 驻留；
+- 已增加 `host.exe + plugin_a.dll + plugin_b.dll + caors.dll` 的真实跨模块测试拓扑；
+- Windows Clang Shared Debug 下，meta、object、serialization 和插件身份共 37 项计划内测试通过；
+- 正式 DLL/插件约束已整理到 [DLL 与插件使用规范](../dll-plugins.md)；
+- 全仓库共享模式仍存在计划外的 `asset_manager` DLL 导出缺口，不影响本计划的身份系统验收。
 
 ## 背景
 

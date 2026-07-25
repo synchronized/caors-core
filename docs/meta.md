@@ -97,7 +97,7 @@ caors::type_id id = caors::meta::id("game.player");
 在 DLL 或插件边界，只要 host 和插件动态链接同一份 CAORS runtime，并使用相同编译器主版本、
 标准库 ABI、公共类型定义和 CAORS 配置，同一 C++ 类型会获得相同 `type_id`。分别静态链接多份
 CAORS runtime 的 DLL 不属于这一保证范围。跨进程或存档数据里的稳定身份仍使用 `type_guid`，
-必要时再结合类型名和版本迁移策略。
+必要时再结合类型名和版本迁移策略。完整约束见 [DLL 与插件使用规范](dll-plugins.md)。
 
 注册 C++ 类型时，注册表还会记录 `typeid(T) -> type_id` 的进程内映射。该映射只用于运行期 RTTI
 辅助，例如普通 C++ 多态 wrapper 从 `Base*` 查到真实 `Derived` 类型；它不是类型身份来源，
