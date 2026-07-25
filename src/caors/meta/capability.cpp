@@ -14,36 +14,13 @@
 
 namespace caors::meta::detail {
 
-const void* find_type_builtin_ops(const meta::type& type, builtin_ops_kind kind) noexcept {
+const void* find_type_static_capability(const meta::type& type, capability_key key) noexcept {
   const type_record* data = type_access::data_of(type);
-  if (data == nullptr) {
+  if (data == nullptr || key == nullptr) {
     return nullptr;
   }
 
-  switch (kind) {
-  case builtin_ops_kind::value_storage:
-    return data->find_static_capability(capability_key_of<value_storage_ops>());
-  case builtin_ops_kind::scalar:
-    return data->find_static_capability(capability_key_of<scalar_ops>());
-  case builtin_ops_kind::enumeration:
-    return data->find_static_capability(capability_key_of<enum_ops>());
-  case builtin_ops_kind::indirect:
-    return data->find_static_capability(capability_key_of<indirect_ops>());
-  case builtin_ops_kind::sequence:
-    return data->find_static_capability(capability_key_of<sequence_ops>());
-  case builtin_ops_kind::set:
-    return data->find_static_capability(capability_key_of<set_ops>());
-  case builtin_ops_kind::associative:
-    return data->find_static_capability(capability_key_of<associative_ops>());
-  case builtin_ops_kind::pair:
-    return data->find_static_capability(capability_key_of<pair_ops>());
-  case builtin_ops_kind::tuple:
-    return data->find_static_capability(capability_key_of<tuple_ops>());
-  case builtin_ops_kind::variant:
-    return data->find_static_capability(capability_key_of<variant_ops>());
-  }
-
-  return nullptr;
+  return data->find_static_capability(key);
 }
 
 error register_capability(registry& registry, type_id id, capability_key key,

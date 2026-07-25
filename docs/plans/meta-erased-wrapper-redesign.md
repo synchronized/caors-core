@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：property 与 method record 边界迁移已完成；
+- 当前状态：property、method record 边界迁移与边界复审已完成；
 - 首要范围：property 注册模型与运行时记录边界；
 - 后续范围：method，必要时再评估 constructor 与 type model；
 - 设计取代：本计划取代
@@ -448,6 +448,16 @@ constructor 暂不随 property 第一阶段迁移。property 和 method 完成�
 - 决定 type model 是否需要统一 request dispatch；
 - 重新评估 `find_type_builtin_ops`，但不默认迁移高频 builtin ops；
 - 更新 meta 架构文档和 DLL 使用约束。
+
+复审结论：
+
+- `constructor_ops` 继续作为类型 capability；当前没有独立构造函数节点、名称、metadata
+  或重载集合，不引入 `constructor_record + constructor_wrapper`；
+- `type_record` 继续作为 runtime 聚合根，不增加统一 `type_request_kind` dispatch；
+- 删除 `builtin_ops_kind` 与 `find_type_builtin_ops` 的双向类型映射；
+  `type::get_raw_ops<Ops>()` 直接把 `capability_key_of<Ops>()` 传给 runtime 的
+  `find_type_static_capability()`；
+- builtin ops、静态 capability 和 registry 所有权结构保持不变。
 
 ## 验收标准
 
