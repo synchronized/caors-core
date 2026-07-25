@@ -12,13 +12,17 @@
 namespace caors::meta {
 
 bool registry::contains(type_id id) const {
-  std::lock_guard lock(state_->mutex);
-  return state_->types.contains(id.value());
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  return state.types.contains(id.value());
 }
 
 type registry::find_type(type_id id) const {
-  std::lock_guard lock(state_->mutex);
-  const detail::type_record* type_record = detail::find_type_record(*state_, id);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const detail::type_record* type_record = detail::find_type_record(state, id);
   if (type_record == nullptr) {
     return {};
   }
@@ -31,9 +35,11 @@ type registry::find_type(core::type_guid guid) const {
     return {};
   }
 
-  std::lock_guard lock(state_->mutex);
-  const auto guid_position = state_->guids.find(guid.value);
-  if (guid_position == state_->guids.end()) {
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const auto guid_position = state.guids.find(guid.value);
+  if (guid_position == state.guids.end()) {
     return {};
   }
 
@@ -46,9 +52,11 @@ type registry::find_type(core::type_guid guid) const {
 }
 
 type registry::find_type(const std::type_info& info) const {
-  std::lock_guard lock(state_->mutex);
-  const auto position = state_->cpp_types.find(std::type_index{info});
-  if (position == state_->cpp_types.end()) {
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const auto position = state.cpp_types.find(std::type_index{info});
+  if (position == state.cpp_types.end()) {
     return {};
   }
 
@@ -70,9 +78,11 @@ type registry::find_type(std::string_view name) const {
 }
 
 type registry::find_type(core::string_name name) const {
-  std::lock_guard lock(state_->mutex);
-  const auto name_position = state_->names.find(name);
-  if (name_position == state_->names.end()) {
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const auto name_position = state.names.find(name);
+  if (name_position == state.names.end()) {
     return {};
   }
 
@@ -89,14 +99,16 @@ bool registry::is_a(type_id id, type_id base_id) const {
     return false;
   }
 
-  std::lock_guard lock(state_->mutex);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   while (current_id) {
     if (current_id == base_id) {
       return true;
     }
 
-    const detail::type_record* type = detail::find_type_record(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(state, current_id);
     if (type == nullptr) {
       return false;
     }
@@ -116,11 +128,13 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
     return value;
   }
 
-  std::lock_guard lock(state_->mutex);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   const void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = detail::find_type_record(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(state, current_id);
     if (type == nullptr) {
       return nullptr;
     }
@@ -159,11 +173,13 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
     return value;
   }
 
-  std::lock_guard lock(state_->mutex);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = detail::find_type_record(*state_, current_id);
+    const detail::type_record* type = detail::find_type_record(state, current_id);
     if (type == nullptr) {
       return nullptr;
     }
@@ -194,8 +210,10 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
 }
 
 std::size_t registry::size() const noexcept {
-  std::lock_guard lock(state_->mutex);
-  return state_->types.size();
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  return state.types.size();
 }
 
 } // namespace caors::meta

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，待分阶段实施；
+- 当前状态：设计冻结，6A 已完成，6B 待实施；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -217,11 +217,13 @@ manager 的结构化诊断必须同时给出 plugin ID、generation、lease 分�
 
 ### 6A：Snapshot 读取基础
 
-- 引入 immutable `registry_snapshot`；
-- 现有单层 registry 先包装为 snapshot，不改变公开行为；
-- 查询捕获 snapshot；
-- 保持现有 append-only 测试全部通过；
-- 增加查询与 snapshot 发布并发测试。
+- [x] 引入 `registry_snapshot` 所有权基础；
+- [x] 现有单层 registry 先包装为 snapshot，不改变公开行为；
+- [x] type、extension 和 capability 查询捕获 snapshot；
+- [x] 保持现有 append-only registry/view/capability 测试通过；
+
+并发 snapshot 发布测试需要 6B 的 layer publish 入口，随 6B 一起实现。当前 snapshot 内仍是受 mutex
+保护的单层可变 state；不可变 layer 和原子替换从 6B 开始。
 
 ### 6B：Layer Draft 与发布
 

@@ -13,10 +13,12 @@
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <optional>
@@ -34,6 +36,7 @@ class registry;
 namespace caors::meta::detail {
 
 class registry_state;
+class registry_snapshot;
 class registry_access;
 class pending_type_record;
 class type_record;
@@ -132,8 +135,10 @@ private:
 
   [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const;
+  [[nodiscard]] std::shared_ptr<detail::registry_snapshot> capture_snapshot() const noexcept;
 
   memory::memory_resource* state_resource_ = nullptr;
+  std::atomic<std::shared_ptr<detail::registry_snapshot>> snapshot_{};
   detail::registry_state* state_ = nullptr;
 };
 
@@ -152,6 +157,11 @@ public:
 
   [[nodiscard]] static memory::memory_resource* state_resource(registry& registry) noexcept {
     return registry.state_resource_;
+  }
+
+  [[nodiscard]] static std::shared_ptr<registry_snapshot>
+  snapshot(const registry& registry) noexcept {
+    return registry.capture_snapshot();
   }
 
   [[nodiscard]] static error add_extension(registry& registry, type_id id,

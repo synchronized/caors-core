@@ -7,6 +7,12 @@
 
 namespace caors::meta::detail {
 
+registry_snapshot::registry_snapshot(memory::memory_resource* resource)
+    : resource_(resource != nullptr ? resource : &memory::library_resource()),
+      state_(memory::make<registry_state>(resource_, resource_)) {}
+
+registry_snapshot::~registry_snapshot() { memory::destroy(state_, resource_); }
+
 type_record* find_type_record(registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
   if (position == state.types.end()) {

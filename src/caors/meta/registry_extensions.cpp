@@ -48,8 +48,10 @@ bool registry::has_extension(type_id id, detail::extension_key key) const {
     return false;
   }
 
-  std::lock_guard lock(state_->mutex);
-  const detail::type_record* stored = detail::find_type_record(*state_, id);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const detail::type_record* stored = detail::find_type_record(state, id);
   return stored != nullptr && stored->registered() && stored->contains_extension(key);
 }
 
@@ -59,23 +61,27 @@ const detail::extension_data* registry::find_extension_data(type_id id,
     return nullptr;
   }
 
-  std::lock_guard lock(state_->mutex);
-  const detail::type_record* stored = detail::find_type_record(*state_, id);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const detail::type_record* stored = detail::find_type_record(state, id);
   return stored != nullptr && stored->registered() ? stored->find_extension(key) : nullptr;
 }
 
 core::vector<type_id> registry::view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const {
-  core::vector<type_id> empty{core::vector<type_id>::allocator_type{state_->resource}};
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  core::vector<type_id> empty{core::vector<type_id>::allocator_type{state.resource}};
   if (keys == nullptr || count == 0) {
     return empty;
   }
 
-  std::lock_guard lock(state_->mutex);
-  core::vector<type_id> result{core::vector<type_id>::allocator_type{state_->resource}};
-  result.reserve(state_->types.size());
+  std::lock_guard lock(state.mutex);
+  core::vector<type_id> result{core::vector<type_id>::allocator_type{state.resource}};
+  result.reserve(state.types.size());
 
-  for (const auto& [raw_id, stored] : state_->types) {
+  for (const auto& [raw_id, stored] : state.types) {
     (void)raw_id;
     if (stored != nullptr && stored->registered() &&
         contains_all_extensions(*stored, keys, count)) {

@@ -77,9 +77,10 @@ const void* find_capability(const registry& registry, type_id id, capability_key
     return nullptr;
   }
 
-  const registry_state* state = registry_access::state(registry);
-  std::lock_guard lock(state->mutex);
-  const type_record* type = find_type_record(*state, id);
+  const auto snapshot = registry_access::snapshot(registry);
+  const registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  const type_record* type = find_type_record(state, id);
   if (type == nullptr) {
     return nullptr;
   }
@@ -125,10 +126,11 @@ std::size_t capability_count(const registry& registry, capability_key key) noexc
     return 0;
   }
 
-  const registry_state* state = registry_access::state(registry);
-  std::lock_guard lock(state->mutex);
+  const auto snapshot = registry_access::snapshot(registry);
+  const registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
   std::size_t result = 0;
-  for (const auto& [raw_id, type] : state->types) {
+  for (const auto& [raw_id, type] : state.types) {
     (void)raw_id;
     if (type != nullptr && type->contains_capability(key)) {
       ++result;

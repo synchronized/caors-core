@@ -8,9 +8,14 @@ namespace caors::meta {
 
 registry::registry()
     : state_resource_(&memory::library_resource()),
-      state_(memory::make<detail::registry_state>(state_resource_, state_resource_)) {}
+      snapshot_(std::make_shared<detail::registry_snapshot>(state_resource_)),
+      state_(&snapshot_.load(std::memory_order_relaxed)->state()) {}
 
-registry::~registry() { memory::destroy(state_, state_resource_); }
+registry::~registry() = default;
+
+std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const noexcept {
+  return snapshot_.load(std::memory_order_acquire);
+}
 
 registry& registry::instance() noexcept {
   static registry instance;
@@ -74,8 +79,10 @@ error registry::init() {
 }
 
 error registry::validate() const {
-  std::lock_guard lock(state_->mutex);
-  return detail::validate_registry(*state_);
+  const auto snapshot = capture_snapshot();
+  const detail::registry_state& state = snapshot->state();
+  std::lock_guard lock(state.mutex);
+  return detail::validate_registry(state);
 }
 
 registry& get_registry() noexcept { return registry::instance(); }
