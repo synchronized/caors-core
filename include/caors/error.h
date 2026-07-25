@@ -36,6 +36,7 @@ enum class errc {
   recursion_limit,
   unsupported,
   out_of_memory,
+  type_id_exhausted,
   backend_failure,
 };
 

@@ -58,6 +58,8 @@ public:
       return "unsupported";
     case errc::out_of_memory:
       return "out of memory";
+    case errc::type_id_exhausted:
+      return "type id exhausted";
     case errc::backend_failure:
       return "backend failure";
     }
