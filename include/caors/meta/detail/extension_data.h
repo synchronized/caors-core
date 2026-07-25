@@ -6,6 +6,7 @@
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
+#include "caors/meta/capability_traits.h"
 
 #include <type_traits>
 #include <utility>
@@ -15,8 +16,7 @@ namespace caors::meta::detail {
 using extension_key = const void*;
 
 template <typename Extension> [[nodiscard]] extension_key extension_key_of() noexcept {
-  static const int key = 0;
-  return &key;
+  return capability_key_of<std::remove_cvref_t<Extension>>();
 }
 
 class extension_storage_base {
