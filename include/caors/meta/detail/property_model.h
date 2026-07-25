@@ -326,7 +326,11 @@ template <typename Property> struct global_property_model {
     }
     case property_request_kind::set_any: {
       auto& request = payload.get<property_set_any_request>();
-      request.result = assign_property_value<Property>(model.value, request.source);
+      if constexpr (std::is_const_v<Property>) {
+        request.result = false;
+      } else {
+        request.result = assign_property_value<Property>(model.value, request.source);
+      }
       return true;
     }
     }

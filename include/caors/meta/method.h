@@ -67,7 +67,7 @@ enum class invoke_failure_reason {
  *
  * `invoke_result` 明确区分调用失败、`void` 成功、拥有值返回和引用返回。
  */
-class invoke_result final {
+class CAORS_API invoke_result final {
 public:
   invoke_result() noexcept = default;
   invoke_result(const invoke_result& other)

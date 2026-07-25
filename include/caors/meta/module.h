@@ -54,7 +54,7 @@ private:
  * 与持有 pending record 的类型注册构建器不同，每次 `property()` 或 `function()` 调用都会立即
  * 写入 module；该构建器没有最终 `commit()` 步骤。
  */
-class module_builder final {
+class CAORS_API module_builder final {
 public:
   explicit module_builder(std::string_view name);
 
