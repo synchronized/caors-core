@@ -82,3 +82,12 @@ TEST_CASE("type identity state unifies concurrent first lookup", "[meta][type_id
     CHECK(identity == identities.front());
   }
 }
+
+TEST_CASE("C++ type id uses the runtime identity state", "[meta][type_identity]") {
+  const caors::meta::detail::type_identity& identity =
+      caors::meta::detail::get_or_create_type_identity(
+          caors::meta::detail::canonical_cpp_type_name<canonical_test_type>());
+
+  CHECK(caors::meta::detail::type_id_of_cpp_type<canonical_test_type>() == identity.id);
+  CHECK(caors::meta::detail::type_id_of_cpp_type<const canonical_test_type&>() == identity.id);
+}
