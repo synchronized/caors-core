@@ -13,9 +13,14 @@
 namespace caors::meta::detail {
 namespace {
 
+struct type_identity final {
+  type_id id{};
+  std::string canonical_name{};
+};
+
 class type_identity_state final {
 public:
-  [[nodiscard]] const type_identity& get_or_create(std::string_view canonical_name) {
+  [[nodiscard]] type_id get_or_create(std::string_view canonical_name) {
     if (canonical_name.empty()) {
       std::terminate();
     }
@@ -23,7 +28,7 @@ public:
     std::scoped_lock lock{mutex_};
     const auto existing = identities_by_name_.find(canonical_name);
     if (existing != identities_by_name_.end()) {
-      return *existing->second;
+      return existing->second->id;
     }
 
     if (next_id_ == std::numeric_limits<std::uint64_t>::max()) {
@@ -33,7 +38,7 @@ public:
     identities_.push_back(type_identity{type_id{next_id_++}, std::string{canonical_name}});
     type_identity& identity = identities_.back();
     identities_by_name_.emplace(identity.canonical_name, &identity);
-    return identity;
+    return identity.id;
   }
 
 private:
@@ -50,8 +55,11 @@ private:
 
 } // namespace
 
-const type_identity& get_or_create_type_identity(std::string_view canonical_name) noexcept {
-  return identity_state().get_or_create(canonical_name);
+type_id get_or_create_type_id(const char* canonical_name, std::size_t length) noexcept {
+  if (canonical_name == nullptr) {
+    std::terminate();
+  }
+  return identity_state().get_or_create(std::string_view{canonical_name, length});
 }
 
 } // namespace caors::meta::detail

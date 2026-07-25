@@ -8,9 +8,8 @@
 #include "caors/export.h"
 #include "caors/meta/detail/canonical_type_name.h"
 
+#include <cstddef>
 #include <cstdint>
-#include <string>
-#include <string_view>
 #include <type_traits>
 #include <typeinfo>
 
@@ -45,31 +44,21 @@ using type_guid = core::type_guid;
 
 namespace detail {
 
-/** @brief CAORS runtime 持有的进程内 C++ 类型身份节点。 */
-struct type_identity final {
-  type_id id{};
-  std::string canonical_name{};
-};
-
 /**
- * @brief 按 canonical C++ 类型名称获取进程内唯一身份节点。
+ * @brief 按 canonical C++ 类型名称获取进程内唯一类型 ID。
  *
- * 返回的节点由 CAORS runtime 持有，在 runtime 生命周期内地址稳定。名称不能为空。首次创建
- * 所需的内存分配失败或 ID 空间耗尽属于不可恢复的 runtime 初始化失败。
+ * 名称文本只在调用期间借用，runtime 会为首次出现的名称保存副本。名称不能为空。首次创建
+ * 所需的内存分配失败或 ID 空间耗尽属于不可恢复的 runtime 初始化失败。使用指针和长度参数
+ * 是为了避免在动态库 ABI 上传递标准库字符串类型。
  */
-[[nodiscard]] CAORS_API const type_identity&
-get_or_create_type_identity(std::string_view canonical_name) noexcept;
-
-/** @brief 返回当前编译模块缓存的 C++ 类型身份节点。 */
-template <typename T> [[nodiscard]] inline const type_identity* static_type_identity() noexcept {
-  using type = std::remove_cvref_t<T>;
-  static const type_identity* identity =
-      &get_or_create_type_identity(canonical_cpp_type_name<type>());
-  return identity;
-}
+[[nodiscard]] CAORS_API type_id get_or_create_type_id(const char* canonical_name,
+                                                      std::size_t length) noexcept;
 
 template <typename T> [[nodiscard]] inline type_id type_id_of_cpp_type() noexcept {
-  return static_type_identity<T>()->id;
+  using type = std::remove_cvref_t<T>;
+  constexpr std::string_view canonical_name = canonical_cpp_type_name<type>();
+  static const type_id id = get_or_create_type_id(canonical_name.data(), canonical_name.size());
+  return id;
 }
 
 /** @brief 按已注册 C++ RTTI 查询当前进程内类型 id。 */

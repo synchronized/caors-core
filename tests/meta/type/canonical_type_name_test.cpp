@@ -49,45 +49,46 @@ TEST_CASE("canonical type name distinguishes complete C++ types", "[meta][type_i
 
 TEST_CASE("type identity state reuses canonical names and allocates distinct ids",
           "[meta][type_identity]") {
-  const caors::meta::detail::type_identity& first =
-      caors::meta::detail::get_or_create_type_identity("caors.test.identity.first");
-  const caors::meta::detail::type_identity& repeated =
-      caors::meta::detail::get_or_create_type_identity("caors.test.identity.first");
-  const caors::meta::detail::type_identity& second =
-      caors::meta::detail::get_or_create_type_identity("caors.test.identity.second");
+  constexpr std::string_view first_name = "caors.test.identity.first";
+  constexpr std::string_view second_name = "caors.test.identity.second";
+  const caors::type_id first =
+      caors::meta::detail::get_or_create_type_id(first_name.data(), first_name.size());
+  const caors::type_id repeated =
+      caors::meta::detail::get_or_create_type_id(first_name.data(), first_name.size());
+  const caors::type_id second =
+      caors::meta::detail::get_or_create_type_id(second_name.data(), second_name.size());
 
-  CHECK(&first == &repeated);
-  CHECK(first.id == repeated.id);
-  CHECK(first.id != second.id);
-  CHECK(first.canonical_name == "caors.test.identity.first");
+  CHECK(first == repeated);
+  CHECK(first != second);
 }
 
 TEST_CASE("type identity state unifies concurrent first lookup", "[meta][type_identity]") {
   constexpr std::size_t thread_count = 8;
-  std::vector<const caors::meta::detail::type_identity*> identities(thread_count);
+  std::vector<caors::type_id> identities(thread_count);
   std::vector<std::thread> threads;
   threads.reserve(thread_count);
 
   for (std::size_t index = 0; index < thread_count; ++index) {
     threads.emplace_back([&, index] {
-      identities[index] =
-          &caors::meta::detail::get_or_create_type_identity("caors.test.identity.concurrent");
+      constexpr std::string_view name = "caors.test.identity.concurrent";
+      identities[index] = caors::meta::detail::get_or_create_type_id(name.data(), name.size());
     });
   }
   for (std::thread& thread : threads) {
     thread.join();
   }
 
-  for (const caors::meta::detail::type_identity* identity : identities) {
+  for (const caors::type_id identity : identities) {
     CHECK(identity == identities.front());
   }
 }
 
 TEST_CASE("C++ type id uses the runtime identity state", "[meta][type_identity]") {
-  const caors::meta::detail::type_identity& identity =
-      caors::meta::detail::get_or_create_type_identity(
-          caors::meta::detail::canonical_cpp_type_name<canonical_test_type>());
+  constexpr std::string_view name =
+      caors::meta::detail::canonical_cpp_type_name<canonical_test_type>();
+  const caors::type_id identity =
+      caors::meta::detail::get_or_create_type_id(name.data(), name.size());
 
-  CHECK(caors::meta::detail::type_id_of_cpp_type<canonical_test_type>() == identity.id);
-  CHECK(caors::meta::detail::type_id_of_cpp_type<const canonical_test_type&>() == identity.id);
+  CHECK(caors::meta::detail::type_id_of_cpp_type<canonical_test_type>() == identity);
+  CHECK(caors::meta::detail::type_id_of_cpp_type<const canonical_test_type&>() == identity);
 }

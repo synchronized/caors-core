@@ -60,9 +60,9 @@ DLL B T -> 0x9000
 
 ```text
 EXE / DLL 模板层
-└─ static_type_identity<T>()
-   └─ 模块本地 static const type_identity*
-      └─ 首次调用 runtime get_or_create_type_identity(canonical_name)
+└─ static_type_id<T>()
+   └─ 模块本地 static type_id
+      └─ 首次调用 runtime get_or_create_type_id(name_data, name_size)
 
 CAORS runtime
 └─ global type_identity_state
@@ -194,17 +194,11 @@ GUID 冲突继续由 registry commit 处理：
 
 ```cpp
 template <typename T>
-[[nodiscard]] const type_identity* static_type_identity() noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const type_identity* identity =
-      get_or_create_type_identity(canonical_cpp_type_name<type>());
-  return identity;
-}
-
-template <typename T>
 [[nodiscard]] type_id static_type_id() noexcept {
-  const type_identity* identity = static_type_identity<T>();
-  return identity != nullptr ? identity->id : type_id::invalid();
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  constexpr std::string_view name = canonical_cpp_type_name<type>();
+  static const type_id id = get_or_create_type_id(name.data(), name.size());
+  return id;
 }
 ```
 
@@ -219,7 +213,7 @@ template <typename T>
    ├─ 已存在：返回已有 identity
    └─ 不存在：顺序分配 type_id，创建并发布 identity
         ↓
-模块本地 static 缓存 identity*
+模块本地 static 缓存固定宽度 type_id
 ```
 
 后续调用只读取模块本地静态指针，不查询 map、不加 registry 锁。
@@ -335,6 +329,8 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 - 不能在 header 中为每个 DLL 创建独立 identity state；
 - `type_identity_state` 定义在 CAORS runtime 的 `.cpp` 中，模板头文件只能调用带导出宏的
   非模板 runtime 入口；
+- 导出入口使用 `const char* + std::size_t` 输入并直接返回固定宽度 `type_id`，不在 DLL ABI
+  上传递 `std::string_view`、`std::string` 或内部 identity 节点；
 - 动态库模式要求 host 和插件链接同一份 CAORS runtime；若进程加载多份 runtime 副本，
   不承诺副本之间的 `type_id` 相同；
 - 静态库模式只承诺同一个最终链接模块中的统一，不承诺多个分别静态链接 CAORS 的 DLL
