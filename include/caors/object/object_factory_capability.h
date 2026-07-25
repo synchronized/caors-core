@@ -11,7 +11,7 @@
 namespace caors::objects {
 
 /** @brief 对象默认创建和销毁能力的公开 facade。 */
-class object_factory_capability final
+class CAORS_API object_factory_capability final
     : public meta::type_capability_base<detail::object_factory_ops> {
 public:
   using base_type = meta::type_capability_base<detail::object_factory_ops>;
@@ -20,29 +20,16 @@ public:
   explicit object_factory_capability(meta::type type) noexcept : base_type(type) {}
 
   /** @brief 判断该对象类型是否支持默认构造。 */
-  [[nodiscard]] bool constructible() const noexcept {
-    return ops_ != nullptr && ops_->constructible();
-  }
+  [[nodiscard]] bool constructible() const noexcept;
 
   /** @brief 尝试创建对象；能力无效、类型不可默认构造或分配失败时返回空指针。 */
-  [[nodiscard]] object* try_create(memory_resource* resource = nullptr) const noexcept {
-    return constructible() && ops_->try_create != nullptr ? ops_->try_create(resource) : nullptr;
-  }
+  [[nodiscard]] object* try_create(memory_resource* resource = nullptr) const noexcept;
 
   /** @brief 创建对象；能力无效或类型不可默认构造时返回空指针。 */
-  [[nodiscard]] object* create(memory_resource* resource = nullptr) const {
-    return constructible() && ops_->create != nullptr ? ops_->create(resource) : nullptr;
-  }
+  [[nodiscard]] object* create(memory_resource* resource = nullptr) const;
 
   /** @brief 销毁对象；能力无效、对象为空或类型没有销毁函数时返回 false。 */
-  bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept {
-    if (!valid() || instance == nullptr || ops_->destroy == nullptr) {
-      return false;
-    }
-
-    ops_->destroy(instance, resource);
-    return true;
-  }
+  bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 };
 
 } // namespace caors::objects
