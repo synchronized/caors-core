@@ -88,7 +88,7 @@ namespace caors::meta::detail {
 
 struct type_identity {
   type_id id{};
-  string_name canonical_name{};
+  std::string canonical_name{};
 };
 
 } // namespace caors::meta::detail
@@ -97,13 +97,18 @@ struct type_identity {
 约束：
 
 - 节点由 CAORS runtime 分配和持有；
+- canonical name 由节点自身拥有，不依赖 `string_name` 或外部字符串的生命周期；
 - 节点一经发布，不修改 `id` 和 `canonical_name`；
 - 节点在正常 runtime 生命周期内不删除；
 - `type_id{0}` 保留为无效值；
 - 有效 ID 由 state 单调顺序分配，不由地址或名称 hash 直接派生；
 - `type_id` 继续保存固定宽度整数，避免把 runtime 指针暴露为公共 ABI。
+- 首版使用顺序整数 ID，不使用节点内存地址。即使地址也能在单一 runtime 中唯一，它仍会把
+  ASLR、runtime 生命周期和内部节点布局泄漏到公共身份表示中，并使诊断与测试更困难。
 
 顺序 ID 没有名称 hash 碰撞，但每次进程运行可能不同。这符合 `type_id` 的运行期定位职责。
+即使 `type_id` 只有 32 位，可用正值空间也足以覆盖实际进程中的类型数量；耗尽处理只作为
+完整性保护，不作为正常控制流。
 
 ## 三种名称必须分离
 
@@ -219,6 +224,18 @@ template <typename T>
 
 后续调用只读取模块本地静态指针，不查询 map、不加 registry 锁。
 
+首次创建 identity 需要分配节点、名称字符串和容器存储。这里采用与 RTTR
+`create_or_get_type<T>()` 相同的不可恢复初始化语义：
+
+- 模板入口和 runtime 入口保持 `noexcept`；
+- 正常返回时 identity 必须有效，模块静态变量只缓存成功结果；
+- 分配失败由 `std::new_handler` 和最终的 `std::terminate` 处理，不返回可重试的临时无效 ID；
+- 不把 OOM 与无效类型混为同一种状态。
+
+RTTR 的 `create_or_get_type<T>()` 同样是 `noexcept`，其 `make_type_data<T>()` 直接使用抛出式
+`new type_data`；分配失败穿过 `noexcept` 后终止进程。CAORS 只借鉴这项失败语义，不复制
+RTTR 将完整 `type_data` 交给先到模块的模型。
+
 与 RTTR 的差异：
 
 - RTTR 候选对象包含完整 `type_data`，重复时由先注册模型获胜；
@@ -241,24 +258,17 @@ template <typename T>
 不支持在 CAORS runtime 已卸载后继续调用模块静态缓存。插件卸载不会删除 runtime 持有的 identity，
 因此其他模块缓存的 identity 指针不会因插件卸载而失效。
 
-## 与 string_name state 的关系
+## Canonical name 所有权
 
-复用 interner 架构思想，但不把 `string_name` 直接作为 `type_id`：
+`type_identity_state` 不依赖 `string_name_state`：
 
-```text
-string_name state
-└─ 任意运行期字符串驻留
+- `type_identity` 直接拥有 canonical name 的 `std::string`；
+- interner map 使用字符串内容查询，节点发布后不再修改字符串；
+- public API 不暴露该字符串的可写引用；
+- identity state 销毁时统一释放节点和名称。
 
-type_identity_state
-└─ C++ canonical identity 去重与顺序 ID 分配
-```
-
-`type_identity::canonical_name` 可以保存 `string_name`，避免重复拥有名称文本。实现时必须确认
-两个全局 state 的初始化与销毁顺序：
-
-- identity state 创建时可以安全调用 string interner；
-- runtime 关闭时 identity state 必须先于 string state 销毁，或两者都保持到进程退出；
-- public API 不返回可在 runtime 卸载后继续解引用的内部名称地址。
+相比保存 `std::string_view`，直接拥有字符串避免依赖编译模块中的签名字符串地址，也避免插件
+卸载后 view 悬空。相比复用 `string_name`，它消除了两个全局 state 的初始化和销毁顺序耦合。
 
 ## Registry 迁移
 
@@ -308,11 +318,13 @@ dynamic type_record
 新增或复用明确错误语义：
 
 - canonical name 为空：`errc::invalid_type`；
-- ID 空间耗尽：`errc::out_of_memory` 或新增专用错误；
+- ID 空间耗尽：以 `errc::type_id_exhausted` 生成致命诊断并终止，不回绕或复用 ID；
 - 相同 identity 注册模型签名不同：继续返回 `errc::inconsistent_type_model`；
 - 相同注册名称指向不同 identity：`errc::duplicate_name`；
 - 相同 GUID 指向不同 identity：`errc::duplicate_guid`；
-- runtime 状态不可用：返回无效 identity，不在 `noexcept` 边界抛出异常。
+- runtime 状态不可用：属于 runtime 生命周期违约，生成致命诊断并终止；
+- 首次 identity 分配失败：视为不可恢复的基础设施初始化失败，最终
+  `std::terminate`，不返回无效 identity；
 
 Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 adapter/capability 签名放入 identity；
 模型一致性仍由 registry commit 负责。
@@ -321,6 +333,12 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 
 - 所有模块必须调用同一个 CAORS runtime 导出的 `get_or_create_type_identity()`；
 - 不能在 header 中为每个 DLL 创建独立 identity state；
+- `type_identity_state` 定义在 CAORS runtime 的 `.cpp` 中，模板头文件只能调用带导出宏的
+  非模板 runtime 入口；
+- 动态库模式要求 host 和插件链接同一份 CAORS runtime；若进程加载多份 runtime 副本，
+  不承诺副本之间的 `type_id` 相同；
+- 静态库模式只承诺同一个最终链接模块中的统一，不承诺多个分别静态链接 CAORS 的 DLL
+  之间统一；
 - `type_identity` 保持 detail 类型，公共 API 继续传递固定宽度 `type_id`；
 - canonical name 仅承诺相同工具链、ABI、编译选项和 CAORS 配置下的一致性；
 - 所有 EXE/DLL 必须使用相同编译器主版本、标准库 ABI、公共类型定义和 CAORS 配置；
@@ -343,7 +361,10 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 
 - 新增 `canonical_cpp_type_name<T>()`；
 - 覆盖 MSVC、clang-cl 和 Windows Clang 当前支持 preset；
-- 验证 cv/ref 归一化、指针、容器、模板、匿名类型和局部类型；
+- 为每种编译器固定签名来源和精确前后缀截取规则，clang-cl 的选择也必须显式固定；
+- 按名称字节序列进行完整比较，不做编码转换或区域相关处理；
+- 验证 cv/ref 归一化、指针、数组、函数类型、成员指针、容器、模板、匿名类型和局部类型；
+- 增加编译期或单元测试哨兵，编译器升级导致签名格式变化时直接失败；
 - 明确它与 `traits::type_identity<T>::name()` 的职责差异。
 
 ### 阶段 2：Global identity state
@@ -351,6 +372,7 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 - 新增 runtime-owned `type_identity_state`；
 - 实现 `get_or_create_type_identity(canonical_name)`；
 - 顺序分配非零 `type_id`；
+- ID 递增不得回绕、回收或复用，耗尽时触发 `errc::type_id_exhausted` 对应的致命诊断；
 - 保证节点地址稳定和并发首次创建安全；
 - 增加同名复用、异名分配、并发、生命周期和空名称测试。
 
@@ -369,10 +391,20 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 - object 动态类型优先使用虚拟 `type_id()`；
 - 评估是否将普通 C++ RTTI 支持拆为 adapter；
 - 更新 registry dump、模型签名和冲突诊断。
+- 所有构建在 registry commit 时检查模型签名并返回
+  `errc::inconsistent_type_model`；Debug 构建额外记录首次模型来源模块、canonical name
+  和冲突摘要；
+- 单纯 `resolve<T>()` 只建立 identity，不触发完整模型一致性检查；首次注册或提交静态
+  capability 时执行检查。
 
 ### 阶段 5：跨模块验证与文档收口
 
 - 验证宿主和多个 DLL 对同一个 `T` 获得相同 `type_id`；
+- 增加类似 RTTR plugin 的真实插件样例，使用 `caors_runtime.dll + host.exe +
+  plugin_a.dll + plugin_b.dll` 拓扑；
+- 覆盖 host、plugin A、plugin B 分别最先 resolve，以及两个插件并发首次 resolve；
+- 覆盖插件卸载与重新加载、同名私有类型不合并、adapter 可见性冲突诊断；
+- 验证分别静态链接两份 runtime 时不错误宣称跨 runtime ID 相同；
 - 验证不同类型获得不同 ID；
 - 验证插件卸载后 identity 仍由 runtime 持有；
 - 验证多个 registry 共享 identity、但各自拥有独立 record；
