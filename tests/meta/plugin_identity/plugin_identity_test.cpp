@@ -143,5 +143,32 @@ int main(int argc, char** argv) {
     return fail("不同插件中的冲突静态类型模型没有被诊断");
   }
 
+  const auto plugin_a_register_consistent =
+      reloaded_plugin_a.find<caors::tests::plugin_identity::register_type_fn>(
+          "caors_test_plugin_a_register_consistent_type");
+  const auto plugin_b_register_consistent =
+      plugin_b.find<caors::tests::plugin_identity::register_type_fn>(
+          "caors_test_plugin_b_register_consistent_type");
+  const auto plugin_a_capability_key =
+      reloaded_plugin_a.find<caors::tests::plugin_identity::capability_key_fn>(
+          "caors_test_plugin_a_capability_key");
+  const auto plugin_b_capability_key =
+      plugin_b.find<caors::tests::plugin_identity::capability_key_fn>(
+          "caors_test_plugin_b_capability_key");
+  if (plugin_a_register_consistent == nullptr || plugin_b_register_consistent == nullptr ||
+      plugin_a_capability_key == nullptr || plugin_b_capability_key == nullptr) {
+    return fail("无法查找一致模型测试函数");
+  }
+
+  if (plugin_a_capability_key() != plugin_b_capability_key()) {
+    return fail("相同 capability 类型没有获得统一的 runtime key");
+  }
+  if (plugin_a_register_consistent() != static_cast<int>(caors::errc::success)) {
+    return fail("plugin A 无法注册一致静态类型模型");
+  }
+  if (plugin_b_register_consistent() != static_cast<int>(caors::errc::duplicate_id)) {
+    return fail("相同静态类型模型被错误诊断为冲突");
+  }
+
   return 0;
 }

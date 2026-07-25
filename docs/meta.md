@@ -574,8 +574,9 @@ capability 和 registry 的边界：
 - capability 不是 meta extension。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
   `meta::registry`。需要稳定名称、GUID、父类型、反射属性、序列化属性配置或对象工厂时，仍应显式注册
   meta 类型和对应模块 extension。
-- 当前 `capability_key` 是进程内模板静态地址，只适合当前进程内查询，不承诺跨动态库 ABI、跨进程或
-  存档稳定。需要插件协议、脚本模块或工具链发现能力时，应特化 `capability_traits<T>` 提供稳定
+- `capability_key` 由共享 CAORS runtime 按 capability 的 canonical C++ 类型名称驻留。同一 runtime、
+  相同工具链和 ABI 配置下，host 与 DLL 会获得相同 opaque key；它不承诺跨 runtime、跨进程或
+  存档稳定。需要插件协议、脚本模块或工具链发现能力时，仍应特化 `capability_traits<T>` 提供稳定
   name/guid/version，并在协议层处理冲突和版本兼容。
 - 多模块静态能力不应都挤到 `custom_static_capability_module`。外部模块应定义自己的 module tag，特化
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`

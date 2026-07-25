@@ -3,6 +3,8 @@
 
 #include "caors/meta/detail/type_identity.h"
 
+#include "caors/meta/capability_traits.h"
+
 #include <exception>
 #include <limits>
 #include <list>
@@ -21,6 +23,15 @@ struct type_identity final {
 class type_identity_state final {
 public:
   [[nodiscard]] type_id get_or_create(std::string_view canonical_name) {
+    return get_or_create_identity(canonical_name).id;
+  }
+
+  [[nodiscard]] const void* get_or_create_key(std::string_view canonical_name) {
+    return &get_or_create_identity(canonical_name);
+  }
+
+private:
+  [[nodiscard]] type_identity& get_or_create_identity(std::string_view canonical_name) {
     if (canonical_name.empty()) {
       std::terminate();
     }
@@ -28,7 +39,7 @@ public:
     std::scoped_lock lock{mutex_};
     const auto existing = identities_by_name_.find(canonical_name);
     if (existing != identities_by_name_.end()) {
-      return existing->second->id;
+      return *existing->second;
     }
 
     if (next_id_ == std::numeric_limits<std::uint64_t>::max()) {
@@ -38,10 +49,9 @@ public:
     identities_.push_back(type_identity{type_id{next_id_++}, std::string{canonical_name}});
     type_identity& identity = identities_.back();
     identities_by_name_.emplace(identity.canonical_name, &identity);
-    return identity.id;
+    return identity;
   }
 
-private:
   std::mutex mutex_;
   std::list<type_identity> identities_;
   std::unordered_map<std::string_view, type_identity*> identities_by_name_;
@@ -60,6 +70,14 @@ type_id get_or_create_type_id(const char* canonical_name, std::size_t length) no
     std::terminate();
   }
   return identity_state().get_or_create(std::string_view{canonical_name, length});
+}
+
+capability_key get_or_create_capability_key(const char* canonical_name,
+                                            std::size_t length) noexcept {
+  if (canonical_name == nullptr) {
+    std::terminate();
+  }
+  return identity_state().get_or_create_key(std::string_view{canonical_name, length});
 }
 
 } // namespace caors::meta::detail

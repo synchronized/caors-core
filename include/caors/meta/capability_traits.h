@@ -6,7 +6,9 @@
 
 #include "caors/core/guid.h"
 #include "caors/export.h"
+#include "caors/meta/detail/canonical_type_name.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <type_traits>
@@ -21,6 +23,8 @@ namespace detail {
 
 [[nodiscard]] CAORS_API const void* find_type_capability(const meta::type& type,
                                                          capability_key key) noexcept;
+[[nodiscard]] CAORS_API capability_key get_or_create_capability_key(const char* canonical_name,
+                                                                    std::size_t length) noexcept;
 
 } // namespace detail
 
@@ -45,8 +49,11 @@ struct capability_entry {
 
 /** @brief 返回能力类型在当前进程内的唯一 key。 */
 template <typename Capability> [[nodiscard]] capability_key capability_key_of() noexcept {
-  static const int key = 0;
-  return &key;
+  using capability_type = std::remove_cvref_t<Capability>;
+  constexpr std::string_view canonical_name = detail::canonical_cpp_type_name<capability_type>();
+  static const capability_key key =
+      detail::get_or_create_capability_key(canonical_name.data(), canonical_name.size());
+  return key;
 }
 
 /**

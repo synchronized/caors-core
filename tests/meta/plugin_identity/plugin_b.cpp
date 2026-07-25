@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "plugin_identity_test_support.h"
+#include "shared_capability_adapter.h"
 
 #include "caors/meta/static_capability.h"
 
@@ -39,4 +40,16 @@ CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_b_register_type() noexcept {
           "caors.test.plugin_identity.shared")
           .commit();
   return static_cast<int>(status.value());
+}
+
+CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_b_register_consistent_type() noexcept {
+  const caors::error status =
+      caors::registration::type_<caors::tests::plugin_identity::consistent_plugin_type>(
+          "caors.test.plugin_identity.consistent")
+          .commit();
+  return static_cast<int>(status.value());
+}
+
+CAORS_TEST_PLUGIN_EXPORT const void* caors_test_plugin_b_capability_key() noexcept {
+  return caors::meta::capability_key_of<caors::tests::plugin_identity::shared_static_capability>();
 }

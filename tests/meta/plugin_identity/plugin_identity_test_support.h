@@ -12,10 +12,19 @@ struct shared_plugin_type final {
   int value = 0;
 };
 
+struct consistent_plugin_type final {
+  int value = 0;
+};
+
 using type_id_fn = std::uint64_t (*)() noexcept;
 using register_type_fn = int (*)() noexcept;
+using capability_key_fn = const void* (*)() noexcept;
 
 struct conflicting_static_capability final {
+  int marker = 0;
+};
+
+struct shared_static_capability final {
   int marker = 0;
 };
 
