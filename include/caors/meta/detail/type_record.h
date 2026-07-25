@@ -45,16 +45,21 @@ struct nested_type_data {
   [[nodiscard]] constexpr bool valid() const noexcept { return name && nested_type; }
 };
 
-/** @brief 注册表内部保存的完整 meta 类型数据。 */
-class type_record {
+/**
+ * @brief 注册表内部保存的完整 meta 类型数据。
+ *
+ * 类型注册 builder 会在调用模块中构造临时记录，因此共享库构建必须导出其非模板操作。记录最终
+ * 仍由 CAORS runtime 接管，调用方不应直接依赖该 detail 类型。
+ */
+class CAORS_API type_record {
 public:
   type_record() = default;
   type_record(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
-            type_id parent_id = type_id::invalid());
+              type_id parent_id = type_id::invalid());
   type_record(type_id id, string_name name, type_guid guid, value_storage_ops value,
-            type_semantics semantics, builtin_ops builtin,
-            const capability_entry* static_capabilities, std::size_t static_capability_count,
-            bool registered) noexcept;
+              type_semantics semantics, builtin_ops builtin,
+              const capability_entry* static_capabilities, std::size_t static_capability_count,
+              bool registered) noexcept;
   type_record(const type_record& other) = delete;
   type_record& operator=(const type_record& other) = delete;
   type_record(type_record&&) noexcept;
@@ -134,28 +139,28 @@ private:
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_record make_type_record(string_name name,
-                                       type_id parent_id = type_id::invalid()) noexcept {
+                                           type_id parent_id = type_id::invalid()) noexcept {
   return type_record{detail::type_id_of_cpp_type<T>(), name, type_guid::nil(), parent_id};
 }
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_record make_type_record(string_name name, type_guid guid,
-                                       type_id parent_id = type_id::invalid()) noexcept {
+                                           type_id parent_id = type_id::invalid()) noexcept {
   return type_record{detail::type_id_of_cpp_type<T>(), name, guid, parent_id};
 }
 
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_record make_type_record(std::string_view name,
-                                       type_id parent_id = type_id::invalid()) {
+                                           type_id parent_id = type_id::invalid()) {
   return make_type_record<T>(string_name{name}, parent_id);
 }
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_record make_type_record(std::string_view name, type_guid guid,
-                                       type_id parent_id = type_id::invalid()) {
+                                           type_id parent_id = type_id::invalid()) {
   return make_type_record<T>(string_name{name}, guid, parent_id);
 }
 

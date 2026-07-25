@@ -3,6 +3,7 @@
 
 #include "plugin_identity_test_support.h"
 
+#include "caors/error.h"
 #include "caors/meta/type_id.h"
 
 #include <cstdint>
@@ -124,6 +125,22 @@ int main(int argc, char** argv) {
           "caors_test_plugin_a_type_id");
   if (reloaded_plugin_a_id == nullptr || reloaded_plugin_a_id() != host_id) {
     return fail("插件重新加载后没有复用原 type_id");
+  }
+
+  const auto plugin_a_register =
+      reloaded_plugin_a.find<caors::tests::plugin_identity::register_type_fn>(
+          "caors_test_plugin_a_register_type");
+  const auto plugin_b_register = plugin_b.find<caors::tests::plugin_identity::register_type_fn>(
+      "caors_test_plugin_b_register_type");
+  if (plugin_a_register == nullptr || plugin_b_register == nullptr) {
+    return fail("无法查找插件类型注册函数");
+  }
+
+  if (plugin_a_register() != static_cast<int>(caors::errc::success)) {
+    return fail("plugin A 无法注册基础静态类型模型");
+  }
+  if (plugin_b_register() != static_cast<int>(caors::errc::inconsistent_type_model)) {
+    return fail("不同插件中的冲突静态类型模型没有被诊断");
   }
 
   return 0;

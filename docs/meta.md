@@ -13,7 +13,7 @@
 `meta` 第一阶段解决几件事：
 
 - 用 `string_name` 保存运行期去重后的类型名。
-- 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
+- 用 `type_id` 表示共享 CAORS runtime 按 canonical C++ 类型名称分配的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用注册表内部 meta 类型记录保存类型名、稳定 GUID、父类型、属性和成员方法。
 - 用 `meta::type` 暴露 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
@@ -75,8 +75,9 @@ std::string_view view = name.view();
 
 ### type_id
 
-`type_id` 是运行期类型标识。`0` 保留为无效值。对于 C++ 类型，它由库内部 C++ type key 派生，
-只保证当前进程内可用于注册表索引，不承诺跨进程、跨版本或跨动态库边界稳定。
+`type_id` 是运行期类型标识。`0` 保留为无效值。对于 C++ 类型，共享 CAORS runtime 按编译器
+生成的 canonical C++ 类型名称去重并顺序分配非零 ID。它只保证同一 runtime 实例内可用于
+注册表索引，不承诺跨进程或跨版本稳定。
 
 ```cpp
 caors::registration::type_<player>("game.player");
@@ -93,12 +94,14 @@ caors::type_id id = caors::meta::id("game.player");
 `type_id` 适合当前进程内的运行期查找，不适合作为序列化长期稳定 ID。需要长期稳定身份时使用
 `type_guid`。
 
-在 DLL 或插件边界，同一 C++ 类型如果被多个模块分别实例化内部 type key，运行期 `type_id` 不承诺相同。
-当前约定是同一个可反射 C++ 类型只由一个模块负责注册；跨模块、跨进程或存档数据里的稳定身份使用
-`type_guid`，必要时再结合类型名和版本迁移策略。
+在 DLL 或插件边界，只要 host 和插件动态链接同一份 CAORS runtime，并使用相同编译器主版本、
+标准库 ABI、公共类型定义和 CAORS 配置，同一 C++ 类型会获得相同 `type_id`。分别静态链接多份
+CAORS runtime 的 DLL 不属于这一保证范围。跨进程或存档数据里的稳定身份仍使用 `type_guid`，
+必要时再结合类型名和版本迁移策略。
 
 注册 C++ 类型时，注册表还会记录 `typeid(T) -> type_id` 的进程内映射。该映射只用于运行期 RTTI
-辅助，例如普通 C++ 多态 wrapper 从 `Base*` 查到真实 `Derived` 类型；它同样不承诺跨进程或跨动态库稳定。
+辅助，例如普通 C++ 多态 wrapper 从 `Base*` 查到真实 `Derived` 类型；它不是类型身份来源，
+也不承诺跨进程或跨 ABI 不兼容模块稳定。模板查询和类型注册不依赖该 RTTI map 生成主身份。
 
 ### type_guid
 

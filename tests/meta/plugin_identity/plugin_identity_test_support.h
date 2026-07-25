@@ -13,6 +13,11 @@ struct shared_plugin_type final {
 };
 
 using type_id_fn = std::uint64_t (*)() noexcept;
+using register_type_fn = int (*)() noexcept;
+
+struct conflicting_static_capability final {
+  int marker = 0;
+};
 
 } // namespace caors::tests::plugin_identity
 
