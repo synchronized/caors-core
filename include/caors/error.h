@@ -50,6 +50,7 @@ enum class error_domain {
   object,
   resources,
   serialization,
+  platform,
 };
 
 /**

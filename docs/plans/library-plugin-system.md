@@ -5,10 +5,30 @@
 
 ## 文档状态
 
-- 当前状态：待讨论与实施；
+- 当前状态：阶段 0、阶段 1 已完成，阶段 2 待实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
+
+## 已冻结的首版决策
+
+- 低层 namespace 使用 `platform::shared_library`；
+- manifest 后续复用 CAORS 现有 JSON 基础能力，但读取过程不依赖 meta 类型注册；
+- 第一版只支持显式动态库路径，不扫描目录；
+- plugin manager 只提供显式实例，不提供默认进程级全局对象；
+- 第一版不支持静态插件；
+- 第一版不承诺安全卸载或热重载；
+- 插件错误后续增加独立 `error_domain::plugins`，动态库错误使用
+  `error_domain::platform`。
+
+## 当前实施结果
+
+- 已新增 move-only `platform::shared_library`；
+- Windows 使用 `LoadLibraryExW`，POSIX 使用 `dlopen`；
+- 已支持显式路径、local/global 加载模式、符号查询、幂等关闭和平台错误域；
+- 已增加默认状态、无效路径、move 语义的编译期约束测试；
+- plugin identity 测试已删除私有加载器，改用公共 `platform::shared_library`；
+- Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，相关测试 2/2 通过。
 
 ## 背景
 
@@ -380,17 +400,17 @@ struct plugin_diagnostic {
 
 ### 阶段 0：需求冻结与基线
 
-- 固定 namespace、文件布局和错误语义；
-- 记录 Windows/POSIX 测试环境；
-- 复用现有 plugin identity 测试作为基线；
-- 明确第一版不支持安全卸载和热重载。
+- [x] 固定 namespace、文件布局和错误语义；
+- [x] 记录 Windows/POSIX 测试环境；
+- [x] 复用现有 plugin identity 测试作为基线；
+- [x] 明确第一版不支持安全卸载和热重载。
 
 ### 阶段 1：跨平台 `shared_library`
 
-- 实现 move-only RAII；
-- 实现 Unicode 路径、符号查询、加载模式和平台错误；
-- 覆盖不存在文件、无效动态库、缺少符号、move、重复关闭；
-- 将现有 plugin identity 测试的本地 `shared_library` 替换为公共 API。
+- [x] 实现 move-only RAII；
+- [x] 实现 Unicode 路径、符号查询、加载模式和平台错误；
+- [x] 覆盖不存在文件、无效动态库、缺少符号、move、重复关闭；
+- [x] 将现有 plugin identity 测试的本地 `shared_library` 替换为公共 API。
 
 ### 阶段 2：ABI 与单插件加载
 
@@ -483,15 +503,11 @@ plugin_model_conflict.dll
 - Windows Clang Debug/Shared 使用 `--parallel 1` 完成相关构建和测试；
 - 每个实施阶段独立提交并推送。
 
-## 需要在实施前确认的问题
+## 后续待确认问题
 
-1. 低层 namespace 最终使用 `platform::shared_library` 还是新增 `modules::shared_library`；
-2. manifest 采用现有 serialization/value JSON，还是使用无 meta 依赖的专用最小解析入口；
-3. 第一版是否只支持显式路径，还是同时支持目录扫描；
-4. semantic version 是否首版实现完整 range，还是先只支持相同 major；
-5. 插件错误是否复用现有 `error_domain`，并新增 `error_domain::plugins`；
-6. 静态插件是否与动态插件在第一版同时支持；
-7. plugin manager 是显式实例，还是提供默认进程级实例；建议先只提供显式实例。
+1. 阶段 3 的 semantic version 首版实现完整 range，还是先只支持相同 major；
+2. registry overlay 采用查询链 overlay 还是不可变 snapshot；
+3. 热重载的数据迁移协议需在阶段 7 前另立计划。
 
 ## 非目标
 

@@ -5,78 +5,14 @@
 
 #include "caors/error.h"
 #include "caors/meta/type_id.h"
+#include "caors/platform/shared_library.h"
 
 #include <cstdint>
 #include <iostream>
-#include <string>
 #include <thread>
 #include <utility>
 
-#if defined(_WIN32)
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-
 namespace {
-
-class shared_library final {
-public:
-  shared_library() = default;
-  explicit shared_library(const char* path) { open(path); }
-  ~shared_library() { close(); }
-
-  shared_library(const shared_library&) = delete;
-  shared_library& operator=(const shared_library&) = delete;
-
-  shared_library(shared_library&& other) noexcept
-      : handle_(std::exchange(other.handle_, nullptr)) {}
-
-  shared_library& operator=(shared_library&& other) noexcept {
-    if (this != &other) {
-      close();
-      handle_ = std::exchange(other.handle_, nullptr);
-    }
-    return *this;
-  }
-
-  [[nodiscard]] bool valid() const noexcept { return handle_ != nullptr; }
-
-  template <typename Function> [[nodiscard]] Function find(const char* name) const noexcept {
-#if defined(_WIN32)
-    return reinterpret_cast<Function>(GetProcAddress(handle_, name));
-#else
-    return reinterpret_cast<Function>(dlsym(handle_, name));
-#endif
-  }
-
-private:
-  void open(const char* path) {
-#if defined(_WIN32)
-    handle_ = LoadLibraryA(path);
-#else
-    handle_ = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-#endif
-  }
-
-  void close() noexcept {
-    if (handle_ == nullptr) {
-      return;
-    }
-#if defined(_WIN32)
-    FreeLibrary(handle_);
-#else
-    dlclose(handle_);
-#endif
-    handle_ = nullptr;
-  }
-
-#if defined(_WIN32)
-  HMODULE handle_ = nullptr;
-#else
-  void* handle_ = nullptr;
-#endif
-};
 
 [[nodiscard]] int fail(const char* message) {
   std::cerr << message << '\n';
@@ -90,16 +26,18 @@ int main(int argc, char** argv) {
     return fail("插件 identity 测试需要 plugin A 和 plugin B 路径");
   }
 
-  shared_library plugin_a{argv[1]};
-  shared_library plugin_b{argv[2]};
-  if (!plugin_a.valid() || !plugin_b.valid()) {
+  auto plugin_a_result = caors::platform::shared_library::open(argv[1]);
+  auto plugin_b_result = caors::platform::shared_library::open(argv[2]);
+  if (!plugin_a_result || !plugin_b_result) {
     return fail("无法加载 identity 测试插件");
   }
+  auto plugin_a = std::move(*plugin_a_result);
+  auto plugin_b = std::move(*plugin_b_result);
 
-  const auto plugin_a_id =
-      plugin_a.find<caors::tests::plugin_identity::type_id_fn>("caors_test_plugin_a_type_id");
-  const auto plugin_b_id =
-      plugin_b.find<caors::tests::plugin_identity::type_id_fn>("caors_test_plugin_b_type_id");
+  const auto plugin_a_id = plugin_a.find_function<caors::tests::plugin_identity::type_id_fn>(
+      "caors_test_plugin_a_type_id");
+  const auto plugin_b_id = plugin_b.find_function<caors::tests::plugin_identity::type_id_fn>(
+      "caors_test_plugin_b_type_id");
   if (plugin_a_id == nullptr || plugin_b_id == nullptr) {
     return fail("无法查找 identity 测试插件导出函数");
   }
@@ -118,20 +56,25 @@ int main(int argc, char** argv) {
     return fail("host 与插件没有获得统一的 type_id");
   }
 
-  plugin_a = shared_library{};
-  shared_library reloaded_plugin_a{argv[1]};
+  plugin_a = caors::platform::shared_library{};
+  auto reloaded_plugin_a_result = caors::platform::shared_library::open(argv[1]);
+  if (!reloaded_plugin_a_result) {
+    return fail("无法重新加载 identity 测试插件");
+  }
+  auto reloaded_plugin_a = std::move(*reloaded_plugin_a_result);
   const auto reloaded_plugin_a_id =
-      reloaded_plugin_a.find<caors::tests::plugin_identity::type_id_fn>(
+      reloaded_plugin_a.find_function<caors::tests::plugin_identity::type_id_fn>(
           "caors_test_plugin_a_type_id");
   if (reloaded_plugin_a_id == nullptr || reloaded_plugin_a_id() != host_id) {
     return fail("插件重新加载后没有复用原 type_id");
   }
 
   const auto plugin_a_register =
-      reloaded_plugin_a.find<caors::tests::plugin_identity::register_type_fn>(
+      reloaded_plugin_a.find_function<caors::tests::plugin_identity::register_type_fn>(
           "caors_test_plugin_a_register_type");
-  const auto plugin_b_register = plugin_b.find<caors::tests::plugin_identity::register_type_fn>(
-      "caors_test_plugin_b_register_type");
+  const auto plugin_b_register =
+      plugin_b.find_function<caors::tests::plugin_identity::register_type_fn>(
+          "caors_test_plugin_b_register_type");
   if (plugin_a_register == nullptr || plugin_b_register == nullptr) {
     return fail("无法查找插件类型注册函数");
   }
@@ -144,16 +87,16 @@ int main(int argc, char** argv) {
   }
 
   const auto plugin_a_register_consistent =
-      reloaded_plugin_a.find<caors::tests::plugin_identity::register_type_fn>(
+      reloaded_plugin_a.find_function<caors::tests::plugin_identity::register_type_fn>(
           "caors_test_plugin_a_register_consistent_type");
   const auto plugin_b_register_consistent =
-      plugin_b.find<caors::tests::plugin_identity::register_type_fn>(
+      plugin_b.find_function<caors::tests::plugin_identity::register_type_fn>(
           "caors_test_plugin_b_register_consistent_type");
   const auto plugin_a_capability_key =
-      reloaded_plugin_a.find<caors::tests::plugin_identity::capability_key_fn>(
+      reloaded_plugin_a.find_function<caors::tests::plugin_identity::capability_key_fn>(
           "caors_test_plugin_a_capability_key");
   const auto plugin_b_capability_key =
-      plugin_b.find<caors::tests::plugin_identity::capability_key_fn>(
+      plugin_b.find_function<caors::tests::plugin_identity::capability_key_fn>(
           "caors_test_plugin_b_capability_key");
   if (plugin_a_register_consistent == nullptr || plugin_b_register_consistent == nullptr ||
       plugin_a_capability_key == nullptr || plugin_b_capability_key == nullptr) {
