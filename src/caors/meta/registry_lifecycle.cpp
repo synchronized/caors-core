@@ -143,6 +143,18 @@ namespace detail {
 
 error register_registration(registration_fn fn) { return get_registry().add_registration(fn); }
 
+bool registry_snapshot_active(const std::shared_ptr<registry_snapshot>& snapshot) noexcept {
+  if (snapshot == nullptr) {
+    return false;
+  }
+  for (const auto& layer : snapshot->layers()) {
+    if (layer == nullptr || !layer->active()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 } // namespace detail
 
 error run_registrations() { return get_registry().run_registrations(); }

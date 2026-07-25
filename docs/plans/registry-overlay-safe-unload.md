@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A、6B 已完成，6C 待实施；
+- 当前状态：设计冻结，6A、6B、6C 已完成，6D 待实施；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -239,10 +239,15 @@ snapshot 中已有的 ID、名称、GUID 或 C++ type_info。draft 采用单写�
 
 ### 6C：公共视图 Lease 化
 
-- `type/property/method/method_set/extension_view/accessor` 传递 lease；
-- layer inactive 后视图确定失效；
-- 旧 generation 不指向新记录；
-- 补充 ABI/对象大小和复制移动测试。
+- [x] `type/property/method/method_set/extension_view/accessor` 传递 lease；
+- [x] layer inactive 后视图确定失效；
+- [x] 旧 generation 不指向新记录；
+- [x] 覆盖句柄复制移动约束和 detach 后失效行为。
+
+`extension_view` 保存创建时的 snapshot lease，但扩展内容仍按 `type_id` 从当前 registry 复制查询；
+detach 后旧 view 可保留 ID 快照，但不再返回已分离 layer 的扩展。`find_extension_ptr()` 仅允许访问
+registry 自己的 primary layer，跨 overlay 查询统一使用 `find_extension()`，并在 snapshot 与 state
+锁保护期间完成副本构造。
 
 ### 6D：擦除值与调用 Guard
 

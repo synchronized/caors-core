@@ -3,10 +3,12 @@
 
 // 原测试文件：meta_type_registry_meta_type_global_registry_checks_parent_relationship_test.cpp
 
+#include "caors/meta/detail/registry_extension_templates.h"
 #include "caors/meta/property_accessor.h"
 #include "meta_type_registry_test_support.h"
 
 #include <future>
+#include <type_traits>
 
 namespace {
 
@@ -21,10 +23,25 @@ struct overlay_reflected_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
 };
+struct overlay_extension {
+  int value = 0;
+};
 
 } // namespace
 
 using namespace caors::tests::meta_type_registry;
+
+static_assert(std::is_nothrow_copy_constructible_v<caors::meta::type>);
+static_assert(std::is_nothrow_move_constructible_v<caors::meta::type>);
+static_assert(std::is_nothrow_copy_constructible_v<caors::meta::property>);
+static_assert(std::is_nothrow_move_constructible_v<caors::meta::property>);
+static_assert(std::is_nothrow_copy_constructible_v<caors::meta::method>);
+static_assert(std::is_nothrow_move_constructible_v<caors::meta::method>);
+static_assert(std::is_nothrow_copy_constructible_v<caors::meta::method_set>);
+static_assert(std::is_nothrow_move_constructible_v<caors::meta::method_set>);
+static_assert(std::is_nothrow_copy_constructible_v<caors::meta::property_accessor>);
+static_assert(std::is_nothrow_move_constructible_v<caors::meta::property_accessor>);
+
 TEST_CASE("meta type - global registry checks parent relationship", "[meta]") {
   REQUIRE(caors::registration::type_<relation_parent_type>("caors.test.type.relation_parent")
               .commit() == caors::error{});
@@ -244,6 +261,34 @@ TEST_CASE("meta registry detach 让旧 property method 和 accessor 失效") {
   CHECK_FALSE(stale_method_set);
   CHECK_FALSE(stale_method);
   CHECK_FALSE(stale_accessor);
+}
+
+TEST_CASE("meta registry extension view 保活 snapshot 且 detach 后不再返回扩展") {
+  caors::meta::registry registry{};
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_draft_type>(layer_context,
+                                                               "caors.test.meta.overlay_extension")
+                    .commit());
+  const auto draft_type = caors::meta::find<overlay_draft_type>(layer_context);
+  REQUIRE(draft_type);
+  const caors::type_id draft_type_id = draft_type.id();
+  REQUIRE_FALSE(caors::meta::detail::emplace_extension<overlay_extension>(layer->get_registry(),
+                                                                          draft_type_id, 42));
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+
+  auto view = registry.extension_view<overlay_extension>();
+  REQUIRE(view);
+  REQUIRE(view.size() == 1);
+  const auto extension = view.find<overlay_extension>(draft_type_id);
+  REQUIRE(extension.has_value());
+  CHECK(extension->value == 42);
+  CHECK(registry.find_extension_ptr<overlay_extension>(draft_type_id) == nullptr);
+
+  REQUIRE_FALSE(registry.detach_layer(*layer));
+  CHECK_FALSE(view);
+  CHECK_FALSE(view.find<overlay_extension>(draft_type_id).has_value());
+  CHECK(view.ids().front() == draft_type_id);
 }
 
 TEST_CASE("meta registry 并发发布 layer 不会丢失已发布 snapshot") {

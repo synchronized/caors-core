@@ -37,12 +37,21 @@ template <typename Extension> [[nodiscard]] bool registry::has_extension(type_id
 template <typename Extension>
 [[nodiscard]] std::optional<Extension> registry::find_extension(type_id id) const {
   using extension_type = std::decay_t<Extension>;
-  const extension_type* value = find_extension_ptr<extension_type>(id);
-  if (value == nullptr) {
+  std::optional<extension_type> result;
+  const bool found = copy_extension_data(
+      id, detail::extension_key_of<extension_type>(), &result,
+      [](void* destination, const detail::extension_data& data) {
+        auto& output = *static_cast<std::optional<extension_type>*>(destination);
+        const extension_type* value = detail::extension_value<extension_type>(data);
+        if (value != nullptr) {
+          output.emplace(*value);
+        }
+      });
+  if (!found) {
     return std::nullopt;
   }
 
-  return *value;
+  return result;
 }
 
 template <typename Extension>
@@ -56,7 +65,8 @@ template <typename Extension>
 template <typename Extension> [[nodiscard]] std::size_t registry::extension_count() const noexcept {
   using extension_type = std::decay_t<Extension>;
   detail::extension_key keys[] = {detail::extension_key_of<extension_type>()};
-  return view_extension_ids(keys, 1).size();
+  const auto snapshot = capture_snapshot();
+  return view_extension_ids(snapshot, keys, 1).size();
 }
 
 } // namespace caors::meta

@@ -15,7 +15,7 @@ namespace caors::meta {
 template <typename... Extensions>
 template <typename Component>
 [[nodiscard]] std::optional<Component> extension_view<Extensions...>::find(type_id id) const {
-  if (registry_ == nullptr) {
+  if (registry_ == nullptr || !valid()) {
     return std::nullopt;
   }
 
@@ -27,8 +27,9 @@ template <typename... Extensions>
   static_assert(sizeof...(Extensions) > 0, "Meta view requires at least one extension type");
 
   detail::extension_key keys[] = {detail::extension_key_of<std::decay_t<Extensions>>()...};
+  auto snapshot = capture_snapshot();
   return ::caors::meta::extension_view<Extensions...>{
-      this, view_extension_ids(keys, sizeof...(Extensions))};
+      this, view_extension_ids(snapshot, keys, sizeof...(Extensions)), std::move(snapshot)};
 }
 
 } // namespace caors::meta

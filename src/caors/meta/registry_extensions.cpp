@@ -69,23 +69,44 @@ const detail::extension_data* registry::find_extension_data(type_id id,
     return nullptr;
   }
 
+  const detail::registry_state& state = primary_layer_->state();
+  std::lock_guard lock(state.mutex);
+  const detail::type_record* stored = detail::find_type_record(state, id);
+  if (stored != nullptr) {
+    return stored->registered() ? stored->find_extension(key) : nullptr;
+  }
+  return nullptr;
+}
+
+bool registry::copy_extension_data(type_id id, detail::extension_key key, void* destination,
+                                   extension_copy_fn copy) const {
+  if (!id || key == nullptr || destination == nullptr || copy == nullptr) {
+    return false;
+  }
+
   const auto snapshot = capture_snapshot();
   for (const auto& layer : snapshot->layers()) {
     const detail::registry_state& state = layer->state();
     std::lock_guard lock(state.mutex);
     const detail::type_record* stored = detail::find_type_record(state, id);
     if (stored != nullptr) {
-      return stored->registered() ? stored->find_extension(key) : nullptr;
+      const detail::extension_data* extension =
+          stored->registered() ? stored->find_extension(key) : nullptr;
+      if (extension == nullptr) {
+        return false;
+      }
+      copy(destination, *extension);
+      return true;
     }
   }
-  return nullptr;
+  return false;
 }
 
-core::vector<type_id> registry::view_extension_ids(const detail::extension_key* keys,
-                                                   std::size_t count) const {
-  const auto snapshot = capture_snapshot();
+core::vector<type_id>
+registry::view_extension_ids(const std::shared_ptr<detail::registry_snapshot>& snapshot,
+                             const detail::extension_key* keys, std::size_t count) const {
   core::vector<type_id> empty{core::vector<type_id>::allocator_type{&memory::library_resource()}};
-  if (keys == nullptr || count == 0) {
+  if (snapshot == nullptr || keys == nullptr || count == 0) {
     return empty;
   }
 

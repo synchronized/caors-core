@@ -105,12 +105,16 @@ bool type::nullable() const noexcept {
 }
 
 const metadata_map& type::metadata() const noexcept {
-  if (registry_ == nullptr || !id()) {
+  const detail::type_record* data = detail::type_access::registered_data_of(*this);
+  if (data == nullptr) {
     return empty_metadata_map();
   }
 
-  const type_metadata* data = registry_->find_extension_ptr<type_metadata>(id());
-  return data != nullptr ? data->values : empty_metadata_map();
+  const detail::extension_data* metadata =
+      data->find_extension(detail::extension_key_of<type_metadata>());
+  const type_metadata* value =
+      metadata != nullptr ? detail::extension_value<type_metadata>(*metadata) : nullptr;
+  return value != nullptr ? value->values : empty_metadata_map();
 }
 
 const metadata_value* type::find_metadata(metadata_key key) const noexcept {

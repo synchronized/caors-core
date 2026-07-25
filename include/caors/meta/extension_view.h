@@ -5,15 +5,22 @@
 #define CAORS_META_EXTENSION_VIEW_H_
 
 #include "caors/core/containers.h"
+#include "caors/export.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <utility>
 
 namespace caors::meta {
 
 class registry;
+namespace detail {
+class registry_snapshot;
+[[nodiscard]] CAORS_API bool
+registry_snapshot_active(const std::shared_ptr<registry_snapshot>& snapshot) noexcept;
+}
 
 /**
  * @brief 元类型扩展数据查询视图。
@@ -32,6 +39,8 @@ public:
   [[nodiscard]] bool empty() const noexcept { return ids_.empty(); }
   [[nodiscard]] std::size_t size() const noexcept { return ids_.size(); }
   [[nodiscard]] const vector<type_id>& ids() const noexcept { return ids_; }
+  [[nodiscard]] bool valid() const noexcept { return detail::registry_snapshot_active(snapshot_); }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   /** @brief 获取视图中某个类型上的扩展数据副本。 */
   template <typename Extension> [[nodiscard]] std::optional<Extension> find(type_id id) const;
@@ -39,11 +48,13 @@ public:
 private:
   friend class registry;
 
-  extension_view(const registry* owner, vector<type_id> ids)
-      : registry_(owner), ids_(std::move(ids)) {}
+  extension_view(const registry* owner, vector<type_id> ids,
+                 std::shared_ptr<detail::registry_snapshot> snapshot)
+      : registry_(owner), ids_(std::move(ids)), snapshot_(std::move(snapshot)) {}
 
   const registry* registry_ = nullptr;
   vector<type_id> ids_;
+  std::shared_ptr<detail::registry_snapshot> snapshot_{};
 };
 
 } // namespace caors::meta

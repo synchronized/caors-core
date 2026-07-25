@@ -106,8 +106,8 @@ public:
   /**
    * @brief 获取指定类型上的扩展数据只读指针。
    *
-   * 扩展数据由对应 `type_record` 以 append-only
-   * 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出， 指针地址保持稳定。
+   * 仅查询当前 registry 自己的 primary layer，不跨 overlay 回退。返回指针不拥有对象，
+   * 生命周期不超过当前 registry；跨 layer 查询应使用返回副本的 `find_extension()`。
    */
   template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
 
@@ -144,9 +144,13 @@ private:
   [[nodiscard]] bool has_extension(type_id id, detail::extension_key key) const;
   [[nodiscard]] const detail::extension_data* find_extension_data(type_id id,
                                                                   detail::extension_key key) const;
+  using extension_copy_fn = void (*)(void*, const detail::extension_data&);
+  [[nodiscard]] bool copy_extension_data(type_id id, detail::extension_key key, void* destination,
+                                         extension_copy_fn copy) const;
 
-  [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,
-                                                   std::size_t count) const;
+  [[nodiscard]] vector<type_id>
+  view_extension_ids(const std::shared_ptr<detail::registry_snapshot>& snapshot,
+                     const detail::extension_key* keys, std::size_t count) const;
   [[nodiscard]] std::shared_ptr<detail::registry_snapshot> capture_snapshot() const noexcept;
 
   memory::memory_resource* state_resource_ = nullptr;
