@@ -6,6 +6,11 @@
 本目录集中存放尚在讨论、实施或已经完成但需要保留设计依据的重构与迁移计划。
 面向使用者的稳定主题说明继续放在 `docs/` 根目录。
 
+## Runtime 与插件
+
+- [library-plugin-system.md](library-plugin-system.md)：跨平台动态库封装、稳定插件 ABI、
+  manifest、依赖、生命周期、registration scope 与安全卸载计划。
+
 ## Meta
 
 - [detail-api-boundary-redesign.md](detail-api-boundary-redesign.md)：meta 内部 detail API
