@@ -76,6 +76,13 @@
         "USE_LOG": "OFF"
       }
     },
+    {
+      "name": "shared-build",
+      "hidden": true,
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": "ON"
+      }
+    },
 
     {
       "name": "3.---------- 编译器 ----------",
@@ -298,6 +305,16 @@
       ]
     },
     {
+      "name": "windows-clang-shared-debug",
+      "displayName": "Windows x64 clang shared debug",
+      "inherits": [
+        "windows-default",
+        "use-clang",
+        "debug-build",
+        "shared-build"
+      ]
+    },
+    {
       "name": "windows-clang-release",
       "displayName": "Windows x64 clang release",
       "inherits": [
@@ -350,6 +367,10 @@
     {
       "name": "windows-clang-debug",
       "configurePreset": "windows-clang-debug"
+    },
+    {
+      "name": "windows-clang-shared-debug",
+      "configurePreset": "windows-clang-shared-debug"
     },
     {
       "name": "windows-clang-release",
@@ -417,6 +438,13 @@
     {
       "name": "windows-clang-debug",
       "configurePreset": "windows-clang-debug",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "windows-clang-shared-debug",
+      "configurePreset": "windows-clang-shared-debug",
       "inherits": [
         "test-default"
       ]
