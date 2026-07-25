@@ -124,6 +124,25 @@ Clang/GCC -> __PRETTY_FUNCTION__
 它只用于相同工具链和 ABI 配置下的进程内跨模块统一，不作为公共显示名称或持久化协议。
 同一进程不支持混用产生不同 C++ ABI 类型名称的编译器模块。
 
+canonical name 不采用 RTTR 式名称美化或注册名称传播。实现只执行：
+
+- 在进入名称提取前使用 `std::remove_cvref_t<T>` 归一顶层 cv/ref；
+- 从编译器函数签名中精确截取完整类型文本；
+- 保留 namespace、模板参数、指针层级、模板参数中的 cv、allocator、policy 和调用约定等
+  可能影响类型身份的内容；
+- 保存长度并按完整字符串判等；容器内部可以使用 hash 加速，但 hash 不能单独决定 identity。
+
+不得执行：
+
+- 用 `traits::type_identity<T>::name()` 或注册名称替换 canonical name；
+- 为了显示友好而把 `std::basic_string<...>` 改写为 `std::string`；
+- 删除可能影响 ABI 或类型差异的模板参数、空格片段或编译器标记；
+- 在某个类型注册改名后，遍历并重写指针、数组或组合类型的 canonical name。
+
+RTTR 需要美化和传播名称，是因为其类型名称同时承担编译器类型去重、`get_name()` 展示、
+`get_by_name()` 查询和派生类型命名等职责。CAORS 将这些职责拆分后，canonical name 只承担
+C++ identity intern，不需要可读性，也不能在 identity 发布后改变。
+
 ### Registered/display name
 
 `traits::type_identity<T>::name()`、object `static_type_name` 和 registration builder 提供的名称
@@ -135,6 +154,10 @@ Clang/GCC -> __PRETTY_FUNCTION__
 
 注册名称可晚于首次 `resolve<T>()` 出现，因此不能作为 identity 的唯一 intern key。不同翻译单元
 对 `traits::type_identity<T>` 的可见性不同，也不能导致同一个 C++ 类型产生不同 identity。
+
+指针、容器、pair、tuple 和 variant 等组合类型仍可通过现有 `static_type_name_text<T>()` 生成
+友好显示名称。该名称属于 registry/display 层，不参与 identity 判等，也不反向修改 canonical
+name。
 
 ### Stable type GUID
 
