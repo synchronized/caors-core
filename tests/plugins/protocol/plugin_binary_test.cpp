@@ -2,9 +2,11 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/plugins/plugin_binary.h"
+#include "caors/plugins/plugin_host.h"
 
 #include <filesystem>
 #include <iostream>
+#include <string>
 #include <utility>
 
 namespace {
@@ -14,6 +16,11 @@ namespace {
   return 1;
 }
 
+void CAORS_PLUGIN_CALL capture_log(void* context, std::uint32_t, const char* message,
+                                   std::size_t size) {
+  static_cast<std::string*>(context)->assign(message, size);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -21,7 +28,10 @@ int main(int argc, char** argv) {
     return fail("插件协议测试需要四个动态库路径");
   }
 
-  auto good_result = caors::plugins::plugin_binary::load(argv[1]);
+  caors::plugins::plugin_host host{};
+  std::string log_message{};
+  host.set_log(&capture_log, &log_message);
+  auto good_result = caors::plugins::plugin_binary::load(argv[1], &host.abi());
   if (!good_result) {
     return fail("无法加载有效插件");
   }
@@ -29,7 +39,8 @@ int main(int argc, char** argv) {
   if (!plugin.valid() || plugin.state() != caors::plugins::plugin_state::loaded ||
       plugin.descriptor().name != "caors.test.good" ||
       plugin.descriptor().display_name != "CAORS 测试插件" ||
-      plugin.descriptor().plugin_version != caors::version{1, 2, 3}) {
+      plugin.descriptor().plugin_version != caors::version{1, 2, 3} ||
+      log_message != "插件已协商宿主扩展") {
     return fail("有效插件描述信息不正确");
   }
 

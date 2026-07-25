@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 3 已完成，阶段 4 待实施；
+- 当前状态：阶段 0 至阶段 4 已完成，阶段 5 待实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -35,6 +35,10 @@
 - manifest 字符串由宿主拥有，解析过程复用 JSON DOM 且不依赖 meta 注册；
 - 已实现重复 ID、缺失依赖、版本冲突、optional dependency 和循环检测；
 - 依赖解析同时生成 initialize/start 正序与 stop/shutdown 逆序；
+- 已新增显式 `plugin_host`，统一拥有 Host ABI、运行时扩展、自定义扩展和服务记录；
+- Host Extension 使用稳定字符串 ID 与精确版本，调用方可按已知版本逐级降级查询；
+- 服务使用稳定 GUID 和整数版本，不复用 meta capability key，并支持在版本区间内选择最高版本；
+- 服务地址采用借用语义，由发布方 owner 标识并在生命周期结束前统一移除；
 - `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
   `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
 - Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，阶段 1/2 相关测试 3/3 通过。
@@ -442,11 +446,11 @@ struct plugin_diagnostic {
 
 ### 阶段 4：Host Extension 与服务
 
-- 增加版本化 host/plugin extension 查询；
-- 提供日志 extension；
-- 设计稳定 service ID、版本与所有权；
-- 不把 meta capability key 作为服务协议 ID；
-- 覆盖未知 extension、版本降级和 optional service。
+- [x] 增加版本化 host/plugin extension 查询；
+- [x] 提供 Host 日志转发和 runtime extension；
+- [x] 设计稳定 service ID、版本与借用所有权；
+- [x] 不把 meta capability key 作为服务协议 ID；
+- [x] 覆盖未知 extension、版本降级和 optional service。
 
 ### 阶段 5：Registration Scope
 

@@ -24,6 +24,17 @@ extern "C" {
 
 #define CAORS_PLUGIN_ABI_VERSION 1u
 #define CAORS_PLUGIN_ENTRY_SYMBOL "caors_query_plugin"
+#define CAORS_PLUGIN_RUNTIME_EXTENSION_ID "caors.host.runtime"
+#define CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION 1u
+#define CAORS_PLUGIN_SERVICES_EXTENSION_ID "caors.host.services"
+#define CAORS_PLUGIN_SERVICES_EXTENSION_VERSION 1u
+
+typedef enum caors_plugin_status {
+  CAORS_PLUGIN_STATUS_SUCCESS = 0,
+  CAORS_PLUGIN_STATUS_INVALID_ARGUMENT = 1,
+  CAORS_PLUGIN_STATUS_ALREADY_EXISTS = 2,
+  CAORS_PLUGIN_STATUS_OUT_OF_MEMORY = 3
+} caors_plugin_status;
 
 typedef struct caors_plugin_string_view {
   const char* data;
@@ -61,6 +72,38 @@ typedef struct caors_plugin_host {
   caors_plugin_log_fn log;
   caors_plugin_get_extension_fn get_extension;
 } caors_plugin_host;
+
+typedef struct caors_plugin_runtime_extension {
+  uint32_t struct_size;
+  uint32_t version;
+  uint32_t runtime_major;
+  uint32_t runtime_minor;
+  uint32_t runtime_patch;
+} caors_plugin_runtime_extension;
+
+typedef int32_t(CAORS_PLUGIN_CALL* caors_plugin_publish_service_fn)(
+    void* context, const caors_plugin_guid* id, uint32_t version, const void* service, void* owner);
+typedef const void*(CAORS_PLUGIN_CALL* caors_plugin_find_service_fn)(void* context,
+                                                                     const caors_plugin_guid* id,
+                                                                     uint32_t minimum_version,
+                                                                     uint32_t maximum_version,
+                                                                     uint32_t* selected_version);
+typedef size_t(CAORS_PLUGIN_CALL* caors_plugin_remove_services_fn)(void* context, void* owner);
+
+/**
+ * 借用型服务注册表。
+ *
+ * 服务地址由发布方拥有，并且必须保持有效，直到同一 owner 的记录被移除。服务 ID 是稳定 GUID，
+ * 不得使用进程本地的 meta capability key。
+ */
+typedef struct caors_plugin_services_extension {
+  uint32_t struct_size;
+  uint32_t version;
+  void* context;
+  caors_plugin_publish_service_fn publish;
+  caors_plugin_find_service_fn find;
+  caors_plugin_remove_services_fn remove_owner;
+} caors_plugin_services_extension;
 
 typedef int32_t(CAORS_PLUGIN_CALL* caors_plugin_lifecycle_fn)(void* plugin_data);
 

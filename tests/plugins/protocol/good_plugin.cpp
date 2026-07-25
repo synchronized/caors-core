@@ -79,8 +79,21 @@ const caors_plugin_entry entry{
 
 extern "C" CAORS_PLUGIN_EXPORT const caors_plugin_entry* CAORS_PLUGIN_CALL
 caors_query_plugin(const caors_plugin_host* host, uint32_t host_abi_version) {
-  return host != nullptr && host->struct_size >= sizeof(caors_plugin_host) &&
-                 host_abi_version == CAORS_PLUGIN_ABI_VERSION
-             ? &entry
-             : nullptr;
+  if (host == nullptr || host->struct_size < sizeof(caors_plugin_host) ||
+      host_abi_version != CAORS_PLUGIN_ABI_VERSION || host->get_extension == nullptr) {
+    return nullptr;
+  }
+  const auto* runtime = static_cast<const caors_plugin_runtime_extension*>(host->get_extension(
+      host->context, CAORS_PLUGIN_RUNTIME_EXTENSION_ID,
+      sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1, CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION));
+  if (runtime == nullptr || runtime->struct_size < sizeof(caors_plugin_runtime_extension) ||
+      host->get_extension(host->context, CAORS_PLUGIN_RUNTIME_EXTENSION_ID,
+                          sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1, 2) != nullptr) {
+    return nullptr;
+  }
+  if (host->log != nullptr) {
+    constexpr char message[] = "插件已协商宿主扩展";
+    host->log(host->context, 1, message, sizeof(message) - 1);
+  }
+  return &entry;
 }
