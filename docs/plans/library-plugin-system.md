@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 4 已完成，阶段 5 待实施；
+- 当前状态：阶段 0 至阶段 5 已完成，阶段 6 待实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -39,6 +39,10 @@
 - Host Extension 使用稳定字符串 ID 与精确版本，调用方可按已知版本逐级降级查询；
 - 服务使用稳定 GUID 和整数版本，不复用 meta capability key，并支持在版本区间内选择最高版本；
 - 服务地址采用借用语义，由发布方 owner 标识并在生命周期结束前统一移除；
+- 已新增显式 `plugin_registration_scope`，可统一移除服务、断开事件并请求取消任务；
+- scope 使用结构化 blocker 区分 meta 注册、未排空任务和插件拥有的擦除值；
+- append-only meta 注册和不能证明 callable 已销毁的任务会返回 `errc::unsupported`，不会错误
+  宣称可以卸载；
 - `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
   `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
 - Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，阶段 1/2 相关测试 3/3 通过。
@@ -454,10 +458,15 @@ struct plugin_diagnostic {
 
 ### 阶段 5：Registration Scope
 
-- 追踪插件注册的 meta 类型、服务、事件和任务；
-- 明确 append-only registry 下可执行的清理范围；
-- 在不能安全卸载时返回结构化原因；
-- 文档化“stop 成功不等于可以卸载”。
+- [x] 追踪插件注册的 meta 类型、服务、事件和任务；
+- [x] 明确 append-only registry 下可执行的清理范围；
+- [x] 在不能安全卸载时返回结构化原因；
+- [x] 文档化“stop 成功不等于可以卸载”。
+
+当前 scope 可以直接清理服务和事件。请求取消只阻止任务逻辑开始或状态继续提交，不能证明
+executor 队列中的擦除 callable 已经析构，因此清理前尚未完成的请求仍保留 `pending_task`
+blocker。meta 注册在阶段 6 overlay 完成前始终保留 `meta_registration` blocker。插件生命周期
+调用者必须先 `stop/shutdown`，再执行 scope 清理；任一步成功都不能单独作为关闭 DLL 的依据。
 
 ### 阶段 6：Registry Overlay 与安全卸载
 
