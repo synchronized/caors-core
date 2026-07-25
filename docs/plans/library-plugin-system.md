@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0、阶段 1、阶段 2 已完成，阶段 3 待实施；
+- 当前状态：阶段 0 至阶段 3 已完成，阶段 4 待实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -31,6 +31,10 @@
 - 已新增纯 C 兼容 `plugins/abi.h`、`plugin_binary`、descriptor 拷贝、生命周期和 extension 查询；
 - 已使用真实 C 编译单元验证 ABI 头可以被 C 编译器包含；
 - 已覆盖有效插件、ABI 不兼容、缺少入口和 initialize 失败；
+- 已新增独立 `semantic_version`、基础完整上下界 `version_range` 和 JSON manifest；
+- manifest 字符串由宿主拥有，解析过程复用 JSON DOM 且不依赖 meta 注册；
+- 已实现重复 ID、缺失依赖、版本冲突、optional dependency 和循环检测；
+- 依赖解析同时生成 initialize/start 正序与 stop/shutdown 逆序；
 - `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
   `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
 - Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，阶段 1/2 相关测试 3/3 通过。
@@ -427,11 +431,14 @@ struct plugin_diagnostic {
 
 ### 阶段 3：Manifest 与依赖图
 
-- 定义 manifest schema；
-- 实现目录扫描和无需加载 DLL 的描述读取；
-- 实现 semantic version 与 version range；
-- 实现拓扑排序、optional dependency 和循环诊断；
-- 覆盖多插件顺序及逆序停止。
+- [x] 定义 manifest schema；
+- [x] 实现显式 manifest 路径读取，且无需加载 DLL；
+- [x] 实现 semantic version 与基础完整上下界 version range；
+- [x] 实现拓扑排序、optional dependency 和循环诊断；
+- [x] 覆盖多插件顺序及逆序停止。
+
+目录扫描需要同时冻结文件命名约定、递归与搜索路径安全策略，移入首个
+`plugin_manager` 发现阶段；底层 manifest API 保持显式路径，不自行猜测目录。
 
 ### 阶段 4：Host Extension 与服务
 
@@ -510,9 +517,8 @@ plugin_model_conflict.dll
 
 ## 后续待确认问题
 
-1. 阶段 3 的 semantic version 首版实现完整 range，还是先只支持相同 major；
-2. registry overlay 采用查询链 overlay 还是不可变 snapshot；
-3. 热重载的数据迁移协议需在阶段 7 前另立计划。
+1. registry overlay 采用查询链 overlay 还是不可变 snapshot；
+2. 热重载的数据迁移协议需在阶段 7 前另立计划。
 
 ## 非目标
 
