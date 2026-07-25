@@ -100,7 +100,7 @@ private:
  * 普通用户通常直接使用 `construct()` 得到 `any`；需要先填充对象、再交给 wrapper 或容器接管时，
  * 可以使用 `construct_owned()`。
  */
-class owned_value final {
+class CAORS_API owned_value final {
 public:
   owned_value() noexcept = default;
   ~owned_value();
@@ -191,7 +191,7 @@ void swap(owned_value& lhs, owned_value& rhs) noexcept;
  * `any` 持有一份对象拷贝，并保存对应的运行期类型信息。它不引用原对象，因此可以安全地
  * 脱离属性所属对象生命周期使用。第一版只支持可拷贝类型；不可拷贝对象会产生无效 `any`。
  */
-class any final {
+class CAORS_API any final {
 public:
   any() noexcept = default;
   ~any();

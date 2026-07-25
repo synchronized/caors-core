@@ -45,7 +45,7 @@ enum class value_kind {
  * `value` 内联保存常见标量、`string_name` 和 `meta::object*`，并用 `any_ref` 表达非拥有 C++
  * 引用、用 `any` 兜底表达拥有的精确 C++ 类型值。它不替代序列化 DOM，也不保证所有成员都无分配。
  */
-class value final {
+class CAORS_API value final {
 public:
   value() noexcept = default;
   value(std::nullptr_t) noexcept {}

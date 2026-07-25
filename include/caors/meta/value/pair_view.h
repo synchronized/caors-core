@@ -14,7 +14,7 @@ namespace caors::meta {
  * `pair_view` 不拥有二元组，只引用 `any` 或 `any_ref` 指向的 pair 对象。first 通常用于 key
  * 语义，second 作为统一 value 语义暴露。
  */
-class pair_view final {
+class CAORS_API pair_view final {
 public:
   pair_view() noexcept = default;
 
@@ -49,7 +49,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend pair_view make_pair_view(any_ref source) noexcept;
+  friend CAORS_API pair_view make_pair_view(any_ref source) noexcept;
 
   pair_view(meta::type type, const void* storage, bool writable) noexcept;
 

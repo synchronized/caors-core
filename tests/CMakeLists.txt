@@ -73,6 +73,13 @@ function(caors_add_test_directory TEST_DIRECTORY)
 
   string(REPLACE "/" "." TEST_NAME "${TEST_DIRECTORY}")
   add_test(NAME "caors.${TEST_NAME}" COMMAND ${TARGET_NAME})
+  if(BUILD_SHARED_LIBS)
+    set_property(
+      TEST "caors.${TEST_NAME}"
+      PROPERTY ENVIRONMENT_MODIFICATION
+               "PATH=path_list_prepend:$<TARGET_FILE_DIR:caors>"
+    )
+  endif()
 endfunction()
 
 function(caors_collect_test_include_directories OUT_VARIABLE TEST_DIRECTORY)

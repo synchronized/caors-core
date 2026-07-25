@@ -9,7 +9,7 @@
 namespace caors::meta {
 
 /** @brief 关联容器 key/value 引用。 */
-class associative_entry_ref final {
+class CAORS_API associative_entry_ref final {
 public:
   associative_entry_ref() noexcept = default;
   associative_entry_ref(any_ref key, any_ref value) noexcept : key_(key), value_(value) {}

@@ -14,9 +14,9 @@ namespace caors::meta {
  * `sequence_view` 不拥有容器，只引用 `any` 或 `any_ref`
  * 指向的顺序容器对象。只读视图允许查询和访问元素； 可写视图才允许清空、调整大小和追加元素。
  */
-class sequence_view final {
+class CAORS_API sequence_view final {
 public:
-  class iterator final {
+  class CAORS_API iterator final {
   public:
     using iterator_category = std::input_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -31,8 +31,8 @@ public:
     iterator& operator++() noexcept;
     iterator operator++(int) noexcept;
 
-    friend bool operator==(iterator lhs, iterator rhs) noexcept;
-    friend bool operator!=(iterator lhs, iterator rhs) noexcept;
+    friend CAORS_API bool operator==(iterator lhs, iterator rhs) noexcept;
+    friend CAORS_API bool operator!=(iterator lhs, iterator rhs) noexcept;
 
   private:
     friend class sequence_view;
@@ -82,7 +82,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend sequence_view make_sequence_view(any_ref source) noexcept;
+  friend CAORS_API sequence_view make_sequence_view(any_ref source) noexcept;
 
   sequence_view(meta::type type, const void* storage, bool writable) noexcept;
 

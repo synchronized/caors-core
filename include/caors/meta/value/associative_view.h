@@ -14,9 +14,9 @@ namespace caors::meta {
  * `associative_view` 不拥有容器，只引用 `any` 或 `any_ref`
  * 指向的关联容器对象。只读视图允许查询和遍历； 可写视图才允许清空和插入。
  */
-class associative_view final {
+class CAORS_API associative_view final {
 public:
-  class iterator final {
+  class CAORS_API iterator final {
   public:
     using iterator_category = std::input_iterator_tag;
     using difference_type = std::ptrdiff_t;
@@ -37,8 +37,8 @@ public:
     iterator& operator++() noexcept;
     iterator operator++(int);
 
-    friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
-    friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
+    friend CAORS_API bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
+    friend CAORS_API bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
 
   private:
     friend class associative_view;
@@ -81,9 +81,9 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend associative_view make_associative_view(any_ref source) noexcept;
-  friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
-  friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
+  friend CAORS_API associative_view make_associative_view(any_ref source) noexcept;
+  friend CAORS_API bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
+  friend CAORS_API bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
 
   associative_view(meta::type type, const void* storage, bool writable) noexcept;
 

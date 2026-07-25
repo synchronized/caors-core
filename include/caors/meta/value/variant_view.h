@@ -14,7 +14,7 @@ namespace caors::meta {
  * `variant_view` 不拥有 variant，只引用 `any` 或 `any_ref` 指向的 variant-like 对象。视图使用
  * 当前候选下标定位真实值，序列化层会按 `[index, value]` 形式保存。
  */
-class variant_view final {
+class CAORS_API variant_view final {
 public:
   variant_view() noexcept = default;
 
@@ -53,7 +53,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend variant_view make_variant_view(any_ref source) noexcept;
+  friend CAORS_API variant_view make_variant_view(any_ref source) noexcept;
 
   variant_view(meta::type type, const void* storage, bool writable) noexcept;
 

@@ -14,7 +14,7 @@ namespace caors::meta {
  * `tuple_view` 不拥有 tuple，只引用 `any` 或 `any_ref` 指向的 tuple-like
  * 对象。元素类型可以逐个查询， 元素值通过下标暴露为 `any_ref`。
  */
-class tuple_view final {
+class CAORS_API tuple_view final {
 public:
   tuple_view() noexcept = default;
 
@@ -37,7 +37,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend tuple_view make_tuple_view(any_ref source) noexcept;
+  friend CAORS_API tuple_view make_tuple_view(any_ref source) noexcept;
 
   tuple_view(meta::type type, const void* storage, bool writable) noexcept;
 

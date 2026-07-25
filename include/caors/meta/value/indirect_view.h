@@ -16,7 +16,7 @@ namespace caors::meta {
  * `indirect_view` 不拥有 wrapper 或内部值，只引用 `any` / `any_ref` 指向的 wrapper 对象。
  * 可写视图才允许重置 wrapper 或返回可写内部值引用。
  */
-class indirect_view final {
+class CAORS_API indirect_view final {
 public:
   indirect_view() noexcept = default;
 
@@ -68,7 +68,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
-  friend indirect_view make_indirect_view(any_ref source) noexcept;
+  friend CAORS_API indirect_view make_indirect_view(any_ref source) noexcept;
 
   indirect_view(meta::type type, const void* storage, bool writable) noexcept;
 

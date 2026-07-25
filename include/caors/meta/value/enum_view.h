@@ -17,7 +17,7 @@ namespace caors::meta {
  *
  * 视图不拥有枚举值。只读 source 可读取底层整数值；只有可写 source 才能写入。
  */
-class enum_view final : public capability_view_base<enum_ops> {
+class CAORS_API enum_view final : public capability_view_base<enum_ops> {
 public:
   using base_type = capability_view_base<enum_ops>;
   using base_type::base_type;
