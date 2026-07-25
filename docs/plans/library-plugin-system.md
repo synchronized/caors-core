@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0、阶段 1 已完成，阶段 2 待实施；
+- 当前状态：阶段 0、阶段 1、阶段 2 已完成，阶段 3 待实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -28,7 +28,12 @@
 - 已支持显式路径、local/global 加载模式、符号查询、幂等关闭和平台错误域；
 - 已增加默认状态、无效路径、move 语义的编译期约束测试；
 - plugin identity 测试已删除私有加载器，改用公共 `platform::shared_library`；
-- Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，相关测试 2/2 通过。
+- 已新增纯 C 兼容 `plugins/abi.h`、`plugin_binary`、descriptor 拷贝、生命周期和 extension 查询；
+- 已使用真实 C 编译单元验证 ABI 头可以被 C 编译器包含；
+- 已覆盖有效插件、ABI 不兼容、缺少入口和 initialize 失败；
+- `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
+  `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
+- Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，阶段 1/2 相关测试 3/3 通过。
 
 ## 背景
 
@@ -414,11 +419,11 @@ struct plugin_diagnostic {
 
 ### 阶段 2：ABI 与单插件加载
 
-- 新增纯 C 兼容 `plugins/abi.h`；
-- 实现单一 `caors_query_plugin` 入口；
-- 校验 `struct_size`、ABI 和 descriptor；
-- 实现 `plugin_binary`、`plugin` 和单插件 load/initialize/start/stop；
-- 增加 ABI 过新、过旧、缺入口和生命周期失败测试。
+- [x] 新增纯 C 兼容 `plugins/abi.h`；
+- [x] 实现单一 `caors_query_plugin` 入口；
+- [x] 校验 `struct_size`、ABI 和 descriptor；
+- [x] 实现 `plugin_binary` 和单插件 load/initialize/start/stop；
+- [x] 增加 ABI 不兼容、缺入口和生命周期失败测试。
 
 ### 阶段 3：Manifest 与依赖图
 

@@ -51,6 +51,7 @@ enum class error_domain {
   resources,
   serialization,
   platform,
+  plugins,
 };
 
 /**

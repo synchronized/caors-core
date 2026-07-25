@@ -58,6 +58,28 @@ traits、adapter 或静态能力特化不一致。
 因此当前推荐插件在进程生命周期内保持加载。需要可卸载插件时，应使用未来的独立 registry
 overlay 和生命周期管理方案，不能只卸载 DLL。
 
+## 当前 Library 与 Plugin API
+
+`platform::shared_library` 提供 move-only 的跨平台动态库所有权、符号查询和幂等关闭：
+
+```cpp
+auto result = caors::platform::shared_library::open(plugin_path);
+if (!result) {
+  return result.error();
+}
+
+auto library = std::move(*result);
+auto entry = library.find_function<entry_fn>("plugin_entry");
+```
+
+CAORS 插件使用 `caors/plugins/abi.h` 中的纯 C ABI，并只导出
+`caors_query_plugin`。`plugins::plugin_binary::load()` 会复制插件 descriptor，校验
+`struct_size` 和 ABI 版本，然后提供 `initialize()`、`start()`、`stop()`、`shutdown()` 以及
+版本化 extension 查询。
+
+当前 `plugin_binary` 是协议和单插件生命周期基础设施，不是完整 plugin manager。它还没有依赖图、
+registration scope 或 registry overlay，因此不能把“生命周期停止”解释为“可以安全卸载 DLL”。
+
 ## 验证
 
 `windows-clang-shared-debug` preset 提供真实的 `host + plugin_a + plugin_b + caors.dll`
