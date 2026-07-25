@@ -6,6 +6,7 @@
 
 #include "caors/core/type_guid.h"
 #include "caors/export.h"
+#include "caors/meta/detail/canonical_type_name.h"
 
 #include <cstdint>
 #include <type_traits>
