@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 5 已完成，阶段 6 待实施；
+- 当前状态：阶段 0 至阶段 5 已完成，阶段 6 详细设计已冻结并开始实施；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -470,6 +470,7 @@ blocker。meta 注册在阶段 6 overlay 完成前始终保留 `meta_registratio
 
 ### 阶段 6：Registry Overlay 与安全卸载
 
+- 详细实施计划见 `registry-overlay-safe-unload.md`；
 - 独立设计并实现 plugin registry overlay 或 snapshot；
 - 为 view 增加 generation/所有权策略；
 - 完成异步任务、事件和擦除值清理；
