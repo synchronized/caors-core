@@ -12,33 +12,37 @@
 namespace caors::meta {
 namespace {
 
-[[nodiscard]] const detail::type_record* find_record(const detail::registry_snapshot& snapshot,
-                                                     type_id id) {
+struct found_record {
+  const detail::type_record* record = nullptr;
+  std::shared_ptr<detail::registry_layer_state> layer{};
+};
+
+[[nodiscard]] found_record find_record(const detail::registry_snapshot& snapshot, type_id id) {
   for (const auto& layer : snapshot.layers()) {
     const detail::registry_state& state = layer->state();
     std::lock_guard lock(state.mutex);
     if (const detail::type_record* record = detail::find_type_record(state, id)) {
-      return record;
+      return {record, layer};
     }
   }
-  return nullptr;
+  return {};
 }
 
 } // namespace
 
 bool registry::contains(type_id id) const {
   const auto snapshot = capture_snapshot();
-  return find_record(*snapshot, id) != nullptr;
+  return find_record(*snapshot, id).record != nullptr;
 }
 
 type registry::find_type(type_id id) const {
   const auto snapshot = capture_snapshot();
-  const detail::type_record* type_record = find_record(*snapshot, id);
-  if (type_record == nullptr) {
+  const found_record found = find_record(*snapshot, id);
+  if (found.record == nullptr) {
     return {};
   }
 
-  return detail::type_access::make(this, type_record);
+  return detail::type_access::make(this, found.record, found.layer);
 }
 
 type registry::find_type(core::type_guid guid) const {
@@ -52,7 +56,7 @@ type registry::find_type(core::type_guid guid) const {
     std::lock_guard lock(state.mutex);
     const auto position = state.guids.find(guid.value);
     if (position != state.guids.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second);
+      return detail::type_access::make(this, position->second, layer);
     }
   }
   return {};
@@ -65,7 +69,7 @@ type registry::find_type(const std::type_info& info) const {
     std::lock_guard lock(state.mutex);
     const auto position = state.cpp_types.find(std::type_index{info});
     if (position != state.cpp_types.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second);
+      return detail::type_access::make(this, position->second, layer);
     }
   }
   return {};
@@ -87,7 +91,7 @@ type registry::find_type(core::string_name name) const {
     std::lock_guard lock(state.mutex);
     const auto position = state.names.find(name);
     if (position != state.names.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second);
+      return detail::type_access::make(this, position->second, layer);
     }
   }
   return {};
@@ -105,12 +109,12 @@ bool registry::is_a(type_id id, type_id base_id) const {
       return true;
     }
 
-    const detail::type_record* type = find_record(*snapshot, current_id);
-    if (type == nullptr) {
+    const found_record found = find_record(*snapshot, current_id);
+    if (found.record == nullptr) {
       return false;
     }
 
-    current_id = type->parent_id();
+    current_id = found.record->parent_id();
   }
 
   return false;
@@ -129,7 +133,7 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
   type_id current_id = id;
   const void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = find_record(*snapshot, current_id);
+    const detail::type_record* type = find_record(*snapshot, current_id).record;
     if (type == nullptr) {
       return nullptr;
     }
@@ -172,7 +176,7 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
   type_id current_id = id;
   void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = find_record(*snapshot, current_id);
+    const detail::type_record* type = find_record(*snapshot, current_id).record;
     if (type == nullptr) {
       return nullptr;
     }

@@ -11,6 +11,8 @@
 #include "caors/meta/value/value.h"
 #include "caors/meta/value_ops.h"
 
+#include "detail/registry_state.h"
+
 namespace caors::meta {
 namespace {
 
@@ -27,9 +29,13 @@ namespace {
 
 } // namespace
 
-property::property(const detail::property_record* property) noexcept : property_(property) {}
+property::property(const detail::property_record* property,
+                   std::shared_ptr<detail::registry_layer_state> layer) noexcept
+    : property_(property), layer_(std::move(layer)) {}
 
-bool property::valid() const noexcept { return property_ != nullptr && property_->valid(); }
+bool property::valid() const noexcept {
+  return property_ != nullptr && (layer_ == nullptr || layer_->active()) && property_->valid();
+}
 
 core::string_name property::name() const noexcept {
   const detail::property_record* property = info();
@@ -142,9 +148,8 @@ meta::value property::get_value(const instance& object) const {
 
 meta::value property::get_value() const {
   const detail::property_record* property = info();
-  return property != nullptr
-             ? property->get_runtime_value(static_cast<const void*>(nullptr))
-             : meta::value{};
+  return property != nullptr ? property->get_runtime_value(static_cast<const void*>(nullptr))
+                             : meta::value{};
 }
 
 any_ref property::get_ref(const instance& object) const {

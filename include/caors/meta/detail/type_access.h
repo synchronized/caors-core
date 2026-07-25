@@ -7,6 +7,8 @@
 #include "caors/meta/detail/type_record.h"
 #include "caors/meta/type.h"
 
+#include <memory>
+
 namespace caors::meta::detail {
 
 /**
@@ -17,17 +19,20 @@ namespace caors::meta::detail {
  */
 class type_access final {
 public:
-  [[nodiscard]] static constexpr type make(const registry* registry,
-                                           const type_record* data) noexcept {
-    return type{registry, data};
+  [[nodiscard]] static type make(const registry* registry, const type_record* data,
+                                 std::shared_ptr<registry_layer_state> layer = {}) noexcept {
+    return type{registry, data, std::move(layer)};
   }
 
-  [[nodiscard]] static constexpr const registry* registry_of(const type& value) noexcept {
+  [[nodiscard]] static const registry* registry_of(const type& value) noexcept {
     return value.registry_;
   }
 
-  [[nodiscard]] static constexpr const type_record* data_of(const type& value) noexcept {
-    return value.data_;
+  [[nodiscard]] static const type_record* data_of(const type& value) noexcept;
+
+  [[nodiscard]] static const std::shared_ptr<registry_layer_state>&
+  layer_of(const type& value) noexcept {
+    return value.layer_;
   }
 
   [[nodiscard]] static const type_record* registered_data_of(const type& value) noexcept {

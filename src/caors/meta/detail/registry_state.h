@@ -9,6 +9,7 @@
 #include "caors/meta/detail/type_record.h"
 #include "caors/meta/registration.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -51,11 +52,16 @@ public:
   [[nodiscard]] registry_state& state() noexcept { return *state_; }
   [[nodiscard]] const registry_state& state() const noexcept { return *state_; }
   [[nodiscard]] bool frozen() const noexcept { return frozen_; }
+  [[nodiscard]] bool active() const noexcept { return active_.load(std::memory_order_acquire); }
+  [[nodiscard]] std::uint64_t generation() const noexcept { return generation_; }
   void freeze() noexcept { frozen_ = true; }
+  void deactivate() noexcept { active_.store(false, std::memory_order_release); }
 
 private:
   memory::memory_resource* resource_ = nullptr;
   registry_state* state_ = nullptr;
+  std::atomic<bool> active_{true};
+  std::uint64_t generation_ = 0;
   bool frozen_ = false;
 };
 

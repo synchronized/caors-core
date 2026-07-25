@@ -15,6 +15,7 @@
 #include "caors/traits/wrapper.h"
 
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -51,6 +52,7 @@ namespace detail {
 
 class type_record;
 class type_access;
+class registry_layer_state;
 
 [[nodiscard]] CAORS_API const void* find_type_static_capability(const type& source,
                                                                 capability_key key) noexcept;
@@ -200,11 +202,13 @@ public:
 private:
   friend class detail::type_access;
 
-  constexpr type(const registry* registry, const detail::type_record* data) noexcept
-      : registry_(registry), data_(data) {}
+  type(const registry* registry, const detail::type_record* data,
+       std::shared_ptr<detail::registry_layer_state> layer) noexcept
+      : registry_(registry), data_(data), layer_(std::move(layer)) {}
 
   const registry* registry_ = nullptr;
   const detail::type_record* data_ = nullptr;
+  std::shared_ptr<detail::registry_layer_state> layer_{};
 };
 
 } // namespace caors::meta

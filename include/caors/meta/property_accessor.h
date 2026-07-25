@@ -34,15 +34,16 @@ private:
   friend property_accessor compile_property_accessor(const property& source) noexcept;
 
   property_accessor(const void* state, meta::type value_type, std::size_t offset, bool member,
-                    bool writable) noexcept
+                    bool writable, std::shared_ptr<detail::registry_layer_state> layer) noexcept
       : state_(state), value_type_(value_type), offset_(offset), member_(member),
-        writable_(writable) {}
+        writable_(writable), layer_(std::move(layer)) {}
 
   const void* state_ = nullptr;
   meta::type value_type_{};
   std::size_t offset_ = 0;
   bool member_ = false;
   bool writable_ = false;
+  std::shared_ptr<detail::registry_layer_state> layer_{};
 };
 
 /**

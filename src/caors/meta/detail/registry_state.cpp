@@ -6,10 +6,16 @@
 #include <utility>
 
 namespace caors::meta::detail {
+namespace {
+
+std::atomic<std::uint64_t> next_layer_generation{1};
+
+} // namespace
 
 registry_layer_state::registry_layer_state(memory::memory_resource* resource)
     : resource_(resource != nullptr ? resource : &memory::library_resource()),
-      state_(memory::make<registry_state>(resource_, resource_)) {}
+      state_(memory::make<registry_state>(resource_, resource_)),
+      generation_(next_layer_generation.fetch_add(1, std::memory_order_relaxed)) {}
 
 registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource_); }
 

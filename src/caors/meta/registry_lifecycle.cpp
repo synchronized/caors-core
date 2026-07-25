@@ -42,6 +42,10 @@ const registry& registry_layer::get_registry() const noexcept { return *registry
 
 bool registry_layer::published() const noexcept { return published_; }
 
+bool registry_layer::active() const noexcept {
+  return registry_ != nullptr && registry_->primary_layer_->active();
+}
+
 std::unique_ptr<registry_layer> registry::create_layer() const {
   return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot()}};
 }

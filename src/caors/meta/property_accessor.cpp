@@ -5,9 +5,13 @@
 
 #include "caors/meta/detail/property_record.h"
 
+#include "detail/registry_state.h"
+
 namespace caors::meta {
 
-bool property_accessor::valid() const noexcept { return state_ != nullptr && value_type_.valid(); }
+bool property_accessor::valid() const noexcept {
+  return state_ != nullptr && (layer_ == nullptr || layer_->active()) && value_type_.valid();
+}
 
 any_ref property_accessor::get_ref(const void* object) const {
   if (valid() && member_ && object != nullptr) {
@@ -28,13 +32,14 @@ any_ref property_accessor::get_ref(void* object) const {
 }
 
 property_accessor compile_property_accessor(const property& source) noexcept {
-  if (source.property_ == nullptr) {
+  if (!source.valid()) {
     return {};
   }
 
   const detail::property_storage_info info = source.property_->storage_info();
-  return property_accessor{source.property_, info.value_type, info.offset,
-                           info.kind == detail::property_storage_kind::member, info.writable};
+  return property_accessor{source.property_, info.value_type,
+                           info.offset,      info.kind == detail::property_storage_kind::member,
+                           info.writable,    source.layer_};
 }
 
 } // namespace caors::meta

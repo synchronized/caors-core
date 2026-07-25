@@ -8,6 +8,8 @@
 #include "caors/meta/detail/method_record.h"
 #include "caors/meta/instance.h"
 
+#include "detail/registry_state.h"
+
 #include <optional>
 #include <utility>
 
@@ -44,9 +46,13 @@ invoke_result invoke_result::reference(any_ref ref) noexcept {
   return result;
 }
 
-method::method(const detail::method_record* method) noexcept : method_(method) {}
+method::method(const detail::method_record* method,
+               std::shared_ptr<detail::registry_layer_state> layer) noexcept
+    : method_(method), layer_(std::move(layer)) {}
 
-bool method::valid() const noexcept { return method_ != nullptr && method_->valid(); }
+bool method::valid() const noexcept {
+  return method_ != nullptr && (layer_ == nullptr || layer_->active()) && method_->valid();
+}
 
 core::string_name method::name() const noexcept {
   const detail::method_record* method = info();
@@ -184,10 +190,13 @@ const detail::method_record* method::info() const noexcept {
   return method_;
 }
 
-method_set::method_set(const detail::method_set_record* method_set) noexcept
-    : method_set_(method_set) {}
+method_set::method_set(const detail::method_set_record* method_set,
+                       std::shared_ptr<detail::registry_layer_state> layer) noexcept
+    : method_set_(method_set), layer_(std::move(layer)) {}
 
-bool method_set::valid() const noexcept { return method_set_ != nullptr && method_set_->valid(); }
+bool method_set::valid() const noexcept {
+  return method_set_ != nullptr && (layer_ == nullptr || layer_->active()) && method_set_->valid();
+}
 
 core::string_name method_set::name() const noexcept {
   const detail::method_set_record* method_set = info();
@@ -201,13 +210,14 @@ std::size_t method_set::overload_count() const noexcept {
 
 method method_set::overload_at(std::size_t index) const {
   const detail::method_set_record* method_set = info();
-  return method_set != nullptr ? detail::method_access::make(method_set->overload_at(index))
+  return method_set != nullptr ? detail::method_access::make(method_set->overload_at(index), layer_)
                                : method{};
 }
 
 method method_set::single() const {
   const detail::method_set_record* method_set = info();
-  return method_set != nullptr ? detail::method_access::make(method_set->single()) : method{};
+  return method_set != nullptr ? detail::method_access::make(method_set->single(), layer_)
+                               : method{};
 }
 
 method_match_result method_set::match(std::span<const argument> arguments,
@@ -222,9 +232,9 @@ method_match_result method_set::match(std::span<const argument> arguments,
     return method_match_result::ambiguous();
   }
 
-  return result.matched()
-             ? method_match_result::matched(detail::method_access::make(result.method), result.kind)
-             : method_match_result::none();
+  return result.matched() ? method_match_result::matched(
+                                detail::method_access::make(result.method, layer_), result.kind)
+                          : method_match_result::none();
 }
 
 method_match_result method_set::match(std::span<const named_argument> arguments,
@@ -239,9 +249,9 @@ method_match_result method_set::match(std::span<const named_argument> arguments,
     return method_match_result::ambiguous();
   }
 
-  return result.matched()
-             ? method_match_result::matched(detail::method_access::make(result.method), result.kind)
-             : method_match_result::none();
+  return result.matched() ? method_match_result::matched(
+                                detail::method_access::make(result.method, layer_), result.kind)
+                          : method_match_result::none();
 }
 
 method method_set::resolve(std::span<const argument> arguments,
@@ -263,9 +273,8 @@ invoke_result method_set::invoke_result_of(const instance& object,
                                                        : invoke_failure_reason::invalid_object);
   }
 
-  return method_set->invoke_result_of(
-      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
-      options);
+  return method_set->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
+                                      object.writable(), arguments, options);
 }
 
 invoke_result method_set::invoke_result_of(const instance& object,
@@ -277,9 +286,8 @@ invoke_result method_set::invoke_result_of(const instance& object,
                                                        : invoke_failure_reason::invalid_object);
   }
 
-  return method_set->invoke_result_of(
-      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
-      options);
+  return method_set->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
+                                      object.writable(), arguments, options);
 }
 
 invoke_result method_set::invoke_result_of(std::span<const argument> arguments,
@@ -312,9 +320,8 @@ invoke_value_result method_set::invoke(const instance& object,
                                            : invoke_failure_reason::invalid_object);
   }
 
-  return method_set->invoke_runtime_value(
-      object.writable() ? object.mutable_data() : object.data(), object.writable(), arguments,
-      options);
+  return method_set->invoke_runtime_value(object.writable() ? object.mutable_data() : object.data(),
+                                          object.writable(), arguments, options);
 }
 
 invoke_value_result method_set::invoke(std::span<const meta::value> arguments,

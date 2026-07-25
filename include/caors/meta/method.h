@@ -284,10 +284,12 @@ public:
 private:
   friend class detail::method_access;
 
-  explicit method(const detail::method_record* reflected_method) noexcept;
+  method(const detail::method_record* reflected_method,
+         std::shared_ptr<detail::registry_layer_state> layer) noexcept;
   [[nodiscard]] const detail::method_record* info() const noexcept;
 
   const detail::method_record* method_ = nullptr;
+  std::shared_ptr<detail::registry_layer_state> layer_{};
 };
 
 /** @brief 同名方法重载集合的结构化匹配结果。 */
@@ -373,10 +375,12 @@ public:
 private:
   friend class detail::method_access;
 
-  explicit method_set(const detail::method_set_record* reflected_method_set) noexcept;
+  method_set(const detail::method_set_record* reflected_method_set,
+             std::shared_ptr<detail::registry_layer_state> layer) noexcept;
   [[nodiscard]] const detail::method_set_record* info() const noexcept;
 
   const detail::method_set_record* method_set_ = nullptr;
+  std::shared_ptr<detail::registry_layer_state> layer_{};
 };
 
 } // namespace caors::meta

@@ -3,6 +3,7 @@
 
 // 原测试文件：meta_type_registry_meta_type_global_registry_checks_parent_relationship_test.cpp
 
+#include "caors/meta/property_accessor.h"
 #include "meta_type_registry_test_support.h"
 
 #include <future>
@@ -16,6 +17,10 @@ struct overlay_frozen_type {};
 struct overlay_conflict_type {};
 struct overlay_parallel_a {};
 struct overlay_parallel_b {};
+struct overlay_reflected_type {
+  int value = 0;
+  [[nodiscard]] int get_value() const { return value; }
+};
 
 } // namespace
 
@@ -176,6 +181,69 @@ TEST_CASE("meta registry layer 冲突失败不会污染当前 snapshot") {
         caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
   CHECK_FALSE(layer->published());
   CHECK_FALSE(caors::meta::find<overlay_conflict_type>(base_context));
+}
+
+TEST_CASE("meta registry detach 让旧 type 失效并由 lease 保活 layer") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+  caors::meta::type stale{};
+  {
+    auto layer = registry.create_layer();
+    caors::meta::context layer_context{layer->get_registry()};
+    REQUIRE_FALSE(caors::registration::type_<overlay_draft_type>(layer_context,
+                                                                 "caors.test.meta.overlay_detach")
+                      .commit());
+    REQUIRE_FALSE(registry.publish_layer(*layer));
+    stale = caors::meta::find<overlay_draft_type>(context);
+    REQUIRE(stale);
+
+    REQUIRE_FALSE(registry.detach_layer(*layer));
+    CHECK_FALSE(layer->active());
+    CHECK_FALSE(caors::meta::find<overlay_draft_type>(context));
+    CHECK_FALSE(stale);
+    CHECK(registry.detach_layer(*layer) ==
+          caors::error{caors::error_domain::meta, caors::errc::not_found});
+  }
+
+  CHECK_FALSE(stale);
+}
+
+TEST_CASE("meta registry detach 让旧 property method 和 accessor 失效") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+  caors::meta::property stale_property{};
+  caors::meta::method_set stale_method_set{};
+  caors::meta::method stale_method{};
+  caors::meta::property_accessor stale_accessor{};
+  {
+    auto layer = registry.create_layer();
+    caors::meta::context layer_context{layer->get_registry()};
+    REQUIRE_FALSE(caors::registration::type_<overlay_reflected_type>(
+                      layer_context, "caors.test.meta.overlay_reflected")
+                      .meta()
+                      .property("value", &overlay_reflected_type::value)
+                      .method("get_value", &overlay_reflected_type::get_value)
+                      .commit());
+    REQUIRE_FALSE(registry.publish_layer(*layer));
+
+    const auto reflected = caors::meta::find<overlay_reflected_type>(context);
+    REQUIRE(reflected);
+    stale_property = reflected.find_property("value");
+    stale_method_set = reflected.find_method("get_value");
+    stale_method = stale_method_set.single();
+    stale_accessor = caors::meta::compile_property_accessor(stale_property);
+    REQUIRE(stale_property);
+    REQUIRE(stale_method_set);
+    REQUIRE(stale_method);
+    REQUIRE(stale_accessor);
+
+    REQUIRE_FALSE(registry.detach_layer(*layer));
+  }
+
+  CHECK_FALSE(stale_property);
+  CHECK_FALSE(stale_method_set);
+  CHECK_FALSE(stale_method);
+  CHECK_FALSE(stale_accessor);
 }
 
 TEST_CASE("meta registry 并发发布 layer 不会丢失已发布 snapshot") {

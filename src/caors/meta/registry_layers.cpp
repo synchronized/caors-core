@@ -5,6 +5,7 @@
 
 #include "caors/meta/registry.h"
 
+#include <algorithm>
 #include <mutex>
 
 namespace caors::meta {
@@ -98,6 +99,34 @@ error registry::publish_layer(registry_layer& layer) {
   snapshot_.store(std::make_shared<detail::registry_snapshot>(std::move(layers)),
                   std::memory_order_release);
   layer.published_ = true;
+  return {};
+}
+
+error registry::detach_layer(registry_layer& layer) {
+  if (layer.registry_ == nullptr || !layer.published_ || layer.registry_ == this) {
+    return {error_domain::meta, errc::invalid_argument};
+  }
+
+  std::lock_guard lock{state_->mutex};
+  auto current = capture_snapshot();
+  const auto target = layer.registry_->primary_layer_;
+  const auto position = std::find(current->layers().begin(), current->layers().end(), target);
+  if (position == current->layers().end()) {
+    return {error_domain::meta, errc::not_found};
+  }
+
+  core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
+      core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
+          &memory::library_resource()}};
+  layers.reserve(current->layers().size() - 1);
+  for (const auto& candidate : current->layers()) {
+    if (candidate != target) {
+      layers.push_back(candidate);
+    }
+  }
+  auto replacement = std::make_shared<detail::registry_snapshot>(std::move(layers));
+  target->deactivate();
+  snapshot_.store(std::move(replacement), std::memory_order_release);
   return {};
 }
 

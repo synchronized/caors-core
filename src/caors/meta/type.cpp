@@ -13,6 +13,8 @@
 #include "caors/meta/property.h"
 #include "caors/meta/registry.h"
 
+#include "detail/registry_state.h"
+
 namespace caors::meta {
 namespace {
 
@@ -23,6 +25,10 @@ namespace {
 }
 
 } // namespace
+
+const detail::type_record* detail::type_access::data_of(const type& value) noexcept {
+  return value.layer_ == nullptr || value.layer_->active() ? value.data_ : nullptr;
+}
 
 bool type::valid() const noexcept {
   const detail::type_record* data = detail::type_access::data_of(*this);
@@ -204,7 +210,9 @@ std::size_t type::property_count() const noexcept {
 
 property type::property_at(std::size_t index) const {
   const detail::type_record* data = detail::type_access::registered_data_of(*this);
-  return data != nullptr ? detail::property_access::make(data->property_at(index)) : property{};
+  return data != nullptr ? detail::property_access::make(data->property_at(index),
+                                                         detail::type_access::layer_of(*this))
+                         : property{};
 }
 
 property type::find_property(core::string_name property_name, member_search search) const {
@@ -214,7 +222,8 @@ property type::find_property(core::string_name property_name, member_search sear
 
   const detail::type_record* data = detail::type_access::registered_data_of(*this);
   if (data != nullptr) {
-    property found = detail::property_access::make(data->find_property_ptr(property_name));
+    property found = detail::property_access::make(data->find_property_ptr(property_name),
+                                                   detail::type_access::layer_of(*this));
     if (found || search == member_search::local_only) {
       return found;
     }
@@ -224,7 +233,8 @@ property type::find_property(core::string_name property_name, member_search sear
   while (base) {
     const detail::type_record* base_data = detail::type_access::registered_data_of(base);
     if (base_data != nullptr) {
-      property found = detail::property_access::make(base_data->find_property_ptr(property_name));
+      property found = detail::property_access::make(base_data->find_property_ptr(property_name),
+                                                     detail::type_access::layer_of(base));
       if (found) {
         return found;
       }
@@ -252,7 +262,9 @@ std::size_t type::method_count() const noexcept {
 
 method_set type::method_at(std::size_t index) const {
   const detail::type_record* data = detail::type_access::registered_data_of(*this);
-  return data != nullptr ? detail::method_access::make_set(data->method_at(index)) : method_set{};
+  return data != nullptr ? detail::method_access::make_set(data->method_at(index),
+                                                           detail::type_access::layer_of(*this))
+                         : method_set{};
 }
 
 method_set type::find_method(core::string_name method_name, member_search search) const {
@@ -262,7 +274,8 @@ method_set type::find_method(core::string_name method_name, member_search search
 
   const detail::type_record* data = detail::type_access::registered_data_of(*this);
   if (data != nullptr) {
-    method_set found = detail::method_access::make_set(data->find_method_ptr(method_name));
+    method_set found = detail::method_access::make_set(data->find_method_ptr(method_name),
+                                                       detail::type_access::layer_of(*this));
     if (found || search == member_search::local_only) {
       return found;
     }
@@ -272,7 +285,8 @@ method_set type::find_method(core::string_name method_name, member_search search
   while (base) {
     const detail::type_record* base_data = detail::type_access::registered_data_of(base);
     if (base_data != nullptr) {
-      method_set found = detail::method_access::make_set(base_data->find_method_ptr(method_name));
+      method_set found = detail::method_access::make_set(base_data->find_method_ptr(method_name),
+                                                         detail::type_access::layer_of(base));
       if (found) {
         return found;
       }

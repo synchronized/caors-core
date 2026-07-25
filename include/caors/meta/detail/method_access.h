@@ -11,10 +11,15 @@ namespace caors::meta::detail {
 /** @brief `meta::method` 和 `meta::method_set` 的内部构造访问口。 */
 class method_access final {
 public:
-  [[nodiscard]] static method make(const method_record* data) noexcept { return method{data}; }
+  [[nodiscard]] static method make(const method_record* data,
+                                   std::shared_ptr<registry_layer_state> layer = {}) noexcept {
+    return method{data, std::move(layer)};
+  }
 
-  [[nodiscard]] static method_set make_set(const method_set_record* data) noexcept {
-    return method_set{data};
+  [[nodiscard]] static method_set
+  make_set(const method_set_record* data,
+           std::shared_ptr<registry_layer_state> layer = {}) noexcept {
+    return method_set{data, std::move(layer)};
   }
 };
 

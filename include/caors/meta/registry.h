@@ -93,6 +93,8 @@ public:
   [[nodiscard]] std::unique_ptr<registry_layer> create_layer() const;
   /** @brief 校验、冻结并原子发布 layer；失败时当前 registry 保持不变。 */
   [[nodiscard]] error publish_layer(registry_layer& layer);
+  /** @brief 从新 snapshot 原子移除已发布 layer，并使旧句柄失效。 */
+  [[nodiscard]] error detach_layer(registry_layer& layer);
 
   /** @brief 判断指定类型是否挂载了某份扩展数据。 */
   template <typename Extension> [[nodiscard]] bool has_extension(type_id id) const;
@@ -163,6 +165,7 @@ public:
   [[nodiscard]] registry& get_registry() noexcept;
   [[nodiscard]] const registry& get_registry() const noexcept;
   [[nodiscard]] bool published() const noexcept;
+  [[nodiscard]] bool active() const noexcept;
 
 private:
   friend class registry;
