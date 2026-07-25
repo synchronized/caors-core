@@ -250,10 +250,6 @@ invoke_const_member_method_value(const method_record& method, const void* object
                                   std::index_sequence_for<Arguments...>{});
 }
 
-template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_record&) noexcept {
-  return meta::resolve<Class>();
-}
-
 template <typename Return>
 [[nodiscard]] meta::type method_return_type(const method_record&) noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
@@ -261,11 +257,6 @@ template <typename Return>
   } else {
     return meta::resolve<method_value_type<Return>>();
   }
-}
-
-template <typename... Arguments>
-[[nodiscard]] std::size_t method_parameter_count(const method_record&) noexcept {
-  return sizeof...(Arguments);
 }
 
 template <typename... Arguments>
@@ -302,42 +293,87 @@ template <typename... Arguments>
   return prepare_arguments<Arguments...>(arguments, options);
 }
 
-template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_ops member_method_ops() noexcept {
-  return method_ops{
-      &method_owner_type<Class>,
-      &method_return_type<Return>,
-      &method_parameter_count<Arguments...>,
-      &method_parameter_type<Arguments...>,
-      &method_arguments_rank<Arguments...>,
-      &method_prepare_arguments<Arguments...>,
-      &invoke_member_method<Class, Return, Arguments...>,
-      &method_value_arguments_rank<Arguments...>,
-      &invoke_member_method_value<Class, Return, Arguments...>,
-  };
+template <typename Owner, typename Return, auto Invoke, auto InvokeValue, typename... Arguments>
+bool method_model_dispatch(void*, method_request_kind kind, request_payload payload) {
+  switch (kind) {
+  case method_request_kind::owner_type: {
+    auto& request = payload.get<method_type_request>();
+    if constexpr (std::is_void_v<Owner>) {
+      request.result = {};
+    } else {
+      request.result = meta::resolve<Owner>();
+    }
+    return true;
+  }
+  case method_request_kind::return_type: {
+    auto& request = payload.get<method_type_request>();
+    request.result = method_return_type<Return>(*request.method);
+    return true;
+  }
+  case method_request_kind::parameter_count: {
+    auto& request = payload.get<method_parameter_count_request>();
+    request.result = sizeof...(Arguments);
+    return true;
+  }
+  case method_request_kind::parameter_type: {
+    auto& request = payload.get<method_parameter_type_request>();
+    request.result = method_parameter_type<Arguments...>(*request.method, request.index);
+    return true;
+  }
+  case method_request_kind::rank_arguments: {
+    auto& request = payload.get<method_rank_arguments_request>();
+    request.result =
+        method_arguments_rank<Arguments...>(*request.method, request.arguments, request.options);
+    return true;
+  }
+  case method_request_kind::prepare_arguments: {
+    auto& request = payload.get<method_prepare_arguments_request>();
+    request.result =
+        method_prepare_arguments<Arguments...>(*request.method, request.arguments, request.options);
+    return true;
+  }
+  case method_request_kind::invoke: {
+    auto& request = payload.get<method_invoke_request>();
+    request.result =
+        Invoke(*request.method, request.object, request.mutable_object, request.arguments);
+    return true;
+  }
+  case method_request_kind::rank_value_arguments: {
+    auto& request = payload.get<method_rank_value_arguments_request>();
+    request.result = method_value_arguments_rank<Arguments...>(*request.method, request.arguments,
+                                                               request.options);
+    return true;
+  }
+  case method_request_kind::invoke_value: {
+    auto& request = payload.get<method_invoke_value_request>();
+    request.result =
+        InvokeValue(*request.method, request.object, request.mutable_object, request.arguments);
+    return true;
+  }
+  }
+  return false;
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_ops const_member_method_ops() noexcept {
-  return method_ops{
-      &method_owner_type<Class>,
-      &method_return_type<Return>,
-      &method_parameter_count<Arguments...>,
-      &method_parameter_type<Arguments...>,
-      &method_arguments_rank<Arguments...>,
-      &method_prepare_arguments<Arguments...>,
-      &invoke_const_member_method<Class, Return, Arguments...>,
-      &method_value_arguments_rank<Arguments...>,
-      &invoke_const_member_method_value<Class, Return, Arguments...>,
-  };
+[[nodiscard]] method_wrapper::invoke_fn member_method_dispatch() noexcept {
+  return &method_model_dispatch<Class, Return, &invoke_member_method<Class, Return, Arguments...>,
+                                &invoke_member_method_value<Class, Return, Arguments...>,
+                                Arguments...>;
+}
+
+template <typename Class, typename Return, typename... Arguments>
+[[nodiscard]] method_wrapper::invoke_fn const_member_method_dispatch() noexcept {
+  return &method_model_dispatch<
+      Class, Return, &invoke_const_member_method<Class, Return, Arguments...>,
+      &invoke_const_member_method_value<Class, Return, Arguments...>, Arguments...>;
 }
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                           Return (Class::*member)(Arguments...)) {
+                                               Return (Class::*member)(Arguments...)) {
   method_record method{
       string_name{name},
-      member_method_ops<Class, Return, Arguments...>(),
+      member_method_dispatch<Class, Return, Arguments...>(),
       false,
   };
   method.store_member_pointer(member);
@@ -346,10 +382,10 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                           Return (Class::*member)(Arguments...) const) {
+                                               Return (Class::*member)(Arguments...) const) {
   method_record method{
       string_name{name},
-      const_member_method_ops<Class, Return, Arguments...>(),
+      const_member_method_dispatch<Class, Return, Arguments...>(),
       true,
   };
   method.store_member_pointer(member);
@@ -482,31 +518,17 @@ invoke_global_callable_method_value(const method_record& method, const void*, bo
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] meta::type global_method_owner_type(const method_record&) noexcept {
-  return {};
-}
-
-template <typename Return, typename... Arguments>
-[[nodiscard]] method_ops global_method_ops() noexcept {
-  return method_ops{
-      &global_method_owner_type<Return, Arguments...>,
-      &method_return_type<Return>,
-      &method_parameter_count<Arguments...>,
-      &method_parameter_type<Arguments...>,
-      &method_arguments_rank<Arguments...>,
-      &method_prepare_arguments<Arguments...>,
-      &invoke_global_method<Return, Arguments...>,
-      &method_value_arguments_rank<Arguments...>,
-      &invoke_global_method_value<Return, Arguments...>,
-  };
+[[nodiscard]] method_wrapper::invoke_fn global_method_dispatch() noexcept {
+  return &method_model_dispatch<void, Return, &invoke_global_method<Return, Arguments...>,
+                                &invoke_global_method_value<Return, Arguments...>, Arguments...>;
 }
 
 template <typename Return, typename... Arguments>
 [[nodiscard]] method_record make_global_method_record(std::string_view name,
-                                                  Return (*function)(Arguments...)) {
+                                                      Return (*function)(Arguments...)) {
   method_record method{
       string_name{name},
-      global_method_ops<Return, Arguments...>(),
+      global_method_dispatch<Return, Arguments...>(),
       true,
   };
   method.store_member_pointer(function);
@@ -517,25 +539,17 @@ template <typename Callable, typename Signature> struct global_callable_method_f
 
 template <typename Callable, typename Return, typename... Arguments>
 struct global_callable_method_factory<Callable, function_signature<Return, Arguments...>> {
-  [[nodiscard]] static method_ops ops() noexcept {
-    return method_ops{
-        &global_method_owner_type<Return, Arguments...>,
-        &method_return_type<Return>,
-        &method_parameter_count<Arguments...>,
-        &method_parameter_type<Arguments...>,
-        &method_arguments_rank<Arguments...>,
-        &method_prepare_arguments<Arguments...>,
-        &invoke_global_callable_method<Callable, Return, Arguments...>,
-        &method_value_arguments_rank<Arguments...>,
-        &invoke_global_callable_method_value<Callable, Return, Arguments...>,
-    };
+  [[nodiscard]] static method_wrapper::invoke_fn dispatch() noexcept {
+    return &method_model_dispatch<
+        void, Return, &invoke_global_callable_method<Callable, Return, Arguments...>,
+        &invoke_global_callable_method_value<Callable, Return, Arguments...>, Arguments...>;
   }
 
   template <typename Value>
   [[nodiscard]] static method_record make(std::string_view name, Value&& callable) {
     method_record method{
         string_name{name},
-        ops(),
+        dispatch(),
         true,
     };
     method.store_callable(std::forward<Value>(callable));
@@ -545,7 +559,7 @@ struct global_callable_method_factory<Callable, function_signature<Return, Argum
 
 template <typename Callable>
 [[nodiscard]] method_record make_global_callable_method_record(std::string_view name,
-                                                           Callable&& callable) {
+                                                               Callable&& callable) {
   using value_type = std::decay_t<Callable>;
   using signature = callable_signature_t<value_type>;
   return global_callable_method_factory<value_type, signature>::make(

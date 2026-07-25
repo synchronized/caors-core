@@ -342,9 +342,9 @@ invoke_value
   查询、参数 rank/prepare、argument/value 调用统一通过 request dispatch；
 - 默认参数、参数名、metadata 和重载集合继续由 runtime record 管理；
 - member、const member、global function 和有状态 global callable 继续复用已验证的模板
-  model 算法，但固定 `method_ops` 已收进 wrapper 私有状态，不再构成 `method_record` 布局；
-- 后续可以逐项把 wrapper 内部 `method_ops` 转成 model 直接处理 request；该实现精简不再改变
-  record ABI，也不阻塞当前边界迁移；
+  model 算法；model 直接处理 request，固定 `method_ops` 已删除；
+- `method_wrapper` 仅保存擦除后的 model state、单个 `invoke` 入口和销毁职责，
+  不再保存第二层固定函数表；
 - Windows Clang Debug 单线程完成 cross-module、method、property、registry、registry-view、
   value、serialization-core 和公共头文件自包含构建，相关测试全部通过。
 

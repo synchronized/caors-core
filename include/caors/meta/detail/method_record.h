@@ -51,45 +51,6 @@ method_match_kind_from_rank(argument_match_rank rank) noexcept {
   }
 }
 
-/** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
-struct method_ops {
-  using type_fn = meta::type (*)(const method_record& method) noexcept;
-  using parameter_count_fn = std::size_t (*)(const method_record& method) noexcept;
-  using parameter_type_fn = std::optional<meta::type> (*)(const method_record& method,
-                                                          std::size_t index) noexcept;
-  using rank_arguments_fn = argument_match_rank (*)(const method_record& method,
-                                                    std::span<const argument> arguments,
-                                                    argument_match_options options) noexcept;
-  using prepare_arguments_fn = vector<argument> (*)(const method_record& method,
-                                                    std::span<const argument> arguments,
-                                                    argument_match_options options);
-  using invoke_fn = invoke_result (*)(const method_record& method, const void* object,
-                                      bool mutable_object, std::span<const argument> arguments);
-  using rank_value_arguments_fn = argument_match_rank (*)(const method_record& method,
-                                                          std::span<const meta::value> arguments,
-                                                          argument_match_options options) noexcept;
-  using invoke_value_fn = invoke_value_result (*)(const method_record& method, const void* object,
-                                                  bool mutable_object,
-                                                  std::span<const meta::value> arguments);
-
-  type_fn get_owner_type = nullptr;
-  type_fn get_return_type = nullptr;
-  parameter_count_fn parameter_count = nullptr;
-  parameter_type_fn get_parameter_type = nullptr;
-  rank_arguments_fn rank_arguments = nullptr;
-  prepare_arguments_fn prepare_arguments = nullptr;
-  invoke_fn invoke = nullptr;
-  rank_value_arguments_fn rank_value_arguments = nullptr;
-  invoke_value_fn invoke_value = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return get_owner_type != nullptr && get_return_type != nullptr && parameter_count != nullptr &&
-           get_parameter_type != nullptr && rank_arguments != nullptr &&
-           prepare_arguments != nullptr && invoke != nullptr && rank_value_arguments != nullptr &&
-           invoke_value != nullptr;
-  }
-};
-
 enum class method_request_kind : std::uint32_t {
   owner_type = 1,
   return_type = 2,
@@ -170,7 +131,6 @@ struct method_callable_storage_model final : method_callable_storage_base {
 struct method_wrapper_state {
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
-  method_ops ops{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
   std::shared_ptr<const method_callable_storage_base> callable{};
 };
@@ -181,10 +141,10 @@ public:
   using destroy_fn = void (*)(void*, memory::memory_resource*) noexcept;
 
   method_wrapper() noexcept = default;
-  explicit method_wrapper(method_ops ops)
+  explicit method_wrapper(invoke_fn invoke)
       : resource_(&memory::library_resource()),
-        state_(memory::make<method_wrapper_state>(resource_, method_wrapper_state{ops})),
-        invoke_(&dispatch), destroy_(&destroy) {}
+        state_(memory::make<method_wrapper_state>(resource_)), invoke_(invoke), destroy_(&destroy) {
+  }
 
   method_wrapper(const method_wrapper&) = delete;
   method_wrapper& operator=(const method_wrapper&) = delete;
@@ -205,10 +165,7 @@ public:
   }
   ~method_wrapper() { reset(); }
 
-  [[nodiscard]] bool valid() const noexcept {
-    return state_ != nullptr && invoke_ != nullptr &&
-           static_cast<const method_wrapper_state*>(state_)->ops.valid();
-  }
+  [[nodiscard]] bool valid() const noexcept { return state_ != nullptr && invoke_ != nullptr; }
 
   [[nodiscard]] bool invoke(method_request_kind kind, request_payload payload) const {
     return valid() && invoke_(state_, kind, payload);
@@ -242,63 +199,6 @@ public:
   }
 
 private:
-  static bool dispatch(void* erased, method_request_kind kind, request_payload payload) {
-    auto& state = *static_cast<method_wrapper_state*>(erased);
-    switch (kind) {
-    case method_request_kind::owner_type: {
-      auto& request = payload.get<method_type_request>();
-      request.result = state.ops.get_owner_type(*request.method);
-      return true;
-    }
-    case method_request_kind::return_type: {
-      auto& request = payload.get<method_type_request>();
-      request.result = state.ops.get_return_type(*request.method);
-      return true;
-    }
-    case method_request_kind::parameter_count: {
-      auto& request = payload.get<method_parameter_count_request>();
-      request.result = state.ops.parameter_count(*request.method);
-      return true;
-    }
-    case method_request_kind::parameter_type: {
-      auto& request = payload.get<method_parameter_type_request>();
-      request.result = state.ops.get_parameter_type(*request.method, request.index);
-      return true;
-    }
-    case method_request_kind::rank_arguments: {
-      auto& request = payload.get<method_rank_arguments_request>();
-      request.result =
-          state.ops.rank_arguments(*request.method, request.arguments, request.options);
-      return true;
-    }
-    case method_request_kind::prepare_arguments: {
-      auto& request = payload.get<method_prepare_arguments_request>();
-      request.result =
-          state.ops.prepare_arguments(*request.method, request.arguments, request.options);
-      return true;
-    }
-    case method_request_kind::invoke: {
-      auto& request = payload.get<method_invoke_request>();
-      request.result = state.ops.invoke(*request.method, request.object, request.mutable_object,
-                                        request.arguments);
-      return true;
-    }
-    case method_request_kind::rank_value_arguments: {
-      auto& request = payload.get<method_rank_value_arguments_request>();
-      request.result =
-          state.ops.rank_value_arguments(*request.method, request.arguments, request.options);
-      return true;
-    }
-    case method_request_kind::invoke_value: {
-      auto& request = payload.get<method_invoke_value_request>();
-      request.result = state.ops.invoke_value(*request.method, request.object,
-                                              request.mutable_object, request.arguments);
-      return true;
-    }
-    }
-    return false;
-  }
-
   static void destroy(void* state, memory::memory_resource* resource) noexcept {
     memory::destroy(static_cast<method_wrapper_state*>(state), resource);
   }
@@ -329,8 +229,8 @@ class method_record final {
 public:
   method_record() noexcept = default;
 
-  method_record(string_name method_name, method_ops method_operations, bool is_const_method)
-      : name_(method_name), const_method_(is_const_method), wrapper_(method_operations) {}
+  method_record(string_name method_name, method_wrapper::invoke_fn invoke, bool is_const_method)
+      : name_(method_name), const_method_(is_const_method), wrapper_(invoke) {}
 
   method_record(const method_record&) = delete;
   method_record& operator=(const method_record&) = delete;
