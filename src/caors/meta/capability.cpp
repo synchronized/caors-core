@@ -35,6 +35,9 @@ error register_capability(registry& registry, type_id id, capability_key key,
 
   registry_state* state = registry_access::state(registry);
   std::lock_guard lock(state->mutex);
+  if (state->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   type_record* type = find_type_record(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
@@ -59,6 +62,9 @@ error register_owned_capability(registry& registry, type_id id, capability_key k
 
   registry_state* state = registry_access::state(registry);
   std::lock_guard lock(state->mutex);
+  if (state->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   type_record* type = find_type_record(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
@@ -78,14 +84,15 @@ const void* find_capability(const registry& registry, type_id id, capability_key
   }
 
   const auto snapshot = registry_access::snapshot(registry);
-  const registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  const type_record* type = find_type_record(state, id);
-  if (type == nullptr) {
-    return nullptr;
+  for (const auto& layer : snapshot->layers()) {
+    const registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    const type_record* type = find_type_record(state, id);
+    if (type != nullptr) {
+      return type->find_capability(key);
+    }
   }
-
-  return type->find_capability(key);
+  return nullptr;
 }
 
 const void* find_capability(type_id id, capability_key key) noexcept {
@@ -127,13 +134,15 @@ std::size_t capability_count(const registry& registry, capability_key key) noexc
   }
 
   const auto snapshot = registry_access::snapshot(registry);
-  const registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
   std::size_t result = 0;
-  for (const auto& [raw_id, type] : state.types) {
-    (void)raw_id;
-    if (type != nullptr && type->contains_capability(key)) {
-      ++result;
+  for (const auto& layer : snapshot->layers()) {
+    const registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    for (const auto& [raw_id, type] : state.types) {
+      (void)raw_id;
+      if (type != nullptr && type->contains_capability(key)) {
+        ++result;
+      }
     }
   }
 

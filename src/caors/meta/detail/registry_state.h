@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <mutex>
+#include <span>
 #include <typeindex>
 
 namespace caors::meta::detail {
@@ -29,6 +30,7 @@ public:
 
   mutable std::mutex mutex;
   memory::memory_resource* resource = nullptr;
+  bool frozen = false;
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
   core::hash_map<std::uint64_t, memory::unique_ptr<type_record>> types;
@@ -37,26 +39,47 @@ public:
   core::hash_map<core::guid, type_record*, core::guid_hash> guids;
 };
 
-/** @brief 一次 registry 查询固定持有的状态快照所有者。 */
-class registry_snapshot final {
+/** @brief 单个 registry layer 的稳定状态所有者。 */
+class registry_layer_state final {
 public:
-  explicit registry_snapshot(memory::memory_resource* resource);
-  ~registry_snapshot();
+  explicit registry_layer_state(memory::memory_resource* resource);
+  ~registry_layer_state();
 
-  registry_snapshot(const registry_snapshot&) = delete;
-  registry_snapshot& operator=(const registry_snapshot&) = delete;
+  registry_layer_state(const registry_layer_state&) = delete;
+  registry_layer_state& operator=(const registry_layer_state&) = delete;
 
   [[nodiscard]] registry_state& state() noexcept { return *state_; }
   [[nodiscard]] const registry_state& state() const noexcept { return *state_; }
+  [[nodiscard]] bool frozen() const noexcept { return frozen_; }
+  void freeze() noexcept { frozen_ = true; }
 
 private:
   memory::memory_resource* resource_ = nullptr;
   registry_state* state_ = nullptr;
+  bool frozen_ = false;
+};
+
+/** @brief 一次 registry 查询固定持有的有序 layer 集合。 */
+class registry_snapshot final {
+public:
+  explicit registry_snapshot(std::shared_ptr<registry_layer_state> primary);
+  explicit registry_snapshot(core::vector<std::shared_ptr<registry_layer_state>> layers);
+
+  [[nodiscard]] std::span<const std::shared_ptr<registry_layer_state>> layers() const noexcept {
+    return layers_;
+  }
+  [[nodiscard]] const std::shared_ptr<registry_layer_state>& primary() const noexcept {
+    return layers_.front();
+  }
+
+private:
+  core::vector<std::shared_ptr<registry_layer_state>> layers_;
 };
 
 [[nodiscard]] type_record* find_type_record(registry_state& state, type_id id);
 [[nodiscard]] const type_record* find_type_record(const registry_state& state, type_id id);
-[[nodiscard]] error validate_registry(const registry_state& state);
+[[nodiscard]] error validate_registry(const registry_state& state,
+                                      const registry_snapshot* snapshot = nullptr);
 
 } // namespace caors::meta::detail
 

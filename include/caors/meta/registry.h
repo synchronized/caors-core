@@ -30,6 +30,7 @@
 namespace caors::meta {
 
 class registry;
+class registry_layer;
 
 } // namespace caors::meta
 
@@ -37,6 +38,7 @@ namespace caors::meta::detail {
 
 class registry_state;
 class registry_snapshot;
+class registry_layer_state;
 class registry_access;
 class pending_type_record;
 class type_record;
@@ -87,6 +89,11 @@ public:
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
+  /** @brief 创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
+  [[nodiscard]] std::unique_ptr<registry_layer> create_layer() const;
+  /** @brief 校验、冻结并原子发布 layer；失败时当前 registry 保持不变。 */
+  [[nodiscard]] error publish_layer(registry_layer& layer);
+
   /** @brief 判断指定类型是否挂载了某份扩展数据。 */
   template <typename Extension> [[nodiscard]] bool has_extension(type_id id) const;
 
@@ -113,6 +120,9 @@ private:
   template <typename T> friend class ::caors::registration::enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
   friend class detail::registry_access;
+  friend class registry_layer;
+
+  explicit registry(std::shared_ptr<detail::registry_snapshot> base_snapshot);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -138,8 +148,28 @@ private:
   [[nodiscard]] std::shared_ptr<detail::registry_snapshot> capture_snapshot() const noexcept;
 
   memory::memory_resource* state_resource_ = nullptr;
+  std::shared_ptr<detail::registry_layer_state> primary_layer_{};
   std::atomic<std::shared_ptr<detail::registry_snapshot>> snapshot_{};
   detail::registry_state* state_ = nullptr;
+};
+
+/** @brief 尚未发布或已经冻结的独立 registry layer 所有者。 */
+class CAORS_API registry_layer final {
+public:
+  registry_layer(const registry_layer&) = delete;
+  registry_layer& operator=(const registry_layer&) = delete;
+  ~registry_layer();
+
+  [[nodiscard]] registry& get_registry() noexcept;
+  [[nodiscard]] const registry& get_registry() const noexcept;
+  [[nodiscard]] bool published() const noexcept;
+
+private:
+  friend class registry;
+  explicit registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot);
+
+  registry* registry_ = nullptr;
+  bool published_ = false;
 };
 
 namespace detail {

@@ -5,6 +5,20 @@
 
 #include "meta_type_registry_test_support.h"
 
+#include <future>
+
+namespace {
+
+struct overlay_draft_type {};
+struct overlay_base_type {};
+struct overlay_child_type : overlay_base_type {};
+struct overlay_frozen_type {};
+struct overlay_conflict_type {};
+struct overlay_parallel_a {};
+struct overlay_parallel_b {};
+
+} // namespace
+
 using namespace caors::tests::meta_type_registry;
 TEST_CASE("meta type - global registry checks parent relationship", "[meta]") {
   REQUIRE(caors::registration::type_<relation_parent_type>("caors.test.type.relation_parent")
@@ -112,4 +126,78 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
             .guid(caors::type_guid{*guid})
             .commit() == meta_error(caors::errc::duplicate_guid));
   CHECK_FALSE(caors::meta::find<duplicate_guid_type>());
+}
+
+TEST_CASE("meta registry layer 隔离 draft 并在发布后冻结") {
+  caors::meta::registry registry{};
+  caors::meta::context base_context{registry};
+  REQUIRE_FALSE(
+      caors::registration::type_<overlay_base_type>(base_context, "caors.test.meta.overlay_base")
+          .commit());
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE(caors::meta::find<overlay_base_type>(layer_context));
+
+  REQUIRE_FALSE(
+      caors::registration::type_<overlay_draft_type>(layer_context, "caors.test.meta.overlay_draft")
+          .commit());
+  REQUIRE_FALSE(
+      caors::registration::type_<overlay_child_type>(layer_context, "caors.test.meta.overlay_child")
+          .parent<overlay_base_type>()
+          .commit());
+  CHECK_FALSE(caors::meta::find(base_context, "caors.test.meta.overlay_draft"));
+  REQUIRE(caors::meta::find(layer_context, "caors.test.meta.overlay_draft"));
+
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+  CHECK(layer->published());
+  REQUIRE(caors::meta::find(base_context, "caors.test.meta.overlay_draft"));
+  const auto child = caors::meta::find<overlay_child_type>(base_context);
+  REQUIRE(child);
+  CHECK(child.parent().id() == caors::meta::find<overlay_base_type>(base_context).id());
+  CHECK_FALSE(registry.validate());
+  CHECK(caors::registration::type_<overlay_frozen_type>(layer_context,
+                                                        "caors.test.meta.overlay_frozen")
+            .commit() == caors::error{caors::error_domain::meta, caors::errc::frozen});
+}
+
+TEST_CASE("meta registry layer 冲突失败不会污染当前 snapshot") {
+  caors::meta::registry registry{};
+  caors::meta::context base_context{registry};
+  REQUIRE_FALSE(caors::registration::type_<overlay_draft_type>(base_context,
+                                                               "caors.test.meta.overlay_conflict")
+                    .commit());
+
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_conflict_type>(
+                    layer_context, "caors.test.meta.overlay_conflict")
+                    .commit());
+  CHECK(registry.publish_layer(*layer) ==
+        caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
+  CHECK_FALSE(layer->published());
+  CHECK_FALSE(caors::meta::find<overlay_conflict_type>(base_context));
+}
+
+TEST_CASE("meta registry 并发发布 layer 不会丢失已发布 snapshot") {
+  caors::meta::registry registry{};
+  caors::meta::context base_context{registry};
+  auto first = registry.create_layer();
+  auto second = registry.create_layer();
+  caors::meta::context first_context{first->get_registry()};
+  caors::meta::context second_context{second->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_parallel_a>(first_context,
+                                                               "caors.test.meta.overlay_parallel_a")
+                    .commit());
+  REQUIRE_FALSE(caors::registration::type_<overlay_parallel_b>(second_context,
+                                                               "caors.test.meta.overlay_parallel_b")
+                    .commit());
+
+  auto first_publish =
+      std::async(std::launch::async, [&] { return registry.publish_layer(*first); });
+  auto second_publish =
+      std::async(std::launch::async, [&] { return registry.publish_layer(*second); });
+  CHECK_FALSE(first_publish.get());
+  CHECK_FALSE(second_publish.get());
+  CHECK(caors::meta::find<overlay_parallel_a>(base_context));
+  CHECK(caors::meta::find<overlay_parallel_b>(base_context));
 }

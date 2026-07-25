@@ -84,7 +84,8 @@ namespace {
 }
 
 [[nodiscard]] error merge_type_record(detail::registry_state& state, detail::type_record& stored,
-                                    const detail::type_record& incoming) {
+                                      const detail::type_record& incoming,
+                                      bool dependencies_valid) {
   if (!incoming.valid() || !incoming.id() || incoming.id() != stored.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -92,7 +93,7 @@ namespace {
   bool changed = false;
 
   if (incoming.parent_id()) {
-    if (!state.types.contains(incoming.parent_id().value())) {
+    if (!state.types.contains(incoming.parent_id().value()) && !dependencies_valid) {
       return {error_domain::meta, errc::missing_parent};
     }
 
@@ -144,7 +145,7 @@ namespace {
 }
 
 [[nodiscard]] error store_new_type(detail::registry_state& state, detail::type_record&& incoming,
-                                   type_id* stored_id = nullptr) {
+                                   type_id* stored_id = nullptr, bool dependencies_valid = false) {
   if (!incoming.valid() || !incoming.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -153,7 +154,8 @@ namespace {
     return {error_domain::meta, errc::duplicate_id};
   }
 
-  if (incoming.parent_id() && !state.types.contains(incoming.parent_id().value())) {
+  if (incoming.parent_id() && !state.types.contains(incoming.parent_id().value()) &&
+      !dependencies_valid) {
     return {error_domain::meta, errc::missing_parent};
   }
 
@@ -163,7 +165,7 @@ namespace {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    if (!state.types.contains(nested_type->nested_type.value())) {
+    if (!state.types.contains(nested_type->nested_type.value()) && !dependencies_valid) {
       return {error_domain::meta, errc::missing_type};
     }
   }
@@ -200,7 +202,7 @@ namespace {
 }
 
 [[nodiscard]] error store_static_type_record(detail::registry_state& state,
-                                           const detail::type_record& fallback) {
+                                             const detail::type_record& fallback) {
   if (!fallback.valid() || !fallback.id() || !fallback.value_ops().valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -245,12 +247,16 @@ namespace {
 }
 
 [[nodiscard]] error register_type_impl(detail::registry_state& state, detail::type_record type,
-                                       type_id* stored_id = nullptr) {
+                                       type_id* stored_id = nullptr,
+                                       bool dependencies_valid = false) {
   if (!type.valid() || !type.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
   std::lock_guard lock(state.mutex);
+  if (state.frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   error conflict{};
   const std::optional<type_id> existing_id = find_existing_type_id(state, type, conflict);
   if (conflict) {
@@ -263,7 +269,7 @@ namespace {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    const error status = merge_type_record(state, *existing, type);
+    const error status = merge_type_record(state, *existing, type, dependencies_valid);
     if (status.value() == errc::invalid_type) {
       return duplicate_identity_error(state, type, *existing_id);
     }
@@ -275,13 +281,18 @@ namespace {
     return status;
   }
 
-  return store_new_type(state, std::move(type), stored_id);
+  return store_new_type(state, std::move(type), stored_id, dependencies_valid);
 }
 
 } // namespace
 
 error registry::register_type(type_id id, string_name name, type_guid guid, type_id parent_id) {
-  return register_type_impl(*state_, detail::type_record{id, name, guid, parent_id});
+  const bool dependencies_valid = !parent_id || contains(parent_id);
+  if (!dependencies_valid) {
+    return {error_domain::meta, errc::missing_parent};
+  }
+  return register_type_impl(*state_, detail::type_record{id, name, guid, parent_id}, nullptr,
+                            dependencies_valid);
 }
 
 error registry::commit_type(detail::pending_type_record pending, const std::type_info& cpp_type) {
@@ -290,8 +301,23 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
     return status;
   }
 
-  std::lock_guard lock(state_->mutex);
   const detail::type_record& candidate = pending.data();
+  bool dependencies_valid = !candidate.parent_id() || contains(candidate.parent_id());
+  for (std::size_t index = 0; dependencies_valid && index < candidate.nested_type_count();
+       ++index) {
+    const detail::nested_type_data* nested = candidate.nested_type_at(index);
+    dependencies_valid = nested != nullptr && nested->valid() && contains(nested->nested_type);
+  }
+  if (!dependencies_valid) {
+    return {error_domain::meta, candidate.parent_id() && !contains(candidate.parent_id())
+                                    ? errc::missing_parent
+                                    : errc::missing_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   if (state_->types.contains(candidate.id().value())) {
     const detail::type_record* existing = detail::find_type_record(*state_, candidate.id());
     return existing != nullptr && !existing->static_model_matches(candidate)
@@ -305,7 +331,7 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   }
 
   const type_id expected_id = candidate.id();
-  status = store_new_type(*state_, std::move(pending).release());
+  status = store_new_type(*state_, std::move(pending).release(), nullptr, dependencies_valid);
   if (status) {
     return status;
   }
@@ -322,6 +348,9 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
 
 error registry::ensure_static_type_record(const detail::type_record& fallback) {
   std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   if (!fallback.valid() || !fallback.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -335,6 +364,9 @@ error registry::set_type_guid(type_id id, type_guid guid) {
   }
 
   std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
@@ -364,6 +396,9 @@ error registry::register_cpp_type_info(const std::type_info& info, type_id id) {
   }
 
   std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   if (!state_->types.contains(id.value())) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -394,22 +429,21 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
     return {error_domain::meta, errc::invalid_type};
   }
 
+  if (!parent_id || !contains(parent_id)) {
+    return {error_domain::meta, errc::missing_parent};
+  }
+
   std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
   detail::type_record* stored = detail::find_type_record(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (!parent_id) {
-    return {error_domain::meta, errc::duplicate_id};
-  }
-
   if (cast.parent && cast.parent != parent_id) {
     return {error_domain::meta, errc::invalid_type};
-  }
-
-  if (!state_->types.contains(parent_id.value())) {
-    return {error_domain::meta, errc::missing_parent};
   }
 
   bool changed = false;

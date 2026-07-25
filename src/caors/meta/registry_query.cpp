@@ -10,19 +10,30 @@
 #include <string_view>
 
 namespace caors::meta {
+namespace {
+
+[[nodiscard]] const detail::type_record* find_record(const detail::registry_snapshot& snapshot,
+                                                     type_id id) {
+  for (const auto& layer : snapshot.layers()) {
+    const detail::registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    if (const detail::type_record* record = detail::find_type_record(state, id)) {
+      return record;
+    }
+  }
+  return nullptr;
+}
+
+} // namespace
 
 bool registry::contains(type_id id) const {
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  return state.types.contains(id.value());
+  return find_record(*snapshot, id) != nullptr;
 }
 
 type registry::find_type(type_id id) const {
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  const detail::type_record* type_record = detail::find_type_record(state, id);
+  const detail::type_record* type_record = find_record(*snapshot, id);
   if (type_record == nullptr) {
     return {};
   }
@@ -36,36 +47,28 @@ type registry::find_type(core::type_guid guid) const {
   }
 
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  const auto guid_position = state.guids.find(guid.value);
-  if (guid_position == state.guids.end()) {
-    return {};
+  for (const auto& layer : snapshot->layers()) {
+    const detail::registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    const auto position = state.guids.find(guid.value);
+    if (position != state.guids.end() && position->second != nullptr) {
+      return detail::type_access::make(this, position->second);
+    }
   }
-
-  const detail::type_record* type_record = guid_position->second;
-  if (type_record == nullptr) {
-    return {};
-  }
-
-  return detail::type_access::make(this, type_record);
+  return {};
 }
 
 type registry::find_type(const std::type_info& info) const {
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  const auto position = state.cpp_types.find(std::type_index{info});
-  if (position == state.cpp_types.end()) {
-    return {};
+  for (const auto& layer : snapshot->layers()) {
+    const detail::registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    const auto position = state.cpp_types.find(std::type_index{info});
+    if (position != state.cpp_types.end() && position->second != nullptr) {
+      return detail::type_access::make(this, position->second);
+    }
   }
-
-  const detail::type_record* type_record = position->second;
-  if (type_record == nullptr) {
-    return {};
-  }
-
-  return detail::type_access::make(this, type_record);
+  return {};
 }
 
 type registry::find_type(std::string_view name) const {
@@ -79,19 +82,15 @@ type registry::find_type(std::string_view name) const {
 
 type registry::find_type(core::string_name name) const {
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  const auto name_position = state.names.find(name);
-  if (name_position == state.names.end()) {
-    return {};
+  for (const auto& layer : snapshot->layers()) {
+    const detail::registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    const auto position = state.names.find(name);
+    if (position != state.names.end() && position->second != nullptr) {
+      return detail::type_access::make(this, position->second);
+    }
   }
-
-  const detail::type_record* type_record = name_position->second;
-  if (type_record == nullptr) {
-    return {};
-  }
-
-  return detail::type_access::make(this, type_record);
+  return {};
 }
 
 bool registry::is_a(type_id id, type_id base_id) const {
@@ -100,15 +99,13 @@ bool registry::is_a(type_id id, type_id base_id) const {
   }
 
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   while (current_id) {
     if (current_id == base_id) {
       return true;
     }
 
-    const detail::type_record* type = detail::find_type_record(state, current_id);
+    const detail::type_record* type = find_record(*snapshot, current_id);
     if (type == nullptr) {
       return false;
     }
@@ -129,12 +126,10 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
   }
 
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   const void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = detail::find_type_record(state, current_id);
+    const detail::type_record* type = find_record(*snapshot, current_id);
     if (type == nullptr) {
       return nullptr;
     }
@@ -174,12 +169,10 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
   }
 
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
   type_id current_id = id;
   void* current_value = value;
   while (current_id) {
-    const detail::type_record* type = detail::find_type_record(state, current_id);
+    const detail::type_record* type = find_record(*snapshot, current_id);
     if (type == nullptr) {
       return nullptr;
     }
@@ -211,9 +204,13 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
 
 std::size_t registry::size() const noexcept {
   const auto snapshot = capture_snapshot();
-  const detail::registry_state& state = snapshot->state();
-  std::lock_guard lock(state.mutex);
-  return state.types.size();
+  std::size_t result = 0;
+  for (const auto& layer : snapshot->layers()) {
+    const detail::registry_state& state = layer->state();
+    std::lock_guard lock(state.mutex);
+    result += state.types.size();
+  }
+  return result;
 }
 
 } // namespace caors::meta

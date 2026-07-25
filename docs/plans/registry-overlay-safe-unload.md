@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A 已完成，6B 待实施；
+- 当前状态：设计冻结，6A、6B 已完成，6C 待实施；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -227,11 +227,15 @@ manager 的结构化诊断必须同时给出 plugin ID、generation、lease 分�
 
 ### 6B：Layer Draft 与发布
 
-- 增加 mutable layer draft；
-- registration builder 可绑定 layer context；
-- 实现跨 layer identity/parent/nested 校验；
-- 发布新 layer 后新查询可见；
-- 增加失败 draft 不污染 registry 的测试。
+- [x] 增加 mutable layer draft；
+- [x] registration builder 可通过 layer registry/context 写入 draft；
+- [x] 实现跨 layer identity、C++ type_info、parent 和 nested 校验；
+- [x] 发布后冻结 draft，并通过原子 snapshot 让新查询可见；
+- [x] 覆盖基础 layer 查询回退、失败不污染和并发发布不丢失；
+
+6B 不提供 detach；已发布 layer 在 6C 完成公共视图 lease 化前持续保留。第一版禁止覆盖当前
+snapshot 中已有的 ID、名称、GUID 或 C++ type_info。draft 采用单写者模型，publish 与主 registry
+写入通过主 state mutex 串行化。
 
 ### 6C：公共视图 Lease 化
 

@@ -7,11 +7,20 @@
 
 namespace caors::meta::detail {
 
-registry_snapshot::registry_snapshot(memory::memory_resource* resource)
+registry_layer_state::registry_layer_state(memory::memory_resource* resource)
     : resource_(resource != nullptr ? resource : &memory::library_resource()),
       state_(memory::make<registry_state>(resource_, resource_)) {}
 
-registry_snapshot::~registry_snapshot() { memory::destroy(state_, resource_); }
+registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource_); }
+
+registry_snapshot::registry_snapshot(std::shared_ptr<registry_layer_state> primary)
+    : layers_(core::vector<std::shared_ptr<registry_layer_state>>::allocator_type{
+          &memory::library_resource()}) {
+  layers_.push_back(std::move(primary));
+}
+
+registry_snapshot::registry_snapshot(core::vector<std::shared_ptr<registry_layer_state>> layers)
+    : layers_(std::move(layers)) {}
 
 type_record* find_type_record(registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
@@ -31,13 +40,30 @@ const type_record* find_type_record(const registry_state& state, type_id id) {
   return position->second.get();
 }
 
-error validate_registry(const registry_state& state) {
+namespace {
+
+[[nodiscard]] bool snapshot_contains(const registry_snapshot* snapshot, type_id id) {
+  if (snapshot == nullptr) {
+    return false;
+  }
+  for (const auto& layer : snapshot->layers()) {
+    if (layer->state().types.contains(id.value())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+} // namespace
+
+error validate_registry(const registry_state& state, const registry_snapshot* snapshot) {
   for (const auto& [raw_id, stored] : state.types) {
     if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    if (stored->parent_id() && !state.types.contains(stored->parent_id().value())) {
+    if (stored->parent_id() && !state.types.contains(stored->parent_id().value()) &&
+        !snapshot_contains(snapshot, stored->parent_id())) {
       return {error_domain::meta, errc::missing_parent};
     }
 
@@ -57,7 +83,8 @@ error validate_registry(const registry_state& state) {
 
     const parent_cast_ops* cast = stored->parent_cast();
     if (cast != nullptr && (!cast->valid() || cast->parent != stored->parent_id() ||
-                            !state.types.contains(cast->parent.value()))) {
+                            (!state.types.contains(cast->parent.value()) &&
+                             !snapshot_contains(snapshot, cast->parent)))) {
       return {error_domain::meta, errc::invalid_type};
     }
 
@@ -70,7 +97,8 @@ error validate_registry(const registry_state& state) {
       if (nested_type == nullptr || !nested_type->valid()) {
         return {error_domain::meta, errc::invalid_type};
       }
-      if (!state.types.contains(nested_type->nested_type.value())) {
+      if (!state.types.contains(nested_type->nested_type.value()) &&
+          !snapshot_contains(snapshot, nested_type->nested_type)) {
         return {error_domain::meta, errc::missing_type};
       }
     }
