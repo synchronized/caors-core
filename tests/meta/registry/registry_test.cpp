@@ -26,6 +26,14 @@ struct overlay_reflected_type {
 struct overlay_extension {
   int value = 0;
 };
+struct overlay_owned_value {
+  int* destructions = nullptr;
+  ~overlay_owned_value() {
+    if (destructions != nullptr) {
+      ++*destructions;
+    }
+  }
+};
 
 } // namespace
 
@@ -289,6 +297,30 @@ TEST_CASE("meta registry extension view 保活 snapshot 且 detach 后不再返�
   CHECK_FALSE(view);
   CHECK_FALSE(view.find<overlay_extension>(draft_type_id).has_value());
   CHECK(view.ids().front() == draft_type_id);
+}
+
+TEST_CASE("meta registry detach 后旧 any 拒绝复制但仍安全析构") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_owned_value>(
+                    layer_context, "caors.test.meta.overlay_owned_value")
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+
+  const auto reflected = caors::meta::find<overlay_owned_value>(context);
+  REQUIRE(reflected);
+  int destructions = 0;
+  overlay_owned_value source{&destructions};
+  auto stale = caors::meta::any::copy_from_raw(reflected, &source);
+  REQUIRE(stale);
+
+  REQUIRE_FALSE(registry.detach_layer(*layer));
+  CHECK_FALSE(stale);
+  CHECK_FALSE(caors::meta::any{stale});
+  stale.reset();
+  CHECK(destructions == 1);
 }
 
 TEST_CASE("meta registry 并发发布 layer 不会丢失已发布 snapshot") {

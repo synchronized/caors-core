@@ -170,6 +170,8 @@ public:
   [[nodiscard]] const registry& get_registry() const noexcept;
   [[nodiscard]] bool published() const noexcept;
   [[nodiscard]] bool active() const noexcept;
+  /** @brief 返回当前仍在执行的类型擦除调用数量。 */
+  [[nodiscard]] std::size_t in_flight_calls() const noexcept;
 
 private:
   friend class registry;

@@ -46,6 +46,10 @@ bool registry_layer::active() const noexcept {
   return registry_ != nullptr && registry_->primary_layer_->active();
 }
 
+std::size_t registry_layer::in_flight_calls() const noexcept {
+  return registry_ != nullptr ? registry_->primary_layer_->in_flight_calls() : 0;
+}
+
 std::unique_ptr<registry_layer> registry::create_layer() const {
   return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot()}};
 }

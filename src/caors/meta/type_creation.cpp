@@ -5,9 +5,40 @@
 
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/constructor.h"
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/value_ops.h"
 
+#include "detail/registry_state.h"
+
 namespace caors::meta {
+
+owned_value factory_capability::construct_owned(memory::memory_resource* resource) const {
+  const detail::layer_call_guard guard{detail::type_access::layer_of(type_)};
+  if (!guard || !valid()) {
+    return {};
+  }
+  void* value = ops_->construct(resource);
+  return make_owned_value(get_type(), value, resource, ops_->destroy);
+}
+
+any factory_capability::construct(memory::memory_resource* resource) const {
+  return std::move(construct_owned(resource)).into_any();
+}
+
+owned_value constructor_capability::construct_owned(std::span<const argument> arguments,
+                                                    memory::memory_resource* resource) const {
+  const detail::layer_call_guard guard{detail::type_access::layer_of(type_)};
+  if (!guard || !matches(arguments.size())) {
+    return {};
+  }
+  void* value = ops_->construct(resource, arguments);
+  return make_owned_value(get_type(), value, resource, ops_->destroy);
+}
+
+any constructor_capability::construct(std::span<const argument> arguments,
+                                      memory::memory_resource* resource) const {
+  return std::move(construct_owned(arguments, resource)).into_any();
+}
 
 std::size_t type::size() const noexcept {
   const meta::value_storage_ops* storage = get_raw_ops<meta::value_storage_ops>();
@@ -39,8 +70,7 @@ bool type::constructible(std::size_t argument_count) const noexcept {
     }
   }
 
-  const meta::constructor_capability constructor =
-      get_capability<meta::constructor_capability>();
+  const meta::constructor_capability constructor = get_capability<meta::constructor_capability>();
   if (constructor.matches(argument_count)) {
     return true;
   }
@@ -68,8 +98,7 @@ any type::create(std::span<const meta::argument> arguments,
     }
   }
 
-  const meta::constructor_capability constructor =
-      get_capability<meta::constructor_capability>();
+  const meta::constructor_capability constructor = get_capability<meta::constructor_capability>();
   if (constructor.matches(arguments.size())) {
     any value = constructor.construct(arguments, resource);
     if (value.valid()) {

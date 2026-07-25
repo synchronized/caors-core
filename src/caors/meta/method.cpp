@@ -22,6 +22,11 @@ namespace {
   return empty;
 }
 
+[[nodiscard]] detail::layer_call_guard
+call_guard_for(const std::shared_ptr<detail::registry_layer_state>& layer) noexcept {
+  return detail::layer_call_guard{layer};
+}
+
 } // namespace
 
 invoke_result invoke_result::value(any value) {
@@ -117,6 +122,10 @@ std::size_t method::default_argument_count() const noexcept {
 
 invoke_result method::invoke_result_of(const instance& object, std::span<const argument> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr || !object) {
     return invoke_result::failed(method == nullptr ? invoke_failure_reason::invalid_method
@@ -130,6 +139,10 @@ invoke_result method::invoke_result_of(const instance& object, std::span<const a
 invoke_result method::invoke_result_of(const instance& object,
                                        std::span<const named_argument> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr || !object) {
     return invoke_result::failed(method == nullptr ? invoke_failure_reason::invalid_method
@@ -142,6 +155,10 @@ invoke_result method::invoke_result_of(const instance& object,
 
 invoke_result method::invoke_result_of(std::span<const argument> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr) {
     return invoke_result::failed(invoke_failure_reason::invalid_method);
@@ -152,6 +169,10 @@ invoke_result method::invoke_result_of(std::span<const argument> arguments,
 
 invoke_result method::invoke_result_of(std::span<const named_argument> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr) {
     return invoke_result::failed(invoke_failure_reason::invalid_method);
@@ -162,6 +183,10 @@ invoke_result method::invoke_result_of(std::span<const named_argument> arguments
 
 invoke_value_result method::invoke(const instance& object, std::span<const meta::value> arguments,
                                    argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_value_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr || !object) {
     return invoke_value_result::failed(method == nullptr ? invoke_failure_reason::invalid_method
@@ -174,6 +199,10 @@ invoke_value_result method::invoke(const instance& object, std::span<const meta:
 
 invoke_value_result method::invoke(std::span<const meta::value> arguments,
                                    argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_value_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_record* method = info();
   if (method == nullptr) {
     return invoke_value_result::failed(invoke_failure_reason::invalid_method);
@@ -222,6 +251,10 @@ method method_set::single() const {
 
 method_match_result method_set::match(std::span<const argument> arguments,
                                       argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return method_match_result::none();
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return method_match_result::none();
@@ -239,6 +272,10 @@ method_match_result method_set::match(std::span<const argument> arguments,
 
 method_match_result method_set::match(std::span<const named_argument> arguments,
                                       argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return method_match_result::none();
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return method_match_result::none();
@@ -267,6 +304,10 @@ method method_set::resolve(std::span<const named_argument> arguments,
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const argument> arguments,
                                            argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr || !object) {
     return invoke_result::failed(method_set == nullptr ? invoke_failure_reason::invalid_method
@@ -280,6 +321,10 @@ invoke_result method_set::invoke_result_of(const instance& object,
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const named_argument> arguments,
                                            argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr || !object) {
     return invoke_result::failed(method_set == nullptr ? invoke_failure_reason::invalid_method
@@ -292,6 +337,10 @@ invoke_result method_set::invoke_result_of(const instance& object,
 
 invoke_result method_set::invoke_result_of(std::span<const argument> arguments,
                                            argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return invoke_result::failed(invoke_failure_reason::invalid_method);
@@ -302,6 +351,10 @@ invoke_result method_set::invoke_result_of(std::span<const argument> arguments,
 
 invoke_result method_set::invoke_result_of(std::span<const named_argument> arguments,
                                            argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return invoke_result::failed(invoke_failure_reason::invalid_method);
@@ -313,6 +366,10 @@ invoke_result method_set::invoke_result_of(std::span<const named_argument> argum
 invoke_value_result method_set::invoke(const instance& object,
                                        std::span<const meta::value> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_value_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr || !object) {
     return invoke_value_result::failed(method_set == nullptr
@@ -326,6 +383,10 @@ invoke_value_result method_set::invoke(const instance& object,
 
 invoke_value_result method_set::invoke(std::span<const meta::value> arguments,
                                        argument_match_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return invoke_value_result::failed(invoke_failure_reason::invalid_method);
+  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return invoke_value_result::failed(invoke_failure_reason::invalid_method);

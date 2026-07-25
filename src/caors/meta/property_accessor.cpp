@@ -14,6 +14,10 @@ bool property_accessor::valid() const noexcept {
 }
 
 any_ref property_accessor::get_ref(const void* object) const {
+  const detail::layer_call_guard guard{layer_};
+  if (!guard) {
+    return {};
+  }
   if (valid() && member_ && object != nullptr) {
     const auto* bytes = static_cast<const unsigned char*>(object);
     return detail::any_ref_access::from_erased(value_type_, bytes + offset_, false);
@@ -23,6 +27,10 @@ any_ref property_accessor::get_ref(const void* object) const {
 }
 
 any_ref property_accessor::get_ref(void* object) const {
+  const detail::layer_call_guard guard{layer_};
+  if (!guard) {
+    return {};
+  }
   if (valid() && member_ && object != nullptr) {
     auto* bytes = static_cast<unsigned char*>(object);
     return detail::any_ref_access::from_erased(value_type_, bytes + offset_, writable_);
@@ -32,7 +40,8 @@ any_ref property_accessor::get_ref(void* object) const {
 }
 
 property_accessor compile_property_accessor(const property& source) noexcept {
-  if (!source.valid()) {
+  const detail::layer_call_guard guard{source.layer_};
+  if (!guard || !source.valid()) {
     return {};
   }
 

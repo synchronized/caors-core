@@ -3,8 +3,11 @@
 
 #include "caors/serialization/codec.h"
 
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
+
+#include "../meta/detail/registry_state.h"
 
 #include <type_traits>
 
@@ -27,6 +30,10 @@ bool codec_capability::can_make_value() const noexcept {
 }
 
 error codec_view::write(const serialization::context& context, writer& writer) const {
+  const meta::detail::layer_call_guard guard{meta::detail::type_access::layer_of(raw_type())};
+  if (!guard) {
+    return {error_domain::serialization, errc::unsupported};
+  }
   const codec_ops* operations = ops();
   if (operations == nullptr) {
     return {error_domain::serialization, errc::unsupported};
@@ -50,6 +57,10 @@ error codec_view::write(const serialization::context& context, writer& writer) c
 }
 
 error codec_view::read(const serialization::context& context, reader& reader) const {
+  const meta::detail::layer_call_guard guard{meta::detail::type_access::layer_of(raw_type())};
+  if (!guard) {
+    return {error_domain::serialization, errc::unsupported};
+  }
   const codec_ops* operations = ops();
   if (!writable() || operations == nullptr || operations->read == nullptr) {
     return {error_domain::serialization, errc::unsupported};
@@ -59,6 +70,10 @@ error codec_view::read(const serialization::context& context, reader& reader) co
 }
 
 variant_result codec_view::make_value(const serialization::context& context) const {
+  const meta::detail::layer_call_guard guard{meta::detail::type_access::layer_of(raw_type())};
+  if (!guard) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
   const codec_ops* operations = ops();
   if (operations == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};

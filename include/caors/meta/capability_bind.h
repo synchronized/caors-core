@@ -91,6 +91,8 @@ public:
   [[nodiscard]] bool writable() const noexcept { return valid() && source_.writable(); }
 
 protected:
+  [[nodiscard]] const meta::type& raw_type() const noexcept { return type_; }
+
   [[nodiscard]] const ops_type* ops() const noexcept { return valid() ? ops_ : nullptr; }
 
   [[nodiscard]] any_ref source() const noexcept { return valid() ? source_ : any_ref{}; }

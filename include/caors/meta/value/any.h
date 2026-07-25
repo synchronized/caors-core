@@ -313,12 +313,10 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::value_storage_ops* storage = type_.get_raw_ops<meta::value_storage_ops>();
-    if (!matches_type<type>() || storage == nullptr || storage->ops.assign == nullptr) {
+    if (!matches_type<type>()) {
       return false;
     }
-
-    return storage->ops.assign(data_, &source);
+    return try_set_raw(&source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
@@ -339,6 +337,7 @@ private:
 
   void copy_from(const any& other);
   void move_from(any& other) noexcept;
+  bool try_set_raw(const void* source);
   [[nodiscard]] void* inline_data() noexcept;
   [[nodiscard]] const void* inline_data() const noexcept;
   [[nodiscard]] bool stores_inline() const noexcept { return mode_ == storage_mode::inline_value; }
@@ -353,27 +352,6 @@ private:
 };
 
 void swap(any& lhs, any& rhs) noexcept;
-
-inline owned_value factory_capability::construct_owned(memory::memory_resource* resource) const {
-  void* value = valid() ? ops_->construct(resource) : nullptr;
-  return make_owned_value(get_type(), value, resource, valid() ? ops_->destroy : nullptr);
-}
-
-inline any factory_capability::construct(memory::memory_resource* resource) const {
-  return std::move(construct_owned(resource)).into_any();
-}
-
-inline owned_value
-constructor_capability::construct_owned(std::span<const argument> arguments,
-                                        memory::memory_resource* resource) const {
-  void* value = matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
-  return make_owned_value(get_type(), value, resource, valid() ? ops_->destroy : nullptr);
-}
-
-inline any constructor_capability::construct(std::span<const argument> arguments,
-                                             memory::memory_resource* resource) const {
-  return std::move(construct_owned(arguments, resource)).into_any();
-}
 
 } // namespace caors::meta
 

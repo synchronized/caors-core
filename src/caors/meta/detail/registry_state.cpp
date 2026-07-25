@@ -19,6 +19,37 @@ registry_layer_state::registry_layer_state(memory::memory_resource* resource)
 
 registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource_); }
 
+bool registry_layer_state::try_enter_call() noexcept {
+  if (!active()) {
+    return false;
+  }
+
+  in_flight_calls_.fetch_add(1, std::memory_order_acq_rel);
+  if (active()) {
+    return true;
+  }
+
+  in_flight_calls_.fetch_sub(1, std::memory_order_acq_rel);
+  return false;
+}
+
+void registry_layer_state::leave_call() noexcept {
+  in_flight_calls_.fetch_sub(1, std::memory_order_acq_rel);
+}
+
+std::size_t registry_layer_state::in_flight_calls() const noexcept {
+  return in_flight_calls_.load(std::memory_order_acquire);
+}
+
+layer_call_guard::layer_call_guard(std::shared_ptr<registry_layer_state> layer) noexcept
+    : layer_(std::move(layer)), entered_(layer_ == nullptr || layer_->try_enter_call()) {}
+
+layer_call_guard::~layer_call_guard() {
+  if (entered_ && layer_ != nullptr) {
+    layer_->leave_call();
+  }
+}
+
 registry_snapshot::registry_snapshot(std::shared_ptr<registry_layer_state> primary)
     : layers_(core::vector<std::shared_ptr<registry_layer_state>>::allocator_type{
           &memory::library_resource()}) {

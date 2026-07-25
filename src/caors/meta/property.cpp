@@ -22,6 +22,11 @@ namespace {
   return empty;
 }
 
+[[nodiscard]] detail::layer_call_guard
+call_guard_for(const std::shared_ptr<detail::registry_layer_state>& layer) noexcept {
+  return detail::layer_call_guard{layer};
+}
+
 [[nodiscard]] const meta::property_schema& empty_property_schema() noexcept {
   static const meta::property_schema empty{};
   return empty;
@@ -120,6 +125,10 @@ const detail::property_record* property::info() const noexcept {
 }
 
 any property::get_any(const instance& object) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   if (property == nullptr || !object) {
     return {};
@@ -129,6 +138,10 @@ any property::get_any(const instance& object) const {
 }
 
 any property::get_any() const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   if (property == nullptr) {
     return {};
@@ -138,6 +151,10 @@ any property::get_any() const {
 }
 
 meta::value property::get_value(const instance& object) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   if (property == nullptr || !object) {
     return {};
@@ -147,12 +164,20 @@ meta::value property::get_value(const instance& object) const {
 }
 
 meta::value property::get_value() const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   return property != nullptr ? property->get_runtime_value(static_cast<const void*>(nullptr))
                              : meta::value{};
 }
 
 any_ref property::get_ref(const instance& object) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   if (property == nullptr || !object) {
     return {};
@@ -163,6 +188,10 @@ any_ref property::get_ref(const instance& object) const {
 }
 
 any_ref property::get_ref() const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return {};
+  }
   const detail::property_record* property = info();
   if (property == nullptr) {
     return {};
@@ -172,6 +201,10 @@ any_ref property::get_ref() const {
 }
 
 bool property::try_set_any(const instance& object, const any& source) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
   const detail::property_record* property = info();
   if (property == nullptr || !object.writable()) {
     return false;
@@ -181,6 +214,10 @@ bool property::try_set_any(const instance& object, const any& source) const {
 }
 
 bool property::try_set_any(const any& source) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
   const detail::property_record* property = info();
   if (property == nullptr) {
     return false;
@@ -190,6 +227,10 @@ bool property::try_set_any(const any& source) const {
 }
 
 bool property::try_set_value(const instance& object, const meta::value& source) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
   const detail::property_record* property = info();
   if (property == nullptr || !object.writable()) {
     return false;
@@ -198,6 +239,10 @@ bool property::try_set_value(const instance& object, const meta::value& source) 
 }
 
 bool property::try_set_value(const meta::value& source) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
   const detail::property_record* property = info();
   return property != nullptr && property->try_set_runtime_value(nullptr, source);
 }

@@ -56,13 +56,34 @@ public:
   [[nodiscard]] std::uint64_t generation() const noexcept { return generation_; }
   void freeze() noexcept { frozen_ = true; }
   void deactivate() noexcept { active_.store(false, std::memory_order_release); }
+  [[nodiscard]] bool try_enter_call() noexcept;
+  void leave_call() noexcept;
+  [[nodiscard]] std::size_t in_flight_calls() const noexcept;
 
 private:
   memory::memory_resource* resource_ = nullptr;
   registry_state* state_ = nullptr;
   std::atomic<bool> active_{true};
+  std::atomic<std::size_t> in_flight_calls_{0};
   std::uint64_t generation_ = 0;
   bool frozen_ = false;
+};
+
+/** @brief 保证一次类型擦除调用执行期间所属 layer 保持存活。 */
+class layer_call_guard final {
+public:
+  explicit layer_call_guard(std::shared_ptr<registry_layer_state> layer) noexcept;
+  ~layer_call_guard();
+
+  layer_call_guard(const layer_call_guard&) = delete;
+  layer_call_guard& operator=(const layer_call_guard&) = delete;
+
+  [[nodiscard]] bool valid() const noexcept { return entered_; }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+private:
+  std::shared_ptr<registry_layer_state> layer_{};
+  bool entered_ = false;
 };
 
 /** @brief 一次 registry 查询固定持有的有序 layer 集合。 */

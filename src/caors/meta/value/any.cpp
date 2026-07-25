@@ -3,7 +3,10 @@
 
 #include "caors/meta/value/any_ref.h"
 
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/query.h"
+
+#include "../detail/registry_state.h"
 
 #include <cstring>
 #include <utility>
@@ -31,6 +34,10 @@ namespace {
 [[nodiscard]] const meta::value_ops* value_ops_of(meta::type type) noexcept {
   const meta::value_storage_ops* storage = type.get_raw_ops<meta::value_storage_ops>();
   return storage != nullptr ? &storage->ops : nullptr;
+}
+
+[[nodiscard]] detail::layer_call_guard call_guard_for(const meta::type& type) noexcept {
+  return detail::layer_call_guard{detail::type_access::layer_of(type)};
 }
 
 } // namespace
@@ -206,15 +213,30 @@ bool any::matches_type(const any& other) const noexcept {
 }
 
 bool any::try_set(const any& source) {
+  if (!matches_type(source)) {
+    return false;
+  }
+  return try_set_raw(source.data_);
+}
+
+bool any::try_set_raw(const void* source) {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::value_ops* ops = value_ops_of(type_);
-  if (!matches_type(source) || ops == nullptr || ops->assign == nullptr) {
+  if (source == nullptr || ops == nullptr || ops->assign == nullptr) {
     return false;
   }
 
-  return ops->assign(data_, source.data_);
+  return ops->assign(data_, source);
 }
 
 any any::copy_from_raw(meta::type type, const void* source) {
+  const auto guard = call_guard_for(type);
+  if (!guard) {
+    return {};
+  }
   const meta::value_storage_ops* value_ops = type.get_raw_ops<meta::value_storage_ops>();
   if (!type || value_ops == nullptr) {
     return {};
@@ -349,6 +371,10 @@ bool any_ref::matches_type(const any_ref& other) const noexcept {
 }
 
 bool any_ref::try_set(const any& source) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::value_ops* ops = value_ops_of(type_);
   if (!matches_type(source) || !writable_ || ops == nullptr || ops->assign == nullptr) {
     return false;
@@ -358,6 +384,10 @@ bool any_ref::try_set(const any& source) const {
 }
 
 bool any_ref::try_set(const any_ref& source) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::value_ops* ops = value_ops_of(type_);
   if (!matches_type(source) || !writable_ || ops == nullptr || ops->assign == nullptr) {
     return false;
@@ -381,6 +411,10 @@ any_ref any_ref::from_erased(meta::type type, const void* data, bool writable) n
 }
 
 any any::default_construct(meta::type type, memory::memory_resource* resource) {
+  const auto guard = call_guard_for(type);
+  if (!guard) {
+    return {};
+  }
   const meta::value_storage_ops* value_ops = type.get_raw_ops<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value_ops->ops.default_construct == nullptr ||
       value_ops->ops.destroy == nullptr) {
