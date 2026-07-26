@@ -36,7 +36,10 @@ int main(int argc, char** argv) {
     return fail("无法加载有效插件");
   }
   auto plugin = std::move(*good_result);
-  if (!plugin.valid() || plugin.state() != caors::plugins::plugin_state::loaded ||
+  const std::filesystem::path plugin_path = plugin.path();
+  const caors::plugins::plugin_library_lease library_lease = plugin.library_lease();
+  if (!plugin.valid() || plugin.state() != caors::plugins::plugin_state::loaded || !library_lease ||
+      library_lease.path() != plugin_path || library_lease.use_count() < 2 ||
       plugin.descriptor().name != "caors.test.good" ||
       plugin.descriptor().display_name != "CAORS 测试插件" ||
       plugin.descriptor().plugin_version != caors::version{1, 2, 3} ||
@@ -60,6 +63,10 @@ int main(int argc, char** argv) {
       plugin.state() != caors::plugins::plugin_state::stopped || plugin.shutdown() ||
       plugin.state() != caors::plugins::plugin_state::loaded) {
     return fail("插件停止或关闭状态转换失败");
+  }
+  plugin = {};
+  if (!library_lease || library_lease.path() != plugin_path || library_lease.use_count() != 1) {
+    return fail("插件二进制释放后 library lease 没有继续保持动态库");
   }
 
   const auto bad_abi = caors::plugins::plugin_binary::load(argv[2]);

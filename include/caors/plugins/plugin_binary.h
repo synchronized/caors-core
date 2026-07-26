@@ -7,6 +7,7 @@
 #include "caors/core/guid.h"
 #include "caors/export.h"
 #include "caors/plugins/abi.h"
+#include "caors/plugins/plugin_library_lease.h"
 #include "caors/result.h"
 #include "caors/version.h"
 
@@ -60,6 +61,8 @@ public:
   [[nodiscard]] plugin_state state() const noexcept;
   [[nodiscard]] const plugin_descriptor& descriptor() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
+  /** @brief 获取一份保持当前插件动态库已加载的共享租约。 */
+  [[nodiscard]] plugin_library_lease library_lease() const noexcept;
 
   [[nodiscard]] error initialize() noexcept;
   [[nodiscard]] error start() noexcept;

@@ -35,8 +35,14 @@ constexpr std::size_t minimum_entry_size =
 
 } // namespace
 
-struct plugin_binary::impl {
+struct plugin_library_lease::impl {
+  explicit impl(platform::shared_library source) noexcept : library(std::move(source)) {}
+
   platform::shared_library library{};
+};
+
+struct plugin_binary::impl {
+  std::shared_ptr<plugin_library_lease::impl> library{};
   caors_plugin_host host{};
   const caors_plugin_entry* entry = nullptr;
   plugins::plugin_descriptor descriptor{};
@@ -78,8 +84,14 @@ result<plugin_binary> plugin_binary::load(const std::filesystem::path& path,
     return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
   }
 
-  auto* data =
-      new (std::nothrow) impl{std::move(library), resolved_host, nullptr, {}, plugin_state::loaded};
+  auto library_control = std::shared_ptr<plugin_library_lease::impl>{
+      new (std::nothrow) plugin_library_lease::impl{std::move(library)}};
+  if (library_control == nullptr) {
+    return fail<plugin_binary>({error_domain::plugins, errc::out_of_memory});
+  }
+
+  auto* data = new (std::nothrow)
+      impl{std::move(library_control), resolved_host, nullptr, {}, plugin_state::loaded};
   if (data == nullptr) {
     return fail<plugin_binary>({error_domain::plugins, errc::out_of_memory});
   }
@@ -124,7 +136,11 @@ const plugin_descriptor& plugin_binary::descriptor() const noexcept {
 
 const std::filesystem::path& plugin_binary::path() const noexcept {
   static const std::filesystem::path empty{};
-  return data_ != nullptr ? data_->library.path() : empty;
+  return data_ != nullptr && data_->library != nullptr ? data_->library->library.path() : empty;
+}
+
+plugin_library_lease plugin_binary::library_lease() const noexcept {
+  return data_ != nullptr ? plugin_library_lease{data_->library} : plugin_library_lease{};
 }
 
 error plugin_binary::initialize() noexcept {
@@ -175,6 +191,19 @@ const void* plugin_binary::get_extension(std::string_view id,
     return nullptr;
   }
   return data_->entry->get_extension(data_->entry->plugin_data, id.data(), id.size(), version);
+}
+
+bool plugin_library_lease::valid() const noexcept {
+  return data_ != nullptr && data_->library.loaded();
+}
+
+const std::filesystem::path& plugin_library_lease::path() const noexcept {
+  static const std::filesystem::path empty{};
+  return valid() ? data_->library.path() : empty;
+}
+
+std::size_t plugin_library_lease::use_count() const noexcept {
+  return data_ != nullptr ? data_.use_count() : 0;
 }
 
 } // namespace caors::plugins
