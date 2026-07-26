@@ -113,6 +113,25 @@ const std::filesystem::path& plugin::path() const noexcept {
   return data_ != nullptr ? data_->path : empty;
 }
 
+const void* plugin::get_extension(std::string_view id, std::uint32_t version) const noexcept {
+  if (data_ == nullptr) {
+    return nullptr;
+  }
+  {
+    std::lock_guard lock{data_->mutex};
+    if (data_->busy || data_->state == plugin_state::unloaded) {
+      return nullptr;
+    }
+    data_->busy = true;
+  }
+  const void* extension = data_->binary.get_extension(id, version);
+  {
+    std::lock_guard lock{data_->mutex};
+    data_->busy = false;
+  }
+  return extension;
+}
+
 plugin_manager::plugin_manager(meta::registry& registry)
     : data_(new (std::nothrow) impl{registry}) {}
 

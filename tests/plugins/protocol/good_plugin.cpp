@@ -4,22 +4,73 @@
 #include "caors/plugins/abi.h"
 #include "caors/plugins/meta_registration.h"
 #include "caors/registration.h"
+#include "plugin_protocol_test_extension.h"
 
+#include <atomic>
 #include <cstring>
+#include <thread>
 
 namespace {
 
 struct plugin_reflected_type {
   int value = 42;
+
+  ~plugin_reflected_type();
+  void block() const;
 };
 
 struct plugin_instance {
   int lifecycle_state = 0;
   caors_plugin_host host{};
+  std::atomic<bool> method_entered{false};
+  std::atomic<bool> method_release{false};
+  std::atomic<int> destructions{0};
 };
 
 plugin_instance instance{};
 constexpr int extension_value = 42;
+
+plugin_reflected_type::~plugin_reflected_type() {
+  instance.destructions.fetch_add(1, std::memory_order_relaxed);
+}
+
+void plugin_reflected_type::block() const {
+  instance.method_entered.store(true, std::memory_order_release);
+  while (!instance.method_release.load(std::memory_order_acquire)) {
+    std::this_thread::yield();
+  }
+}
+
+void CAORS_PLUGIN_CALL reset_control(void* context) {
+  auto& self = *static_cast<plugin_instance*>(context);
+  self.method_entered.store(false, std::memory_order_release);
+  self.method_release.store(false, std::memory_order_release);
+  self.destructions.store(0, std::memory_order_release);
+}
+
+int32_t CAORS_PLUGIN_CALL method_entered(void* context) {
+  return static_cast<plugin_instance*>(context)->method_entered.load(std::memory_order_acquire) ? 1
+                                                                                                : 0;
+}
+
+void CAORS_PLUGIN_CALL release_method(void* context) {
+  static_cast<plugin_instance*>(context)->method_release.store(true, std::memory_order_release);
+}
+
+int32_t CAORS_PLUGIN_CALL destruction_count(void* context) {
+  return static_cast<plugin_instance*>(context)->destructions.load(std::memory_order_acquire);
+}
+
+const caors_plugin_protocol_test_extension test_extension{
+    sizeof(caors_plugin_protocol_test_extension),
+    CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION,
+    &instance,
+    &reset_control,
+    &method_entered,
+    &release_method,
+    &destruction_count,
+};
+const caors_plugin_protocol_capability test_capability{73};
 
 int32_t CAORS_PLUGIN_CALL initialize(void* data) {
   auto& self = *static_cast<plugin_instance*>(data);
@@ -33,6 +84,8 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
     if (caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected")
             .meta()
             .property("value", &plugin_reflected_type::value)
+            .method("block", &plugin_reflected_type::block)
+            .capability(&test_capability)
             .commit()) {
       return 1;
     }
@@ -71,9 +124,14 @@ int32_t CAORS_PLUGIN_CALL shutdown(void* data) {
 const void* CAORS_PLUGIN_CALL get_extension(void*, const char* id, size_t id_size,
                                             uint32_t version) {
   constexpr char extension_id[] = "caors.test.answer";
-  return version == 1 && id_size == sizeof(extension_id) - 1 &&
-                 std::memcmp(id, extension_id, id_size) == 0
-             ? &extension_value
+  if (version == 1 && id_size == sizeof(extension_id) - 1 &&
+      std::memcmp(id, extension_id, id_size) == 0) {
+    return &extension_value;
+  }
+  return version == CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION &&
+                 id_size == sizeof(CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID) - 1 &&
+                 std::memcmp(id, CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID, id_size) == 0
+             ? &test_extension
              : nullptr;
 }
 

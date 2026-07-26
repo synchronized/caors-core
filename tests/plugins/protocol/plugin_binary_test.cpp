@@ -4,11 +4,16 @@
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_manager.h"
 
+#include "caors/meta/instance.h"
 #include "caors/meta/property.h"
 #include "caors/meta/registry.h"
+#include "caors/meta/value/any.h"
 #include "caors/plugins/plugin_host.h"
+#include "plugin_protocol_test_extension.h"
 
+#include <chrono>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -125,17 +130,53 @@ int main(int argc, char** argv) {
   }
   auto reflected = registry.find_type("caors.test.plugin.reflected");
   auto reflected_property = reflected.find_property("value");
-  if (!reflected || !reflected_property || manager.start(managed_id) ||
-      managed.state() != caors::plugins::plugin_state::running) {
-    return fail("插件反射类型没有发布到 manager registry");
+  auto reflected_method = reflected.find_method("block");
+  const auto* reflected_capability = reflected.get_capability<caors_plugin_protocol_capability>();
+  auto owned = caors::any::default_construct(reflected);
+  caors::meta::instance object{owned.ref()};
+  const auto* control =
+      static_cast<const caors_plugin_protocol_test_extension*>(managed.get_extension(
+          CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID, CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION));
+  if (!reflected || !reflected_property || !reflected_method || reflected_capability == nullptr ||
+      reflected_capability->value != 73 || !owned || !object || control == nullptr ||
+      control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
+      manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
+    return fail("插件反射类型、method 或测试控制扩展没有发布");
+  }
+  control->reset(control->context);
+  auto invocation = std::async(std::launch::async, [reflected_method, object] {
+    return reflected_method.invoke_result_of(object);
+  });
+  const auto enter_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+  while (control->entered(control->context) == 0 &&
+         std::chrono::steady_clock::now() < enter_deadline) {
+    std::this_thread::yield();
+  }
+  if (control->entered(control->context) == 0) {
+    control->release(control->context);
+    (void)invocation.get();
+    return fail("插件 method 没有进入 in-flight 状态");
   }
   if (manager.unload(managed_id) !=
           caors::error{caors::error_domain::plugins, caors::errc::pending} ||
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
-      registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property) {
-    return fail("旧反射视图没有阻止 DLL 提前关闭或 detach 后仍然有效");
+      registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
+      reflected_method || owned || object) {
+    control->release(control->context);
+    (void)invocation.get();
+    return fail("in-flight method 或 owning value 没有阻止 DLL 提前关闭");
+  }
+  control->release(control->context);
+  if (!invocation.get()) {
+    return fail("detach 前已进入的 method 没有安全完成");
+  }
+  object = {};
+  owned.reset();
+  if (control->destructions(control->context) != 1) {
+    return fail("detach 后 owning value 没有在 DLL 保活期间安全析构");
   }
   reflected_property = {};
+  reflected_method = {};
   reflected = {};
   if (manager.unload(managed_id)) {
     return fail("释放旧反射视图后 plugin manager 仍无法完成卸载");

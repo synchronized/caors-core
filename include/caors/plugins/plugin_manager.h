@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <string_view>
 
 namespace caors::meta {
 
@@ -41,6 +42,9 @@ public:
   [[nodiscard]] plugin_state state() const noexcept;
   [[nodiscard]] const plugin_descriptor& descriptor() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
+  /** @brief 查询插件提供的版本化扩展；返回地址不拥有插件或动态库。 */
+  [[nodiscard]] const void* get_extension(std::string_view id,
+                                          std::uint32_t version) const noexcept;
 
 private:
   friend class plugin_manager;

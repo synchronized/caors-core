@@ -285,12 +285,12 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 
 ### 6F：真实跨 DLL 卸载测试
 
-- [ ] 插件注册 type/property/method/capability/codec；（type/property 已覆盖）
-- [ ] host 保存并释放各类旧视图；（type/property 已覆盖）
+- [ ] 插件注册 type/property/method/capability/codec；（除 codec 外已覆盖）
+- [ ] host 保存并释放各类旧视图；（type/property/method 已覆盖）
 - [x] 验证 detach 后旧视图失效；
-- [ ] 验证旧 owning value 销毁前 DLL 不关闭；
+- [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
-- [ ] 覆盖重复加载、新 generation、并发查询和 in-flight method；（重复加载和 generation 已覆盖）
+- [ ] 覆盖重复加载、新 generation、并发查询和 in-flight method；（除并发查询外已覆盖）
 - Windows 与 POSIX，Debug/Release，ASan 可用时运行 use-after-unload 检查。
 
 ## 每批验收门禁
