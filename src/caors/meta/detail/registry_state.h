@@ -60,12 +60,14 @@ public:
   [[nodiscard]] bool try_enter_call() noexcept;
   void leave_call() noexcept;
   [[nodiscard]] std::size_t in_flight_calls() const noexcept;
+  [[nodiscard]] error attach_lifetime(std::shared_ptr<void> owner);
 
 private:
   memory::memory_resource* resource_ = nullptr;
   registry_state* state_ = nullptr;
   std::atomic<bool> active_{true};
   std::atomic<std::size_t> in_flight_calls_{0};
+  std::shared_ptr<void> lifetime_owner_{};
   std::uint64_t generation_ = 0;
   bool frozen_ = false;
 };

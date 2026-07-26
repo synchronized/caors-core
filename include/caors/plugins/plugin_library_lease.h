@@ -5,6 +5,7 @@
 #define CAORS_PLUGINS_PLUGIN_LIBRARY_LEASE_H_
 
 #include "caors/export.h"
+#include "caors/error.h"
 
 #include <cstddef>
 #include <filesystem>
@@ -13,6 +14,16 @@
 namespace caors::plugins {
 
 class plugin_binary;
+
+} // namespace caors::plugins
+
+namespace caors::meta {
+
+class registry_layer;
+
+} // namespace caors::meta
+
+namespace caors::plugins {
 
 /**
  * @brief 保持插件动态库处于加载状态的共享租约。
@@ -28,6 +39,13 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
   [[nodiscard]] std::size_t use_count() const noexcept;
+  /**
+   * @brief 让 registry layer 共同持有当前动态库。
+   *
+   * 只能在 layer 发布前绑定；绑定成功后，由该 layer 产生的视图和值会通过 layer
+   * 状态间接保持动态库已加载。
+   */
+  [[nodiscard]] error bind(meta::registry_layer& layer) const;
 
 private:
   friend class plugin_binary;

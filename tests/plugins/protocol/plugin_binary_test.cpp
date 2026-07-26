@@ -2,6 +2,8 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/plugins/plugin_binary.h"
+
+#include "caors/meta/registry.h"
 #include "caors/plugins/plugin_host.h"
 
 #include <filesystem>
@@ -37,7 +39,7 @@ int main(int argc, char** argv) {
   }
   auto plugin = std::move(*good_result);
   const std::filesystem::path plugin_path = plugin.path();
-  const caors::plugins::plugin_library_lease library_lease = plugin.library_lease();
+  caors::plugins::plugin_library_lease library_lease = plugin.library_lease();
   if (!plugin.valid() || plugin.state() != caors::plugins::plugin_state::loaded || !library_lease ||
       library_lease.path() != plugin_path || library_lease.use_count() < 2 ||
       plugin.descriptor().name != "caors.test.good" ||
@@ -64,9 +66,19 @@ int main(int argc, char** argv) {
       plugin.state() != caors::plugins::plugin_state::loaded) {
     return fail("插件停止或关闭状态转换失败");
   }
+
+  caors::meta::registry registry{};
+  auto layer = registry.create_layer();
+  if (library_lease.bind(*layer)) {
+    return fail("无法将 library lease 绑定到 registry layer");
+  }
   plugin = {};
-  if (!library_lease || library_lease.path() != plugin_path || library_lease.use_count() != 1) {
-    return fail("插件二进制释放后 library lease 没有继续保持动态库");
+  if (!library_lease || library_lease.path() != plugin_path || library_lease.use_count() != 2) {
+    return fail("插件二进制释放后 registry layer 没有继续保持动态库");
+  }
+  layer.reset();
+  if (library_lease.use_count() != 1) {
+    return fail("registry layer 释放后没有归还动态库租约");
   }
 
   const auto bad_abi = caors::plugins::plugin_binary::load(argv[2]);

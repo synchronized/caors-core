@@ -43,6 +43,23 @@ std::size_t registry_layer_state::in_flight_calls() const noexcept {
   return in_flight_calls_.load(std::memory_order_acquire);
 }
 
+error registry_layer_state::attach_lifetime(std::shared_ptr<void> owner) {
+  if (owner == nullptr) {
+    return {error_domain::meta, errc::invalid_argument};
+  }
+
+  std::lock_guard lock{state_->mutex};
+  if (frozen_ || state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+  if (lifetime_owner_ != nullptr) {
+    return {error_domain::meta, errc::already_exists};
+  }
+
+  lifetime_owner_ = std::move(owner);
+  return {};
+}
+
 layer_call_guard::layer_call_guard(std::shared_ptr<registry_layer_state> layer) noexcept
     : layer_(std::move(layer)), entered_(layer_ == nullptr || layer_->try_enter_call()) {}
 

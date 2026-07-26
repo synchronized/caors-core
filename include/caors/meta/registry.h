@@ -34,6 +34,12 @@ class registry_layer;
 
 } // namespace caors::meta
 
+namespace caors::plugins {
+
+class plugin_library_lease;
+
+} // namespace caors::plugins
+
 namespace caors::meta::detail {
 
 class registry_state;
@@ -175,7 +181,10 @@ public:
 
 private:
   friend class registry;
+  friend class ::caors::plugins::plugin_library_lease;
   explicit registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot);
+
+  [[nodiscard]] error attach_lifetime(std::shared_ptr<void> owner);
 
   registry* registry_ = nullptr;
   bool published_ = false;

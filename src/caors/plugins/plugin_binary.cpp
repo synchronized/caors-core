@@ -3,6 +3,7 @@
 
 #include "caors/plugins/plugin_binary.h"
 
+#include "caors/meta/registry.h"
 #include "caors/platform/shared_library.h"
 
 #include <algorithm>
@@ -204,6 +205,13 @@ const std::filesystem::path& plugin_library_lease::path() const noexcept {
 
 std::size_t plugin_library_lease::use_count() const noexcept {
   return data_ != nullptr ? data_.use_count() : 0;
+}
+
+error plugin_library_lease::bind(meta::registry_layer& layer) const {
+  if (!valid()) {
+    return {error_domain::plugins, errc::invalid_argument};
+  }
+  return layer.attach_lifetime(data_);
 }
 
 } // namespace caors::plugins
