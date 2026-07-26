@@ -175,7 +175,7 @@ public:
 
 private:
   friend class detail::property_access;
-  friend property_accessor compile_property_accessor(const property& source) noexcept;
+  friend CAORS_API property_accessor compile_property_accessor(const property& source) noexcept;
 
   property(const detail::property_record* reflected_property,
            std::shared_ptr<detail::registry_layer_state> layer) noexcept;

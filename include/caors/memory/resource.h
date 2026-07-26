@@ -100,10 +100,10 @@ public:
   void reset() noexcept;
 
 private:
-  friend memory_block try_allocate_block(std::size_t size, std::size_t alignment,
-                                         memory_resource* resource) noexcept;
-  friend memory_block allocate_block(std::size_t size, std::size_t alignment,
-                                     memory_resource* resource);
+  friend CAORS_API memory_block try_allocate_block(std::size_t size, std::size_t alignment,
+                                                   memory_resource* resource) noexcept;
+  friend CAORS_API memory_block allocate_block(std::size_t size, std::size_t alignment,
+                                               memory_resource* resource);
 
   constexpr memory_block(void* ptr, std::size_t size, std::size_t alignment,
                          memory_resource* resource) noexcept

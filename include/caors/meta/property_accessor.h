@@ -31,7 +31,7 @@ public:
   [[nodiscard]] any_ref get_ref(void* object) const;
 
 private:
-  friend property_accessor compile_property_accessor(const property& source) noexcept;
+  friend CAORS_API property_accessor compile_property_accessor(const property& source) noexcept;
 
   property_accessor(const void* state, meta::type value_type, std::size_t offset, bool member,
                     bool writable, std::shared_ptr<detail::registry_layer_state> layer) noexcept
