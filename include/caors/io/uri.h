@@ -19,7 +19,7 @@ namespace caors::io {
  * `file://project/config.json` 或普通虚拟路径 `assets/texture.png`。第一版只解析 scheme、
  * authority 和 path，不处理百分号解码、查询参数或片段语义。
  */
-class uri_view {
+class CAORS_API uri_view {
 public:
   uri_view() noexcept = default;
   uri_view(std::string_view value) noexcept : value_(value) { parse(); }

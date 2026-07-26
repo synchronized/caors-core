@@ -80,7 +80,7 @@ struct asset_build_result {
  * 非拥有指针的生命周期拼装问题。它可以根据 `project_config` 中的策略名创建内置 source，并可通过
  * 类型工厂把资源类型描述映射到运行期 cache/loader。
  */
-class asset_manager final {
+class CAORS_API asset_manager final {
 public:
   /** @brief source 工厂调用时收到的运行期上下文。 */
   struct source_factory_context {
@@ -502,7 +502,7 @@ private:
   using file_system_map = core::hash_map<core::string_name, file_system_binding>;
   using source_map = core::hash_map<core::string_name, source_binding>;
 
-  struct owned_runtime_object {
+  struct CAORS_API owned_runtime_object {
     using destroy_fn = void (*)(memory_resource* resource, void* value) noexcept;
 
     owned_runtime_object() noexcept = default;
