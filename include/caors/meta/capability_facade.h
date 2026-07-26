@@ -97,7 +97,7 @@ struct type_capability_traits<Capability,
 };
 
 /** @brief 类型运行期创建能力的公开 facade。 */
-class factory_capability final : public type_capability_base<factory_ops> {
+class CAORS_API factory_capability final : public type_capability_base<factory_ops> {
 public:
   using base_type = type_capability_base<factory_ops>;
 
@@ -112,7 +112,7 @@ public:
 };
 
 /** @brief 类型运行期带参构造能力的公开 facade。 */
-class constructor_capability final : public type_capability_base<constructor_ops> {
+class CAORS_API constructor_capability final : public type_capability_base<constructor_ops> {
 public:
   using base_type = type_capability_base<constructor_ops>;
 
