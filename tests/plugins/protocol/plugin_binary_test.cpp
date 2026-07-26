@@ -147,6 +147,8 @@ int main(int argc, char** argv) {
   auto reflected_property = reflected.find_property("value");
   auto reflected_accessor = caors::meta::compile_property_accessor(reflected_property);
   auto reflected_method = reflected.find_method("block");
+  auto reflected_overload = reflected_method.single();
+  auto reflected_nested = reflected.find_nested("nested");
   const auto* reflected_capability = reflected.get_capability<caors_plugin_protocol_capability>();
   auto owned = caors::any::default_construct(reflected);
   caors::meta::instance object{owned.ref()};
@@ -175,9 +177,11 @@ int main(int argc, char** argv) {
       static_cast<const caors_plugin_protocol_test_extension*>(managed.get_extension(
           CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID, CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION));
   if (!reflected || !reflected_property || !reflected_accessor || !reflected_method ||
-      reflected_capability == nullptr || reflected_capability->value != 73 || !owned || !object ||
-      !sequence || sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned ||
-      !set || set.size() != std::optional<std::size_t>{2} || !associative ||
+      !reflected_overload || reflected_method.overload_count() != 1 || !reflected_nested ||
+      reflected_nested.name() != "caors.test.plugin.nested" || reflected_capability == nullptr ||
+      reflected_capability->value != 73 || !owned || !object || !sequence ||
+      sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned || !set ||
+      set.size() != std::optional<std::size_t>{2} || !associative ||
       associative.size() != std::optional<std::size_t>{1} || !pair ||
       pair.first_ref().try_get<int>() == nullptr || *pair.first_ref().try_get<int>() != 7 ||
       !tuple || tuple.size() != 2 || tuple.element_ref(1).try_get<int>() == nullptr ||
@@ -211,8 +215,9 @@ int main(int argc, char** argv) {
           caors::error{caors::error_domain::plugins, caors::errc::pending} ||
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
-      reflected_accessor || reflected_method || owned || object || factory || factory_owned ||
-      constructor || constructor_owned || codec || codec_view || extensions ||
+      reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
+      object || factory || factory_owned || constructor || constructor_owned || codec ||
+      codec_view || extensions ||
       extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
       set.size() != std::optional<std::size_t>{2} || !associative ||
@@ -250,6 +255,8 @@ int main(int argc, char** argv) {
   reflected_property = {};
   reflected_accessor = {};
   reflected_method = {};
+  reflected_overload = {};
+  reflected_nested = {};
   reflected = {};
   if (manager.unload(managed_id)) {
     return fail("释放旧反射视图后 plugin manager 仍无法完成卸载");

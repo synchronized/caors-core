@@ -286,8 +286,8 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 ### 6F：真实跨 DLL 卸载测试
 
 - [x] 插件注册 type/property/method/capability/codec；
-- [ ] host 保存并释放各类旧视图；（type/property/method/accessor/factory/constructor/
-      extension/container/composite/indirect/codec 已覆盖）
+- [ ] host 保存并释放各类旧视图；（type/nested/property/method/method_set/accessor/factory/
+      constructor/extension/container/composite/indirect/codec 已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
@@ -305,6 +305,9 @@ property：host 验证 extension view 在 detach 后失效且不再返回扩展�
 set/associative view 仍可读取，随后在 owning value 析构前显式释放。
 pair/tuple/variant/indirect view 也通过插件对象成员在宿主绑定；detach 后这些使用宿主静态 ops 的
 已绑定视图仍可安全读取，并在 owning value 析构前显式释放。
+宿主还会同时保存 method_set、其中的 concrete method 与 nested type 视图，并验证三者在 detach
+后全部失效。`module_view` 属于独立的全局 module registry，当前不由 plugin layer 发布或分离，
+因此不计入 6F 的旧 layer 视图矩阵。
 带一个 `int` 参数的 constructor 也由插件注册并在宿主调用；测试校验构造参数、detach 后 facade
 失效，以及 constructor owning value 在动态库仍被 lease 保活时安全析构。
 

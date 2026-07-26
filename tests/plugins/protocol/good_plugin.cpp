@@ -21,6 +21,10 @@
 
 namespace {
 
+struct plugin_nested_type {
+  int value = 11;
+};
+
 struct plugin_reflected_type {
   int value = 42;
   std::vector<int> values{1, 2, 3};
@@ -119,6 +123,10 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
           caors::plugins::find_registration_registry(&self.host, data);
       registry != nullptr) {
     caors::meta::context context{*registry};
+    if (caors::registration::type_<plugin_nested_type>(context, "caors.test.plugin.nested")
+            .commit()) {
+      return 1;
+    }
     auto reflected =
         caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected");
     if (reflected.meta()
@@ -130,6 +138,7 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .property("tuple", &plugin_reflected_type::tuple_value)
             .property("variant", &plugin_reflected_type::variant_value)
             .property("optional", &plugin_reflected_type::optional_value)
+            .nested<plugin_nested_type>("nested")
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)
