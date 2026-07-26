@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A、6B、6C、6D 已完成，6E 待实施；
+- 当前状态：设计冻结，6A、6B、6C、6D 已完成，6E 实施中；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -264,11 +264,17 @@ block 保证这些回调执行前动态库不会关闭。
 
 ### 6E：Plugin Manager 接入
 
-- `plugin_binary` 改用 library control block；
+- [x] `plugin_binary` 改用 library control block；
+- [x] library lease 可在发布前绑定到 registry layer；
 - manager 为每个插件创建 registration layer 和 scope；
 - initialize 失败销毁未发布 draft；
 - stop/shutdown 后 detach；
 - lease 未归零返回 pending，不关闭 DLL。
+
+`plugin_binary` 与 `plugin_library_lease` 现在共享动态库 control block；control block 绑定到
+`registry_layer_state`，因此 layer owner 被销毁后，旧 type/property/method/owning value 持有的
+layer lease 仍会保持 DLL 已加载。绑定只允许发生在 publish 前，避免已发布 layer 的动态库所有权
+在并发查询期间发生变化。
 
 ### 6F：真实跨 DLL 卸载测试
 
