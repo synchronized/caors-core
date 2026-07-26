@@ -4,6 +4,7 @@
 #include "helpers.h"
 
 #include "caors/meta/detail/call_guard.h"
+#include "caors/meta/detail/property_access.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value.h"
@@ -223,11 +224,14 @@ field_runtime_schema compile_field_schema(const meta::type& owner_type,
                                           const serialization::field_schema& field) {
   field_runtime_schema result{};
   result.schema = field;
-  result.property = owner_type.find_property(field.field_name, meta::member_search::include_bases);
-  if (!result.property) {
+  const meta::property property =
+      owner_type.find_property(field.field_name, meta::member_search::include_bases);
+  if (!property) {
     return result;
   }
 
+  result.property =
+      meta::detail::property_access::make(meta::detail::property_access::data_of(property));
   result.accessor = meta::compile_property_accessor(result.property);
   result.owner_type = result.property.get_owner_type();
   result.declared_type = result.property.get_type();

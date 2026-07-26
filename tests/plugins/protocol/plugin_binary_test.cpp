@@ -13,6 +13,7 @@
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/associative_view.h"
 #include "caors/meta/value/capabilities.h"
+#include "caors/meta/value/enum_view.h"
 #include "caors/meta/value/indirect_view.h"
 #include "caors/meta/value/pair_view.h"
 #include "caors/meta/value/sequence_view.h"
@@ -22,6 +23,7 @@
 #include "caors/object.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/serialization/codec.h"
+#include "caors/serialization/type_schema.h"
 #include "plugin_protocol_test_extension.h"
 
 #include <array>
@@ -163,6 +165,8 @@ int main(int argc, char** argv) {
   auto indirect = object.get_ref("optional").get_capability<caors::meta::indirect_capability>();
   auto pointer = object.get_ref("object_pointer").get_capability<caors::objects::ptr_capability>();
   auto handle = object.get_ref("object_handle").get_capability<caors::objects::handle_capability>();
+  auto enum_value = object.get_ref("enum").get_capability<caors::meta::enum_capability>();
+  auto schema = reflected.get_capability<caors::serialization::schema_view>();
   auto reflected_object = registry.find_type("caors.test.plugin.object");
   auto object_factory =
       reflected_object.get_capability<caors::objects::object_factory_capability>();
@@ -209,11 +213,14 @@ int main(int argc, char** argv) {
       !indirect || !indirect.has_value() || indirect.value_ref().try_get<int>() == nullptr ||
       *indirect.value_ref().try_get<int>() != 10 || !pointer || !handle || !reflected_object ||
       !object_factory || !object_factory.constructible() || !pointer_round_trip ||
-      !handle_round_trip || !object_destroyed || !extensions || extensions.size() != 1 ||
-      !meta_extension || meta_extension->value != 91 || !codec || !constructor ||
-      constructor.argument_count() != 1 || !constructor_owned || constructed_value == nullptr ||
-      *constructed_value != 88 || !codec.can_make_value() || !codec_view || !codec_value ||
-      control == nullptr || control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
+      !handle_round_trip || !object_destroyed || !enum_value ||
+      enum_value.to_i64() != std::optional<std::int64_t>{12} || !schema ||
+      schema.field_count() != 1 || !schema.has_explicit_fields() || !extensions ||
+      extensions.size() != 1 || !meta_extension || meta_extension->value != 91 || !codec ||
+      !constructor || constructor.argument_count() != 1 || !constructor_owned ||
+      constructed_value == nullptr || *constructed_value != 88 || !codec.can_make_value() ||
+      !codec_view || !codec_value || control == nullptr ||
+      control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
   }
@@ -237,15 +244,10 @@ int main(int argc, char** argv) {
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
       object || object_facade || factory || factory_owned || constructor || constructor_owned ||
-      codec || codec_view || extensions || reflected_object || object_factory || !pointer ||
-      pointer.get() != nullptr || !handle || handle.get() != created_handle ||
-      extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
-      !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
-      set.size() != std::optional<std::size_t>{2} || !associative ||
-      associative.size() != std::optional<std::size_t>{1} || !pair ||
-      pair.first_ref().try_get<int>() == nullptr || *pair.first_ref().try_get<int>() != 7 ||
-      !tuple || tuple.size() != 2 || !variant || variant.index() != std::optional<std::size_t>{0} ||
-      !indirect || !indirect.has_value()) {
+      codec || codec_view || extensions || reflected_object || object_factory || pointer ||
+      handle || enum_value || schema || schema.raw() != nullptr ||
+      extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() || sequence ||
+      set || associative || pair || tuple || variant || indirect) {
     control->release(control->context);
     (void)invocation.get();
     return fail("detach 后 registry 句柄失效或已绑定容器 view 保活异常");
@@ -254,6 +256,7 @@ int main(int argc, char** argv) {
   if (!invocation.get()) {
     return fail("detach 前已进入的 method 没有安全完成");
   }
+  invocation = {};
   object = {};
   object_facade = {};
   sequence = {};
@@ -265,6 +268,8 @@ int main(int argc, char** argv) {
   indirect = {};
   pointer = {};
   handle = {};
+  enum_value = {};
+  schema = {};
   extensions = {};
   factory = {};
   constructor = {};

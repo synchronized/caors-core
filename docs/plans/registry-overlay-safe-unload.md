@@ -287,7 +287,8 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 
 - [x] 插件注册 type/property/method/capability/codec；
 - [ ] host 保存并释放各类旧视图；（type/nested/property/method/method_set/accessor/factory/
-      constructor/extension/container/composite/indirect/codec/object/ptr/handle 已覆盖）
+      constructor/extension/container/composite/indirect/enum/schema/codec/object/ptr/handle
+      已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
@@ -298,19 +299,20 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 draft 被销毁且主 registry 不可见该类型。并发查询测试持续解析插件类型，同时执行 detach/unload，
 确认查询只会观察到有效旧 snapshot 或已移除的新 snapshot，并连续运行 10 次检测竞态稳定性。
 协议插件还注册了 factory 与 `std::vector` property：host 验证 accessor、factory 和 owning value
-在 detach 后按 registry generation 失效；已经绑定到成员值且 ops 位于宿主模块的 sequence view
-仍可安全读取，并在显式释放前参与其自身依赖的生命周期管理。
+在 detach 后按 registry generation 失效；从 property 绑定到成员值的 sequence view 继承 owner
+layer，并在 detach 后统一失效。
 协议插件进一步注册可复制 meta extension、`std::unordered_set` 与 `std::unordered_map`
-property：host 验证 extension view 在 detach 后失效且不再返回扩展副本；已经绑定到成员值的
-set/associative view 仍可读取，随后在 owning value 析构前显式释放。
-pair/tuple/variant/indirect view 也通过插件对象成员在宿主绑定；detach 后这些使用宿主静态 ops 的
-已绑定视图仍可安全读取，并在 owning value 析构前显式释放。
+property：host 验证 extension view 在 detach 后失效且不再返回扩展副本；set/associative 以及
+pair/tuple/variant/indirect view 同样继承 property layer，并在 detach 后统一失效。
 宿主还会同时保存 method_set、其中的 concrete method 与 nested type 视图，并验证三者在 detach
 后全部失效。`module_view` 属于独立的全局 module registry，当前不由 plugin layer 发布或分离，
 因此不计入 6F 的旧 layer 视图矩阵。
 协议插件还注册真实 `object_base` 派生类型。宿主通过 object factory 创建并销毁实例，并验证
 object factory facade 在 detach 后失效；绑定到反射对象字段的 object/ptr/handle view 分别验证
-整体失效、指针读写和身份句柄读写，其中静态 wrapper ops 视图可在 owner 析构前安全释放。
+整体失效、指针读写和身份句柄读写，所有派生视图均在 detach 后失效。
+插件枚举的 enum view 与显式 serialization schema 也进入相同测试矩阵。`schema_view` 保存 owner
+type lease，schema 内部 runtime cache 则使用无 lease 的 property/accessor，避免形成
+`layer -> schema -> property -> layer` 强引用环。
 带一个 `int` 参数的 constructor 也由插件注册并在宿主调用；测试校验构造参数、detach 后 facade
 失效，以及 constructor owning value 在动态库仍被 lease 保活时安全析构。
 

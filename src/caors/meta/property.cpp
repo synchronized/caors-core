@@ -3,6 +3,7 @@
 
 #include "caors/meta/property.h"
 #include "caors/meta/detail/property_record.h"
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
@@ -25,6 +26,20 @@ namespace {
 [[nodiscard]] detail::layer_call_guard
 call_guard_for(const std::shared_ptr<detail::registry_layer_state>& layer) noexcept {
   return detail::layer_call_guard{layer};
+}
+
+[[nodiscard]] any_ref
+bind_ref_to_layer(any_ref source,
+                  const std::shared_ptr<detail::registry_layer_state>& layer) noexcept {
+  if (!source || layer == nullptr) {
+    return source;
+  }
+
+  const meta::type source_type = source.get_type();
+  const meta::type bound_type =
+      detail::type_access::make(detail::type_access::registry_of(source_type),
+                                detail::type_access::data_of(source_type), layer);
+  return detail::any_ref_access::from_erased(bound_type, source.data(), source.writable());
 }
 
 [[nodiscard]] const meta::property_schema& empty_property_schema() noexcept {
@@ -183,8 +198,9 @@ any_ref property::get_ref(const instance& object) const {
     return {};
   }
 
-  return object.writable() ? property->get_ref(object.mutable_data())
-                           : property->get_ref(object.data());
+  any_ref result = object.writable() ? property->get_ref(object.mutable_data())
+                                     : property->get_ref(object.data());
+  return bind_ref_to_layer(result, layer_);
 }
 
 any_ref property::get_ref() const {
@@ -197,7 +213,7 @@ any_ref property::get_ref() const {
     return {};
   }
 
-  return property->get_ref(static_cast<const void*>(nullptr));
+  return bind_ref_to_layer(property->get_ref(static_cast<const void*>(nullptr)), layer_);
 }
 
 bool property::try_set_any(const instance& object, const any& source) const {

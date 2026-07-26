@@ -27,6 +27,10 @@ public:
   static constexpr std::string_view object_type_name = "caors.test.plugin.object";
 };
 
+enum class plugin_enum : int {
+  value = 12,
+};
+
 struct plugin_nested_type {
   int value = 11;
 };
@@ -42,6 +46,7 @@ struct plugin_reflected_type {
   std::optional<int> optional_value{10};
   caors::object_ptr<caors::object> object_pointer{};
   caors::object_handle object_handle{};
+  plugin_enum enum_value = plugin_enum::value;
 
   plugin_reflected_type() = default;
   explicit plugin_reflected_type(int initial_value) : value(initial_value) {}
@@ -133,6 +138,9 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
     caors::meta::context context{*registry};
     if (caors::registration::type_<plugin_object>(context, plugin_object::object_type_name)
             .commit() ||
+        caors::registration::enum_<plugin_enum>(context, "caors.test.plugin.enum")
+            .value("value", plugin_enum::value)
+            .commit() ||
         caors::registration::type_<plugin_nested_type>(context, "caors.test.plugin.nested")
             .commit()) {
       return 1;
@@ -150,12 +158,15 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .property("optional", &plugin_reflected_type::optional_value)
             .property("object_pointer", &plugin_reflected_type::object_pointer)
             .property("object_handle", &plugin_reflected_type::object_handle)
+            .property("enum", &plugin_reflected_type::enum_value)
             .nested<plugin_nested_type>("nested")
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)
             .factory()
             .constructor<int>()
+            .serialization()
+            .field("value")
             .commit() ||
         caors::meta::detail::emplace_extension<caors_plugin_protocol_meta_extension>(
             *registry, reflected.get().id(), caors_plugin_protocol_meta_extension{91})) {

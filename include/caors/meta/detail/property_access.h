@@ -15,6 +15,10 @@ public:
                                      std::shared_ptr<registry_layer_state> layer = {}) noexcept {
     return property{data, std::move(layer)};
   }
+
+  [[nodiscard]] static const property_record* data_of(const property& value) noexcept {
+    return value.info();
+  }
 };
 
 } // namespace caors::meta::detail

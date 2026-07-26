@@ -109,13 +109,17 @@ class schema_view {
 public:
   schema_view() noexcept = default;
   explicit schema_view(const type_schema* schema) noexcept : schema_(schema) {}
+  schema_view(meta::type owner, const type_schema* schema) noexcept
+      : owner_(std::move(owner)), schema_(schema), owner_bound_(true) {}
 
-  [[nodiscard]] bool valid() const noexcept { return schema_ != nullptr && schema_->valid(); }
+  [[nodiscard]] bool valid() const noexcept {
+    return schema_ != nullptr && (!owner_bound_ || owner_) && schema_->valid();
+  }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] const type_schema* get() const noexcept { return valid() ? schema_ : nullptr; }
-  [[nodiscard]] const type_schema* raw() const noexcept { return schema_; }
+  [[nodiscard]] const type_schema* raw() const noexcept { return get(); }
   [[nodiscard]] std::size_t field_count() const noexcept {
     return valid() ? schema_->fields.size() : 0;
   }
@@ -127,7 +131,9 @@ public:
   }
 
 private:
+  meta::type owner_{};
   const type_schema* schema_ = nullptr;
+  bool owner_bound_ = false;
 };
 
 /** @brief 创建字段序列化配置。 */
@@ -167,7 +173,7 @@ template <> struct type_capability_traits<serialization::schema_view> {
   using result_type = serialization::schema_view;
 
   [[nodiscard]] static result_type get(const type& source) noexcept {
-    return result_type{detail::find_type_extension<serialization::type_schema>(source)};
+    return result_type{source, detail::find_type_extension<serialization::type_schema>(source)};
   }
 
   [[nodiscard]] static const serialization::type_schema* get_raw(const type& source) noexcept {
