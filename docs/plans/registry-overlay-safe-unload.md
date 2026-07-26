@@ -290,8 +290,12 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
-- [ ] 覆盖重复加载、新 generation、并发查询和 in-flight method；（除并发查询外已覆盖）
+- [x] 覆盖重复加载、新 generation、并发查询和 in-flight method；
 - Windows 与 POSIX，Debug/Release，ASan 可用时运行 use-after-unload 检查。
+
+真实 failure plugin 会先通过 host extension 向 draft 注册类型，再让 initialize 返回失败；测试确认
+draft 被销毁且主 registry 不可见该类型。并发查询测试持续解析插件类型，同时执行 detach/unload，
+确认查询只会观察到有效旧 snapshot 或已移除的新 snapshot，并连续运行 10 次检测竞态稳定性。
 
 ## 每批验收门禁
 

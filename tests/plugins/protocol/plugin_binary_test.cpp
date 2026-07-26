@@ -12,6 +12,7 @@
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <future>
@@ -197,6 +198,54 @@ int main(int argc, char** argv) {
   if (!reloaded_result || reloaded_result->generation() == first_generation ||
       manager.unload(reloaded_result->id())) {
     return fail("plugin manager 重新加载没有生成新的 generation");
+  }
+
+  auto failed_managed_result = manager.load(argv[4]);
+  if (!failed_managed_result) {
+    return fail("plugin manager 无法加载 initialize 失败插件");
+  }
+  const caors::plugins::plugin failed_managed = *failed_managed_result;
+  if (!manager.initialize(failed_managed.id()) ||
+      failed_managed.state() != caors::plugins::plugin_state::failed ||
+      registry.find_type("caors.test.plugin.failed_draft") || manager.unload(failed_managed.id())) {
+    return fail("initialize 失败的 draft 污染了主 registry 或无法清理");
+  }
+
+  auto concurrent_result = manager.load(argv[1]);
+  if (!concurrent_result || manager.initialize(concurrent_result->id())) {
+    return fail("无法为并发查询测试重新加载插件");
+  }
+  const caors::guid concurrent_id = concurrent_result->id();
+  std::atomic<bool> stop_queries{false};
+  std::atomic<std::size_t> valid_queries{0};
+  std::atomic<std::size_t> absent_queries{0};
+  auto querying = std::async(std::launch::async, [&] {
+    while (!stop_queries.load(std::memory_order_acquire)) {
+      if (registry.find_type("caors.test.plugin.reflected")) {
+        valid_queries.fetch_add(1, std::memory_order_relaxed);
+      } else {
+        absent_queries.fetch_add(1, std::memory_order_relaxed);
+      }
+    }
+  });
+  const auto query_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+  while (valid_queries.load(std::memory_order_acquire) == 0 &&
+         std::chrono::steady_clock::now() < query_deadline) {
+    std::this_thread::yield();
+  }
+  const caors::error concurrent_unload = manager.unload(concurrent_id);
+  while (absent_queries.load(std::memory_order_acquire) == 0 &&
+         std::chrono::steady_clock::now() < query_deadline) {
+    std::this_thread::yield();
+  }
+  stop_queries.store(true, std::memory_order_release);
+  querying.get();
+  if (valid_queries.load(std::memory_order_acquire) == 0 ||
+      absent_queries.load(std::memory_order_acquire) == 0 ||
+      (concurrent_unload &&
+       concurrent_unload != caors::error{caors::error_domain::plugins, caors::errc::pending}) ||
+      (concurrent_unload && manager.unload(concurrent_id))) {
+    return fail("并发查询没有一致观察 publish/detach snapshot");
   }
 
   return 0;
