@@ -5,13 +5,16 @@
 #include "caors/plugins/plugin_manager.h"
 
 #include "caors/meta/capability_facade.h"
+#include "caors/meta/extension_view.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/property.h"
 #include "caors/meta/property_accessor.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/value/any.h"
-#include "caors/meta/value/capabilities/sequence_capability.h"
+#include "caors/meta/value/associative_view.h"
+#include "caors/meta/value/capabilities.h"
 #include "caors/meta/value/sequence_view.h"
+#include "caors/meta/value/set_view.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
@@ -135,6 +138,7 @@ int main(int argc, char** argv) {
     return fail("plugin manager 初始化或 layer 发布失败");
   }
   auto reflected = registry.find_type("caors.test.plugin.reflected");
+  const caors::type_id reflected_id = reflected.id();
   auto reflected_property = reflected.find_property("value");
   auto reflected_accessor = caors::meta::compile_property_accessor(reflected_property);
   auto reflected_method = reflected.find_method("block");
@@ -142,6 +146,10 @@ int main(int argc, char** argv) {
   auto owned = caors::any::default_construct(reflected);
   caors::meta::instance object{owned.ref()};
   auto sequence = object.get_ref("values").get_capability<caors::meta::sequence_capability>();
+  auto set = object.get_ref("tags").get_capability<caors::meta::set_capability>();
+  auto associative = object.get_ref("lookup").get_capability<caors::meta::associative_capability>();
+  auto extensions = registry.extension_view<caors_plugin_protocol_meta_extension>();
+  const auto meta_extension = extensions.find<caors_plugin_protocol_meta_extension>(reflected_id);
   auto factory = reflected.get_capability<caors::meta::factory_capability>();
   auto factory_owned = factory.construct();
   auto codec = caors::serialization::find_codec(reflected);
@@ -153,7 +161,10 @@ int main(int argc, char** argv) {
   if (!reflected || !reflected_property || !reflected_accessor || !reflected_method ||
       reflected_capability == nullptr || reflected_capability->value != 73 || !owned || !object ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned ||
-      !codec || !codec.can_make_value() || !codec_view || !codec_value || control == nullptr ||
+      !set || set.size() != std::optional<std::size_t>{2} || !associative ||
+      associative.size() != std::optional<std::size_t>{1} || !extensions ||
+      extensions.size() != 1 || !meta_extension || meta_extension->value != 91 || !codec ||
+      !codec.can_make_value() || !codec_view || !codec_value || control == nullptr ||
       control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
@@ -177,10 +188,14 @@ int main(int argc, char** argv) {
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || owned || object || factory || factory_owned ||
-      codec || codec_view || !sequence || sequence.size() != std::optional<std::size_t>{3}) {
+      codec || codec_view || extensions ||
+      extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
+      !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
+      set.size() != std::optional<std::size_t>{2} || !associative ||
+      associative.size() != std::optional<std::size_t>{1}) {
     control->release(control->context);
     (void)invocation.get();
-    return fail("detach 后 registry 句柄失效或已绑定 sequence view 保活异常");
+    return fail("detach 后 registry 句柄失效或已绑定容器 view 保活异常");
   }
   control->release(control->context);
   if (!invocation.get()) {
@@ -188,6 +203,9 @@ int main(int argc, char** argv) {
   }
   object = {};
   sequence = {};
+  set = {};
+  associative = {};
+  extensions = {};
   factory = {};
   codec_view = {};
   codec = {};

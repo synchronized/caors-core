@@ -11,6 +11,8 @@
 #include <atomic>
 #include <cstring>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -18,6 +20,8 @@ namespace {
 struct plugin_reflected_type {
   int value = 42;
   std::vector<int> values{1, 2, 3};
+  std::unordered_set<int> tags{4, 5};
+  std::unordered_map<int, int> lookup{{6, 60}};
 
   ~plugin_reflected_type();
   void block() const;
@@ -105,15 +109,20 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
           caors::plugins::find_registration_registry(&self.host, data);
       registry != nullptr) {
     caors::meta::context context{*registry};
-    if (caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected")
-            .meta()
+    auto reflected =
+        caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected");
+    if (reflected.meta()
             .property("value", &plugin_reflected_type::value)
             .property("values", &plugin_reflected_type::values)
+            .property("tags", &plugin_reflected_type::tags)
+            .property("lookup", &plugin_reflected_type::lookup)
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)
             .factory()
-            .commit()) {
+            .commit() ||
+        caors::meta::detail::emplace_extension<caors_plugin_protocol_meta_extension>(
+            *registry, reflected.get().id(), caors_plugin_protocol_meta_extension{91})) {
       return 1;
     }
   }

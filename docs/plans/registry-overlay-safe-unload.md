@@ -286,7 +286,8 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 ### 6F：真实跨 DLL 卸载测试
 
 - [x] 插件注册 type/property/method/capability/codec；
-- [ ] host 保存并释放各类旧视图；（type/property/method/accessor/factory/sequence/codec 已覆盖）
+- [ ] host 保存并释放各类旧视图；（type/property/method/accessor/factory/extension/container/codec
+      已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
@@ -299,6 +300,9 @@ draft 被销毁且主 registry 不可见该类型。并发查询测试持续解�
 协议插件还注册了 factory 与 `std::vector` property：host 验证 accessor、factory 和 owning value
 在 detach 后按 registry generation 失效；已经绑定到成员值且 ops 位于宿主模块的 sequence view
 仍可安全读取，并在显式释放前参与其自身依赖的生命周期管理。
+协议插件进一步注册可复制 meta extension、`std::unordered_set` 与 `std::unordered_map`
+property：host 验证 extension view 在 detach 后失效且不再返回扩展副本；已经绑定到成员值的
+set/associative view 仍可读取，随后在 owning value 析构前显式释放。
 
 ## 每批验收门禁
 

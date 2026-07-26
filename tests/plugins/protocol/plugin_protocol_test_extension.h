@@ -29,4 +29,8 @@ typedef struct caors_plugin_protocol_capability {
   int32_t value;
 } caors_plugin_protocol_capability;
 
+typedef struct caors_plugin_protocol_meta_extension {
+  int32_t value;
+} caors_plugin_protocol_meta_extension;
+
 #endif
