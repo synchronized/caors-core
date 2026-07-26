@@ -113,6 +113,15 @@ TEST_CASE("meta - associative property view supports dynamic operations", "[meta
   CHECK(readonly_key == 7);
   CHECK(readonly_mapped == 70);
 
+  auto detached_iterator = [&] {
+    auto temporary = values.get_ref(caors::meta::view(instance))
+                         .get_capability<caors::meta::associative_capability>();
+    return temporary.begin();
+  }();
+  const caors::meta::associative_entry_ref detached_entry = *detached_iterator;
+  REQUIRE(detached_entry.key().try_get<int>() != nullptr);
+  CHECK(*detached_entry.key().try_get<int>() == 7);
+
   CHECK(map.clear());
   const std::optional<std::size_t> empty_size = map.size();
   REQUIRE(empty_size.has_value());
@@ -188,6 +197,14 @@ TEST_CASE("meta - set property view exposes element metadata", "[meta]") {
     visited = *value;
   }
   CHECK(visited == 11);
+
+  auto detached_iterator = [&] {
+    auto temporary =
+        values.get_ref(caors::meta::view(instance)).get_capability<caors::meta::set_capability>();
+    return temporary.begin();
+  }();
+  REQUIRE((*detached_iterator).try_get<int>() != nullptr);
+  CHECK(*(*detached_iterator).try_get<int>() == 11);
 
   CHECK(set.clear());
   CHECK(instance.values.empty());

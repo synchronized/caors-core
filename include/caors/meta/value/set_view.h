@@ -43,12 +43,13 @@ public:
   private:
     friend class set_view;
 
-    iterator(const set_view* view, void* iterator) noexcept;
+    iterator(meta::type type, const meta::set_ops* ops, void* iterator) noexcept;
 
     void swap(iterator& other) noexcept;
     void reset() noexcept;
 
-    const set_view* view_ = nullptr;
+    meta::type type_{};
+    const meta::set_ops* ops_ = nullptr;
     void* iterator_ = nullptr;
   };
 

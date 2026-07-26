@@ -43,12 +43,13 @@ public:
   private:
     friend class associative_view;
 
-    iterator(const associative_view* view, void* iterator) noexcept;
+    iterator(meta::type type, const meta::associative_ops* ops, void* iterator) noexcept;
 
     void swap(iterator& other) noexcept;
     void reset() noexcept;
 
-    const associative_view* view_ = nullptr;
+    meta::type type_{};
+    const meta::associative_ops* ops_ = nullptr;
     void* iterator_ = nullptr;
   };
 

@@ -797,16 +797,17 @@ const meta::sequence_ops* sequence_view::data() const noexcept {
   return type_.get_raw_ops<meta::sequence_ops>();
 }
 
-set_view::iterator::iterator(const iterator& other) : view_(other.view_) {
-  const meta::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
+set_view::iterator::iterator(const iterator& other) : type_(other.type_), ops_(other.ops_) {
+  const auto guard = call_guard_for(type_);
+  const meta::set_ops* info = guard ? ops_ : nullptr;
   if (other.iterator_ != nullptr && info != nullptr && info->iterator.clone != nullptr) {
     iterator_ = info->iterator.clone(other.iterator_);
   }
 }
 
 set_view::iterator::iterator(iterator&& other) noexcept
-    : view_(other.view_), iterator_(other.iterator_) {
-  other.view_ = nullptr;
+    : type_(std::move(other.type_)), ops_(other.ops_), iterator_(other.iterator_) {
+  other.ops_ = nullptr;
   other.iterator_ = nullptr;
 }
 
@@ -828,15 +829,17 @@ set_view::iterator& set_view::iterator::operator=(iterator&& other) noexcept {
   }
 
   reset();
-  view_ = other.view_;
+  type_ = std::move(other.type_);
+  ops_ = other.ops_;
   iterator_ = other.iterator_;
-  other.view_ = nullptr;
+  other.ops_ = nullptr;
   other.iterator_ = nullptr;
   return *this;
 }
 
 any_ref set_view::iterator::operator*() const {
-  const meta::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const auto guard = call_guard_for(type_);
+  const meta::set_ops* info = guard ? ops_ : nullptr;
   if (info == nullptr || iterator_ == nullptr || info->iterator_value == nullptr) {
     return {};
   }
@@ -848,7 +851,8 @@ any_ref set_view::iterator::operator*() const {
 }
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
-  const meta::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const auto guard = call_guard_for(type_);
+  const meta::set_ops* info = guard ? ops_ : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator.advance != nullptr) {
     info->iterator.advance(iterator_);
   }
@@ -863,7 +867,7 @@ set_view::iterator set_view::iterator::operator++(int) {
 }
 
 bool operator==(const set_view::iterator& lhs, const set_view::iterator& rhs) noexcept {
-  if (lhs.view_ != rhs.view_) {
+  if (lhs.type_.id() != rhs.type_.id() || lhs.ops_ != rhs.ops_) {
     return lhs.iterator_ == nullptr && rhs.iterator_ == nullptr;
   }
 
@@ -871,7 +875,8 @@ bool operator==(const set_view::iterator& lhs, const set_view::iterator& rhs) no
     return true;
   }
 
-  const meta::set_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
+  const auto guard = call_guard_for(lhs.type_);
+  const meta::set_ops* info = guard ? lhs.ops_ : nullptr;
   if (info == nullptr || info->iterator.equal == nullptr) {
     return false;
   }
@@ -883,22 +888,24 @@ bool operator!=(const set_view::iterator& lhs, const set_view::iterator& rhs) no
   return !(lhs == rhs);
 }
 
-set_view::iterator::iterator(const set_view* view, void* iterator) noexcept
-    : view_(view), iterator_(iterator) {}
+set_view::iterator::iterator(meta::type type, const meta::set_ops* ops, void* iterator) noexcept
+    : type_(std::move(type)), ops_(ops), iterator_(iterator) {}
 
 void set_view::iterator::swap(iterator& other) noexcept {
   using std::swap;
-  swap(view_, other.view_);
+  swap(type_, other.type_);
+  swap(ops_, other.ops_);
   swap(iterator_, other.iterator_);
 }
 
 void set_view::iterator::reset() noexcept {
-  const meta::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::set_ops* info = ops_;
   if (info != nullptr && iterator_ != nullptr && info->iterator.destroy != nullptr) {
     info->iterator.destroy(iterator_);
   }
 
-  view_ = nullptr;
+  type_ = {};
+  ops_ = nullptr;
   iterator_ = nullptr;
 }
 
@@ -908,11 +915,19 @@ bool set_view::valid() const noexcept {
 }
 
 meta::type set_view::get_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::set_ops* info = data();
   return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> set_view::size() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::set_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
@@ -922,22 +937,30 @@ std::optional<std::size_t> set_view::size() const {
 }
 
 set_view::iterator set_view::begin() const {
+  const auto guard = call_guard_for(type_);
   if (!has_iterator_support()) {
     return {};
   }
 
-  return iterator{this, data()->iterator.begin(storage_)};
+  const meta::set_ops* info = data();
+  return iterator{type_, info, info->iterator.begin(storage_)};
 }
 
 set_view::iterator set_view::end() const {
+  const auto guard = call_guard_for(type_);
   if (!has_iterator_support()) {
     return {};
   }
 
-  return iterator{this, data()->iterator.end(storage_)};
+  const meta::set_ops* info = data();
+  return iterator{type_, info, info->iterator.end(storage_)};
 }
 
 bool set_view::clear() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::set_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
@@ -948,6 +971,10 @@ bool set_view::clear() const {
 }
 
 bool set_view::insert_value(const any& value) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::set_ops* info = data();
   if (!writable() || info->insert == nullptr || !value.valid() ||
       value.get_type().id() != get_value_type().id()) {
@@ -967,16 +994,17 @@ bool set_view::has_iterator_support() const noexcept {
 
 const meta::set_ops* set_view::data() const noexcept { return type_.get_raw_ops<meta::set_ops>(); }
 
-associative_view::iterator::iterator(const iterator& other) : view_(other.view_) {
-  const meta::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
+associative_view::iterator::iterator(const iterator& other) : type_(other.type_), ops_(other.ops_) {
+  const auto guard = call_guard_for(type_);
+  const meta::associative_ops* info = guard ? ops_ : nullptr;
   if (other.iterator_ != nullptr && info != nullptr && info->iterator.clone != nullptr) {
     iterator_ = info->iterator.clone(other.iterator_);
   }
 }
 
 associative_view::iterator::iterator(iterator&& other) noexcept
-    : view_(other.view_), iterator_(other.iterator_) {
-  other.view_ = nullptr;
+    : type_(std::move(other.type_)), ops_(other.ops_), iterator_(other.iterator_) {
+  other.ops_ = nullptr;
   other.iterator_ = nullptr;
 }
 
@@ -998,15 +1026,17 @@ associative_view::iterator& associative_view::iterator::operator=(iterator&& oth
   }
 
   reset();
-  view_ = other.view_;
+  type_ = std::move(other.type_);
+  ops_ = other.ops_;
   iterator_ = other.iterator_;
-  other.view_ = nullptr;
+  other.ops_ = nullptr;
   other.iterator_ = nullptr;
   return *this;
 }
 
 associative_entry_ref associative_view::iterator::operator*() const {
-  const meta::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const auto guard = call_guard_for(type_);
+  const meta::associative_ops* info = guard ? ops_ : nullptr;
   if (info == nullptr || iterator_ == nullptr || info->iterator_key == nullptr ||
       info->iterator_value == nullptr) {
     return {};
@@ -1023,7 +1053,8 @@ associative_entry_ref associative_view::iterator::operator*() const {
 }
 
 associative_view::iterator& associative_view::iterator::operator++() noexcept {
-  const meta::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const auto guard = call_guard_for(type_);
+  const meta::associative_ops* info = guard ? ops_ : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator.advance != nullptr) {
     info->iterator.advance(iterator_);
   }
@@ -1039,7 +1070,7 @@ associative_view::iterator associative_view::iterator::operator++(int) {
 
 bool operator==(const associative_view::iterator& lhs,
                 const associative_view::iterator& rhs) noexcept {
-  if (lhs.view_ != rhs.view_) {
+  if (lhs.type_.id() != rhs.type_.id() || lhs.ops_ != rhs.ops_) {
     return lhs.iterator_ == nullptr && rhs.iterator_ == nullptr;
   }
 
@@ -1047,7 +1078,8 @@ bool operator==(const associative_view::iterator& lhs,
     return true;
   }
 
-  const meta::associative_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
+  const auto guard = call_guard_for(lhs.type_);
+  const meta::associative_ops* info = guard ? lhs.ops_ : nullptr;
   if (info == nullptr || info->iterator.equal == nullptr) {
     return false;
   }
@@ -1060,22 +1092,25 @@ bool operator!=(const associative_view::iterator& lhs,
   return !(lhs == rhs);
 }
 
-associative_view::iterator::iterator(const associative_view* view, void* iterator) noexcept
-    : view_(view), iterator_(iterator) {}
+associative_view::iterator::iterator(meta::type type, const meta::associative_ops* ops,
+                                     void* iterator) noexcept
+    : type_(std::move(type)), ops_(ops), iterator_(iterator) {}
 
 void associative_view::iterator::swap(iterator& other) noexcept {
   using std::swap;
-  swap(view_, other.view_);
+  swap(type_, other.type_);
+  swap(ops_, other.ops_);
   swap(iterator_, other.iterator_);
 }
 
 void associative_view::iterator::reset() noexcept {
-  const meta::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::associative_ops* info = ops_;
   if (info != nullptr && iterator_ != nullptr && info->iterator.destroy != nullptr) {
     info->iterator.destroy(iterator_);
   }
 
-  view_ = nullptr;
+  type_ = {};
+  ops_ = nullptr;
   iterator_ = nullptr;
 }
 
@@ -1085,16 +1120,28 @@ bool associative_view::valid() const noexcept {
 }
 
 meta::type associative_view::get_key_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::associative_ops* info = data();
   return valid() && info->get_key_type != nullptr ? info->get_key_type() : meta::type{};
 }
 
 meta::type associative_view::get_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::associative_ops* info = data();
   return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> associative_view::size() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::associative_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
@@ -1104,22 +1151,30 @@ std::optional<std::size_t> associative_view::size() const {
 }
 
 associative_view::iterator associative_view::begin() const {
+  const auto guard = call_guard_for(type_);
   if (!has_iterator_support()) {
     return {};
   }
 
-  return iterator{this, data()->iterator.begin(storage_)};
+  const meta::associative_ops* info = data();
+  return iterator{type_, info, info->iterator.begin(storage_)};
 }
 
 associative_view::iterator associative_view::end() const {
+  const auto guard = call_guard_for(type_);
   if (!has_iterator_support()) {
     return {};
   }
 
-  return iterator{this, data()->iterator.end(storage_)};
+  const meta::associative_ops* info = data();
+  return iterator{type_, info, info->iterator.end(storage_)};
 }
 
 bool associative_view::clear() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::associative_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
@@ -1130,6 +1185,10 @@ bool associative_view::clear() const {
 }
 
 bool associative_view::insert_value(const any& key, const any& mapped) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::associative_ops* info = data();
   if (!writable() || info->insert == nullptr || !key.valid() || !mapped.valid() ||
       key.get_type().id() != get_key_type().id() ||
