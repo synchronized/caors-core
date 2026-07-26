@@ -5,6 +5,7 @@
 #define CAORS_META_VALUE_ENUM_VIEW_H_
 
 #include "caors/meta/capability_bind.h"
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/type_ops.h"
 
 #include <cstdint>
@@ -25,6 +26,10 @@ public:
   enum_view() noexcept = default;
 
   [[nodiscard]] std::optional<std::int64_t> to_i64() const noexcept {
+    const detail::layer_call_guard guard{raw_type()};
+    if (!guard) {
+      return std::nullopt;
+    }
     const enum_ops* operations = ops();
     return operations != nullptr && operations->to_i64 != nullptr
                ? std::optional<std::int64_t>{operations->to_i64(data())}
@@ -32,6 +37,10 @@ public:
   }
 
   [[nodiscard]] std::optional<std::uint64_t> to_u64() const noexcept {
+    const detail::layer_call_guard guard{raw_type()};
+    if (!guard) {
+      return std::nullopt;
+    }
     const enum_ops* operations = ops();
     return operations != nullptr && operations->to_u64 != nullptr
                ? std::optional<std::uint64_t>{operations->to_u64(data())}
@@ -39,6 +48,10 @@ public:
   }
 
   bool from_i64(std::int64_t value) const noexcept {
+    const detail::layer_call_guard guard{raw_type()};
+    if (!guard) {
+      return false;
+    }
     const enum_ops* operations = ops();
     void* target = mutable_data();
     return operations != nullptr && operations->from_i64 != nullptr && target != nullptr &&
@@ -46,6 +59,10 @@ public:
   }
 
   bool from_u64(std::uint64_t value) const noexcept {
+    const detail::layer_call_guard guard{raw_type()};
+    if (!guard) {
+      return false;
+    }
     const enum_ops* operations = ops();
     void* target = mutable_data();
     return operations != nullptr && operations->from_u64 != nullptr && target != nullptr &&

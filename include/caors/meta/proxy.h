@@ -5,6 +5,7 @@
 #define CAORS_META_PROXY_H_
 
 #include "caors/meta/capability_facade.h"
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/type.h"
 
 #include <cstddef>
@@ -334,6 +335,14 @@ public:
 
   template <typename Convention, typename R, typename... Args>
   R invoke(Args&&... args) const noexcept(Convention::is_noexcept) {
+    const meta::detail::layer_call_guard guard{this->raw_type()};
+    if (!guard) {
+      if constexpr (!std::is_void_v<R>) {
+        return R{};
+      } else {
+        return;
+      }
+    }
     const Ops* ops = this->ops();
     if (ops == nullptr) {
       if constexpr (!std::is_void_v<R>) {
@@ -417,7 +426,8 @@ public:
 
   template <typename Convention, typename R, typename... Args>
   R invoke_type(Args&&... args) const noexcept(Convention::is_noexcept) {
-    if (!this->valid()) {
+    const meta::detail::layer_call_guard guard{this->type_};
+    if (!guard || !this->valid()) {
       if constexpr (!std::is_void_v<R>) {
         return R{};
       }

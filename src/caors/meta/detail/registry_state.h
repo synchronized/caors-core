@@ -6,6 +6,7 @@
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/detail/type_record.h"
 #include "caors/meta/registration.h"
 
@@ -67,23 +68,6 @@ private:
   std::atomic<std::size_t> in_flight_calls_{0};
   std::uint64_t generation_ = 0;
   bool frozen_ = false;
-};
-
-/** @brief 保证一次类型擦除调用执行期间所属 layer 保持存活。 */
-class layer_call_guard final {
-public:
-  explicit layer_call_guard(std::shared_ptr<registry_layer_state> layer) noexcept;
-  ~layer_call_guard();
-
-  layer_call_guard(const layer_call_guard&) = delete;
-  layer_call_guard& operator=(const layer_call_guard&) = delete;
-
-  [[nodiscard]] bool valid() const noexcept { return entered_; }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-
-private:
-  std::shared_ptr<registry_layer_state> layer_{};
-  bool entered_ = false;
 };
 
 /** @brief 一次 registry 查询固定持有的有序 layer 集合。 */

@@ -3,6 +3,7 @@
 
 #include "helpers.h"
 
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value.h"
@@ -130,6 +131,11 @@ namespace {
 make_value_or_object_serialized_value(const any_ref& value, const serialization::context& context,
                                       const field_runtime_schema* field) {
   const meta::type type = value.get_type();
+  const meta::type& operations_type = field != nullptr ? field->declared_type : type;
+  const meta::detail::layer_call_guard guard{operations_type};
+  if (!guard) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_make_value(codec)) {
     return make_value_with_codec_ops(codec, context, value);
@@ -153,6 +159,11 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
                                                            const serialization::context& context,
                                                            const field_runtime_schema* field) {
   const meta::type type = value.get_type();
+  const meta::type& operations_type = field != nullptr ? field->declared_type : type;
+  const meta::detail::layer_call_guard guard{operations_type};
+  if (!guard) {
+    return {error_domain::serialization, errc::unsupported};
+  }
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_write(codec)) {
     return write_with_codec_ops(codec, context, writer, value);
@@ -182,6 +193,11 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
                                                           const serialization::context& context,
                                                           const field_runtime_schema* field) {
   const meta::type type = target.get_type();
+  const meta::type& operations_type = field != nullptr ? field->declared_type : type;
+  const meta::detail::layer_call_guard guard{operations_type};
+  if (!guard) {
+    return {error_domain::serialization, errc::unsupported};
+  }
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_read(codec)) {
     return read_with_codec_ops(codec, context, reader, target);

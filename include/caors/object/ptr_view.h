@@ -5,8 +5,11 @@
 #define CAORS_OBJECT_PTR_VIEW_H_
 
 #include "caors/meta/capability_bind.h"
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/object/ptr.h"
+
+#include <utility>
 
 namespace caors::objects {
 
@@ -26,7 +29,7 @@ public:
   ptr_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && data_->valid() && storage_ != nullptr;
+    return type_ && data_ != nullptr && data_->valid() && storage_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -34,7 +37,8 @@ public:
 
   /** @brief 获取当前引用的对象指针；空引用返回 `nullptr`。 */
   [[nodiscard]] object* get() const noexcept {
-    if (!valid() || data_->get == nullptr) {
+    const meta::detail::layer_call_guard guard{type_};
+    if (!guard || !valid() || data_->get == nullptr) {
       return nullptr;
     }
 
@@ -43,7 +47,8 @@ public:
 
   /** @brief 写入对象指针；类型不匹配、只读或空视图时返回 `false`。 */
   bool set(object* instance) const noexcept {
-    if (!writable() || data_->set == nullptr) {
+    const meta::detail::layer_call_guard guard{type_};
+    if (!guard || !writable() || data_->set == nullptr) {
       return false;
     }
 
@@ -53,9 +58,11 @@ public:
 private:
   friend ptr_view make_ptr_view(meta::any_ref source) noexcept;
 
-  ptr_view(const detail::ptr_ops* data, const void* storage, bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+  ptr_view(meta::type type, const detail::ptr_ops* data, const void* storage,
+           bool writable) noexcept
+      : type_(std::move(type)), data_(data), storage_(storage), writable_(writable) {}
 
+  meta::type type_{};
   const detail::ptr_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
@@ -99,7 +106,7 @@ public:
     return {};
   }
 
-  return ptr_view{data, source.data(), source.writable()};
+  return ptr_view{source.get_type(), data, source.data(), source.writable()};
 }
 
 /** @brief 判断运行期引用是否具备对象指针语义。 */

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A、6B、6C 已完成，6D 待实施；
+- 当前状态：设计冻结，6A、6B、6C、6D 已完成，6E 待实施；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -251,10 +251,16 @@ registry 自己的 primary layer，跨 overlay 查询统一使用 `find_extensio
 
 ### 6D：擦除值与调用 Guard
 
-- `any/value` 保存产生其 ops 的 layer lease；
-- capability、property、method、factory 和 codec 调用增加 in-flight guard；
-- inactive layer 拒绝新调用；
-- 验证旧值可在 detach 后安全析构。
+- [x] `any/value` 通过其 `meta::type` 保存产生 ops 的 layer lease；
+- [x] capability、property、method、factory、codec 和 builtin view 调用增加 in-flight guard；
+- [x] inactive layer 拒绝新调用；
+- [x] 验证旧值可在 detach 后安全析构；
+- [x] set/associative iterator 自持 type lease 和 ops，不依赖外部 view 生命周期。
+
+`layer_call_guard` 在调用开始时先检查 active，再增加 in-flight 计数并二次确认 active；detach
+与新调用竞争时，新调用要么完整进入并计数，要么确定失败。析构路径不要求 layer active，
+拥有型值和容器 iterator 使用已经缓存的 destroy 回调清理资源；后续 6E 由共享 library control
+block 保证这些回调执行前动态库不会关闭。
 
 ### 6E：Plugin Manager 接入
 

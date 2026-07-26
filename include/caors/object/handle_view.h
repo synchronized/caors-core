@@ -5,8 +5,11 @@
 #define CAORS_OBJECT_HANDLE_VIEW_H_
 
 #include "caors/meta/capability_bind.h"
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/object/handle.h"
+
+#include <utility>
 
 namespace caors::objects {
 
@@ -26,7 +29,7 @@ public:
   handle_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && data_->valid() && storage_ != nullptr;
+    return type_ && data_ != nullptr && data_->valid() && storage_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -34,7 +37,8 @@ public:
 
   /** @brief 获取当前保存的对象身份；空视图返回无效句柄。 */
   [[nodiscard]] handle get() const noexcept {
-    if (!valid() || data_->get == nullptr) {
+    const meta::detail::layer_call_guard guard{type_};
+    if (!guard || !valid() || data_->get == nullptr) {
       return {};
     }
 
@@ -43,7 +47,8 @@ public:
 
   /** @brief 写入对象身份；只读或空视图时返回 `false`。 */
   bool set(handle value) const noexcept {
-    if (!writable() || data_->set == nullptr) {
+    const meta::detail::layer_call_guard guard{type_};
+    if (!guard || !writable() || data_->set == nullptr) {
       return false;
     }
 
@@ -53,9 +58,11 @@ public:
 private:
   friend handle_view make_handle_view(meta::any_ref source) noexcept;
 
-  handle_view(const detail::handle_ops* data, const void* storage, bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+  handle_view(meta::type type, const detail::handle_ops* data, const void* storage,
+              bool writable) noexcept
+      : type_(std::move(type)), data_(data), storage_(storage), writable_(writable) {}
 
+  meta::type type_{};
   const detail::handle_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
@@ -99,7 +106,7 @@ public:
     return {};
   }
 
-  return handle_view{data, source.data(), source.writable()};
+  return handle_view{source.get_type(), data, source.data(), source.writable()};
 }
 
 /** @brief 判断运行期引用是否具备对象身份句柄语义。 */

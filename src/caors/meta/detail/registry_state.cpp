@@ -3,6 +3,8 @@
 
 #include "registry_state.h"
 
+#include "caors/meta/detail/type_access.h"
+
 #include <utility>
 
 namespace caors::meta::detail {
@@ -43,6 +45,9 @@ std::size_t registry_layer_state::in_flight_calls() const noexcept {
 
 layer_call_guard::layer_call_guard(std::shared_ptr<registry_layer_state> layer) noexcept
     : layer_(std::move(layer)), entered_(layer_ == nullptr || layer_->try_enter_call()) {}
+
+layer_call_guard::layer_call_guard(const meta::type& type) noexcept
+    : layer_call_guard(type_access::layer_of(type)) {}
 
 layer_call_guard::~layer_call_guard() {
   if (entered_ && layer_ != nullptr) {
