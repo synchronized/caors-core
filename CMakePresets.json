@@ -315,6 +315,16 @@
       ]
     },
     {
+      "name": "windows-clang-shared-release",
+      "displayName": "Windows x64 clang shared release",
+      "inherits": [
+        "windows-default",
+        "use-clang",
+        "release-build",
+        "shared-build"
+      ]
+    },
+    {
       "name": "windows-clang-release",
       "displayName": "Windows x64 clang release",
       "inherits": [
@@ -371,6 +381,10 @@
     {
       "name": "windows-clang-shared-debug",
       "configurePreset": "windows-clang-shared-debug"
+    },
+    {
+      "name": "windows-clang-shared-release",
+      "configurePreset": "windows-clang-shared-release"
     },
     {
       "name": "windows-clang-release",
@@ -445,6 +459,13 @@
     {
       "name": "windows-clang-shared-debug",
       "configurePreset": "windows-clang-shared-debug",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "windows-clang-shared-release",
+      "configurePreset": "windows-clang-shared-release",
       "inherits": [
         "test-default"
       ]

@@ -317,7 +317,8 @@ type lease，schema 内部 runtime cache 则使用无 lease 的 property/accesso
 失效，以及 constructor owning value 在动态库仍被 lease 保活时安全析构。
 协议插件还通过宿主与插件共享的头文件注册自定义 convention/proxy capability；宿主验证 type
 facade 与 value view 均可跨 DLL 调用插件实现，并在 detach 后同时失效。至此 Windows Clang
-Shared Debug 的旧 layer 公共视图矩阵已覆盖完成，6F 仍需完成 Release、POSIX 与可用的 ASan 验证。
+Shared Debug 的旧 layer 公共视图矩阵已覆盖完成；同一协议测试也已在 Windows Clang Shared
+Release 下连续通过 10 次，6F 仍需完成 POSIX 与可用的 ASan 验证。
 
 ## 每批验收门禁
 
