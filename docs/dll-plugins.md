@@ -4,7 +4,7 @@
 # DLL 与插件使用规范
 
 本文说明 CAORS 的动态库和插件边界。当前插件模型以“宿主和插件共享同一份 CAORS runtime”
-为前提，不提供插件热卸载所需的 registry overlay。
+为前提。更完整的跨编译模块 API 风险和传参边界见 [module-boundary.md](module-boundary.md)。
 
 ## 推荐拓扑
 
@@ -15,9 +15,10 @@ host.exe
 └─ plugin_b.dll ── caors.dll
 ```
 
-宿主和所有插件必须动态链接同一个 `caors.dll` 实例。不要让多个插件分别静态链接 CAORS；
-这种拓扑会产生多个 runtime state，CAORS 不保证不同 state 之间的 `type_id`、capability key
-或 extension key 相同。
+宿主和所有插件必须动态链接同一个 `caors.dll` 实例。不要让多个插件分别静态链接 CAORS，
+也不要让宿主静态链接 CAORS 后再加载动态链接 CAORS 的插件。这种拓扑会产生多个 runtime state，
+CAORS 不保证不同 state 之间的 registry、默认 context、memory resource、`type_id`、
+capability key 或 extension key 相同。
 
 ## 编译与 ABI 要求
 
@@ -57,6 +58,19 @@ traits、adapter 或静态能力特化不一致。
 
 因此当前推荐插件在进程生命周期内保持加载。需要可卸载插件时，应使用未来的独立 registry
 overlay 和生命周期管理方案，不能只卸载 DLL。
+
+## Meta 视图和擦除值边界
+
+`meta::type`、`meta::property`、`meta::method`、`meta::any_ref`、容器 view、对象 view、
+schema view 和 capability facade 都是当前 runtime 内的轻量视图。它们可以在同一调用链中跨模块传递，
+但不能作为稳定 ABI、跨进程数据或插件卸载后的长期缓存。
+
+`meta::any` 如果拥有插件类型对象，会在复制、移动或析构时调用对应类型的擦除 ops。插件卸载前必须确保
+这类值已经释放，或由 registry layer/plugin library lease 保活到析构完成。
+
+插件 ABI 不应暴露 `type_record*`、raw ops 指针、用户 capability raw pointer、`memory_resource*`
+或 STL 拥有型对象。需要表达类型时优先传 `type_guid`、注册名、schema 或同 runtime 内短期有效的
+`type_id`，接收方再通过 registry 查询当前视图。
 
 ## 当前 Library 与 Plugin API
 

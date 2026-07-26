@@ -448,6 +448,10 @@ caors::registration::type_<actor>("game.actor")
 - dynamic capability 不是 meta extension，也不替代业务类型注册；需要稳定名称、GUID 或跨模块 extension 查询时仍要注册
   meta 类型。
 
+跨 EXE、DLL 和插件边界使用 meta API 时，同一进程必须只有一个 CAORS runtime。`meta::type`、
+property/method view、`any`、`any_ref`、容器 view、capability facade 和 raw ops 都是当前 runtime
+内的进程内对象，不是稳定 ABI 数据包。完整约束见 [module-boundary.md](module-boundary.md)。
+
 static capability 依赖模板特化可见性。用户类型及其 `codec_traits<T>`、object adapter 或自定义
 `static_capability` 特化应放在同一个公共头或配套 adapter 头中，并在首次使用
 `resolve<T>()`、`id_of<T>()`、`any::from<T>()` 等可能实例化静态节点的入口前包含。使用同一类型的
