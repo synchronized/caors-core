@@ -19,6 +19,7 @@
 #include "caors/meta/value/set_view.h"
 #include "caors/meta/value/tuple_view.h"
 #include "caors/meta/value/variant_view.h"
+#include "caors/object.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
@@ -152,6 +153,7 @@ int main(int argc, char** argv) {
   const auto* reflected_capability = reflected.get_capability<caors_plugin_protocol_capability>();
   auto owned = caors::any::default_construct(reflected);
   caors::meta::instance object{owned.ref()};
+  caors::objects::object_view object_facade{owned.ref()};
   auto sequence = object.get_ref("values").get_capability<caors::meta::sequence_capability>();
   auto set = object.get_ref("tags").get_capability<caors::meta::set_capability>();
   auto associative = object.get_ref("lookup").get_capability<caors::meta::associative_capability>();
@@ -159,6 +161,21 @@ int main(int argc, char** argv) {
   auto tuple = object.get_ref("tuple").get_capability<caors::meta::tuple_capability>();
   auto variant = object.get_ref("variant").get_capability<caors::meta::variant_capability>();
   auto indirect = object.get_ref("optional").get_capability<caors::meta::indirect_capability>();
+  auto pointer = object.get_ref("object_pointer").get_capability<caors::objects::ptr_capability>();
+  auto handle = object.get_ref("object_handle").get_capability<caors::objects::handle_capability>();
+  auto reflected_object = registry.find_type("caors.test.plugin.object");
+  auto object_factory =
+      reflected_object.get_capability<caors::objects::object_factory_capability>();
+  caors::object* created_object = object_factory.try_create();
+  const caors::object_handle created_handle{
+      created_object != nullptr ? created_object->id() : caors::object_id{},
+      created_object != nullptr ? created_object->type_id() : caors::type_id{}};
+  const bool pointer_round_trip = created_object != nullptr && pointer.set(created_object) &&
+                                  pointer.get() == created_object && pointer.set(nullptr) &&
+                                  pointer.get() == nullptr;
+  const bool handle_round_trip =
+      created_object != nullptr && handle.set(created_handle) && handle.get() == created_handle;
+  const bool object_destroyed = created_object != nullptr && object_factory.destroy(created_object);
   auto extensions = registry.extension_view<caors_plugin_protocol_meta_extension>();
   const auto meta_extension = extensions.find<caors_plugin_protocol_meta_extension>(reflected_id);
   auto factory = reflected.get_capability<caors::meta::factory_capability>();
@@ -179,7 +196,8 @@ int main(int argc, char** argv) {
   if (!reflected || !reflected_property || !reflected_accessor || !reflected_method ||
       !reflected_overload || reflected_method.overload_count() != 1 || !reflected_nested ||
       reflected_nested.name() != "caors.test.plugin.nested" || reflected_capability == nullptr ||
-      reflected_capability->value != 73 || !owned || !object || !sequence ||
+      reflected_capability->value != 73 || !owned || !object || !object_facade ||
+      !object_facade.find_property("value") || !sequence ||
       sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned || !set ||
       set.size() != std::optional<std::size_t>{2} || !associative ||
       associative.size() != std::optional<std::size_t>{1} || !pair ||
@@ -189,7 +207,9 @@ int main(int argc, char** argv) {
       variant.index() != std::optional<std::size_t>{0} ||
       variant.value_ref().try_get<int>() == nullptr || *variant.value_ref().try_get<int>() != 9 ||
       !indirect || !indirect.has_value() || indirect.value_ref().try_get<int>() == nullptr ||
-      *indirect.value_ref().try_get<int>() != 10 || !extensions || extensions.size() != 1 ||
+      *indirect.value_ref().try_get<int>() != 10 || !pointer || !handle || !reflected_object ||
+      !object_factory || !object_factory.constructible() || !pointer_round_trip ||
+      !handle_round_trip || !object_destroyed || !extensions || extensions.size() != 1 ||
       !meta_extension || meta_extension->value != 91 || !codec || !constructor ||
       constructor.argument_count() != 1 || !constructor_owned || constructed_value == nullptr ||
       *constructed_value != 88 || !codec.can_make_value() || !codec_view || !codec_value ||
@@ -216,8 +236,9 @@ int main(int argc, char** argv) {
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
-      object || factory || factory_owned || constructor || constructor_owned || codec ||
-      codec_view || extensions ||
+      object || object_facade || factory || factory_owned || constructor || constructor_owned ||
+      codec || codec_view || extensions || reflected_object || object_factory || !pointer ||
+      pointer.get() != nullptr || !handle || handle.get() != created_handle ||
       extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
       set.size() != std::optional<std::size_t>{2} || !associative ||
@@ -234,6 +255,7 @@ int main(int argc, char** argv) {
     return fail("detach 前已进入的 method 没有安全完成");
   }
   object = {};
+  object_facade = {};
   sequence = {};
   set = {};
   associative = {};
@@ -241,6 +263,8 @@ int main(int argc, char** argv) {
   tuple = {};
   variant = {};
   indirect = {};
+  pointer = {};
+  handle = {};
   extensions = {};
   factory = {};
   constructor = {};
@@ -257,6 +281,8 @@ int main(int argc, char** argv) {
   reflected_method = {};
   reflected_overload = {};
   reflected_nested = {};
+  reflected_object = {};
+  object_factory = {};
   reflected = {};
   if (manager.unload(managed_id)) {
     return fail("释放旧反射视图后 plugin manager 仍无法完成卸载");
