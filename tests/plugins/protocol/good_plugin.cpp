@@ -10,9 +10,13 @@
 
 #include <atomic>
 #include <cstring>
+#include <optional>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -22,6 +26,10 @@ struct plugin_reflected_type {
   std::vector<int> values{1, 2, 3};
   std::unordered_set<int> tags{4, 5};
   std::unordered_map<int, int> lookup{{6, 60}};
+  std::pair<int, int> pair_value{7, 70};
+  std::tuple<int, int> tuple_value{8, 80};
+  std::variant<int, float> variant_value{9};
+  std::optional<int> optional_value{10};
 
   plugin_reflected_type() = default;
   explicit plugin_reflected_type(int initial_value) : value(initial_value) {}
@@ -118,6 +126,10 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .property("values", &plugin_reflected_type::values)
             .property("tags", &plugin_reflected_type::tags)
             .property("lookup", &plugin_reflected_type::lookup)
+            .property("pair", &plugin_reflected_type::pair_value)
+            .property("tuple", &plugin_reflected_type::tuple_value)
+            .property("variant", &plugin_reflected_type::variant_value)
+            .property("optional", &plugin_reflected_type::optional_value)
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)

@@ -287,7 +287,7 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 
 - [x] 插件注册 type/property/method/capability/codec；
 - [ ] host 保存并释放各类旧视图；（type/property/method/accessor/factory/constructor/
-      extension/container/codec 已覆盖）
+      extension/container/composite/indirect/codec 已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
@@ -303,6 +303,8 @@ draft 被销毁且主 registry 不可见该类型。并发查询测试持续解�
 协议插件进一步注册可复制 meta extension、`std::unordered_set` 与 `std::unordered_map`
 property：host 验证 extension view 在 detach 后失效且不再返回扩展副本；已经绑定到成员值的
 set/associative view 仍可读取，随后在 owning value 析构前显式释放。
+pair/tuple/variant/indirect view 也通过插件对象成员在宿主绑定；detach 后这些使用宿主静态 ops 的
+已绑定视图仍可安全读取，并在 owning value 析构前显式释放。
 带一个 `int` 参数的 constructor 也由插件注册并在宿主调用；测试校验构造参数、detach 后 facade
 失效，以及 constructor owning value 在动态库仍被 lease 保活时安全析构。
 

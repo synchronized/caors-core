@@ -13,8 +13,12 @@
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/associative_view.h"
 #include "caors/meta/value/capabilities.h"
+#include "caors/meta/value/indirect_view.h"
+#include "caors/meta/value/pair_view.h"
 #include "caors/meta/value/sequence_view.h"
 #include "caors/meta/value/set_view.h"
+#include "caors/meta/value/tuple_view.h"
+#include "caors/meta/value/variant_view.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
@@ -149,6 +153,10 @@ int main(int argc, char** argv) {
   auto sequence = object.get_ref("values").get_capability<caors::meta::sequence_capability>();
   auto set = object.get_ref("tags").get_capability<caors::meta::set_capability>();
   auto associative = object.get_ref("lookup").get_capability<caors::meta::associative_capability>();
+  auto pair = object.get_ref("pair").get_capability<caors::meta::pair_capability>();
+  auto tuple = object.get_ref("tuple").get_capability<caors::meta::tuple_capability>();
+  auto variant = object.get_ref("variant").get_capability<caors::meta::variant_capability>();
+  auto indirect = object.get_ref("optional").get_capability<caors::meta::indirect_capability>();
   auto extensions = registry.extension_view<caors_plugin_protocol_meta_extension>();
   const auto meta_extension = extensions.find<caors_plugin_protocol_meta_extension>(reflected_id);
   auto factory = reflected.get_capability<caors::meta::factory_capability>();
@@ -170,12 +178,18 @@ int main(int argc, char** argv) {
       reflected_capability == nullptr || reflected_capability->value != 73 || !owned || !object ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned ||
       !set || set.size() != std::optional<std::size_t>{2} || !associative ||
-      associative.size() != std::optional<std::size_t>{1} || !extensions ||
-      extensions.size() != 1 || !meta_extension || meta_extension->value != 91 || !codec ||
-      !constructor || constructor.argument_count() != 1 || !constructor_owned ||
-      constructed_value == nullptr || *constructed_value != 88 || !codec.can_make_value() ||
-      !codec_view || !codec_value || control == nullptr ||
-      control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
+      associative.size() != std::optional<std::size_t>{1} || !pair ||
+      pair.first_ref().try_get<int>() == nullptr || *pair.first_ref().try_get<int>() != 7 ||
+      !tuple || tuple.size() != 2 || tuple.element_ref(1).try_get<int>() == nullptr ||
+      *tuple.element_ref(1).try_get<int>() != 80 || !variant ||
+      variant.index() != std::optional<std::size_t>{0} ||
+      variant.value_ref().try_get<int>() == nullptr || *variant.value_ref().try_get<int>() != 9 ||
+      !indirect || !indirect.has_value() || indirect.value_ref().try_get<int>() == nullptr ||
+      *indirect.value_ref().try_get<int>() != 10 || !extensions || extensions.size() != 1 ||
+      !meta_extension || meta_extension->value != 91 || !codec || !constructor ||
+      constructor.argument_count() != 1 || !constructor_owned || constructed_value == nullptr ||
+      *constructed_value != 88 || !codec.can_make_value() || !codec_view || !codec_value ||
+      control == nullptr || control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
   }
@@ -202,7 +216,10 @@ int main(int argc, char** argv) {
       extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
       set.size() != std::optional<std::size_t>{2} || !associative ||
-      associative.size() != std::optional<std::size_t>{1}) {
+      associative.size() != std::optional<std::size_t>{1} || !pair ||
+      pair.first_ref().try_get<int>() == nullptr || *pair.first_ref().try_get<int>() != 7 ||
+      !tuple || tuple.size() != 2 || !variant || variant.index() != std::optional<std::size_t>{0} ||
+      !indirect || !indirect.has_value()) {
     control->release(control->context);
     (void)invocation.get();
     return fail("detach 后 registry 句柄失效或已绑定容器 view 保活异常");
@@ -215,6 +232,10 @@ int main(int argc, char** argv) {
   sequence = {};
   set = {};
   associative = {};
+  pair = {};
+  tuple = {};
+  variant = {};
+  indirect = {};
   extensions = {};
   factory = {};
   constructor = {};
