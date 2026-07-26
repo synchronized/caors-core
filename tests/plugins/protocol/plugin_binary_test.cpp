@@ -4,10 +4,14 @@
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_manager.h"
 
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/property.h"
+#include "caors/meta/property_accessor.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/value/any.h"
+#include "caors/meta/value/capabilities/sequence_capability.h"
+#include "caors/meta/value/sequence_view.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
@@ -132,19 +136,24 @@ int main(int argc, char** argv) {
   }
   auto reflected = registry.find_type("caors.test.plugin.reflected");
   auto reflected_property = reflected.find_property("value");
+  auto reflected_accessor = caors::meta::compile_property_accessor(reflected_property);
   auto reflected_method = reflected.find_method("block");
   const auto* reflected_capability = reflected.get_capability<caors_plugin_protocol_capability>();
   auto owned = caors::any::default_construct(reflected);
   caors::meta::instance object{owned.ref()};
+  auto sequence = object.get_ref("values").get_capability<caors::meta::sequence_capability>();
+  auto factory = reflected.get_capability<caors::meta::factory_capability>();
+  auto factory_owned = factory.construct();
   auto codec = caors::serialization::find_codec(reflected);
   auto codec_view = codec.bind(owned.ref());
   const auto codec_value = codec_view.make_value(caors::serialization::context{});
   const auto* control =
       static_cast<const caors_plugin_protocol_test_extension*>(managed.get_extension(
           CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID, CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION));
-  if (!reflected || !reflected_property || !reflected_method || reflected_capability == nullptr ||
-      reflected_capability->value != 73 || !owned || !object || !codec || !codec.can_make_value() ||
-      !codec_view || !codec_value || control == nullptr ||
+  if (!reflected || !reflected_property || !reflected_accessor || !reflected_method ||
+      reflected_capability == nullptr || reflected_capability->value != 73 || !owned || !object ||
+      !sequence || sequence.size() != std::optional<std::size_t>{3} || !factory || !factory_owned ||
+      !codec || !codec.can_make_value() || !codec_view || !codec_value || control == nullptr ||
       control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
@@ -167,23 +176,28 @@ int main(int argc, char** argv) {
           caors::error{caors::error_domain::plugins, caors::errc::pending} ||
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
-      reflected_method || owned || object || codec || codec_view) {
+      reflected_accessor || reflected_method || owned || object || factory || factory_owned ||
+      codec || codec_view || !sequence || sequence.size() != std::optional<std::size_t>{3}) {
     control->release(control->context);
     (void)invocation.get();
-    return fail("in-flight method 或 owning value 没有阻止 DLL 提前关闭");
+    return fail("detach 后 registry 句柄失效或已绑定 sequence view 保活异常");
   }
   control->release(control->context);
   if (!invocation.get()) {
     return fail("detach 前已进入的 method 没有安全完成");
   }
   object = {};
+  sequence = {};
+  factory = {};
   codec_view = {};
   codec = {};
+  factory_owned.reset();
   owned.reset();
-  if (control->destructions(control->context) != 1) {
+  if (control->destructions(control->context) != 2) {
     return fail("detach 后 owning value 没有在 DLL 保活期间安全析构");
   }
   reflected_property = {};
+  reflected_accessor = {};
   reflected_method = {};
   reflected = {};
   if (manager.unload(managed_id)) {

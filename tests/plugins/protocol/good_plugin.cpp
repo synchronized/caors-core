@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/adapters/stl.h"
 #include "caors/plugins/abi.h"
 #include "caors/plugins/meta_registration.h"
 #include "caors/registration.h"
@@ -10,11 +11,13 @@
 #include <atomic>
 #include <cstring>
 #include <thread>
+#include <vector>
 
 namespace {
 
 struct plugin_reflected_type {
   int value = 42;
+  std::vector<int> values{1, 2, 3};
 
   ~plugin_reflected_type();
   void block() const;
@@ -105,9 +108,11 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
     if (caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected")
             .meta()
             .property("value", &plugin_reflected_type::value)
+            .property("values", &plugin_reflected_type::values)
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)
+            .factory()
             .commit()) {
       return 1;
     }

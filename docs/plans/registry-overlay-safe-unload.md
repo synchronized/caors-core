@@ -286,7 +286,7 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 ### 6F：真实跨 DLL 卸载测试
 
 - [x] 插件注册 type/property/method/capability/codec；
-- [ ] host 保存并释放各类旧视图；（type/property/method/codec 已覆盖）
+- [ ] host 保存并释放各类旧视图；（type/property/method/accessor/factory/sequence/codec 已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
@@ -296,6 +296,9 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 真实 failure plugin 会先通过 host extension 向 draft 注册类型，再让 initialize 返回失败；测试确认
 draft 被销毁且主 registry 不可见该类型。并发查询测试持续解析插件类型，同时执行 detach/unload，
 确认查询只会观察到有效旧 snapshot 或已移除的新 snapshot，并连续运行 10 次检测竞态稳定性。
+协议插件还注册了 factory 与 `std::vector` property：host 验证 accessor、factory 和 owning value
+在 detach 后按 registry generation 失效；已经绑定到成员值且 ops 位于宿主模块的 sequence view
+仍可安全读取，并在显式释放前参与其自身依赖的生命周期管理。
 
 ## 每批验收门禁
 
