@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A、6B、6C、6D 已完成，6E 实施中；
+- 当前状态：设计冻结，6A 至 6E 已完成，6F 实施中；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -270,7 +270,7 @@ block 保证这些回调执行前动态库不会关闭。
 - [x] initialize 失败销毁未发布 draft；
 - [x] stop/shutdown 后 detach；
 - [x] lease 未归零返回 pending，不关闭 DLL；
-- [ ] 增加版本化 meta registration host extension，让插件 initialize 写入对应 draft。
+- [x] 增加版本化 meta registration host extension，让插件 initialize 写入对应 draft。
 
 `plugin_binary` 与 `plugin_library_lease` 现在共享动态库 control block；control block 绑定到
 `registry_layer_state`，因此 layer owner 被销毁后，旧 type/property/method/owning value 持有的
@@ -279,17 +279,18 @@ layer lease 仍会保持 DLL 已加载。绑定只允许发生在 publish 前，
 
 `plugin_manager` 已提供稳定只读 handle、重复 ID 拒绝、串行生命周期、自动
 stop/shutdown/cleanup/detach，以及重新加载 generation 隔离。当前 ABI 尚未提供 meta
-registration host extension，因此 manager 已拥有并管理 draft，但插件代码还不能通过稳定扩展写入
-它；该入口与真实跨 DLL 注册测试一起完成。
+registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*`，公共 C++ 适配层负责
+还原 `meta::registry*`；绑定只在 initialize 调用期间有效，返回后立即移除，插件不能保存并继续
+修改已经发布的 layer。
 
 ### 6F：真实跨 DLL 卸载测试
 
-- 插件注册 type/property/method/capability/codec；
-- host 保存并释放各类旧视图；
-- 验证 detach 后旧视图失效；
-- 验证旧 owning value 销毁前 DLL 不关闭；
-- 验证最后 lease 释放后 DLL 关闭；
-- 覆盖重复加载、新 generation、并发查询和 in-flight method；
+- [ ] 插件注册 type/property/method/capability/codec；（type/property 已覆盖）
+- [ ] host 保存并释放各类旧视图；（type/property 已覆盖）
+- [x] 验证 detach 后旧视图失效；
+- [ ] 验证旧 owning value 销毁前 DLL 不关闭；
+- [x] 验证最后 lease 释放后 DLL 关闭；
+- [ ] 覆盖重复加载、新 generation、并发查询和 in-flight method；（重复加载和 generation 已覆盖）
 - Windows 与 POSIX，Debug/Release，ASan 可用时运行 use-after-unload 检查。
 
 ## 每批验收门禁

@@ -53,6 +53,11 @@ public:
   /** @brief 移除指定 owner 发布的全部服务，并返回移除数量。 */
   std::size_t remove_services(void* owner) noexcept;
 
+  /** @brief 临时绑定插件 owner 与 initialize 阶段专属的 opaque registration context。 */
+  [[nodiscard]] error bind_registration_context(void* owner, void* context);
+  /** @brief 移除 owner 的 registration context 绑定。 */
+  void unbind_registration_context(void* owner) noexcept;
+
 private:
   struct impl;
   impl* data_ = nullptr;

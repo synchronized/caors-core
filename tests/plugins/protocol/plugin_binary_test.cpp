@@ -4,6 +4,7 @@
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_manager.h"
 
+#include "caors/meta/property.h"
 #include "caors/meta/registry.h"
 #include "caors/plugins/plugin_host.h"
 
@@ -119,9 +120,25 @@ int main(int argc, char** argv) {
     return fail("plugin manager 索引或重复 ID 校验错误");
   }
   if (manager.initialize(managed_id) ||
-      managed.state() != caors::plugins::plugin_state::initialized || manager.start(managed_id) ||
-      managed.state() != caors::plugins::plugin_state::running || manager.unload(managed_id)) {
-    return fail("plugin manager 生命周期或安全卸载失败");
+      managed.state() != caors::plugins::plugin_state::initialized) {
+    return fail("plugin manager 初始化或 layer 发布失败");
+  }
+  auto reflected = registry.find_type("caors.test.plugin.reflected");
+  auto reflected_property = reflected.find_property("value");
+  if (!reflected || !reflected_property || manager.start(managed_id) ||
+      managed.state() != caors::plugins::plugin_state::running) {
+    return fail("插件反射类型没有发布到 manager registry");
+  }
+  if (manager.unload(managed_id) !=
+          caors::error{caors::error_domain::plugins, caors::errc::pending} ||
+      managed.state() != caors::plugins::plugin_state::detached_pending_release ||
+      registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property) {
+    return fail("旧反射视图没有阻止 DLL 提前关闭或 detach 后仍然有效");
+  }
+  reflected_property = {};
+  reflected = {};
+  if (manager.unload(managed_id)) {
+    return fail("释放旧反射视图后 plugin manager 仍无法完成卸载");
   }
   if (managed || managed.state() != caors::plugins::plugin_state::unloaded || manager.size() != 0 ||
       manager.find(managed_id)) {

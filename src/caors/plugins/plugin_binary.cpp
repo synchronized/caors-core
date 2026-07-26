@@ -140,6 +140,10 @@ const std::filesystem::path& plugin_binary::path() const noexcept {
   return data_ != nullptr && data_->library != nullptr ? data_->library->library.path() : empty;
 }
 
+void* plugin_binary::owner_token() const noexcept {
+  return data_ != nullptr && data_->entry != nullptr ? data_->entry->plugin_data : nullptr;
+}
+
 plugin_library_lease plugin_binary::library_lease() const noexcept {
   return data_ != nullptr ? plugin_library_lease{data_->library} : plugin_library_lease{};
 }

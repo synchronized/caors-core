@@ -62,6 +62,8 @@ public:
   [[nodiscard]] plugin_state state() const noexcept;
   [[nodiscard]] const plugin_descriptor& descriptor() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
+  /** @brief 返回插件入口声明的实例标识，仅用于宿主生命周期绑定。 */
+  [[nodiscard]] void* owner_token() const noexcept;
   /** @brief 获取一份保持当前插件动态库已加载的共享租约。 */
   [[nodiscard]] plugin_library_lease library_lease() const noexcept;
 

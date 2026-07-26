@@ -147,6 +147,12 @@ result<plugin> plugin_manager::load(const std::filesystem::path& path) {
   if (!loaded) {
     return fail<plugin>(loaded.error());
   }
+  {
+    std::lock_guard lock{data_->mutex};
+    if (data_->plugins.contains(loaded->descriptor().id)) {
+      return fail<plugin>({error_domain::plugins, errc::duplicate_id});
+    }
+  }
 
   auto node = std::shared_ptr<detail::managed_plugin>{new (std::nothrow) detail::managed_plugin{}};
   if (node == nullptr) {
@@ -198,7 +204,16 @@ error plugin_manager::initialize(guid id) {
     return status;
   }
 
+  void* const owner = node->binary.owner_token();
+  if (owner != nullptr) {
+    status = data_->host.bind_registration_context(owner, &node->layer->get_registry());
+    if (status) {
+      finish_operation(node, plugin_state::loaded);
+      return status;
+    }
+  }
   status = node->binary.initialize();
+  data_->host.unbind_registration_context(owner);
   if (!status && node->layer->local_size() != 0) {
     status = data_->registry->publish_layer(*node->layer);
     node->layer_published = !status;

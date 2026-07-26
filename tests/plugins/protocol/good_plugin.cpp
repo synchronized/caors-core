@@ -2,43 +2,69 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/plugins/abi.h"
+#include "caors/plugins/meta_registration.h"
+#include "caors/registration.h"
 
 #include <cstring>
 
 namespace {
 
-int lifecycle_state = 0;
+struct plugin_reflected_type {
+  int value = 42;
+};
+
+struct plugin_instance {
+  int lifecycle_state = 0;
+  caors_plugin_host host{};
+};
+
+plugin_instance instance{};
 constexpr int extension_value = 42;
 
-int32_t CAORS_PLUGIN_CALL initialize(void*) {
-  if (lifecycle_state != 0) {
+int32_t CAORS_PLUGIN_CALL initialize(void* data) {
+  auto& self = *static_cast<plugin_instance*>(data);
+  if (self.lifecycle_state != 0) {
     return 1;
   }
-  lifecycle_state = 1;
+  if (caors::meta::registry* registry =
+          caors::plugins::find_registration_registry(&self.host, data);
+      registry != nullptr) {
+    caors::meta::context context{*registry};
+    if (caors::registration::type_<plugin_reflected_type>(context, "caors.test.plugin.reflected")
+            .meta()
+            .property("value", &plugin_reflected_type::value)
+            .commit()) {
+      return 1;
+    }
+  }
+  self.lifecycle_state = 1;
   return 0;
 }
 
-int32_t CAORS_PLUGIN_CALL start(void*) {
-  if (lifecycle_state != 1) {
+int32_t CAORS_PLUGIN_CALL start(void* data) {
+  auto& self = *static_cast<plugin_instance*>(data);
+  if (self.lifecycle_state != 1) {
     return 1;
   }
-  lifecycle_state = 2;
+  self.lifecycle_state = 2;
   return 0;
 }
 
-int32_t CAORS_PLUGIN_CALL stop(void*) {
-  if (lifecycle_state != 2) {
+int32_t CAORS_PLUGIN_CALL stop(void* data) {
+  auto& self = *static_cast<plugin_instance*>(data);
+  if (self.lifecycle_state != 2) {
     return 1;
   }
-  lifecycle_state = 3;
+  self.lifecycle_state = 3;
   return 0;
 }
 
-int32_t CAORS_PLUGIN_CALL shutdown(void*) {
-  if (lifecycle_state != 1 && lifecycle_state != 3) {
+int32_t CAORS_PLUGIN_CALL shutdown(void* data) {
+  auto& self = *static_cast<plugin_instance*>(data);
+  if (self.lifecycle_state != 1 && self.lifecycle_state != 3) {
     return 1;
   }
-  lifecycle_state = 0;
+  self.lifecycle_state = 0;
   return 0;
 }
 
@@ -67,7 +93,7 @@ const caors_plugin_entry entry{
     sizeof(caors_plugin_entry),
     CAORS_PLUGIN_ABI_VERSION,
     &descriptor,
-    nullptr,
+    &instance,
     &initialize,
     &start,
     &stop,
@@ -83,6 +109,7 @@ caors_query_plugin(const caors_plugin_host* host, uint32_t host_abi_version) {
       host_abi_version != CAORS_PLUGIN_ABI_VERSION || host->get_extension == nullptr) {
     return nullptr;
   }
+  instance.host = *host;
   const auto* runtime = static_cast<const caors_plugin_runtime_extension*>(host->get_extension(
       host->context, CAORS_PLUGIN_RUNTIME_EXTENSION_ID,
       sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1, CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION));

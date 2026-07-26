@@ -28,6 +28,11 @@ struct service_record {
   void* owner = nullptr;
 };
 
+struct registration_context_record {
+  void* owner = nullptr;
+  void* context = nullptr;
+};
+
 [[nodiscard]] guid copy_guid(const caors_plugin_guid& source) noexcept {
   guid::byte_array bytes{};
   std::copy(std::begin(source.bytes), std::end(source.bytes), bytes.begin());
@@ -40,11 +45,13 @@ struct plugin_host::impl {
   caors_plugin_host host{};
   caors_plugin_runtime_extension runtime{};
   caors_plugin_services_extension services{};
+  caors_plugin_meta_registration_extension meta_registration{};
   caors_plugin_log_fn log = nullptr;
   void* log_context = nullptr;
   mutable std::mutex mutex{};
   std::vector<extension_record> extensions{};
   std::vector<service_record> service_records{};
+  std::vector<registration_context_record> registration_contexts{};
 
   static void CAORS_PLUGIN_CALL write_log(void* context, std::uint32_t level, const char* message,
                                           std::size_t message_size) {
@@ -117,6 +124,22 @@ struct plugin_host::impl {
     }
   }
 
+  static void* CAORS_PLUGIN_CALL find_registration_context(void* context, void* owner) {
+    if (context == nullptr || owner == nullptr) {
+      return nullptr;
+    }
+    try {
+      auto& self = *static_cast<impl*>(context);
+      const std::lock_guard lock{self.mutex};
+      const auto found =
+          std::find_if(self.registration_contexts.begin(), self.registration_contexts.end(),
+                       [owner](const auto& item) { return item.owner == owner; });
+      return found != self.registration_contexts.end() ? found->context : nullptr;
+    } catch (...) {
+      return nullptr;
+    }
+  }
+
   [[nodiscard]] const void* find_extension(std::string_view id,
                                            std::uint32_t version) const noexcept {
     if (id == CAORS_PLUGIN_RUNTIME_EXTENSION_ID &&
@@ -126,6 +149,10 @@ struct plugin_host::impl {
     if (id == CAORS_PLUGIN_SERVICES_EXTENSION_ID &&
         version == CAORS_PLUGIN_SERVICES_EXTENSION_VERSION) {
       return &services;
+    }
+    if (id == CAORS_PLUGIN_META_REGISTRATION_EXTENSION_ID &&
+        version == CAORS_PLUGIN_META_REGISTRATION_EXTENSION_VERSION) {
+      return &meta_registration;
     }
     const std::lock_guard lock{mutex};
     const auto found = std::find_if(extensions.begin(), extensions.end(), [&](const auto& item) {
@@ -196,6 +223,9 @@ plugin_host::plugin_host() : data_(new (std::nothrow) impl{}) {
                      &impl::publish_service,
                      &impl::find_service,
                      &impl::remove_services};
+  data_->meta_registration = {sizeof(caors_plugin_meta_registration_extension),
+                              CAORS_PLUGIN_META_REGISTRATION_EXTENSION_VERSION, data_,
+                              &impl::find_registration_context};
   data_->host = {sizeof(caors_plugin_host), CAORS_PLUGIN_ABI_VERSION, data_, &impl::write_log,
                  &impl::get_extension};
 }
@@ -221,7 +251,8 @@ error plugin_host::add_extension(std::string_view id, std::uint32_t version,
   }
   if (id.empty() || id.find('\0') != std::string_view::npos || version == 0 ||
       extension == nullptr || id == CAORS_PLUGIN_RUNTIME_EXTENSION_ID ||
-      id == CAORS_PLUGIN_SERVICES_EXTENSION_ID) {
+      id == CAORS_PLUGIN_SERVICES_EXTENSION_ID ||
+      id == CAORS_PLUGIN_META_REGISTRATION_EXTENSION_ID) {
     return {error_domain::plugins, errc::invalid_argument};
   }
   const std::lock_guard lock{data_->mutex};
@@ -255,6 +286,33 @@ const void* plugin_host::find_service(guid id, std::uint32_t minimum_version,
 
 std::size_t plugin_host::remove_services(void* owner) noexcept {
   return data_ != nullptr ? data_->remove_services(owner) : 0;
+}
+
+error plugin_host::bind_registration_context(void* owner, void* context) {
+  if (data_ == nullptr) {
+    return {error_domain::plugins, errc::out_of_memory};
+  }
+  if (owner == nullptr || context == nullptr) {
+    return {error_domain::plugins, errc::invalid_argument};
+  }
+  const std::lock_guard lock{data_->mutex};
+  const auto duplicate =
+      std::find_if(data_->registration_contexts.begin(), data_->registration_contexts.end(),
+                   [owner](const auto& item) { return item.owner == owner; });
+  if (duplicate != data_->registration_contexts.end()) {
+    return {error_domain::plugins, errc::already_exists};
+  }
+  data_->registration_contexts.push_back({owner, context});
+  return {};
+}
+
+void plugin_host::unbind_registration_context(void* owner) noexcept {
+  if (data_ == nullptr || owner == nullptr) {
+    return;
+  }
+  const std::lock_guard lock{data_->mutex};
+  std::erase_if(data_->registration_contexts,
+                [owner](const auto& item) { return item.owner == owner; });
 }
 
 } // namespace caors::plugins

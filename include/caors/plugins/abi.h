@@ -28,6 +28,8 @@ extern "C" {
 #define CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION 1u
 #define CAORS_PLUGIN_SERVICES_EXTENSION_ID "caors.host.services"
 #define CAORS_PLUGIN_SERVICES_EXTENSION_VERSION 1u
+#define CAORS_PLUGIN_META_REGISTRATION_EXTENSION_ID "caors.host.meta-registration"
+#define CAORS_PLUGIN_META_REGISTRATION_EXTENSION_VERSION 1u
 
 typedef enum caors_plugin_status {
   CAORS_PLUGIN_STATUS_SUCCESS = 0,
@@ -104,6 +106,21 @@ typedef struct caors_plugin_services_extension {
   caors_plugin_find_service_fn find;
   caors_plugin_remove_services_fn remove_owner;
 } caors_plugin_services_extension;
+
+typedef void*(CAORS_PLUGIN_CALL* caors_plugin_find_registration_context_fn)(void* context,
+                                                                            void* owner);
+
+/**
+ * 查询插件 initialize 阶段专属的 opaque meta registration context。
+ *
+ * owner 必须是当前插件入口中的 plugin_data。返回值只在 initialize 调用期间有效，不得保存。
+ */
+typedef struct caors_plugin_meta_registration_extension {
+  uint32_t struct_size;
+  uint32_t version;
+  void* context;
+  caors_plugin_find_registration_context_fn find;
+} caors_plugin_meta_registration_extension;
 
 typedef int32_t(CAORS_PLUGIN_CALL* caors_plugin_lifecycle_fn)(void* plugin_data);
 
