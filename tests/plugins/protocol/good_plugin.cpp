@@ -4,6 +4,7 @@
 #include "caors/plugins/abi.h"
 #include "caors/plugins/meta_registration.h"
 #include "caors/registration.h"
+#include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
 
 #include <atomic>
@@ -72,6 +73,26 @@ const caors_plugin_protocol_test_extension test_extension{
 };
 const caors_plugin_protocol_capability test_capability{73};
 
+caors::serialization::variant_result make_codec_value(const caors::serialization::context&,
+                                                      const caors::meta::any& source) {
+  const auto* value = source.try_get<plugin_reflected_type>();
+  return value != nullptr ? caors::ok(caors::variant::from(static_cast<std::int64_t>(value->value)))
+                          : caors::fail<caors::variant>(
+                                {caors::error_domain::serialization, caors::errc::invalid_type});
+}
+
+caors::serialization::variant_result make_codec_value_ref(const caors::serialization::context&,
+                                                          const caors::meta::any_ref& source) {
+  const auto* value = source.try_get<plugin_reflected_type>();
+  return value != nullptr ? caors::ok(caors::variant::from(static_cast<std::int64_t>(value->value)))
+                          : caors::fail<caors::variant>(
+                                {caors::error_domain::serialization, caors::errc::invalid_type});
+}
+
+const caors::serialization::codec_ops test_codec{
+    nullptr, nullptr, nullptr, &make_codec_value, &make_codec_value_ref,
+};
+
 int32_t CAORS_PLUGIN_CALL initialize(void* data) {
   auto& self = *static_cast<plugin_instance*>(data);
   if (self.lifecycle_state != 0) {
@@ -86,6 +107,7 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .property("value", &plugin_reflected_type::value)
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
+            .capability(test_codec)
             .commit()) {
       return 1;
     }

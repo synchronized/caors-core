@@ -9,6 +9,7 @@
 #include "caors/meta/registry.h"
 #include "caors/meta/value/any.h"
 #include "caors/plugins/plugin_host.h"
+#include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
 
 #include <chrono>
@@ -134,11 +135,15 @@ int main(int argc, char** argv) {
   const auto* reflected_capability = reflected.get_capability<caors_plugin_protocol_capability>();
   auto owned = caors::any::default_construct(reflected);
   caors::meta::instance object{owned.ref()};
+  auto codec = caors::serialization::find_codec(reflected);
+  auto codec_view = codec.bind(owned.ref());
+  const auto codec_value = codec_view.make_value(caors::serialization::context{});
   const auto* control =
       static_cast<const caors_plugin_protocol_test_extension*>(managed.get_extension(
           CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_ID, CAORS_PLUGIN_PROTOCOL_TEST_EXTENSION_VERSION));
   if (!reflected || !reflected_property || !reflected_method || reflected_capability == nullptr ||
-      reflected_capability->value != 73 || !owned || !object || control == nullptr ||
+      reflected_capability->value != 73 || !owned || !object || !codec || !codec.can_make_value() ||
+      !codec_view || !codec_value || control == nullptr ||
       control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
@@ -161,7 +166,7 @@ int main(int argc, char** argv) {
           caors::error{caors::error_domain::plugins, caors::errc::pending} ||
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
-      reflected_method || owned || object) {
+      reflected_method || owned || object || codec || codec_view) {
     control->release(control->context);
     (void)invocation.get();
     return fail("in-flight method 或 owning value 没有阻止 DLL 提前关闭");
@@ -171,6 +176,8 @@ int main(int argc, char** argv) {
     return fail("detach 前已进入的 method 没有安全完成");
   }
   object = {};
+  codec_view = {};
+  codec = {};
   owned.reset();
   if (control->destructions(control->context) != 1) {
     return fail("detach 后 owning value 没有在 DLL 保活期间安全析构");
