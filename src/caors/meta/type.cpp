@@ -122,6 +122,10 @@ const metadata_value* type::find_metadata(metadata_key key) const noexcept {
 }
 
 type type::get_value_type() const noexcept {
+  const detail::layer_call_guard guard{detail::type_access::layer_of(*this)};
+  if (!guard) {
+    return {};
+  }
   const detail::type_record* data = detail::type_access::data_of(*this);
   if (data == nullptr) {
     return {};
@@ -174,6 +178,10 @@ type type::get_value_type() const noexcept {
 }
 
 type type::get_key_type() const noexcept {
+  const detail::layer_call_guard guard{detail::type_access::layer_of(*this)};
+  if (!guard) {
+    return {};
+  }
   const detail::type_record* data = detail::type_access::data_of(*this);
   if (data == nullptr) {
     return {};

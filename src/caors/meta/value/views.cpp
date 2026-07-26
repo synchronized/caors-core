@@ -3,9 +3,12 @@
 
 #include "caors/meta/value/view_factory.h"
 
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/query.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/meta/value/associative_entry_ref.h"
+
+#include "../detail/registry_state.h"
 
 #include <utility>
 
@@ -14,6 +17,10 @@ namespace {
 
 template <typename Ops> [[nodiscard]] bool has_raw_ops(meta::type type) noexcept {
   return type.get_raw_ops<Ops>() != nullptr;
+}
+
+[[nodiscard]] detail::layer_call_guard call_guard_for(const meta::type& type) noexcept {
+  return detail::layer_call_guard{detail::type_access::layer_of(type)};
 }
 
 [[nodiscard]] bool has_indirect_ops(meta::type type) noexcept {
@@ -109,6 +116,10 @@ meta::type indirect_view::get_value_type() const noexcept {
 }
 
 bool indirect_view::has_value() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!valid() || info->has_value == nullptr) {
     return false;
@@ -118,6 +129,10 @@ bool indirect_view::has_value() const noexcept {
 }
 
 any_ref indirect_view::value_ref() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::indirect_ops* info = data();
   if (!valid() || info->value == nullptr) {
     return {};
@@ -140,6 +155,10 @@ any_ref indirect_view::value_ref() const {
 }
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::indirect_ops* info = data();
   const meta::type declared_type = get_value_type();
   const type_id dynamic_type = !valid() || info == nullptr || info->dynamic_type == nullptr
@@ -154,6 +173,10 @@ meta::type indirect_view::get_dynamic_value_type() const noexcept {
 }
 
 any_ref indirect_view::dynamic_value_ref() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::indirect_ops* info = data();
   if (!valid()) {
     return {};
@@ -198,6 +221,10 @@ bool indirect_view::can_emplace_value() const noexcept {
 }
 
 bool indirect_view::emplace_value(type_id dynamic_type, void* value) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!writable() || info->emplace_value == nullptr || value == nullptr || !dynamic_type) {
     return false;
@@ -212,6 +239,10 @@ bool indirect_view::emplace_value(type_id dynamic_type, void* value) const {
 }
 
 bool indirect_view::set_value(type_id dynamic_type, void* value) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!writable() || info->set_value == nullptr || value == nullptr || !dynamic_type) {
     return false;
@@ -227,6 +258,10 @@ bool indirect_view::set_value(type_id dynamic_type, void* value) const {
 
 bool indirect_view::set_value(type_id dynamic_type, void* value,
                               const traits::wrapper_set_context& context) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!writable() || info->set_value_with_context == nullptr || value == nullptr || !dynamic_type ||
       !context.valid()) {
@@ -242,6 +277,10 @@ bool indirect_view::set_value(type_id dynamic_type, void* value,
 }
 
 bool indirect_view::reset() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!writable() || info->reset == nullptr) {
     return false;
@@ -253,6 +292,10 @@ bool indirect_view::reset() const {
 bool indirect_view::ensure_value() const { return ensure_value(nullptr); }
 
 bool indirect_view::ensure_value(memory::memory_resource* resource) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::indirect_ops* info = data();
   if (!writable() || info->ensure_value == nullptr) {
     return false;
@@ -600,11 +643,19 @@ std::size_t sequence_view::fixed_size() const noexcept {
 }
 
 meta::type sequence_view::get_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::sequence_ops* info = data();
   return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> sequence_view::size() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::sequence_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
@@ -623,6 +674,10 @@ sequence_view::iterator sequence_view::end() const {
 }
 
 any_ref sequence_view::element_ref(std::size_t index) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::sequence_ops* info = data();
   if (!valid() || info->element == nullptr) {
     return {};
@@ -645,6 +700,10 @@ any_ref sequence_view::element_ref(std::size_t index) const {
 }
 
 bool sequence_view::clear() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::sequence_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
@@ -657,6 +716,10 @@ bool sequence_view::clear() const {
 bool sequence_view::resize(std::size_t size) const { return resize(size, nullptr); }
 
 bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::sequence_ops* info = data();
   if (!writable() || info->resize == nullptr) {
     return false;
@@ -666,6 +729,10 @@ bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) 
 }
 
 bool sequence_view::append_value(const any& value) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::sequence_ops* info = data();
   if (!writable() || info->append == nullptr || !value.valid() ||
       value.get_type().id() != get_value_type().id()) {
