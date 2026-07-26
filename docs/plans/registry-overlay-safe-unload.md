@@ -286,8 +286,8 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 ### 6F：真实跨 DLL 卸载测试
 
 - [x] 插件注册 type/property/method/capability/codec；
-- [ ] host 保存并释放各类旧视图；（type/nested/property/method/method_set/accessor/factory/
-      constructor/extension/container/composite/indirect/enum/schema/codec/object/ptr/handle
+- [x] host 保存并释放各类旧视图；（type/nested/property/method/method_set/accessor/factory/
+      constructor/extension/container/composite/indirect/enum/schema/codec/object/ptr/handle/convention
       已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
@@ -315,6 +315,9 @@ type lease，schema 内部 runtime cache 则使用无 lease 的 property/accesso
 `layer -> schema -> property -> layer` 强引用环。
 带一个 `int` 参数的 constructor 也由插件注册并在宿主调用；测试校验构造参数、detach 后 facade
 失效，以及 constructor owning value 在动态库仍被 lease 保活时安全析构。
+协议插件还通过宿主与插件共享的头文件注册自定义 convention/proxy capability；宿主验证 type
+facade 与 value view 均可跨 DLL 调用插件实现，并在 detach 后同时失效。至此 Windows Clang
+Shared Debug 的旧 layer 公共视图矩阵已覆盖完成，6F 仍需完成 Release、POSIX 与可用的 ASan 验证。
 
 ## 每批验收门禁
 

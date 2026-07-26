@@ -52,6 +52,7 @@ struct plugin_reflected_type {
   explicit plugin_reflected_type(int initial_value) : value(initial_value) {}
   ~plugin_reflected_type();
   void block() const;
+  [[nodiscard]] int proxy_value() const noexcept { return value; }
 };
 
 struct plugin_instance {
@@ -163,6 +164,7 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .method("block", &plugin_reflected_type::block)
             .capability(&test_capability)
             .capability(test_codec)
+            .capability<caors_plugin_protocol_proxy_capability>()
             .factory()
             .constructor<int>()
             .serialization()

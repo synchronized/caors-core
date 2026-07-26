@@ -167,6 +167,8 @@ int main(int argc, char** argv) {
   auto handle = object.get_ref("object_handle").get_capability<caors::objects::handle_capability>();
   auto enum_value = object.get_ref("enum").get_capability<caors::meta::enum_capability>();
   auto schema = reflected.get_capability<caors::serialization::schema_view>();
+  auto proxy_capability = reflected.get_capability<caors_plugin_protocol_proxy_capability>();
+  auto proxy_view = owned.ref().get_capability<caors_plugin_protocol_proxy_capability>();
   auto reflected_object = registry.find_type("caors.test.plugin.object");
   auto object_factory =
       reflected_object.get_capability<caors::objects::object_factory_capability>();
@@ -215,12 +217,12 @@ int main(int argc, char** argv) {
       !object_factory || !object_factory.constructible() || !pointer_round_trip ||
       !handle_round_trip || !object_destroyed || !enum_value ||
       enum_value.to_i64() != std::optional<std::int64_t>{12} || !schema ||
-      schema.field_count() != 1 || !schema.has_explicit_fields() || !extensions ||
-      extensions.size() != 1 || !meta_extension || meta_extension->value != 91 || !codec ||
-      !constructor || constructor.argument_count() != 1 || !constructor_owned ||
-      constructed_value == nullptr || *constructed_value != 88 || !codec.can_make_value() ||
-      !codec_view || !codec_value || control == nullptr ||
-      control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
+      schema.field_count() != 1 || !schema.has_explicit_fields() || !proxy_capability ||
+      !proxy_view || proxy_view.proxy_value() != 42 || !extensions || extensions.size() != 1 ||
+      !meta_extension || meta_extension->value != 91 || !codec || !constructor ||
+      constructor.argument_count() != 1 || !constructor_owned || constructed_value == nullptr ||
+      *constructed_value != 88 || !codec.can_make_value() || !codec_view || !codec_value ||
+      control == nullptr || control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
   }
@@ -245,7 +247,7 @@ int main(int argc, char** argv) {
       reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
       object || object_facade || factory || factory_owned || constructor || constructor_owned ||
       codec || codec_view || extensions || reflected_object || object_factory || pointer ||
-      handle || enum_value || schema || schema.raw() != nullptr ||
+      handle || enum_value || schema || schema.raw() != nullptr || proxy_capability || proxy_view ||
       extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() || sequence ||
       set || associative || pair || tuple || variant || indirect) {
     control->release(control->context);
@@ -270,6 +272,8 @@ int main(int argc, char** argv) {
   handle = {};
   enum_value = {};
   schema = {};
+  proxy_capability = {};
+  proxy_view = {};
   extensions = {};
   factory = {};
   constructor = {};

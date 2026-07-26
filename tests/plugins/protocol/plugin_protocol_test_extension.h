@@ -33,4 +33,16 @@ typedef struct caors_plugin_protocol_meta_extension {
   int32_t value;
 } caors_plugin_protocol_meta_extension;
 
+#ifdef __cplusplus
+
+#include "caors/meta/proxy.h"
+
+CAORS_META_DEF_MEM_DISPATCH(caors_plugin_protocol_proxy_value, proxy_value);
+
+using caors_plugin_protocol_proxy_capability =
+    caors::meta::capability_builder::add_convention<caors_plugin_protocol_proxy_value,
+                                                    int() noexcept>::build;
+
+#endif
+
 #endif
