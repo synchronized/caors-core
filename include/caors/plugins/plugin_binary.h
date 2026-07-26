@@ -24,6 +24,7 @@ enum class plugin_state {
   initialized,
   running,
   stopped,
+  detached_pending_release,
   failed,
 };
 

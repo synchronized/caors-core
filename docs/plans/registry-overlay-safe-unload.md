@@ -266,15 +266,21 @@ block 保证这些回调执行前动态库不会关闭。
 
 - [x] `plugin_binary` 改用 library control block；
 - [x] library lease 可在发布前绑定到 registry layer；
-- manager 为每个插件创建 registration layer 和 scope；
-- initialize 失败销毁未发布 draft；
-- stop/shutdown 后 detach；
-- lease 未归零返回 pending，不关闭 DLL。
+- [x] manager 为每个插件创建 registration layer 和 scope；
+- [x] initialize 失败销毁未发布 draft；
+- [x] stop/shutdown 后 detach；
+- [x] lease 未归零返回 pending，不关闭 DLL；
+- [ ] 增加版本化 meta registration host extension，让插件 initialize 写入对应 draft。
 
 `plugin_binary` 与 `plugin_library_lease` 现在共享动态库 control block；control block 绑定到
 `registry_layer_state`，因此 layer owner 被销毁后，旧 type/property/method/owning value 持有的
 layer lease 仍会保持 DLL 已加载。绑定只允许发生在 publish 前，避免已发布 layer 的动态库所有权
 在并发查询期间发生变化。
+
+`plugin_manager` 已提供稳定只读 handle、重复 ID 拒绝、串行生命周期、自动
+stop/shutdown/cleanup/detach，以及重新加载 generation 隔离。当前 ABI 尚未提供 meta
+registration host extension，因此 manager 已拥有并管理 draft，但插件代码还不能通过稳定扩展写入
+它；该入口与真实跨 DLL 注册测试一起完成。
 
 ### 6F：真实跨 DLL 卸载测试
 

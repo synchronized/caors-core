@@ -178,6 +178,10 @@ public:
   [[nodiscard]] bool active() const noexcept;
   /** @brief 返回当前仍在执行的类型擦除调用数量。 */
   [[nodiscard]] std::size_t in_flight_calls() const noexcept;
+  /** @brief 返回当前 layer 自身注册的类型数量，不包含基础 snapshot。 */
+  [[nodiscard]] std::size_t local_size() const noexcept;
+  /** @brief 返回内部 layer 状态的共享所有者数量，供安全卸载门禁使用。 */
+  [[nodiscard]] std::size_t lease_count() const noexcept;
 
 private:
   friend class registry;

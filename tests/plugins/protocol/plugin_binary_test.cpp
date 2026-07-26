@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/plugins/plugin_binary.h"
+#include "caors/plugins/plugin_manager.h"
 
 #include "caors/meta/registry.h"
 #include "caors/plugins/plugin_host.h"
@@ -101,6 +102,36 @@ int main(int argc, char** argv) {
   if (!failure.initialize() || failure.state() != caors::plugins::plugin_state::failed ||
       failure.shutdown() || failure.state() != caors::plugins::plugin_state::loaded) {
     return fail("插件生命周期失败没有进入 failed 状态");
+  }
+
+  caors::plugins::plugin_manager manager{registry};
+  auto managed_result = manager.load(argv[1]);
+  if (!managed_result) {
+    return fail("plugin manager 无法加载有效插件");
+  }
+  const caors::plugins::plugin managed = *managed_result;
+  const caors::guid managed_id = managed.id();
+  const std::uint64_t first_generation = managed.generation();
+  if (!managed || manager.size() != 1 ||
+      manager.find(managed_id).generation() != first_generation ||
+      manager.load(argv[1]).error() !=
+          caors::error{caors::error_domain::plugins, caors::errc::duplicate_id}) {
+    return fail("plugin manager 索引或重复 ID 校验错误");
+  }
+  if (manager.initialize(managed_id) ||
+      managed.state() != caors::plugins::plugin_state::initialized || manager.start(managed_id) ||
+      managed.state() != caors::plugins::plugin_state::running || manager.unload(managed_id)) {
+    return fail("plugin manager 生命周期或安全卸载失败");
+  }
+  if (managed || managed.state() != caors::plugins::plugin_state::unloaded || manager.size() != 0 ||
+      manager.find(managed_id)) {
+    return fail("plugin manager 卸载后旧句柄没有失效");
+  }
+
+  auto reloaded_result = manager.load(argv[1]);
+  if (!reloaded_result || reloaded_result->generation() == first_generation ||
+      manager.unload(reloaded_result->id())) {
+    return fail("plugin manager 重新加载没有生成新的 generation");
   }
 
   return 0;

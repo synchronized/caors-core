@@ -50,6 +50,18 @@ std::size_t registry_layer::in_flight_calls() const noexcept {
   return registry_ != nullptr ? registry_->primary_layer_->in_flight_calls() : 0;
 }
 
+std::size_t registry_layer::local_size() const noexcept {
+  if (registry_ == nullptr) {
+    return 0;
+  }
+  std::lock_guard lock{registry_->state_->mutex};
+  return registry_->state_->types.size();
+}
+
+std::size_t registry_layer::lease_count() const noexcept {
+  return registry_ != nullptr ? registry_->primary_layer_.use_count() : 0;
+}
+
 error registry_layer::attach_lifetime(std::shared_ptr<void> owner) {
   if (registry_ == nullptr || published_) {
     return {error_domain::meta, errc::frozen};
