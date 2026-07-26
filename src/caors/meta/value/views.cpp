@@ -317,16 +317,28 @@ bool pair_view::valid() const noexcept {
 }
 
 meta::type pair_view::get_first_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::pair_ops* info = data();
   return valid() && info->get_key_type != nullptr ? info->get_key_type() : meta::type{};
 }
 
 meta::type pair_view::get_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::pair_ops* info = data();
   return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 any_ref pair_view::first_ref() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::pair_ops* info = data();
   if (!valid() || info->first == nullptr) {
     return {};
@@ -349,6 +361,10 @@ any_ref pair_view::first_ref() const {
 }
 
 any_ref pair_view::second_ref() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::pair_ops* info = data();
   if (!valid() || info->second == nullptr) {
     return {};
@@ -408,6 +424,10 @@ std::size_t tuple_view::size() const noexcept {
 }
 
 std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::tuple_ops* info = data();
   if (!valid() || index >= info->elements.size()) {
     return std::nullopt;
@@ -423,6 +443,10 @@ std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const 
 }
 
 any_ref tuple_view::element_ref(std::size_t index) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const meta::tuple_ops* info = data();
   if (!valid() || index >= info->elements.size()) {
     return {};
@@ -476,6 +500,10 @@ std::size_t variant_view::size() const noexcept {
 }
 
 std::optional<std::size_t> variant_view::index() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::variant_ops* info = data();
   if (!valid() || info->index == nullptr) {
     return std::nullopt;
@@ -491,6 +519,10 @@ std::optional<std::size_t> variant_view::index() const noexcept {
 
 std::optional<meta::type>
 variant_view::get_alternative_type(std::size_t alternative) const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return std::nullopt;
+  }
   const meta::variant_ops* info = data();
   if (!valid() || alternative >= info->alternatives.size()) {
     return std::nullopt;
@@ -506,6 +538,10 @@ variant_view::get_alternative_type(std::size_t alternative) const noexcept {
 }
 
 meta::type variant_view::get_value_type() const noexcept {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const std::optional<std::size_t> active = index();
   const meta::variant_ops* info = data();
   if (!active.has_value() || info == nullptr || *active >= info->alternatives.size()) {
@@ -517,6 +553,10 @@ meta::type variant_view::get_value_type() const noexcept {
 }
 
 any_ref variant_view::value_ref() const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return {};
+  }
   const std::optional<std::size_t> active = index();
   if (!active.has_value()) {
     return {};
@@ -544,6 +584,10 @@ any_ref variant_view::value_ref() const {
 bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
 
 bool variant_view::emplace(std::size_t alternative, memory::memory_resource* resource) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::variant_ops* info = data();
   if (!writable() || alternative >= info->alternatives.size()) {
     return false;
@@ -573,6 +617,10 @@ bool variant_view::set_value(const any& value) const {
 }
 
 bool variant_view::set_value(std::size_t alternative, const any& value) const {
+  const auto guard = call_guard_for(type_);
+  if (!guard) {
+    return false;
+  }
   const meta::variant_ops* info = data();
   if (!writable() || info == nullptr || alternative >= info->alternatives.size() ||
       !value.valid()) {
