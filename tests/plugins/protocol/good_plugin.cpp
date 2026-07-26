@@ -23,6 +23,8 @@ struct plugin_reflected_type {
   std::unordered_set<int> tags{4, 5};
   std::unordered_map<int, int> lookup{{6, 60}};
 
+  plugin_reflected_type() = default;
+  explicit plugin_reflected_type(int initial_value) : value(initial_value) {}
   ~plugin_reflected_type();
   void block() const;
 };
@@ -120,6 +122,7 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .capability(&test_capability)
             .capability(test_codec)
             .factory()
+            .constructor<int>()
             .commit() ||
         caors::meta::detail::emplace_extension<caors_plugin_protocol_meta_extension>(
             *registry, reflected.get().id(), caors_plugin_protocol_meta_extension{91})) {

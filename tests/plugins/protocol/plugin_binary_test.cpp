@@ -19,6 +19,7 @@
 #include "caors/serialization/codec.h"
 #include "plugin_protocol_test_extension.h"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -152,6 +153,13 @@ int main(int argc, char** argv) {
   const auto meta_extension = extensions.find<caors_plugin_protocol_meta_extension>(reflected_id);
   auto factory = reflected.get_capability<caors::meta::factory_capability>();
   auto factory_owned = factory.construct();
+  auto constructor = reflected.get_capability<caors::meta::constructor_capability>();
+  int constructor_input = 88;
+  std::array<caors::argument, 1> constructor_arguments{caors::arg(constructor_input)};
+  auto constructor_owned = constructor.construct(
+      std::span<const caors::argument>{constructor_arguments.data(), constructor_arguments.size()});
+  const int* constructed_value =
+      reflected_property.get_ref(caors::meta::instance{constructor_owned.ref()}).try_get<int>();
   auto codec = caors::serialization::find_codec(reflected);
   auto codec_view = codec.bind(owned.ref());
   const auto codec_value = codec_view.make_value(caors::serialization::context{});
@@ -164,7 +172,9 @@ int main(int argc, char** argv) {
       !set || set.size() != std::optional<std::size_t>{2} || !associative ||
       associative.size() != std::optional<std::size_t>{1} || !extensions ||
       extensions.size() != 1 || !meta_extension || meta_extension->value != 91 || !codec ||
-      !codec.can_make_value() || !codec_view || !codec_value || control == nullptr ||
+      !constructor || constructor.argument_count() != 1 || !constructor_owned ||
+      constructed_value == nullptr || *constructed_value != 88 || !codec.can_make_value() ||
+      !codec_view || !codec_value || control == nullptr ||
       control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
       manager.start(managed_id) || managed.state() != caors::plugins::plugin_state::running) {
     return fail("插件反射类型、method 或测试控制扩展没有发布");
@@ -188,7 +198,7 @@ int main(int argc, char** argv) {
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || owned || object || factory || factory_owned ||
-      codec || codec_view || extensions ||
+      constructor || constructor_owned || codec || codec_view || extensions ||
       extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() ||
       !sequence || sequence.size() != std::optional<std::size_t>{3} || !set ||
       set.size() != std::optional<std::size_t>{2} || !associative ||
@@ -207,11 +217,13 @@ int main(int argc, char** argv) {
   associative = {};
   extensions = {};
   factory = {};
+  constructor = {};
   codec_view = {};
   codec = {};
+  constructor_owned.reset();
   factory_owned.reset();
   owned.reset();
-  if (control->destructions(control->context) != 2) {
+  if (control->destructions(control->context) != 3) {
     return fail("detach 后 owning value 没有在 DLL 保活期间安全析构");
   }
   reflected_property = {};
