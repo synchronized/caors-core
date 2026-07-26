@@ -293,7 +293,8 @@ registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
 - [x] 验证最后 lease 释放后 DLL 关闭；
 - [x] 覆盖重复加载、新 generation、并发查询和 in-flight method；
-- Windows 与 POSIX，Debug/Release，ASan 可用时运行 use-after-unload 检查。
+- [x] Windows Clang Shared Debug/Release 完整构建与测试；
+- [ ] POSIX Debug/Release 与 ASan use-after-unload 检查（等待 Linux 环境）。
 
 真实 failure plugin 会先通过 host extension 向 draft 注册类型，再让 initialize 返回失败；测试确认
 draft 被销毁且主 registry 不可见该类型。并发查询测试持续解析插件类型，同时执行 detach/unload，
@@ -318,7 +319,8 @@ type lease，schema 内部 runtime cache 则使用无 lease 的 property/accesso
 协议插件还通过宿主与插件共享的头文件注册自定义 convention/proxy capability；宿主验证 type
 facade 与 value view 均可跨 DLL 调用插件实现，并在 detach 后同时失效。至此 Windows Clang
 Shared Debug 的旧 layer 公共视图矩阵已覆盖完成；同一协议测试也已在 Windows Clang Shared
-Release 下连续通过 10 次，6F 仍需完成 POSIX 与可用的 ASan 验证。
+Release 下连续通过 10 次。Windows Clang Shared Debug/Release 的完整 81 项测试均已通过；
+6F 仍需在 Linux 环境完成 POSIX Debug/Release 与可用的 ASan 验证。
 
 ## 每批验收门禁
 
