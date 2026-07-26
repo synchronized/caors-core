@@ -28,7 +28,7 @@ public:
     return value.registry_;
   }
 
-  [[nodiscard]] static const type_record* data_of(const type& value) noexcept;
+  [[nodiscard]] CAORS_API static const type_record* data_of(const type& value) noexcept;
 
   [[nodiscard]] static const std::shared_ptr<registry_layer_state>&
   layer_of(const type& value) noexcept {
