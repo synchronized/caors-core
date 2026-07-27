@@ -585,6 +585,154 @@ TEST_CASE("meta - method numeric safe conversion reports overload ambiguity", "[
   CHECK(invoke_failure.failure_reason() == caors::meta::invoke_failure_reason::ambiguous_overload);
 }
 
+TEST_CASE("meta - method string parse conversion requires explicit policy", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<string_parse_conversion_actor>(
+          "caors.test.meta.string_parse_conversion_actor")
+          .meta()
+          .method("take_int", &string_parse_conversion_actor::take_int)
+          .method("take_bool", &string_parse_conversion_actor::take_bool)
+          .method("take_double", &string_parse_conversion_actor::take_double)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.string_parse_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take_int = reflected.find_method("take_int");
+  REQUIRE(take_int);
+
+  caors::core::string input{"42"};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  CHECK_FALSE(take_int.resolve(arguments));
+
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+  const caors::meta::method resolved = take_int.resolve(arguments, options);
+  REQUIRE(resolved);
+
+  string_parse_conversion_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      take_int.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 42);
+  CHECK(instance.value == 42);
+
+  const caors::meta::method_set take_bool = reflected.find_method("take_bool");
+  REQUIRE(take_bool);
+  caors::core::string_name bool_input{"true"};
+  std::array<caors::argument, 1> bool_arguments{caors::arg(bool_input)};
+  invoke_result = take_bool.invoke_result_of(caors::meta::view(instance), bool_arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 1);
+
+  const caors::meta::method_set take_double = reflected.find_method("take_double");
+  REQUIRE(take_double);
+  std::string_view double_input{"3.5"};
+  std::array<caors::argument, 1> double_arguments{caors::arg(double_input)};
+  invoke_result =
+      take_double.invoke_result_of(caors::meta::view(instance), double_arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 7);
+}
+
+TEST_CASE("meta - method string parse conversion rejects invalid text", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<string_parse_conversion_actor>(
+          "caors.test.meta.string_parse_conversion_actor")
+          .meta()
+          .method("take_int", &string_parse_conversion_actor::take_int)
+          .method("take_bool", &string_parse_conversion_actor::take_bool)
+          .method("take_double", &string_parse_conversion_actor::take_double)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.string_parse_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take_int = reflected.find_method("take_int");
+  REQUIRE(take_int);
+
+  caors::core::string input{"not-number"};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+  CHECK_FALSE(take_int.resolve(arguments, options));
+
+  string_parse_conversion_actor instance{};
+  const caors::meta::invoke_result invoke_failure =
+      take_int.invoke_result_of(caors::meta::view(instance), arguments, options);
+  CHECK_FALSE(invoke_failure);
+  CHECK(invoke_failure.failure_reason() == caors::meta::invoke_failure_reason::argument_mismatch);
+}
+
+TEST_CASE("meta - method string parse conversion reports overload ambiguity", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<string_parse_ambiguous_actor>(
+          "caors.test.meta.string_parse_ambiguous_actor")
+          .meta()
+          .method("select", static_cast<int (string_parse_ambiguous_actor::*)(int)>(
+                                &string_parse_ambiguous_actor::select))
+          .method("select", static_cast<int (string_parse_ambiguous_actor::*)(bool)>(
+                                &string_parse_ambiguous_actor::select))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.string_parse_ambiguous_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set select = reflected.find_method("select");
+  REQUIRE(select);
+
+  caors::core::string input{"1"};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+  CHECK_FALSE(select.resolve(arguments, options));
+  const caors::meta::method_match_result match = select.match(arguments, options);
+  CHECK(match.kind() == caors::meta::method_match_kind::ambiguous);
+
+  string_parse_ambiguous_actor instance{};
+  const caors::meta::invoke_result invoke_failure =
+      select.invoke_result_of(caors::meta::view(instance), arguments, options);
+  CHECK_FALSE(invoke_failure);
+  CHECK(invoke_failure.failure_reason() == caors::meta::invoke_failure_reason::ambiguous_overload);
+}
+
+TEST_CASE("meta - method string parse conversion works through value arguments", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<string_parse_conversion_actor>(
+          "caors.test.meta.string_parse_conversion_actor")
+          .meta()
+          .method("take_int", &string_parse_conversion_actor::take_int)
+          .method("take_bool", &string_parse_conversion_actor::take_bool)
+          .method("take_double", &string_parse_conversion_actor::take_double)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.string_parse_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take_int = reflected.find_method("take_int");
+  REQUIRE(take_int);
+
+  std::array<caors::meta::value, 1> arguments{caors::meta::value{caors::core::string{"24"}}};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+  string_parse_conversion_actor instance{};
+  const caors::meta::invoke_value_result invoke_result =
+      take_int.invoke(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result);
+  REQUIRE(invoke_result.value().is_i64());
+  CHECK(invoke_result.value().as_i64() == 24);
+  CHECK(instance.value == 24);
+}
+
 TEST_CASE("meta - method custom argument conversion is explicit", "[meta]") {
   const caors::error source_result =
       caors::registration::type_<custom_argument_value>("caors.test.meta.custom_argument_value")

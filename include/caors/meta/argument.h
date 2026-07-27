@@ -17,6 +17,7 @@ namespace caors::meta {
 enum class argument_conversion_policy {
   exact_only,
   numeric_safe,
+  string_parse,
 };
 
 /** @brief 反射方法参数匹配选项。默认保持精确匹配。 */

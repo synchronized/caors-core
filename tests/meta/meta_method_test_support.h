@@ -172,6 +172,30 @@ struct numeric_conversion_ambiguous_actor {
   int select(double input) { return static_cast<int>(input); }
 };
 
+struct string_parse_conversion_actor {
+  int value = 0;
+
+  int take_int(int input) {
+    value = input;
+    return value;
+  }
+
+  int take_bool(bool input) {
+    value = input ? 1 : 0;
+    return value;
+  }
+
+  int take_double(double input) {
+    value = static_cast<int>(input * 2.0);
+    return value;
+  }
+};
+
+struct string_parse_ambiguous_actor {
+  int select(int input) { return input; }
+  int select(bool input) { return input ? 1 : 0; }
+};
+
 struct custom_argument_value {
   int value = 0;
 };

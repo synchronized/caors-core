@@ -8,9 +8,12 @@
 #include "caors/meta/argument.h"
 
 #include <array>
+#include <charconv>
+#include <cmath>
 #include <limits>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -144,6 +147,111 @@ template <typename Target>
   return std::nullopt;
 }
 
+[[nodiscard]] inline std::optional<std::string_view>
+try_get_argument_string_view(const argument& value) noexcept {
+  if (const auto* text = value.try_get<std::string_view>(); text != nullptr) {
+    return *text;
+  }
+  if (const auto* text = value.try_get<core::string>(); text != nullptr) {
+    return std::string_view{text->data(), text->size()};
+  }
+  if (const auto* text = value.try_get<core::string_name>(); text != nullptr) {
+    return text->view();
+  }
+
+  return std::nullopt;
+}
+
+[[nodiscard]] inline bool parse_bool_argument(std::string_view text, bool& output) noexcept {
+  if (text == "true" || text == "1") {
+    output = true;
+    return true;
+  }
+  if (text == "false" || text == "0") {
+    output = false;
+    return true;
+  }
+
+  return false;
+}
+
+template <typename Target>
+[[nodiscard]] bool parse_integral_argument(std::string_view text, Target& output) noexcept {
+  using value_type = std::remove_cv_t<std::remove_reference_t<Target>>;
+
+  if constexpr (std::is_same_v<value_type, bool>) {
+    return parse_bool_argument(text, output);
+  } else if constexpr (std::is_signed_v<value_type>) {
+    long long parsed = 0;
+    const auto* first = text.data();
+    const auto* last = text.data() + text.size();
+    const auto [position, error] = std::from_chars(first, last, parsed, 10);
+    if (error != std::errc{} || position != last ||
+        parsed < static_cast<long long>(std::numeric_limits<value_type>::min()) ||
+        parsed > static_cast<long long>(std::numeric_limits<value_type>::max())) {
+      return false;
+    }
+
+    output = static_cast<value_type>(parsed);
+    return true;
+  } else {
+    unsigned long long parsed = 0;
+    const auto* first = text.data();
+    const auto* last = text.data() + text.size();
+    const auto [position, error] = std::from_chars(first, last, parsed, 10);
+    if (error != std::errc{} || position != last ||
+        parsed > static_cast<unsigned long long>(std::numeric_limits<value_type>::max())) {
+      return false;
+    }
+
+    output = static_cast<value_type>(parsed);
+    return true;
+  }
+}
+
+template <typename Target>
+[[nodiscard]] bool parse_floating_argument(std::string_view text, Target& output) noexcept {
+  long double parsed = 0.0;
+  const auto* first = text.data();
+  const auto* last = text.data() + text.size();
+  const auto [position, error] = std::from_chars(first, last, parsed);
+  if (error != std::errc{} || position != last || !std::isfinite(parsed) ||
+      parsed < -static_cast<long double>(std::numeric_limits<Target>::max()) ||
+      parsed > static_cast<long double>(std::numeric_limits<Target>::max())) {
+    return false;
+  }
+
+  output = static_cast<Target>(parsed);
+  return true;
+}
+
+template <typename Target>
+[[nodiscard]] std::optional<argument> try_parse_string_argument(const argument& value) {
+  using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
+  const std::optional<std::string_view> text = try_get_argument_string_view(value);
+  if (!text.has_value()) {
+    return std::nullopt;
+  }
+
+  if constexpr (std::is_integral_v<target_type>) {
+    target_type parsed{};
+    if (!parse_integral_argument(*text, parsed)) {
+      return std::nullopt;
+    }
+
+    return argument::move(any::from(parsed));
+  } else if constexpr (std::is_floating_point_v<target_type>) {
+    target_type parsed{};
+    if (!parse_floating_argument(*text, parsed)) {
+      return std::nullopt;
+    }
+
+    return argument::move(any::from(parsed));
+  } else {
+    return std::nullopt;
+  }
+}
+
 template <typename Target>
 [[nodiscard]] bool custom_argument_conversion_available(const argument& value) noexcept {
   using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
@@ -192,6 +300,10 @@ template <typename Parameter>
         try_convert_numeric_argument<value_type>(value).has_value()) {
       return argument_match_rank::conversion;
     }
+    if (options.conversion_policy == argument_conversion_policy::string_parse &&
+        try_parse_string_argument<value_type>(value).has_value()) {
+      return argument_match_rank::conversion;
+    }
   }
 
   if constexpr (!std::is_reference_v<Parameter>) {
@@ -214,6 +326,11 @@ template <typename Parameter>
   if constexpr (std::is_arithmetic_v<value_type> && !std::is_reference_v<Parameter>) {
     if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
       if (auto converted = try_convert_numeric_argument<value_type>(value)) {
+        return std::move(*converted);
+      }
+    }
+    if (options.conversion_policy == argument_conversion_policy::string_parse) {
+      if (auto converted = try_parse_string_argument<value_type>(value)) {
         return std::move(*converted);
       }
     }

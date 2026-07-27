@@ -187,6 +187,9 @@ caors::registration::type_<actor>("game.actor")
   方法匹配允许安全数值 widening，例如 `int -> long long`、`unsigned int -> unsigned long long`、
   `float -> double`，以及能完整表示来源整数精度的整数到浮点转换；窄化、浮点到整数、
   有符号到无符号、可能丢失取值范围的转换和字符串解析都不会隐式发生。
+- 显式设置为 `string_parse` 时，方法匹配允许把 `core::string`、`core::string_name` 或
+  `std::string_view` 解析为布尔、整数和浮点标量。解析要求完整消费输入；解析失败、溢出或非有限浮点值
+  都视为参数不匹配。该策略不包含 `numeric_safe` 的数值 widening。
 - 开启转换策略后，重载解析仍优先选择精确匹配；如果多个重载只能通过同等级转换匹配，则视为歧义并返回失败。
 - `argument_match_options::allow_custom_conversions` 默认关闭。开启后，匹配会查询来源类型注册的
   `meta::argument_conversion_ops` capability；该能力只负责把来源参数转换成目标参数类型，转换结果仍必须精确匹配目标类型。
