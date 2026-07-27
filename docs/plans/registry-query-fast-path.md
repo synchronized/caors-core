@@ -115,6 +115,47 @@ struct plugin_load_options {
 `detachable` 插件显式选择热卸载语义，发布后的 layer 可 detach，进入插件 ops 前必须使用 call guard，
 unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件 owned erased value。
 
+### Registry 管理策略命名
+
+registry 自身的管理策略和插件 / layer 生命周期是两件事，应使用不同命名：
+
+- `registry_management_policy`：描述 registry 如何处理注册、冻结和查询同步；
+- `registry_layer_lifetime`：描述单个 layer 是否可提前 detach；
+- `plugin_lifetime`：描述插件动态库是否可提前 unload。
+
+不推荐把 registry 策略命名为 `registry_lifetime` 或 `plugin_strategy`。前者容易和 layer / 插件生命周期混淆，
+后者会把 registry 的线程同步策略和插件卸载策略绑在一起。
+
+第一版 registry 管理策略建议只暴露三档：
+
+```cpp
+enum class registry_management_policy {
+  locked_append_only,
+  frozen_read_optimized,
+  manual_synchronization,
+};
+
+struct registry_options {
+  registry_management_policy management = registry_management_policy::locked_append_only;
+};
+```
+
+语义边界：
+
+- `locked_append_only`：默认策略。注册、publish、detach 和查询都由 registry 内部同步；类型一经 commit
+  不支持隐式 replace，适合作为早期保守默认。
+- `frozen_read_optimized`：初始化期允许注册，显式 `freeze()` 或 `init()` 后进入只读快路径；冻结后写入返回
+  `errc::frozen`。
+- `manual_synchronization`：registry 不为普通查询提供内部互斥保护，调用方必须保证注册 / publish / detach
+  与查询调用没有数据竞争。该策略只适合引擎主循环、工具链加载阶段或高级嵌入场景。
+
+策略命名刻意使用行为描述，而不是实现结构名：
+
+- 不叫 `append_only_registry`，因为未来可以保持 append-only 语义但换内部实现；
+- 不叫 `snapshot_registry`，因为 snapshot 是所有策略都可能使用的查询一致性机制；
+- 不叫 `mutable_registry`，因为当前长期方向仍是不支持随意 replace 已发布类型；
+- 不叫 `static`，避免和 C++ 静态存储期、静态链接和 `pinned_process` 插件混淆。
+
 ## 需要整理的路径
 
 ### Registry 查询
@@ -163,7 +204,16 @@ unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件
 
 完成标准：主 registry 类型和 pinned 插件类型调用不再产生 in-flight 计数变化，detachable 插件 layer 行为不变。
 
-### 阶段 2：插件加载 lifetime 选项
+### 阶段 2：补充 registry 管理策略 API
+
+- 增加 `registry_options` 和 `registry_management_policy`；
+- `registry()` 默认使用 `locked_append_only`，保持现有行为；
+- 文档说明 `locked_append_only`、`frozen_read_optimized` 和 `manual_synchronization` 的线程安全责任；
+- 暂时不增加多个 registry 派生类，避免策略和存储结构过早绑定。
+
+完成标准：用户可以在创建 registry 时选择策略，但默认行为不变。
+
+### 阶段 3：插件加载 lifetime 选项
 
 - 增加 `plugin_load_options` 和 `plugin_lifetime`；
 - `plugin_manager::load(path)` 保留便捷重载，默认使用 `pinned_process`；
@@ -173,7 +223,7 @@ unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件
 
 完成标准：pinned 插件无法提前 unload，detachable 插件保留现有 unload/detach 行为。
 
-### 阶段 3：区分 metadata 查询和 ops 调用
+### 阶段 4：区分 metadata 查询和 ops 调用
 
 - 盘点所有 `layer_call_guard` 使用点；
 - 纯记录查询只做有效性检查，不进入 call guard；
@@ -182,7 +232,7 @@ unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件
 
 完成标准：detach 后旧 view 查询基础 id/name 可按文档定义处理，调用插件 ops 明确失败。
 
-### 阶段 4：冻结 layer 查询无锁
+### 阶段 5：冻结 layer 查询无锁
 
 - 明确 `registry_state::frozen` 后不可变；
 - 为 frozen layer 增加无锁只读查找 helper；
@@ -191,7 +241,7 @@ unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件
 
 完成标准：已发布 layer 查询不再加 `state.mutex`；并发 publish/detach/query 测试通过。
 
-### 阶段 5：主 registry freeze 策略
+### 阶段 6：主 registry freeze 策略
 
 - 增加显式 `registry::freeze()` 或在 `init()` 后冻结默认 registry；
 - 文档说明默认运行期查询推荐在 freeze 后进行；
@@ -199,7 +249,7 @@ unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件
 
 完成标准：普通应用初始化完成后，默认 registry 可进入无锁查询模式。
 
-### 阶段 6：性能与回归验证
+### 阶段 7：性能与回归验证
 
 - 增加 registry find/property/method/schema 查询 micro benchmark；
 - 对比加锁查询与 frozen fast path；
