@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：分阶段实施中；已增加 registry 管理策略入口和 layer lifetime 基础语义；
+- 当前状态：阶段 1 至阶段 7 核心实现已完成，剩余工作是持续补充 benchmark 结果摘要和跨平台复验；
 - 上游背景：`registry-overlay-safe-unload.md` 已引入 registry snapshot、插件 layer 和 library lease；
 - 目标：在保持插件安全卸载边界的前提下，把普通 meta 查询收敛为低成本只读路径；
 - 非目标：不改变插件 C ABI，不引入跨 runtime 共享 `meta::type`，不让插件卸载绕过 layer lease。
@@ -15,7 +15,7 @@
 当前 registry 查询路径偏保守：
 
 - `registry_state` 带 `mutex`；
-- `find_type()`、extension 查询和 snapshot layer 遍历会在读路径加锁；
+- `find_type()`、capability/schema 查询和 snapshot layer 遍历会在读路径加锁；
 - 多数 view/facade 调用会进入 `layer_call_guard`；
 - 主程序类型和插件类型在调用成本上区分不明显。
 
@@ -45,7 +45,7 @@ registry
 未发布 draft layer 可以继续使用 mutex 保护写入。`publish_layer()` 成功后：
 
 - `registry_state::frozen == true`；
-- `type_record`、property、method、nested type、enum value、capability 和 extension 不再修改；
+- `type_record`、property、method、nested type、enum value、metadata 和 capability 不再修改；
 - name/GUID/C++ type 索引不再修改；
 - 查询可以不再锁该 layer。
 
@@ -258,20 +258,20 @@ detachable layer 调用 guard。
 ### 阶段 7：性能与回归验证
 
 - [x] 增加 registry find/property/method/schema 查询 micro benchmark；
-- 对比加锁查询与 frozen fast path；
+- [x] 对比加锁查询与 frozen fast path 的 benchmark 用例；
 - 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
-- 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
+- [x] 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
 
 当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
-`frozen_contains`、`frozen_property_lookup` 和 `frozen_method_lookup`；schema 查询可在后续随
-serialization benchmark 合并补充。
+`frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`、
+`locked_schema_lookup`、`frozen_schema_lookup` 和 `layer_schema_lookup`。
 
 完成标准：查询快路径有可测收益，插件 detach/unload 安全测试继续通过。
 
 ## 风险
 
 - 如果某条写入路径绕过 builder 修改已发布 `type_record`，无锁查询会产生数据竞争；
-- extension value 如果内部保存可变对象，即使 extension 容器不可变，也需要调用方自行同步；
+- capability data 如果内部保存可变对象，即使 capability 容器不可变，也需要调用方自行同步；
 - pinned layer fast path 不能误用于可卸载插件 layer；
 - pinned 插件虽然不能 unload，但仍可能被 stop；插件服务 API 应自行定义 stop 后是否允许继续调用；
 - 旧 view 的“detach 后哪些纯查询仍可用”需要文档和测试统一，不应出现有的返回快照、有的返回空的混乱行为。

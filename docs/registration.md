@@ -9,7 +9,7 @@
 
 一个类型如果要同时参与 meta、对象和序列化，推荐使用 `caors::registration::type_<T>(name)`
 作为跨模块聚合入口。它把类型名、属性、方法、序列化 schema 和对象能力集中到同一条注册链路，
-避免业务代码直接关心各模块 extension 的挂载顺序。
+避免业务代码直接关心各模块 capability data 的挂载顺序。
 
 当前公共注册入口如下：
 
@@ -138,7 +138,7 @@ registry 隐式变成可变结构。可评估的策略包括：
   再查主 registry，插件卸载时整体丢弃 overlay，避免修改主 registry。
 
 `dry_run` 暂不作为当前 API。真正有意义的 dry-run 需要 registry 提供“只校验不提交”的策略能力，
-否则无法可靠判断名称、GUID、父类型、extension 和 capability 冲突是否会在提交时发生变化。
+否则无法可靠判断名称、GUID、父类型、metadata 和 capability 冲突是否会在提交时发生变化。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过 `meta::type` 能力参与属性访问和序列化。只有需要稳定名称、
@@ -160,9 +160,9 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
 - dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").meta().capability(ops).commit()`
   挂到注册类型数据；
-  它不是 registry extension，也不替代业务 meta 类型注册。
+  它不是业务类型注册，也不替代稳定 name/GUID/父类型等 meta 注册数据。
 - 公开业务注册不应直接调用 `meta::registry::register_type()`、`meta::detail::register_capability*()`、
-  `meta::detail::*` 或各模块内部 extension 写入函数。这些入口只服务 builder、内部兼容桥接或低层测试。
+  `meta::detail::*` 或各模块内部写入函数。这些入口只服务 builder、内部兼容桥接或低层测试。
 - `assets::asset_manager::register_*()`、`resources::database::register_*()` 等运行期资源工厂注册不是
   meta 类型注册 builder，不受本节统一类型注册入口约束。
 

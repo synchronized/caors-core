@@ -334,7 +334,7 @@ struct codec_traits<my_type> {
 以下内容仍只进入 registry 的 `type_details`：
 
 - 运行期通过 builder 或插件注册的 dynamic capability；
-- registry extension；
+- metadata；
 - 属性、方法和其他显式注册数据。
 
 插件运行期 capability provider 或独立 codec registry 可作为未来跨 DLL 扩展方案，但不作为普通静态

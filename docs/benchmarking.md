@@ -49,6 +49,10 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 
 - `core::string_name`：热路径 intern 查找和轻量比较。
 - `meta::resolve<T>()` / `meta::find<T>()`：运行期类型查询。
+- registry 查询快路径：`meta.registry.locked_find_type_id`、`frozen_find_type_id`、
+  `layer_find_type_id`、`frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`
+  以及 `locked/frozen/layer_schema_lookup`，用于对比默认加锁 primary、冻结 primary 和已发布
+  layer 的只读查询成本。
 - `meta::property` / `meta::instance`：成员属性和 getter/setter 属性的 typed、`value` 和 `any`
   读写路径。
 - `meta::method` / `meta::instance::call()`：直接 C++ 调用、`invoke_result_of()`、
@@ -65,7 +69,7 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
-- 序列化拆分项：`schema_view_find` 测序列化 schema 视图查询，
+- 序列化拆分项：`schema_view_find` 测默认 registry 上的序列化 schema 视图查询，
   `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`properties_get_ref` 测属性引用读取，
   `field_refs_to_variant` 测字段引用转 DOM，`manual_variant_object_direct` 测不经过反射的手动 DOM 构造，
   `write_value_to_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON

@@ -12,7 +12,7 @@
 ## 实施结果
 
 - 阶段 0 至阶段 5 已完成并按阶段提交；
-- `type_id`、capability key 和 meta extension key 已统一经过共享 runtime 驻留；
+- `type_id` 和 capability key 已统一经过共享 runtime 驻留；早期 meta extension key 已删除；
 - 已增加 `host.exe + plugin_a.dll + plugin_b.dll + caors.dll` 的真实跨模块测试拓扑；
 - Windows Clang Shared Debug 下，meta、object、serialization 和插件身份共 37 项计划内测试通过；
 - 正式 DLL/插件约束已整理到 [DLL 与插件使用规范](../dll-plugins.md)；

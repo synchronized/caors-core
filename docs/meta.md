@@ -259,7 +259,7 @@ auto inherited_id = caors::meta::find<player>().find_property(
   C++ 类型视图。反射、序列化、value 和对象模块在只需要布局、类型形态、内置 ops、
   static capability 或 codec 时统一使用这个入口。
 - `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
-  factory 或模块 extension 索引时使用这个入口；未注册 C++ 类型返回空视图。
+  factory、反射属性、方法、metadata 或动态 capability 时使用这个入口；未注册 C++ 类型返回空视图。
 
 `meta::type::scalar()` 暴露基础标量语义，覆盖 bool、字符、整数、浮点和常见字符串类型。
 `std::int32_t` 与平台上的 32 位 `int` 如果是同一个 C++ 类型，会自然解析为同一个 type id；
@@ -406,10 +406,11 @@ caors::registration::type_<actor>("game.actor")
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 `meta::type` 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
-未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
-只能找到已注册类型，按 `id` 可以找到未注册 C++ 类型视图或已注册类型。
-普通业务类型仍应通过 `caors::registration::type_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
-对象或序列化模块挂载 extension。
+未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期已注册类型查询入口；按 `name` / `guid`
+只能找到显式注册类型，按 `id` 也只查询 registry 中已发布的记录。需要未注册 C++ 类型视图时使用
+`resolve<T>()`。
+普通业务类型仍应通过 `caors::registration::type_<T>("name")` 显式注册，再通过统一 builder 的
+`.meta()`、`.serialization()` 或对象自动注册能力一次性提交模块数据。
 
 ### 普通入口：facade 和 view
 
@@ -451,14 +452,14 @@ caors::registration::type_<actor>("game.actor")
 注册类型数据上的动态能力。普通调用方应使用这个统一入口，不直接关心能力来自 C++ 类型事实
 还是注册类型数据。
 如果只剩 `type_id`，应先通过 `meta::find(id)` 找回 `meta::type` 视图；只有确实需要直接查运行期扩展时，
-才使用 registry 的 extension 查询入口。
+才使用模块自己的公开查询入口。
 
 设计约束：
 
 - C++ 类型事实只保存可由 `T` 推导的能力，不保存反射属性、序列化属性配置或对象注册数据。
-- registry 保存注册后事实和模块 extension，不复制未注册 C++ 类型视图中的布局、子类型和内置 ops 数据。
+- registry 保存注册后事实、metadata 和动态 capability，不复制未注册 C++ 类型视图中的布局、子类型和内置 ops 数据。
 - static capability 不应承担用户插件协议；它适合编译期可见、进程内静态生命周期的模块能力。
-- dynamic capability 不是 meta extension，也不替代业务类型注册；需要稳定名称、GUID 或跨模块 extension 查询时仍要注册
+- dynamic capability 不是 meta extension，也不替代业务类型注册；需要稳定名称、GUID 或跨模块 capability 查询时仍要注册
   meta 类型。
 
 跨 EXE、DLL 和插件边界使用 meta API 时，同一进程必须只有一个 CAORS runtime。`meta::type`、
@@ -590,7 +591,7 @@ capability 和 registry 的边界：
   fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta extension。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
   `meta::registry`。需要稳定名称、GUID、父类型、反射属性、序列化属性配置或对象工厂时，仍应显式注册
-  meta 类型和对应模块 extension。
+  meta 类型，并通过统一 registration builder 写入对应模块数据。
 - `capability_key` 由共享 CAORS runtime 按 capability 的 canonical C++ 类型名称驻留。同一 runtime、
   相同工具链和 ABI 配置下，host 与 DLL 会获得相同 opaque key；它不承诺跨 runtime、跨进程或
   存档稳定。需要插件协议、脚本模块或工具链发现能力时，仍应特化 `capability_traits<T>` 提供稳定
@@ -599,12 +600,14 @@ capability 和 registry 的边界：
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
   把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
-统一 `value_type` / `key_type` 不再作为 `type_record` 顶层属性保存。普通值和枚举直接使用
-静态节点自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
-访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
+统一 `value_type` / `key_type` 不作为公开 `type_record` 顶层属性暴露。普通值和枚举直接使用
+静态节点自身的 `type_id`；裸指针、wrapper、sequence、set、associative 和 pair 的常见子类型关系缓存在
+`type_record::semantics()` 内部，公开 API 通过 `meta::type::get_value_type()` /
+`get_key_type()`、`property`、`sequence_view`、`pair_view` 等视图查询。tuple 和 variant 的多元素关系仍由
+对应能力视图按 index 查询。
 
-类型形态和通用类型关系只从静态 `type_record` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
-独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `meta::type` 视图，因此
+类型形态和通用类型关系只从静态 `type_record` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops
+额外挂载到注册表。反射属性会保存声明类型的 `meta::type` 视图，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型。未注册类型不会拥有反射属性、对象工厂或序列化 schema capability；如果
 `traits::type_identity<T>` 能提供静态名称或 GUID，`type_name()` / `guid()` 仍可返回相应身份。
@@ -1145,11 +1148,23 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 
 ## 线程安全边界
 
-`meta::registry` 的注册和查询入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
-或模块加载期单线程通过 registration builder 完成注册，并调用 `meta::init_registry()` 做延迟注册和一致性校验。进入运行期后，业务主循环和工作线程应只做只读查询；
-返回的 `meta::type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
+`meta::registry` 支持三种管理策略：默认 `locked_append_only`、显式冻结后的
+`frozen_read_optimized` 和预留的 `manual_synchronization`。推荐在启动期或模块加载期单线程通过
+registration builder 完成注册，并调用 `meta::init_registry()` 做延迟注册和一致性校验。进入运行期后，
+业务主循环和工作线程应只做只读查询。
 
-当前不会保证运行期并发写注册表的业务一致性。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理。
+查询一致性由 registry snapshot 表达。默认 primary layer 仍走保守同步路径；调用
+`meta::freeze_registry()` / `registry::freeze()` 后，primary 写入层冻结，后续查询可以走只读快路径。
+插件或模块通过 `registry::create_layer()` 写入 draft，`publish_layer()` 后 layer 不可变并进入 snapshot；
+新查询看到新的 snapshot，旧查询继续持有旧 snapshot。
+
+普通 metadata、property/method 查找、capability/schema 查询和 `type::get_value_type()` /
+`get_key_type()` 不进入插件函数指针，也不应使用调用级 guard。真正调用底层 ops 的路径仍会按
+layer 生命周期处理：`pinned_process` layer 的 guard 是 no-op；`detachable` layer 在进入插件代码前
+增加 in-flight 计数，detach/unload 时据此等待或返回 pending。
+
+当前不会保证运行期并发写注册表的业务一致性。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理，
+或通过插件 layer 的 publish/detach 边界进入 registry。
 
 ## 与对象和反射的关系
 

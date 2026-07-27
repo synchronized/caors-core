@@ -52,6 +52,8 @@ void benchmark_meta_lookup(std::size_t iterations) {
           .meta()
           .property("value", &registry_lookup_primary_type::value)
           .method("get_value", &registry_lookup_primary_type::get_value)
+          .serialization()
+          .field("value")
           .commit()
           .failed()) {
     return;
@@ -68,6 +70,8 @@ void benchmark_meta_lookup(std::size_t iterations) {
           .meta()
           .property("value", &registry_lookup_frozen_type::value)
           .method("get_value", &registry_lookup_frozen_type::get_value)
+          .serialization()
+          .field("value")
           .commit()
           .failed() ||
       frozen_registry.freeze().failed()) {
@@ -88,6 +92,8 @@ void benchmark_meta_lookup(std::size_t iterations) {
           .meta()
           .property("value", &registry_lookup_layer_type::value)
           .method("get_value", &registry_lookup_layer_type::get_value)
+          .serialization()
+          .field("value")
           .commit()
           .failed() ||
       layered_registry.publish_layer(*layer).failed()) {
@@ -141,6 +147,33 @@ void benchmark_meta_lookup(std::size_t iterations) {
     for (std::size_t index = 0; index < iterations; ++index) {
       const caors::meta::method_set method = frozen_type.find_method(frozen_method_name);
       consume(method ? 1U : 0U);
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.registry.locked_schema_lookup");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::schema_view schema =
+          caors::serialization::find_schema(primary_type);
+      consume(schema ? schema.field_count() : 0U);
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.registry.frozen_schema_lookup");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::schema_view schema =
+          caors::serialization::find_schema(frozen_type);
+      consume(schema ? schema.field_count() : 0U);
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.registry.layer_schema_lookup");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::schema_view schema =
+          caors::serialization::find_schema(layer_type);
+      consume(schema ? schema.field_count() : 0U);
     }
   }
 }

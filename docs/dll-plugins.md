@@ -18,7 +18,7 @@ host.exe
 宿主和所有插件必须动态链接同一个 `caors.dll` 实例。不要让多个插件分别静态链接 CAORS，
 也不要让宿主静态链接 CAORS 后再加载动态链接 CAORS 的插件。这种拓扑会产生多个 runtime state，
 CAORS 不保证不同 state 之间的 registry、默认 context、memory resource、`type_id`、
-capability key 或 extension key 相同。
+capability key 或插件 host extension 服务表相同。
 
 ## 编译与 ABI 要求
 
@@ -47,8 +47,9 @@ ABI。需要跨编译器、跨 CRT、可长期兼容或脚本/外部工具可消
 - 注册显示名称用于查询和诊断，不参与 C++ 类型身份判等；
 - `std::type_index` 只用于普通 C++ 多态对象的动态类型 fallback，不是主身份来源。
 
-`capability_key` 和 meta extension key 同样由共享 runtime 按 canonical C++ 类型名称驻留。
-它们只适合当前进程内快速查询；需要稳定插件协议时，还应为 capability 提供名称、GUID 和版本。
+`capability_key` 同样由共享 runtime 按 canonical C++ 类型名称驻留。它只适合当前进程内快速查询；
+需要稳定插件协议时，还应为 capability 提供名称、GUID 和版本。插件 host extension 是另一套
+C ABI 服务查询机制，使用字符串 ID 和版本，不使用 `capability_key`。
 
 ## 注册与卸载
 
@@ -62,7 +63,7 @@ traits、adapter 或静态能力特化不一致。
 
 detachable 插件卸载前必须保证：
 
-- registry、property、method、capability 和 extension 不再持有插件代码中的函数指针；
+- registry、property、method、capability 和擦除值不再持有插件代码中的函数指针；
 - 不再存在由插件模型创建并需要插件析构代码的擦除值；
 - 其他线程不再执行插件注册或反射调用。
 
@@ -109,5 +110,5 @@ registration scope 或 registry overlay，因此不能把“生命周期停止�
 ## 验证
 
 `windows-clang-shared-debug` preset 提供真实的 `host + plugin_a + plugin_b + caors.dll`
-测试拓扑，覆盖跨 DLL 类型身份、并发首次解析、插件重载、模型冲突、capability key 和 extension
-key 一致性。共享构建建议使用 `--parallel 1`，避免大型模板测试并行编译导致内存不足。
+测试拓扑，覆盖跨 DLL 类型身份、并发首次解析、插件重载、模型冲突、capability key 和 plugin host
+extension 查询一致性。共享构建建议使用 `--parallel 1`，避免大型模板测试并行编译导致内存不足。

@@ -219,7 +219,7 @@ manager 的结构化诊断必须同时给出 plugin ID、generation、lease 分�
 
 - [x] 引入 `registry_snapshot` 所有权基础；
 - [x] 现有单层 registry 先包装为 snapshot，不改变公开行为；
-- [x] type、extension 和 capability 查询捕获 snapshot；
+- [x] type、metadata 和 capability 查询捕获 snapshot；
 - [x] 保持现有 append-only registry/view/capability 测试通过；
 
 并发 snapshot 发布测试需要 6B 的 layer publish 入口，随 6B 一起实现。当前 snapshot 内仍是受 mutex

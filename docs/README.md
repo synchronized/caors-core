@@ -29,7 +29,7 @@
 - [io.md](io.md)：虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
 - [math.md](math.md)：基础数学值类型，包含向量、矩阵、四元数、矩形和 AABB。
 - [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
-- [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry` 和类型 extension 数据。
+- [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry`、metadata 和 capability data。
 - [object.md](object.md)：对象基类、对象类型 API 和对象创建销毁入口。
 - [meta-properties.md](meta-properties.md)：meta 内建字段/方法能力和手写注册入口。
 - [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、

@@ -18,7 +18,7 @@ namespace caors::meta {
  * @brief 解析 C++ 类型视图；类型不要求已经显式注册。
  *
  * `resolve<T>()` 优先返回已注册 `meta::type`；类型尚未注册时退回未注册 C++ 类型视图。
- * 需要强制判断是否存在稳定名称、GUID、父类型或模块注册 extension 时，应使用 `find<T>()`
+ * 需要强制判断是否存在稳定名称、GUID、父类型、metadata 或动态 capability 时，应使用 `find<T>()`
  * 查询已注册类型。
  */
 template <typename T> [[nodiscard]] type resolve(context& ctx) {

@@ -49,7 +49,7 @@
 
 ## 背景
 
-CAORS 已支持共享 runtime 下的跨 DLL `type_id`、capability key 和 extension key 统一，也有真实的
+CAORS 已支持共享 runtime 下的跨 DLL `type_id` 和 capability key 统一，也有真实的
 `host + plugin_a + plugin_b + caors.dll` 测试拓扑，但目前测试直接使用
 `LoadLibrary` / `dlopen`，没有正式的 library/plugin 公共 API。
 

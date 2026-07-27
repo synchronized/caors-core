@@ -20,7 +20,7 @@ plugin_b.dll ── static caors runtime C
 ```
 
 多份 runtime 会各自拥有 registry、默认 context、memory resource、`string_name` 驻留表、
-`type_id` 分配器、capability key 和 extension key。即使 C++ 类型名相同，跨 runtime 的
+`type_id` 分配器和 capability key。即使 C++ 类型名相同，跨 runtime 的
 `meta::type`、`type_id`、`any`、capability 指针和 allocator 指针也没有统一语义。
 
 CAORS 的 C++ meta 注册与查询接口当前应视为 native C++ plugin API：它要求宿主、插件和共享库使用
@@ -62,7 +62,7 @@ detach 后，旧视图应失效；调用方不能绕过有效性检查继续访�
 - `type_record*`、registry/detail 内部节点和 raw record 指针；
 - `meta::type::get_raw_ops<Ops>()` 返回的 ops 指针；
 - 用户 capability 默认返回的 `const Capability*`，除非协议明确它只在当前调用期间有效；
-- 指向插件静态数据或插件对象的 extension/capability raw pointer；
+- 指向插件静态数据或插件对象的 capability raw pointer；
 - `memory_resource*`、allocator、容器内部 buffer 或由另一份 runtime 分配的内存；
 - `meta::any` 中拥有的插件类型对象，如果其析构、复制或移动需要插件代码；
 - `std::string`、STL 容器等 C++ ABI 不稳定对象，除非双方明确使用完全相同 ABI 且只在内部调用链中使用。
@@ -77,7 +77,7 @@ host 复制字符串和 descriptor 数据。
 - `value_storage_ops`：构造、复制、析构、赋值等函数指针；
 - `builtin_ops`：标量、枚举、指针/wrapper、容器、pair、tuple、variant 等 ops；
 - 静态 capability 表指针；
-- 属性、方法、枚举、nested type、动态 capability 和 extension；
+- 属性、方法、枚举、nested type、metadata 和动态 capability；
 - 可能由插件注册的 factory、constructor、codec 或用户自定义 concept table。
 
 因此 `meta::type` 可以在同一 runtime、同一进程、插件 layer 活着时短期传递；不能当作跨 DLL 稳定
