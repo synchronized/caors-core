@@ -23,6 +23,11 @@ plugin_b.dll ── static caors runtime C
 `type_id` 分配器、capability key 和 extension key。即使 C++ 类型名相同，跨 runtime 的
 `meta::type`、`type_id`、`any`、capability 指针和 allocator 指针也没有统一语义。
 
+CAORS 的 C++ meta 注册与查询接口当前应视为 native C++ plugin API：它要求宿主、插件和共享库使用
+同一 CAORS runtime、同一编译器主版本、同一标准库/CRT ABI、同一异常和 RTTI 配置，以及一致的公共
+类型定义、traits、adapter 和 CAORS 编译配置。它不是 stable C ABI，也不承诺跨编译器、跨 CRT、
+跨进程或多 runtime 兼容。
+
 ## 可以跨模块传递的稳定数据
 
 跨 DLL ABI、插件协议、持久化文件和远程通信优先传递纯数据：
@@ -114,4 +119,3 @@ extension 是注册类型上的模块数据，不是独立 registry。跨模块�
 - view/facade 只在当前调用链内使用，跨帧或跨线程缓存时优先缓存 `type_id` / `type_guid` 后重新查询。
 - 需要跨模块共享 C++ 类型时，把类型、traits、adapter、GUID 和注册代码放在公共头或明确的注册模块中。
 - 同一进程中不要混用静态链接 CAORS 和动态链接 CAORS 的模块。
-

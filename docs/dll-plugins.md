@@ -33,6 +33,12 @@ capability key 或 extension key 相同。
 跨模块共享的类型应定义在共同头文件中。匿名 namespace 类型、lambda 和局部类型只视为模块
 私有类型，不应作为插件协议类型。
 
+当前 `registration`、`meta::type`、`meta::property`、`meta::method`、`meta::any`、
+`meta::any_ref`、schema view 和 capability facade 构成的是 native C++ plugin API。它只面向
+统一 CAORS runtime、统一编译器环境、统一 C++ ABI 和受控生命周期的宿主/插件组合，不是 stable C
+ABI。需要跨编译器、跨 CRT、可长期兼容或脚本/外部工具可消费的插件协议时，应使用
+`caors/plugins/abi.h` 这类纯 C ABI 和显式版本化 descriptor，不直接暴露这些 C++ view 或 ops。
+
 ## 类型身份
 
 - `type_id` 是同一 runtime 内的临时身份，由 canonical C++ 类型名称驻留后顺序分配；
