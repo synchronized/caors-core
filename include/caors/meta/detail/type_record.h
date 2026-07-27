@@ -29,10 +29,20 @@ class method_set_record;
 class property_record;
 struct type_details;
 
+/** @brief 类型语义中引用的另一个 C++ 类型。 */
+struct type_relation {
+  type_id id{};
+  const type_record* fallback = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return id && fallback != nullptr; }
+};
+
 /** @brief C++ 类型的运行期语义摘要。 */
 struct type_semantics {
   type_kind kind = type_kind::value;
   wrapper_semantics wrapper = wrapper_semantics::none;
+  type_relation key_type{};
+  type_relation value_type{};
   bool indirect = false;
   bool nullable = false;
 };

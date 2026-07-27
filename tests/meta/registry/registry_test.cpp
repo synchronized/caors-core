@@ -36,6 +36,10 @@ struct overlay_detach_boundary_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
 };
+struct overlay_container_relation_type {
+  caors::vector<int> values{};
+  caors::hash_map<int, caors::string> names{};
+};
 struct overlay_owned_value {
   int* destructions = nullptr;
   ~overlay_owned_value() {
@@ -509,4 +513,33 @@ TEST_CASE("meta registry layer lifetime 控制 detach 和 call guard") {
     CHECK(detachable->in_flight_calls() == 1);
   }
   CHECK(detachable->in_flight_calls() == 0);
+}
+
+TEST_CASE("meta registry layer 容器类型关系查询不进入调用 guard") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+
+  REQUIRE_FALSE(caors::registration::type_<overlay_container_relation_type>(
+                    layer_context, "caors.test.meta.overlay_container_relation")
+                    .meta()
+                    .property("values", &overlay_container_relation_type::values)
+                    .property("names", &overlay_container_relation_type::names)
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+
+  const caors::meta::type reflected = caors::meta::find<overlay_container_relation_type>(context);
+  REQUIRE(reflected);
+  const caors::meta::property values = reflected.find_property("values");
+  const caors::meta::property names = reflected.find_property("names");
+  REQUIRE(values);
+  REQUIRE(names);
+
+  CHECK(values.get_value_type().id() == caors::meta::id_of<int>());
+  CHECK(layer->in_flight_calls() == 0);
+  CHECK(names.get_key_type().id() == caors::meta::id_of<int>());
+  CHECK(layer->in_flight_calls() == 0);
+  CHECK(names.get_value_type().id() == caors::meta::id_of<caors::string>());
+  CHECK(layer->in_flight_calls() == 0);
 }

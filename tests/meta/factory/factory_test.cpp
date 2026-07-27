@@ -201,7 +201,10 @@ using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - resource default construction propagates allocator", "[meta]") {
   using value_type = caors::vector<int>;
 
-  REQUIRE(caors::registration::type_<value_type>("caors.test.type.resource_vector").commit() ==
+  const caors::meta::type static_type = caors::meta::resolve<value_type>();
+  REQUIRE(static_type);
+  REQUIRE_FALSE(static_type.name().empty());
+  REQUIRE(caors::registration::type_<value_type>(static_type.name().view()).commit() ==
           caors::error{});
   const caors::meta::type type = caors::meta::find<value_type>();
   REQUIRE(type.valid());

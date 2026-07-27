@@ -88,6 +88,12 @@ bool type_record::static_model_matches(const type_record& other) const noexcept 
           (other.value_.ops.resource_construct != nullptr) ||
       (value_.ops.resource_destroy != nullptr) != (other.value_.ops.resource_destroy != nullptr) ||
       semantics_.kind != other.semantics_.kind || semantics_.wrapper != other.semantics_.wrapper ||
+      semantics_.key_type.id != other.semantics_.key_type.id ||
+      (semantics_.key_type.fallback != nullptr) !=
+          (other.semantics_.key_type.fallback != nullptr) ||
+      semantics_.value_type.id != other.semantics_.value_type.id ||
+      (semantics_.value_type.fallback != nullptr) !=
+          (other.semantics_.value_type.fallback != nullptr) ||
       semantics_.indirect != other.semantics_.indirect ||
       semantics_.nullable != other.semantics_.nullable ||
       builtin_.index() != other.builtin_.index() ||

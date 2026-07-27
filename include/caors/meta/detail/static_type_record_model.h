@@ -4,6 +4,7 @@
 #ifndef CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
 #define CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
 
+#include "caors/adapters/stl_traits.h"
 #include "caors/meta/detail/builtin_ops_model.h"
 #include "caors/meta/detail/static_type_name.h"
 #include "caors/meta/detail/type_record.h"
@@ -15,6 +16,13 @@
 #include <type_traits>
 
 namespace caors::meta::detail {
+
+template <typename T> [[nodiscard]] const type_record* static_type_record_ptr_of() noexcept;
+
+template <typename T> [[nodiscard]] type_relation static_type_relation() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return type_relation{static_type_id<type>(), static_type_record_ptr_of<type>()};
+}
 
 template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -28,16 +36,25 @@ template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
 
     result.kind = type_kind::raw_pointer;
     result.wrapper = meta::wrapper_semantics::inline_value;
+    result.value_type = static_type_relation<value_type>();
     result.indirect = true;
     result.nullable = true;
   } else if constexpr (traits::sequence_traits<type>::is_sequence) {
     result.kind = type_kind::sequence;
+    result.value_type =
+        static_type_relation<typename traits::sequence_traits<type>::element_type>();
   } else if constexpr (traits::set_traits<type>::is_set) {
     result.kind = type_kind::set;
+    result.value_type = static_type_relation<typename traits::set_traits<type>::element_type>();
   } else if constexpr (traits::associative_traits<type>::is_associative) {
     result.kind = type_kind::associative;
+    result.key_type = static_type_relation<typename traits::associative_traits<type>::key_type>();
+    result.value_type =
+        static_type_relation<typename traits::associative_traits<type>::mapped_type>();
   } else if constexpr (traits::pair_traits<type>::is_pair) {
     result.kind = type_kind::pair;
+    result.key_type = static_type_relation<typename traits::pair_traits<type>::first_type>();
+    result.value_type = static_type_relation<typename traits::pair_traits<type>::second_type>();
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
     result.kind = type_kind::tuple;
   } else if constexpr (traits::variant_traits<type>::is_variant) {
@@ -51,6 +68,7 @@ template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
 
     result.kind = type_kind::wrapper;
     result.wrapper = traits::wrapper_traits<type>::semantics;
+    result.value_type = static_type_relation<value_type>();
     result.indirect = true;
     result.nullable = traits::wrapper_traits<type>::nullable;
   } else {

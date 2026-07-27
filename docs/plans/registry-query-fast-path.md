@@ -228,11 +228,14 @@ struct registry_options {
 - [x] `method_set::match/resolve` 只做已注册签名匹配，不进入 call guard；
 - [x] 纯 metadata / capability 查询只做 snapshot 记录读取；
 - [x] 真正调用函数指针的路径继续使用 call guard；
-- [ ] 继续拆分 `type::get_value_type()` / `get_key_type()` 这类依赖 ops 回调的类型查询，
+- [x] 继续拆分 `type::get_value_type()` / `get_key_type()` 这类依赖 ops 回调的类型查询，
   长期应把常见内置类型信息固化到记录或安全 facade；
 - [x] 为 detach 后纯查询和 detach 后调用分别补测试。
 
 完成标准：detach 后旧 view 查询基础 id/name 可按文档定义处理，调用插件 ops 明确失败。
+当前 `type_record::semantics()` 已缓存常见 pointer/wrapper/sequence/set/associative/pair
+的 key/value 类型关系，`type::get_value_type()` / `get_key_type()` 不再通过容器 ops 进入
+detachable layer 调用 guard。
 
 ### 阶段 5：冻结 layer 查询无锁
 

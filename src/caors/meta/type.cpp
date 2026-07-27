@@ -104,6 +104,24 @@ bool type::nullable() const noexcept {
   return data != nullptr && data->semantics().nullable;
 }
 
+namespace {
+
+[[nodiscard]] type type_relation_view(const registry* source_registry,
+                                      const detail::type_relation& relation) noexcept {
+  if (source_registry == nullptr || !relation.valid()) {
+    return {};
+  }
+
+  meta::type registered = source_registry->find_type(relation.id);
+  if (registered) {
+    return registered;
+  }
+
+  return detail::type_access::make(source_registry, relation.fallback);
+}
+
+} // namespace
+
 const metadata_map& type::metadata() const noexcept {
   const detail::type_record* data = detail::type_access::registered_data_of(*this);
   if (data == nullptr) {
@@ -118,10 +136,6 @@ const metadata_value* type::find_metadata(metadata_key key) const noexcept {
 }
 
 type type::get_value_type() const noexcept {
-  const detail::layer_call_guard guard{detail::type_access::layer_of(*this)};
-  if (!guard) {
-    return {};
-  }
   const detail::type_record* data = detail::type_access::data_of(*this);
   if (data == nullptr) {
     return {};
@@ -132,39 +146,12 @@ type type::get_value_type() const noexcept {
   case type_kind::enumeration:
     return *this;
   case type_kind::raw_pointer:
-  case type_kind::wrapper: {
-    if (const auto* indirect_ops = get_raw_ops<meta::indirect_ops>()) {
-      return indirect_ops->get_value_type != nullptr ? indirect_ops->get_value_type()
-                                                     : meta::type{};
-    }
-    break;
-  }
-  case type_kind::sequence: {
-    if (const auto* sequence_ops = get_raw_ops<meta::sequence_ops>()) {
-      return sequence_ops->get_value_type != nullptr ? sequence_ops->get_value_type()
-                                                     : meta::type{};
-    }
-    break;
-  }
-  case type_kind::set: {
-    if (const auto* set_ops = get_raw_ops<meta::set_ops>()) {
-      return set_ops->get_value_type != nullptr ? set_ops->get_value_type() : meta::type{};
-    }
-    break;
-  }
-  case type_kind::associative: {
-    if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
-      return associative_ops->get_value_type != nullptr ? associative_ops->get_value_type()
-                                                        : meta::type{};
-    }
-    break;
-  }
-  case type_kind::pair: {
-    if (const auto* pair_ops = get_raw_ops<meta::pair_ops>()) {
-      return pair_ops->get_value_type != nullptr ? pair_ops->get_value_type() : meta::type{};
-    }
-    break;
-  }
+  case type_kind::wrapper:
+  case type_kind::sequence:
+  case type_kind::set:
+  case type_kind::associative:
+  case type_kind::pair:
+    return type_relation_view(registry_, data->semantics().value_type);
   case type_kind::tuple:
   case type_kind::variant:
     break;
@@ -174,29 +161,15 @@ type type::get_value_type() const noexcept {
 }
 
 type type::get_key_type() const noexcept {
-  const detail::layer_call_guard guard{detail::type_access::layer_of(*this)};
-  if (!guard) {
-    return {};
-  }
   const detail::type_record* data = detail::type_access::data_of(*this);
   if (data == nullptr) {
     return {};
   }
 
   switch (data->semantics().kind) {
-  case type_kind::associative: {
-    if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
-      return associative_ops->get_key_type != nullptr ? associative_ops->get_key_type()
-                                                      : meta::type{};
-    }
-    break;
-  }
-  case type_kind::pair: {
-    if (const auto* pair_ops = get_raw_ops<meta::pair_ops>()) {
-      return pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
-    }
-    break;
-  }
+  case type_kind::associative:
+  case type_kind::pair:
+    return type_relation_view(registry_, data->semantics().key_type);
   case type_kind::value:
   case type_kind::enumeration:
   case type_kind::raw_pointer:
