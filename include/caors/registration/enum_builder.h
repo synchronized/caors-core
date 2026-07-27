@@ -139,8 +139,8 @@ public:
       return *this;
     }
 
-    status_ = pending_.set_type_metadata(
-        key, meta::make_metadata_value(std::forward<Value>(value)));
+    status_ =
+        pending_.set_type_metadata(key, meta::make_metadata_value(std::forward<Value>(value)));
     return *this;
   }
 
@@ -155,24 +155,26 @@ public:
 
   /** @brief 提交 pending 枚举类型数据；已注册枚举不会被继续修改。 */
   [[nodiscard]] error commit() {
+    status_ = prepare_for_commit();
     if (status_) {
       return status_;
     }
 
-    const meta::detail::type_record* fallback = meta::detail::static_type_record_ptr_of<value_type>();
-    if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return status_;
-    }
-
-    status_ = pending_.set_static_data(fallback);
-    if (status_) {
-      return status_;
-    }
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
     }
+    return status_;
+  }
+
+  /** @brief 校验 pending 枚举类型数据和 registry 冲突，不发布类型记录。 */
+  [[nodiscard]] error validate() {
+    status_ = prepare_for_commit();
+    if (status_) {
+      return status_;
+    }
+
+    status_ = registry_->validate_type(pending_, typeid(value_type));
     return status_;
   }
 
@@ -219,7 +221,7 @@ private:
     using underlying_type = std::underlying_type_t<value_type>;
     const underlying_type raw = static_cast<underlying_type>(enum_value);
     pending_.add_enum_value(meta::detail::enum_value_record{name, static_cast<std::int64_t>(raw),
-                                                          static_cast<std::uint64_t>(raw)});
+                                                            static_cast<std::uint64_t>(raw)});
     return *this;
   }
 
@@ -236,6 +238,20 @@ private:
 
     status_ = pending_.set_enum_value_metadata(value_name, key, std::move(value));
     return *this;
+  }
+
+  [[nodiscard]] error prepare_for_commit() {
+    if (status_) {
+      return status_;
+    }
+
+    const meta::detail::type_record* fallback =
+        meta::detail::static_type_record_ptr_of<value_type>();
+    if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    return pending_.set_static_data(fallback);
   }
 
   meta::registry* registry_ = nullptr;
@@ -293,6 +309,7 @@ public:
   }
 
   [[nodiscard]] error commit() { return builder_->commit(); }
+  [[nodiscard]] error validate() { return builder_->validate(); }
   [[nodiscard]] meta::type get() const noexcept { return builder_->get(); }
   [[nodiscard]] error result() const noexcept { return builder_->result(); }
   [[nodiscard]] bool succeeded() const noexcept { return builder_->succeeded(); }

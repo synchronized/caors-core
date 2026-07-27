@@ -284,6 +284,45 @@ namespace {
   return store_new_type(state, std::move(type), stored_id, dependencies_valid);
 }
 
+[[nodiscard]] error validate_pending_type_locked(const detail::registry_state& state,
+                                                 const detail::type_record& candidate,
+                                                 const std::type_info& cpp_type,
+                                                 bool dependencies_valid) {
+  if (!candidate.valid() || !candidate.id()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (state.frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+
+  if (!dependencies_valid) {
+    return {error_domain::meta, candidate.parent_id() ? errc::missing_parent : errc::missing_type};
+  }
+
+  if (state.types.contains(candidate.id().value())) {
+    const detail::type_record* existing = detail::find_type_record(state, candidate.id());
+    return existing != nullptr && !existing->static_model_matches(candidate)
+               ? error{error_domain::meta, errc::inconsistent_type_model}
+               : error{error_domain::meta, errc::duplicate_id};
+  }
+
+  const std::type_index cpp_index{cpp_type};
+  if (state.cpp_types.contains(cpp_index)) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (candidate.name() && state.names.contains(candidate.name())) {
+    return {error_domain::meta, errc::duplicate_name};
+  }
+
+  if (candidate.guid() && state.guids.contains(candidate.guid().value)) {
+    return {error_domain::meta, errc::duplicate_guid};
+  }
+
+  return {};
+}
+
 } // namespace
 
 error registry::register_type(type_id id, string_name name, type_guid guid, type_id parent_id) {
@@ -293,6 +332,25 @@ error registry::register_type(type_id id, string_name name, type_guid guid, type
   }
   return register_type_impl(*state_, detail::type_record{id, name, guid, parent_id}, nullptr,
                             dependencies_valid);
+}
+
+error registry::validate_type(const detail::pending_type_record& pending,
+                              const std::type_info& cpp_type) const {
+  error status = pending.validate();
+  if (status) {
+    return status;
+  }
+
+  const detail::type_record& candidate = pending.data();
+  bool dependencies_valid = !candidate.parent_id() || contains(candidate.parent_id());
+  for (std::size_t index = 0; dependencies_valid && index < candidate.nested_type_count();
+       ++index) {
+    const detail::nested_type_data* nested = candidate.nested_type_at(index);
+    dependencies_valid = nested != nullptr && nested->valid() && contains(nested->nested_type);
+  }
+
+  std::lock_guard lock(state_->mutex);
+  return validate_pending_type_locked(*state_, candidate, cpp_type, dependencies_valid);
 }
 
 error registry::commit_type(detail::pending_type_record pending, const std::type_info& cpp_type) {
@@ -315,21 +373,12 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   }
 
   std::lock_guard lock(state_->mutex);
-  if (state_->frozen) {
-    return {error_domain::meta, errc::frozen};
-  }
-  if (state_->types.contains(candidate.id().value())) {
-    const detail::type_record* existing = detail::find_type_record(*state_, candidate.id());
-    return existing != nullptr && !existing->static_model_matches(candidate)
-               ? error{error_domain::meta, errc::inconsistent_type_model}
-               : error{error_domain::meta, errc::duplicate_id};
+  status = validate_pending_type_locked(*state_, candidate, cpp_type, dependencies_valid);
+  if (status) {
+    return status;
   }
 
   const std::type_index cpp_index{cpp_type};
-  if (state_->cpp_types.contains(cpp_index)) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
   const type_id expected_id = candidate.id();
   status = store_new_type(*state_, std::move(pending).release(), nullptr, dependencies_valid);
   if (status) {

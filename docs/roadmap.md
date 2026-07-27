@@ -173,7 +173,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   layer 的 type/property/method/schema 查询。
 - [x] 增加 registry 管理策略 API：`registry_options` / `registry_management_policy`，
   默认保持内部加锁的 append-only 语义，后续支持冻结读优化和高级手动同步。
-- [ ] 评估注册项 replace、dry-run 校验和更完整的批量注册事务语义。
+- [x] 明确不支持原地 replace 已发布注册项；新增 type/enum builder `validate()` 和
+  batch `validate_all()` 预检入口，并文档化 batch 顺序提交、不回滚的事务边界。
 
 ## 2. 定制化分配器
 

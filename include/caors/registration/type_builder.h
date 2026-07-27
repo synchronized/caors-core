@@ -159,26 +159,11 @@ public:
 
   /** @brief 提交 pending 类型数据；已注册类型不会被继续修改。 */
   [[nodiscard]] error commit() {
+    status_ = prepare_for_commit();
     if (status_) {
       return status_;
     }
 
-    enable_object_if_needed();
-    if (status_) {
-      return status_;
-    }
-
-    const meta::detail::type_record* fallback =
-        meta::detail::static_type_record_ptr_of<value_type>();
-    if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return status_;
-    }
-
-    status_ = pending_.set_static_data(fallback);
-    if (status_) {
-      return status_;
-    }
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
@@ -195,6 +180,17 @@ public:
                 serialization_schema_, &memory::library_resource()));
       }
     }
+    return status_;
+  }
+
+  /** @brief 校验 pending 类型数据和 registry 冲突，不发布类型记录。 */
+  [[nodiscard]] error validate() {
+    status_ = prepare_for_commit();
+    if (status_) {
+      return status_;
+    }
+
+    status_ = registry_->validate_type(pending_, typeid(value_type));
     return status_;
   }
 
@@ -215,6 +211,59 @@ private:
   type_builder& register_factory() {
     return register_factory(meta::detail::resource_default_construct_fn_of<value_type>(),
                             meta::detail::resource_destroy_fn_of<value_type>());
+  }
+
+  [[nodiscard]] error prepare_for_commit() {
+    if (status_) {
+      return status_;
+    }
+
+    enable_object_if_needed();
+    if (status_) {
+      return status_;
+    }
+
+    const meta::detail::type_record* fallback =
+        meta::detail::static_type_record_ptr_of<value_type>();
+    if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    error result = pending_.set_static_data(fallback);
+    if (result) {
+      return result;
+    }
+
+    return validate_serialization_schema();
+  }
+
+  [[nodiscard]] error validate_serialization_schema() const {
+    if (!serialization_enabled_) {
+      return {};
+    }
+
+    if (!serialization_schema_.valid()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    if (serialization_schema_.fields.empty()) {
+      return {};
+    }
+
+    const meta::type parent_type = pending_.parent_id() && registry_ != nullptr
+                                       ? registry_->find_type(pending_.parent_id())
+                                       : meta::type{};
+    for (const serialization::field_schema& field : serialization_schema_.fields) {
+      const bool local_property = pending_.find_property_ptr(field.field_name) != nullptr;
+      const bool inherited_property =
+          parent_type && static_cast<bool>(parent_type.find_property(
+                             field.field_name, meta::member_search::include_bases));
+      if (!local_property && !inherited_property) {
+        return {error_domain::serialization, errc::not_found};
+      }
+    }
+
+    return {};
   }
 
   /** @brief 注册自定义 factory。 */
@@ -792,6 +841,7 @@ public:
   }
 
   [[nodiscard]] error commit() { return owner_->commit(); }
+  [[nodiscard]] error validate() { return owner_->validate(); }
 
 private:
   type_builder<T>* owner_ = nullptr;
@@ -824,6 +874,7 @@ public:
   [[nodiscard]] meta_section<T> meta() noexcept { return owner_->meta(); }
 
   [[nodiscard]] error commit() { return owner_->commit(); }
+  [[nodiscard]] error validate() { return owner_->validate(); }
 
 private:
   type_builder<T>* owner_ = nullptr;

@@ -48,7 +48,12 @@ struct batch_diagnostic {
   return "unknown";
 }
 
-/** @brief 按顺序提交多个 registration builder 的批量注册器。 */
+/**
+ * @brief 按顺序提交多个 registration builder 的批量注册器。
+ *
+ * `commit()` 是顺序提交，遇到第一处失败时停止，不回滚之前已经成功发布的注册项。
+ * 需要降低半成功概率时，可先调用 `validate_all()` 做预检；预检不会发布类型记录。
+ */
 class batch_builder final {
   class item_base;
   template <typename Builder> class item_model;
@@ -117,6 +122,44 @@ public:
     return status_;
   }
 
+  /** @brief 预检全部注册项和同一 batch 内的显式 ID/name 冲突，不发布任何记录。 */
+  [[nodiscard]] error validate_all() {
+    if (committed_) {
+      return status_;
+    }
+
+    failure_ = {};
+    status_ = {};
+    core::vector<type_id> seen_ids{
+        core::vector<type_id>::allocator_type{&memory::library_resource()}};
+    core::vector<core::string_name> seen_names{
+        core::vector<core::string_name>::allocator_type{&memory::library_resource()}};
+
+    for (std::size_t index = 0; index < items_.size(); ++index) {
+      item_base& item = *items_[index];
+      const error duplicate_status = validate_unique_batch_identity(item, seen_ids, seen_names);
+      if (duplicate_status) {
+        status_ = duplicate_status;
+        failure_ = batch_diagnostic{item.kind(), index, item.id(), item.name(), duplicate_status};
+        return status_;
+      }
+
+      const error item_status = item.validate();
+      if (item_status) {
+        status_ = item_status;
+        failure_ = batch_diagnostic{item.kind(), index, item.id(), item.name(), item_status};
+        return status_;
+      }
+
+      seen_ids.push_back(item.id());
+      if (item.name()) {
+        seen_names.push_back(item.name());
+      }
+    }
+
+    return status_;
+  }
+
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
   [[nodiscard]] std::size_t size() const noexcept { return items_.size(); }
@@ -155,6 +198,7 @@ private:
     virtual ~item_base() = default;
 
     [[nodiscard]] virtual error commit() = 0;
+    [[nodiscard]] virtual error validate() = 0;
     [[nodiscard]] virtual batch_item_kind kind() const noexcept = 0;
     [[nodiscard]] virtual type_id id() const noexcept = 0;
     [[nodiscard]] virtual core::string_name name() const noexcept = 0;
@@ -167,6 +211,7 @@ private:
         : builder(std::move(builder_value)), kind_(kind_value), id_(id_value), name_(name_value) {}
 
     [[nodiscard]] error commit() override { return builder.commit(); }
+    [[nodiscard]] error validate() override { return builder.validate(); }
     [[nodiscard]] batch_item_kind kind() const noexcept override { return kind_; }
     [[nodiscard]] type_id id() const noexcept override { return id_; }
     [[nodiscard]] core::string_name name() const noexcept override { return name_; }
@@ -191,6 +236,26 @@ private:
           memory::destroy(static_cast<item_type*>(value), static_cast<memory_resource*>(user_data));
         });
     return result;
+  }
+
+  [[nodiscard]] static error
+  validate_unique_batch_identity(const item_base& item, const core::vector<type_id>& seen_ids,
+                                 const core::vector<core::string_name>& seen_names) {
+    for (type_id seen_id : seen_ids) {
+      if (seen_id == item.id()) {
+        return {error_domain::meta, errc::duplicate_id};
+      }
+    }
+
+    if (item.name()) {
+      for (core::string_name seen_name : seen_names) {
+        if (seen_name == item.name()) {
+          return {error_domain::meta, errc::duplicate_name};
+        }
+      }
+    }
+
+    return {};
   }
 
   using erased_item_ptr = memory::unique_ptr<item_base>;

@@ -22,6 +22,9 @@
 | `registration::batch(ctx)` / `registration::batch()` | 顺序收集多个 type/enum builder，并在 `commit()` 时批量提交。 |
 | `CAORS_META_REGISTRATION(name)` | 可选的延迟注册函数收集入口，最终仍应调用统一 registration builder。 |
 
+type/enum builder 提供 `validate()` 预检入口。它会执行结构校验、registry 冲突检查和可提前检查的模块数据校验，
+但不会发布类型记录。`validate()` 成功后同一个 builder 仍可继续 `commit()`；失败后 builder 保留失败状态。
+
 普通类型示例：
 
 ```cpp
@@ -101,6 +104,10 @@ builder；当 `T` 继承自 `meta::object` 时，`commit()` 会自动写入对�
 前置项会保留在 registry 中，失败项之后的注册项不会提交。批量注册也不提供隐式 replace；重复类型、重复名称或
 重复 GUID 仍按普通 builder 规则返回错误。
 
+`registration::batch_builder::validate_all()` 会预检每个 item 的结构、registry 冲突以及同一 batch 内显式
+ID/name 重复；它不发布任何记录。它不是完整事务提交：如果其他线程或模块在 `validate_all()` 和
+`commit()` 之间修改同一个 registry，`commit()` 仍可能失败。
+
 批量注册错误处理示例：
 
 ```cpp
@@ -124,11 +131,13 @@ if (status) {
 
 ## Registry 策略方向
 
-当前默认策略等价于 `append_only_registry`：启动期或模块加载期集中注册，发布后只读查询，view 可以保持
-稳定指向已发布数据。这是普通游戏运行期、工具启动和测试环境的推荐模型。
+当前默认策略是 `locked_append_only`：启动期或模块加载期集中注册，发布后只读查询，view 可以保持
+稳定指向已发布数据。这是普通游戏运行期、工具启动和测试环境的推荐模型。`frozen_read_optimized`
+适合初始化结束后显式冻结 primary registry；`manual_synchronization` 预留给调用方自行管理同步的高级场景。
 
-未来如果需要插件热加载、脚本动态类型或编辑器热替换，应引入独立 registry 策略，而不是让当前默认
-registry 隐式变成可变结构。可评估的策略包括：
+如果需要插件热加载、脚本动态类型或编辑器热替换，应使用 registry layer / overlay 或独立动态注册系统，
+而不是让当前默认 registry 隐式变成可变结构。当前不计划在主 registry 上支持原地 replace。
+可继续评估的策略包括：
 
 - `mutable_registry`：允许显式替换或删除类型数据，但需要 generation、失效检测和更严格的锁策略；旧 view
   不能继续假定永久稳定。
@@ -137,8 +146,8 @@ registry 隐式变成可变结构。可评估的策略包括：
 - 插件 registry overlay：应用主 registry 保持 append-only，插件注册写入 overlay；查询时先查 overlay
   再查主 registry，插件卸载时整体丢弃 overlay，避免修改主 registry。
 
-`dry_run` 暂不作为当前 API。真正有意义的 dry-run 需要 registry 提供“只校验不提交”的策略能力，
-否则无法可靠判断名称、GUID、父类型、metadata 和 capability 冲突是否会在提交时发生变化。
+`validate()` / `validate_all()` 是当前的 dry-run 形式。它们只保证调用时刻的结构和冲突检查成立，
+不提供跨线程事务隔离；真正的全事务提交仍需要独立 registry draft 或 layer 作为边界。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过 `meta::type` 能力参与属性访问和序列化。只有需要稳定名称、

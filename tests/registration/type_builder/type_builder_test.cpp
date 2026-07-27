@@ -16,6 +16,18 @@ struct registration_actor final : caors::object {
   void set_value(int next) { value = next; }
 };
 
+struct registration_validate_type {
+  int value = 0;
+};
+
+struct registration_invalid_schema_type {
+  int value = 0;
+};
+
+struct registration_frozen_validate_type {
+  int value = 0;
+};
+
 } // namespace
 
 TEST_CASE("registration - type builder registers meta serialization and object together",
@@ -109,4 +121,51 @@ TEST_CASE("registration - duplicate type builder commit does not mutate register
   const caors::serialization::field_schema* field = schema.field_at(0);
   REQUIRE(field != nullptr);
   CHECK(field->field_name == caors::core::string_name{"first"});
+}
+
+TEST_CASE("registration - type builder validate does not publish type", "[registration]") {
+  auto builder = caors::registration::type_<registration_validate_type>(
+      "caors.test.registration.validate_type");
+  builder.meta()
+      .property("value", &registration_validate_type::value)
+      .serialization()
+      .field("value");
+
+  REQUIRE(builder.validate() == caors::error{});
+  CHECK_FALSE(caors::meta::find<registration_validate_type>());
+
+  REQUIRE(builder.commit() == caors::error{});
+  CHECK(caors::meta::find<registration_validate_type>().registered());
+}
+
+TEST_CASE("registration - type builder validate catches schema errors before publish",
+          "[registration]") {
+  auto builder = caors::registration::type_<registration_invalid_schema_type>(
+      "caors.test.registration.invalid_schema");
+  builder.meta()
+      .property("value", &registration_invalid_schema_type::value)
+      .serialization()
+      .field("missing");
+
+  const caors::error status = builder.validate();
+  REQUIRE(status);
+  CHECK(status.domain() == caors::error_domain::serialization);
+  CHECK(status.value() == caors::errc::not_found);
+  CHECK_FALSE(caors::meta::find<registration_invalid_schema_type>());
+}
+
+TEST_CASE("registration - type builder validate reports frozen registry", "[registration]") {
+  caors::meta::registry registry;
+  caors::meta::context context{registry};
+  REQUIRE(registry.freeze() == caors::error{});
+
+  auto builder = caors::registration::type_<registration_frozen_validate_type>(
+      context, "caors.test.registration.frozen_validate");
+  builder.meta().property("value", &registration_frozen_validate_type::value);
+
+  const caors::error status = builder.validate();
+  REQUIRE(status);
+  CHECK(status.domain() == caors::error_domain::meta);
+  CHECK(status.value() == caors::errc::frozen);
+  CHECK_FALSE(caors::meta::find<registration_frozen_validate_type>(context));
 }

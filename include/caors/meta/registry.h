@@ -144,6 +144,8 @@ private:
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
+  [[nodiscard]] error validate_type(const detail::pending_type_record& pending,
+                                    const std::type_info& cpp_type) const;
   [[nodiscard]] error commit_type(detail::pending_type_record pending,
                                   const std::type_info& cpp_type);
   template <typename T>

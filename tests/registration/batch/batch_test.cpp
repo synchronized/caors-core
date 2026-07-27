@@ -56,6 +56,22 @@ struct batch_lifecycle_after_type {
   int value = 0;
 };
 
+struct batch_validate_duplicate_first_type {
+  int value = 0;
+};
+
+struct batch_validate_duplicate_second_type {
+  int value = 0;
+};
+
+struct batch_validate_existing_type {
+  int value = 0;
+};
+
+struct batch_validate_after_existing_type {
+  int value = 0;
+};
+
 } // namespace
 
 TEST_CASE("registration batch - commits type and enum in order", "[registration]") {
@@ -208,4 +224,39 @@ TEST_CASE("registration batch - keeps prior commits when a later item fails", "[
   CHECK_FALSE(static_cast<bool>(duplicate_type.find_property("new_value")));
 
   CHECK_FALSE(caors::meta::find<batch_lifecycle_after_type>());
+}
+
+TEST_CASE("registration batch - validate_all catches batch-local duplicates without commit",
+          "[registration]") {
+  caors::registration::batch_builder batch = caors::registration::batch();
+  batch.type_<batch_validate_duplicate_first_type>(
+      "caors.test.registration.batch.validate_duplicate");
+  batch.type_<batch_validate_duplicate_second_type>(
+      "caors.test.registration.batch.validate_duplicate");
+
+  const caors::error status = batch.validate_all();
+  REQUIRE(status);
+  CHECK(status.value() == caors::errc::duplicate_name);
+  CHECK(batch.failed_index() == 1);
+  CHECK(batch.failed_kind() == caors::registration::batch_item_kind::type);
+  CHECK_FALSE(caors::meta::find<batch_validate_duplicate_first_type>());
+  CHECK_FALSE(caors::meta::find<batch_validate_duplicate_second_type>());
+}
+
+TEST_CASE("registration batch - validate_all catches registry conflicts before partial commit",
+          "[registration]") {
+  REQUIRE(caors::registration::type_<batch_validate_existing_type>(
+              "caors.test.registration.batch.validate_existing")
+              .commit() == caors::error{});
+
+  caors::registration::batch_builder batch = caors::registration::batch();
+  batch.type_<batch_validate_after_existing_type>(
+      "caors.test.registration.batch.validate_after_existing");
+  batch.type_<batch_validate_existing_type>("caors.test.registration.batch.validate_existing");
+
+  const caors::error status = batch.validate_all();
+  REQUIRE(status);
+  CHECK(status.value() == caors::errc::duplicate_id);
+  CHECK(batch.failed_index() == 1);
+  CHECK_FALSE(caors::meta::find<batch_validate_after_existing_type>());
 }
