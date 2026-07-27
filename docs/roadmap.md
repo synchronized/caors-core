@@ -117,8 +117,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计开放 dynamic capability / poly concept table，用于外挂用户自定义运行期访问能力。
 - [x] 梳理开放 dynamic capability / poly concept table 的最终 API；`meta::type` 提供内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，dynamic capability 作为用户扩展能力入口。
-- [x] 增加 capability 稳定元信息扩展点，例如 capability name / guid / version，用于插件、工具链诊断和
-  跨模块协议；当前 `capability_key` 是共享 runtime 分配的进程内查询 ID。
+- [x] 增加 capability 诊断元信息扩展点，例如 capability name / guid / version，用于插件、工具链诊断和
+  native C++ API 约束说明；当前 `capability_key` 是共享 runtime 分配的进程内查询 ID。
 - [x] 增加多模块静态 capability 扩展机制，外部模块可通过 module tag 和
   `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
   `custom_static_capability_module` 造成特化覆盖。
@@ -141,7 +141,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。
 - [ ] 支持 Proxy 返回引用、借用值和生命周期策略。
-- [ ] 设计跨 DLL / 插件边界的 capability 稳定协议。
+- [x] 文档化 capability 的 native C++ ABI 边界：跨 DLL / 插件使用时要求同一 CAORS runtime、
+  同一 CAORS 版本、同一编译器 / 标准库 / CRT ABI 和一致的公共类型定义；不设计独立 stable capability protocol。
 - [ ] 评估完全无宏 Proxy DSL，降低宏接口对诊断和工具链的影响。
 - [ ] 评估基于未来静态反射或代码生成的成员自动发现。
 - [x] 将运行期类型查询、属性/方法和值构造能力合并到 `meta` 主入口，不再保留独立 `runtime` 模块。

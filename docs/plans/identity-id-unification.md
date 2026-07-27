@@ -141,7 +141,8 @@ template <typename T>
 - [x] 将 `capability_key` 从 `const void*` 迁移到 `capability_id`；
 - [x] `capability_key_of<T>()` 改为基于 identity domain `capability`；
 - [x] 更新 `type_record::capabilities`、动态 capability 注册、查询和测试；
-- [x] 文档说明 capability id 是进程内 ID，跨版本稳定协议仍应使用 capability GUID / version。
+- [x] 文档说明 capability id 是进程内 ID，capability GUID / version 仅用于诊断、工具链和协议协商说明，
+  不表示 CAORS 提供跨版本 stable capability ABI。
 
 完成标准：动态 capability 不再依赖模板静态地址作为 key。
 

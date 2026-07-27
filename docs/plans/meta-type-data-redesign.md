@@ -496,7 +496,8 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
   为同一个 `T` 生成不同静态节点内容；内部模块必须建立统一使用约定；
 - 静态节点构造 `string_name` 时会访问进程级字符串表并可能分配一次，需避免静态初始化顺序依赖；
 - 静态 GUID 与显式 GUID 的冲突策略会把过去允许的覆盖变为错误；
-- 跨 DLL 时模板静态节点是否唯一取决于导出边界，需在插件稳定协议专项中继续处理；
+- 跨 DLL 时模板静态节点是否唯一取决于导出边界；当前策略是要求同一 CAORS runtime、同一 CAORS
+  版本、同一编译器 / 标准库 / CRT ABI 和一致的公共类型定义；
 - 不能用静态节点地址替代 `type_id` 作为跨模块或持久化身份。
 
 ## 后续问题与结论
@@ -505,7 +506,8 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 2. serialization、object、resources、math 等模块类型通过各自聚合头或 `*/serialization.h`
    adapter 头保证 static capability 可见。
 3. “特化晚于首次实例化”的编译期诊断 helper 尚未实现，列入后续增强，不阻塞当前静态节点模型。
-4. 跨 DLL/插件场景暂不承诺静态节点地址统一；稳定协议应依赖 `type_id/type_guid`，后续在插件专项中验证。
+4. 跨 DLL/插件场景暂不承诺静态节点地址统一；native C++ capability 和 `meta::type` 只在同一 runtime、
+   同一 CAORS 版本和同一 C++ ABI 组合内使用。
 
-核心迁移已经完成。后续工作聚焦性能基准、多编译器矩阵和跨 DLL/插件协议，不再改变本文件确定的
+核心迁移已经完成。后续工作聚焦性能基准、多编译器矩阵和 native C++ 插件边界复验，不再改变本文件确定的
 `type_record + type_details` 主结构。

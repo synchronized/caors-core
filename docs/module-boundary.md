@@ -24,7 +24,7 @@ plugin_b.dll ── static caors runtime C
 `meta::type`、`type_id`、`any`、capability 指针和 allocator 指针也没有统一语义。
 
 CAORS 的 C++ meta 注册与查询接口当前应视为 native C++ plugin API：它要求宿主、插件和共享库使用
-同一 CAORS runtime、同一编译器主版本、同一标准库/CRT ABI、同一异常和 RTTI 配置，以及一致的公共
+同一 CAORS runtime、同一 CAORS 版本、同一编译器主版本、同一标准库/CRT ABI、同一异常和 RTTI 配置，以及一致的公共
 类型定义、traits、adapter 和 CAORS 编译配置。它不是 stable C ABI，也不承诺跨编译器、跨 CRT、
 跨进程或多 runtime 兼容。
 
