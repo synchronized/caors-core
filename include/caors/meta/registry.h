@@ -7,9 +7,7 @@
 #include "caors/adapters/stl_wrapper.h"
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
-#include "caors/meta/extension_view.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 
@@ -131,28 +129,6 @@ public:
   /** @brief 从新 snapshot 原子移除已发布 layer，并使旧句柄失效。 */
   [[nodiscard]] error detach_layer(registry_layer& layer);
 
-  /** @brief 判断指定类型是否挂载了某份扩展数据。 */
-  template <typename Extension> [[nodiscard]] bool has_extension(type_id id) const;
-
-  /** @brief 获取指定类型上的扩展数据副本。 */
-  template <typename Extension>
-  [[nodiscard]] std::optional<Extension> find_extension(type_id id) const;
-
-  /**
-   * @brief 获取指定类型上的扩展数据只读指针。
-   *
-   * 仅查询当前 registry 自己的 primary layer，不跨 overlay 回退。返回指针不拥有对象，
-   * 生命周期不超过当前 registry；跨 layer 查询应使用返回副本的 `find_extension()`。
-   */
-  template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
-
-  /** @brief 统计挂载了指定扩展数据的类型数量。 */
-  template <typename Extension> [[nodiscard]] std::size_t extension_count() const noexcept;
-
-  /** @brief 查询同时拥有指定扩展数据集合的类型。 */
-  template <typename... Extensions>
-  [[nodiscard]] ::caors::meta::extension_view<Extensions...> extension_view() const;
-
 private:
   template <typename T> friend class ::caors::registration::enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
@@ -176,17 +152,6 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
-  [[nodiscard]] error add_extension(type_id id, detail::extension_data extension);
-  [[nodiscard]] bool has_extension(type_id id, detail::extension_key key) const;
-  [[nodiscard]] const detail::extension_data* find_extension_data(type_id id,
-                                                                  detail::extension_key key) const;
-  using extension_copy_fn = void (*)(void*, const detail::extension_data&);
-  [[nodiscard]] bool copy_extension_data(type_id id, detail::extension_key key, void* destination,
-                                         extension_copy_fn copy) const;
-
-  [[nodiscard]] vector<type_id>
-  view_extension_ids(const std::shared_ptr<detail::registry_snapshot>& snapshot,
-                     const detail::extension_key* keys, std::size_t count) const;
   [[nodiscard]] std::shared_ptr<detail::registry_snapshot> capture_snapshot() const noexcept;
 
   memory::memory_resource* state_resource_ = nullptr;
@@ -249,11 +214,6 @@ public:
   snapshot(const registry& registry) noexcept {
     return registry.capture_snapshot();
   }
-
-  [[nodiscard]] static error add_extension(registry& registry, type_id id,
-                                           extension_data extension) {
-    return registry.add_extension(id, std::move(extension));
-  }
 };
 
 } // namespace detail
@@ -263,8 +223,6 @@ public:
 
 } // namespace caors::meta
 
-#include "caors/meta/detail/registry_extension_templates.h"
 #include "caors/meta/detail/registry_templates.h"
-#include "caors/meta/detail/registry_view_templates.h"
 
 #endif

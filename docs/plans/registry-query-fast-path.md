@@ -65,7 +65,7 @@ auto snapshot = registry.capture_snapshot();
 
 ### Lease 与 Call Guard 拆分
 
-`meta::type`、property、method、view 和 extension_view 保存 layer lease，用来保证 layer state 和相关
+`meta::type`、property、method 和运行期 view 保存 layer lease，用来保证 layer state 和相关
 动态库生命周期不悬空。
 
 `layer_call_guard` 只表达“正在进入可能属于可卸载模块的函数指针”。它不应被普通 metadata 查询滥用。
@@ -164,9 +164,6 @@ struct registry_options {
 - `find_type(type_id/name/guid/type_info)`；
 - `contains()`；
 - `is_a()` / `upcast()`；
-- `has_extension()`；
-- `find_extension()`；
-- `extension_view()`；
 - serialization schema 查询。
 
 这些路径应只依赖 snapshot 和不可变 layer，不应在 frozen layer 上加 mutex。
@@ -229,7 +226,7 @@ struct registry_options {
 
 - [x] 盘点所有 `layer_call_guard` 使用点；
 - [x] `method_set::match/resolve` 只做已注册签名匹配，不进入 call guard；
-- [x] 纯 extension presence / view 查询只做 snapshot 记录读取；
+- [x] 纯 metadata / capability 查询只做 snapshot 记录读取；
 - [x] 真正调用函数指针的路径继续使用 call guard；
 - [ ] 继续拆分 `type::get_value_type()` / `get_key_type()` 这类依赖 ops 回调的类型查询，
   长期应把常见内置类型信息固化到记录或安全 facade；
@@ -241,7 +238,7 @@ struct registry_options {
 
 - [x] 明确 `registry_state::frozen` 后不可变；
 - [x] 为 frozen layer 增加无锁只读查找 helper；
-- [x] `find_type()`、`contains()`、`size()`、capability 查询和 extension 查询改为 snapshot + frozen fast path；
+- [x] `find_type()`、`contains()`、`size()` 和 capability 查询改为 snapshot + frozen fast path；
 - [x] 未冻结主 layer 仍保留锁，已发布插件 layer 查询不再加 `state.mutex`。
 
 完成标准：已发布 layer 查询不再加 `state.mutex`；并发 publish/detach/query 测试通过。

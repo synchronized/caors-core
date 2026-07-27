@@ -57,7 +57,6 @@
 - `caors/meta/value.h`：`meta::value`、`meta::any`、`meta::any_ref`、运行期容器 view 和
   `meta::variant` 聚合头。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
-- `caors/meta/extension_view.h`：`meta::extension_view<T...>` 查询视图。
 - `caors/meta/registry.h`：`meta::registry`、注册错误状态和注册 helper。
 
 ## 核心概念
@@ -1108,36 +1107,21 @@ caors::registration::type_<actor>("game.actor")
     .commit();
 ```
 
-### registry extension 查询
+### 类型扩展数据
 
-- `has_extension<T>(type_id)`：判断类型是否拥有扩展数据。
-- `find_extension<T>(type_id)`：获取扩展数据副本。
-- `find_extension_ptr<T>(type_id)`：获取扩展数据只读指针。扩展数据存放在对应 `type_record`
-  内，地址在 append-only 注册表生命周期内保持稳定。
-- `extension_count<T>()`：统计拥有指定扩展数据的类型数量。
-- `extension_view<T...>()`：查询同时拥有指定扩展数据集合的类型。
+当前 `meta` 不再提供独立的 type extension 存储和 `extension_view<T...>` 查询。类型级模块数据统一走：
 
-extension 写入不作为 `meta::registry` 公共 API。普通业务代码通过
-`registration::type_<T>(name)` 的 `.meta()`、`.serialization()`、`.object()` 或 `.capability()`
-收集需要挂载的数据，并在 `commit()` 时一次性发布。底层测试或内部桥接如果必须直接写 extension，应使用
-`meta::detail` 内部入口。
+- capability：需要通过 `meta::type` 或 `meta::any_ref` 查询并提供行为时使用，可注册 owned data；
+- metadata：只表达工具、编辑器提示、配置标签等轻量只读信息时使用；
+- 模块自己的索引：需要批量扫描、热重载替换或复杂生命周期时由上层模块管理。
+
+这样可以避免 type extension 与 capability data 重复表达“给类型挂一份动态数据”。插件 C ABI 中的
+`plugin_host` extension 是另一套宿主服务查询机制，仍然保留。
 
 容器类型能力会在 `meta::type` 视图中按需提供，用于 `set_view` 和 `associative_view`
 的 range-for 遍历。运行期遍历统一通过 iterator 完成；自定义容器如果需要暴露集合或关联容器遍历能力，应在对应
 traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type` 能力，不再为了创建 view
 把每一种容器组合额外挂载为 meta 扩展数据。
-
-扩展数据挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
-
-- `errc::invalid_type`：传入无效 `type_id`。
-- `errc::missing_type`：目标类型尚未注册。
-- `errc::duplicate_component`：目标类型已经挂载同类扩展数据。
-
-当前注册表仍是 append-only 语义，不支持扩展数据替换；如果后续支持热重载，应在替换 API 上显式处理旧数据生命周期和读者同步。
-
-扩展数据的事实源是 `type_record` 内部的 extension 列表；`extension_view<T...>()`
-通过遍历已注册类型并匹配 extension key 完成跨模块查询。普通代码不应把 extension 当成独立 ECS
-component 使用，它只是注册后类型数据的模块扩展槽。
 
 ## 线程安全边界
 
@@ -1156,14 +1140,13 @@ component 使用，它只是注册后类型数据的模块扩展槽。
   `meta::type` 视图，对象专有语义通过 `objects::factory()` 等 helper 查询。
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
-- 序列化 schema 作为 extension 保存在全局 meta 类型记录中；它由统一
+- 序列化 schema 作为 capability data 保存在全局 meta 类型记录中；它由统一
   `registration::type_<T>(name).serialization()` 在注册提交时写入，并在提交阶段校验字段配置能解析到
   对应 `meta::property`。公开查询优先使用
   `type.get_capability<serialization::schema_capability>()` 或 `serialization::find_schema(type)`。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块批量扫描可以通过 `meta::registry::extension_view<T...>()` 完成。属性、方法和常规序列化
-schema 查询应通过 `meta::type` 返回稳定只读视图。
+属性、方法、capability 和常规序列化 schema 查询应通过 `meta::type` 返回稳定只读视图。
 
 ## 当前已实现能力
 
@@ -1200,7 +1183,6 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
   `property::try_set_value(meta::value)`、`method::invoke()`、`method_set::invoke()` 和 `instance::call()`
   是当前高层动态调用入口；常见标量、字符串和对象指针会优先走 tagged value fast path。需要精确 C++
   拷贝或引用参数时使用 `property::get_any()` / `instance::get_any()` / `instance::call_any()`。
-- `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。
 - `meta::validate_registry()`：只校验注册表，不执行延迟注册函数。

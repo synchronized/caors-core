@@ -231,8 +231,6 @@ TEST_CASE("serialization - registers type schema capability", "[serialization]")
   CHECK(caors::serialization::find_schema(type));
   CHECK(type.has_capability<caors::serialization::schema_capability>());
   CHECK(type.get_capability<caors::serialization::schema_capability>());
-  CHECK_FALSE(
-      caors::meta::get_registry().has_extension<caors::serialization::type_schema>(type.id()));
   CHECK(caors::serialization::size() >= 1);
 
   const caors::error duplicate =

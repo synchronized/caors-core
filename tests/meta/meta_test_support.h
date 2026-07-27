@@ -16,28 +16,6 @@ namespace caors::tests::meta_registry {
 
 struct base_actor_type {};
 
-struct extension_actor_type {};
-
-struct missing_extension_meta {
-  bool constructible = false;
-};
-
-struct factory_meta {
-  bool constructible = false;
-};
-
-struct view_actor_type {};
-
-struct view_player_type : view_actor_type {};
-
-struct view_factory_meta {
-  bool constructible = false;
-};
-
-struct view_label_meta {
-  std::string_view display_name{};
-};
-
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
 }

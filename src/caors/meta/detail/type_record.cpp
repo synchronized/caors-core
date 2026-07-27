@@ -23,7 +23,6 @@ struct type_details {
   vector<nested_type_data> nested_types{};
   vector<enum_value_record> enum_values{};
   vector<capability_data> capabilities{};
-  vector<extension_data> extensions{};
 };
 
 type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id)
@@ -173,12 +172,6 @@ bool type_record::members_valid() const noexcept {
 
   for (const capability_data& capability : value->capabilities) {
     if (!capability.valid()) {
-      return false;
-    }
-  }
-
-  for (const extension_data& extension : value->extensions) {
-    if (!extension.valid()) {
       return false;
     }
   }
@@ -551,55 +544,6 @@ error type_record::add_owned_capability(capability_key key,
   data.data = capability->data();
   data.owned = std::move(capability);
   ensure_details().capabilities.push_back(std::move(data));
-  return {};
-}
-
-bool type_record::contains_extension(extension_key key) const noexcept {
-  return find_extension(key) != nullptr;
-}
-
-const extension_data* type_record::find_extension(extension_key key) const noexcept {
-  if (!key) {
-    return nullptr;
-  }
-
-  const type_details* value = details();
-  if (value == nullptr) {
-    return nullptr;
-  }
-  for (const extension_data& extension : value->extensions) {
-    if (extension.key == key) {
-      return &extension;
-    }
-  }
-
-  return nullptr;
-}
-
-extension_data* type_record::mutable_find_extension(extension_key key) noexcept {
-  if (!key) {
-    return nullptr;
-  }
-
-  for (extension_data& extension : ensure_details().extensions) {
-    if (extension.key == key) {
-      return &extension;
-    }
-  }
-
-  return nullptr;
-}
-
-error type_record::add_extension(extension_data extension) {
-  if (!extension.valid()) {
-    return {error_domain::meta, errc::invalid_argument};
-  }
-
-  if (contains_extension(extension.key)) {
-    return {error_domain::meta, errc::duplicate_component};
-  }
-
-  ensure_details().extensions.push_back(std::move(extension));
   return {};
 }
 

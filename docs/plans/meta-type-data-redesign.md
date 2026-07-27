@@ -206,9 +206,10 @@ struct type_details {
   vector<enum_value_record> enum_values{};
   metadata_map metadata{};
   vector<capability_data> capabilities{};
-  vector<extension_data> extensions{};
 };
 ```
+
+早期 type extension 字段已删除，类型附加数据统一使用 `capability_data` 或 metadata。
 
 静态 fallback 不分配 `type_details`。registry 记录只在显式 `commit()` 后存在，并由 registry 拥有完整
 `type_record` 和可选详情。

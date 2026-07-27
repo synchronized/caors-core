@@ -169,9 +169,7 @@ int32_t CAORS_PLUGIN_CALL initialize(void* data) {
             .constructor<int>()
             .serialization()
             .field("value")
-            .commit() ||
-        caors::meta::detail::emplace_extension<caors_plugin_protocol_meta_extension>(
-            *registry, reflected.get().id(), caors_plugin_protocol_meta_extension{91})) {
+            .commit()) {
       return 1;
     }
   }

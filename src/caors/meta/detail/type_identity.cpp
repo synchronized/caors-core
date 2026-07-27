@@ -69,8 +69,6 @@ private:
       return type_;
     case identity_domain::capability:
       return capability_;
-    case identity_domain::extension:
-      return extension_;
     default:
       return type_;
     }
@@ -78,7 +76,6 @@ private:
 
   identity_table type_{};
   identity_table capability_{};
-  identity_table extension_{};
 };
 
 [[nodiscard]] identity_state& global_identity_state() {

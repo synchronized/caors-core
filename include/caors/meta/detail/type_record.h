@@ -8,7 +8,6 @@
 #include "caors/error.h"
 #include "caors/meta/detail/builtin/ops.h"
 #include "caors/meta/detail/capability_data.h"
-#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
@@ -119,10 +118,6 @@ public:
   [[nodiscard]] error add_capability(capability_key key, const void* capability);
   [[nodiscard]] error add_owned_capability(capability_key key,
                                            memory::unique_ptr<owned_capability_base> capability);
-  [[nodiscard]] bool contains_extension(extension_key key) const noexcept;
-  [[nodiscard]] const extension_data* find_extension(extension_key key) const noexcept;
-  [[nodiscard]] extension_data* mutable_find_extension(extension_key key) noexcept;
-  [[nodiscard]] error add_extension(extension_data extension);
 
 private:
   [[nodiscard]] type_details& ensure_details();

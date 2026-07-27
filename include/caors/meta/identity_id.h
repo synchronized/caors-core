@@ -33,43 +33,17 @@ private:
   std::uint64_t value_ = 0;
 };
 
-/** @brief registry extension slot 的进程内查询 ID。 */
-class extension_id {
-public:
-  constexpr extension_id() noexcept = default;
-  explicit constexpr extension_id(std::uint64_t value) noexcept : value_(value) {}
-
-  [[nodiscard]] static constexpr extension_id invalid() noexcept { return extension_id{}; }
-  [[nodiscard]] constexpr std::uint64_t value() const noexcept { return value_; }
-  [[nodiscard]] explicit constexpr operator bool() const noexcept { return value_ != 0; }
-
-  friend constexpr bool operator==(extension_id lhs, extension_id rhs) noexcept {
-    return lhs.value_ == rhs.value_;
-  }
-
-  friend constexpr bool operator!=(extension_id lhs, extension_id rhs) noexcept {
-    return !(lhs == rhs);
-  }
-
-private:
-  std::uint64_t value_ = 0;
-};
-
 using capability_key = capability_id;
-using extension_key = extension_id;
 
 namespace detail {
 
 using ::caors::meta::capability_id;
 using ::caors::meta::capability_key;
-using ::caors::meta::extension_id;
-using ::caors::meta::extension_key;
 
 /** @brief identity 发号器的内部 domain。 */
 enum class identity_domain {
   type,
   capability,
-  extension,
 };
 
 /**

@@ -5,7 +5,6 @@
 #define CAORS_REGISTRATION_TYPE_BUILDER_H_
 
 #include "caors/meta/constructor.h"
-#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/method_model.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/pending_type_record.h"

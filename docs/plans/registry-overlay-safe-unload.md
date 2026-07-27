@@ -239,15 +239,12 @@ snapshot 中已有的 ID、名称、GUID 或 C++ type_info。draft 采用单写�
 
 ### 6C：公共视图 Lease 化
 
-- [x] `type/property/method/method_set/extension_view/accessor` 传递 lease；
+- [x] `type/property/method/method_set/accessor` 传递 lease；
 - [x] layer inactive 后视图确定失效；
 - [x] 旧 generation 不指向新记录；
 - [x] 覆盖句柄复制移动约束和 detach 后失效行为。
 
-`extension_view` 保存创建时的 snapshot lease，但扩展内容仍按 `type_id` 从当前 registry 复制查询；
-detach 后旧 view 可保留 ID 快照，但不再返回已分离 layer 的扩展。`find_extension_ptr()` 仅允许访问
-registry 自己的 primary layer，跨 overlay 查询统一使用 `find_extension()`，并在 snapshot 与 state
-锁保护期间完成副本构造。
+早期 type extension / `extension_view` 已删除；类型附加数据统一使用 capability data 或 metadata。
 
 ### 6D：擦除值与调用 Guard
 
@@ -289,7 +286,7 @@ stop/shutdown/cleanup/detach、pinned/detachable lifetime 选项、最近一次�
 
 - [x] 插件注册 type/property/method/capability/codec；
 - [x] host 保存并释放各类旧视图；（type/nested/property/method/method_set/accessor/factory/
-      constructor/extension/container/composite/indirect/enum/schema/codec/object/ptr/handle/convention
+      constructor/container/composite/indirect/enum/schema/codec/object/ptr/handle/convention
       已覆盖）
 - [x] 验证 detach 后旧视图失效；
 - [x] 验证旧 owning value 销毁前 DLL 不关闭；
@@ -304,9 +301,8 @@ draft 被销毁且主 registry 不可见该类型。并发查询测试持续解�
 协议插件还注册了 factory 与 `std::vector` property：host 验证 accessor、factory 和 owning value
 在 detach 后按 registry generation 失效；从 property 绑定到成员值的 sequence view 继承 owner
 layer，并在 detach 后统一失效。
-协议插件进一步注册可复制 meta extension、`std::unordered_set` 与 `std::unordered_map`
-property：host 验证 extension view 在 detach 后失效且不再返回扩展副本；set/associative 以及
-pair/tuple/variant/indirect view 同样继承 property layer，并在 detach 后统一失效。
+协议插件进一步注册 `std::unordered_set` 与 `std::unordered_map` property：host 验证
+set/associative 以及 pair/tuple/variant/indirect view 同样继承 property layer，并在 detach 后统一失效。
 宿主还会同时保存 method_set、其中的 concrete method 与 nested type 视图，并验证三者在 detach
 后全部失效。`module_view` 属于独立的全局 module registry，当前不由 plugin layer 发布或分离，
 因此不计入 6F 的旧 layer 视图矩阵。

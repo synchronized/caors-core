@@ -80,10 +80,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 - [x] 定义 `type_id`、`meta::type` 和 meta 类型注册错误状态。
 - [x] 在 `meta::registry` 中集中处理运行期类型索引、重名、重复 GUID、不一致类型描述和父类型缺失。
-- [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、序列化和自定义 extension 数据。
-- [x] 提供 `meta::registry::extension_view<T...>()`，查询同时拥有指定 extension 数据的类型。
+- [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 统一挂载对象、序列化和自定义 capability 数据。
+- [x] 删除早期 type extension / `extension_view` 机制，类型附加数据统一走 capability data 或 metadata。
 - [x] 补充 meta 属性和序列化 schema capability 的跨模块查询测试。
-- [x] 将 registry extension 数据收进 `type_record`，extension 查询直接遍历注册类型记录，不再维护重复反向索引。
 - [x] 将动态 capability 挂到注册类型数据，支持 `type_id + capability_key` 查询模块扩展能力。
 - [x] 将 serialization codec 接入 `meta::type` 静态 capability；编译期已知 `T` 或携带 `meta::type` 的
   `any` / `any_ref` 路径都可直接查询静态 codec 能力。
@@ -135,7 +134,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加通用 `meta::metadata_map`，用于给类型、属性、方法和枚举项挂载轻量键值附加信息；
   metadata 只承载工具、配置和编辑器提示，不替代类型身份或 capability。
 - [x] 收敛 identity ID 底座：内部提供按 domain/canonical name 发号的统一 identity state，
-  外部保留 `type_id`、`capability_id`、`extension_id` 等强类型 ID。
+  外部保留 `type_id`、`capability_id` 等强类型 ID。
 - [ ] 增加 identity store 调试查询，并评估后续 `schema_id`、`event_id`、`resource_type_id`
   等新 ID 是否复用同一发号器模式。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。

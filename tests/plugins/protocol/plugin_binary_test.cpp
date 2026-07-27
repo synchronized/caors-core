@@ -5,7 +5,6 @@
 #include "caors/plugins/plugin_manager.h"
 
 #include "caors/meta/capability_facade.h"
-#include "caors/meta/extension_view.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/property.h"
 #include "caors/meta/property_accessor.h"
@@ -146,7 +145,6 @@ int main(int argc, char** argv) {
     return fail("plugin manager 初始化或 layer 发布失败");
   }
   auto reflected = registry.find_type("caors.test.plugin.reflected");
-  const caors::type_id reflected_id = reflected.id();
   auto reflected_property = reflected.find_property("value");
   auto reflected_accessor = caors::meta::compile_property_accessor(reflected_property);
   auto reflected_method = reflected.find_method("block");
@@ -182,8 +180,6 @@ int main(int argc, char** argv) {
   const bool handle_round_trip =
       created_object != nullptr && handle.set(created_handle) && handle.get() == created_handle;
   const bool object_destroyed = created_object != nullptr && object_factory.destroy(created_object);
-  auto extensions = registry.extension_view<caors_plugin_protocol_meta_extension>();
-  const auto meta_extension = extensions.find<caors_plugin_protocol_meta_extension>(reflected_id);
   auto factory = reflected.get_capability<caors::meta::factory_capability>();
   auto factory_owned = factory.construct();
   auto constructor = reflected.get_capability<caors::meta::constructor_capability>();
@@ -218,8 +214,7 @@ int main(int argc, char** argv) {
       !handle_round_trip || !object_destroyed || !enum_value ||
       enum_value.to_i64() != std::optional<std::int64_t>{12} || !schema ||
       schema.field_count() != 1 || !schema.has_explicit_fields() || !proxy_capability ||
-      !proxy_view || proxy_view.proxy_value() != 42 || !extensions || extensions.size() != 1 ||
-      !meta_extension || meta_extension->value != 91 || !codec || !constructor ||
+      !proxy_view || proxy_view.proxy_value() != 42 || !codec || !constructor ||
       constructor.argument_count() != 1 || !constructor_owned || constructed_value == nullptr ||
       *constructed_value != 88 || !codec.can_make_value() || !codec_view || !codec_value ||
       control == nullptr || control->struct_size < sizeof(caors_plugin_protocol_test_extension) ||
@@ -252,10 +247,9 @@ int main(int argc, char** argv) {
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
       object || object_facade || factory || factory_owned || constructor || constructor_owned ||
-      codec || codec_view || extensions || reflected_object || object_factory || pointer ||
-      handle || enum_value || schema || schema.raw() != nullptr || proxy_capability || proxy_view ||
-      extensions.find<caors_plugin_protocol_meta_extension>(reflected_id).has_value() || sequence ||
-      set || associative || pair || tuple || variant || indirect) {
+      codec || codec_view || reflected_object || object_factory || pointer || handle ||
+      enum_value || schema || schema.raw() != nullptr || proxy_capability || proxy_view ||
+      sequence || set || associative || pair || tuple || variant || indirect) {
     control->release(control->context);
     (void)invocation.get();
     return fail("detach 后 registry 句柄失效或已绑定容器 view 保活异常");
@@ -280,7 +274,6 @@ int main(int argc, char** argv) {
   schema = {};
   proxy_capability = {};
   proxy_view = {};
-  extensions = {};
   factory = {};
   constructor = {};
   codec_view = {};

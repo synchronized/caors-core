@@ -33,7 +33,6 @@
 
 - `nested_type_data`
 - `capability_data`
-- `extension_data`
 
 ## 实施步骤
 
@@ -54,6 +53,6 @@
 
 - 六类运行时记录及对应内部文件已统一为 `*_record`；
 - 静态类型节点辅助接口统一为 `static_type_record_*`；
-- `nested_type_data`、`capability_data` 和 `extension_data` 按职责继续保留原名；
+- `nested_type_data` 和 `capability_data` 按职责继续保留原名；
 - 架构术语已统一为 `handle -> record -> ops -> model`；
 - Windows Clang Debug 全仓库单线程构建完成，75 项测试全部通过。

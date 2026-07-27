@@ -87,7 +87,7 @@ ABI 数据包。需要跨边界持久表达类型时，传 `type_guid`、注册�
 类型擦除 destroy ops。如果对象类型来自插件，插件卸载必须等待这些值释放，或由 registry layer lease
 保活到析构完成。
 
-## Capability 和 Extension
+## Capability 和 Host Extension
 
 静态 capability 适合编译期可见、进程内静态生命周期的类型固有能力。它依赖模板特化可见性和当前
 runtime 的 capability key，不是插件协议身份。
@@ -95,8 +95,11 @@ runtime 的 capability key，不是插件协议身份。
 动态 capability 由注册 builder 写入已注册类型的 `type_record`。CAORS 可以拥有 ops 对象生命周期，
 但 ops 内部如果保存插件函数指针或插件对象指针，仍受插件 layer 生命周期约束。
 
-extension 是注册类型上的模块数据，不是独立 registry。跨模块扫描可以使用 `extension_view`，但 extension
-内容应优先保存纯数据或 CAORS runtime 拥有的对象；不要保存卸载后会悬空的插件地址。
+`meta` 不再提供注册类型上的独立 extension 数据槽。需要挂在类型上的行为或动态数据应使用
+capability / capability data；只读标签和工具提示使用 metadata；需要批量扫描或替换策略时由模块维护自己的索引。
+
+插件 host extension 是 C ABI 中的宿主服务查询机制，仍通过字符串 ID 和版本查询。它不等同于
+`meta::type` 上的数据挂载。
 
 ## 插件卸载约束
 

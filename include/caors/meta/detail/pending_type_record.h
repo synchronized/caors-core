@@ -154,9 +154,6 @@ public:
     data_.set_metadata(key, std::move(value));
     return {};
   }
-  [[nodiscard]] error add_extension(extension_data extension) {
-    return data_.add_extension(std::move(extension));
-  }
 
   /** @brief 校验不依赖 registry 状态的记录结构。 */
   [[nodiscard]] error validate() const noexcept;
