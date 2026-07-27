@@ -384,8 +384,7 @@ TEST_CASE("meta - type capability combines ops and dynamic data", "[meta]") {
 
   REQUIRE(caors::registration::type_<configured_matrix>("caors.test.configured_matrix")
               .meta()
-              .capability(local_ops)
-              .capability_data<configured_matrix_capability>(settings)
+              .capability<configured_matrix_capability>(local_ops, settings)
               .commit()
               .succeeded());
 

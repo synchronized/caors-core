@@ -284,6 +284,31 @@ private:
     return *this;
   }
 
+  /** @brief 按 capability 约定同时挂载 ops 函数表和动态数据。 */
+  template <typename Capability, typename Ops, typename Data>
+  type_builder& register_capability(Ops&& ops, Data&& data) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    if constexpr (meta::detail::has_capability_ops_type_v<capability_type> &&
+                  meta::detail::has_capability_data_type_v<capability_type>) {
+      using ops_type = typename meta::detail::capability_ops_type<capability_type>::type;
+      using data_type = typename meta::detail::capability_data_type<capability_type>::type;
+
+      status_ = pending_.add_owned_capability(
+          meta::capability_key_of<ops_type>(),
+          meta::detail::make_owned_capability<ops_type>(ops_type{std::forward<Ops>(ops)}));
+      if (!status_) {
+        status_ = pending_.add_owned_capability(
+            meta::capability_key_of<capability_type>(),
+            meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)}));
+      }
+    } else {
+      (void)ops;
+      (void)data;
+      status_ = {error_domain::meta, errc::unsupported};
+    }
+    return *this;
+  }
+
   /** @brief 按 capability key 挂载外部生命周期管理的动态数据。 */
   template <typename Capability>
   type_builder& register_capability_data(
@@ -736,6 +761,13 @@ public:
 
   template <typename Capability> meta_section& capability() {
     owner_->template register_capability<Capability>();
+    return *this;
+  }
+
+  template <typename Capability, typename Ops, typename Data>
+  meta_section& capability(Ops&& ops, Data&& data) {
+    owner_->template register_capability<Capability>(std::forward<Ops>(ops),
+                                                     std::forward<Data>(data));
     return *this;
   }
 
