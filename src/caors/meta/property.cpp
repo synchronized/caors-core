@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta/property.h"
+#include "caors/meta/detail/argument_access.h"
 #include "caors/meta/detail/property_record.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/instance.h"
@@ -13,6 +14,10 @@
 #include "caors/meta/value_ops.h"
 
 #include "detail/registry_state.h"
+
+#include <optional>
+#include <string>
+#include <utility>
 
 namespace caors::meta {
 namespace {
@@ -45,6 +50,82 @@ bind_ref_to_layer(any_ref source,
 [[nodiscard]] const meta::property_schema& empty_property_schema() noexcept {
   static const meta::property_schema empty{};
   return empty;
+}
+
+[[nodiscard]] bool should_try_property_conversion(property_write_options options) noexcept {
+  return options.conversion_policy != argument_conversion_policy::exact_only ||
+         options.allow_custom_conversions;
+}
+
+template <typename Target>
+[[nodiscard]] std::optional<any>
+try_make_converted_property_any_for_type(meta::type expected, const meta::value& source,
+                                         property_write_options options) {
+  using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
+  const meta::type actual = meta::resolve<target_type>();
+  if (!expected || !actual || expected.id() != actual.id()) {
+    return std::nullopt;
+  }
+
+  argument argument_value = source.to_argument();
+  if (!argument_value) {
+    return std::nullopt;
+  }
+
+  std::optional<argument> converted{};
+  if constexpr (std::is_arithmetic_v<target_type>) {
+    if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
+      converted = detail::try_convert_numeric_argument<target_type>(argument_value);
+    } else if (options.conversion_policy == argument_conversion_policy::string_parse) {
+      converted = detail::try_parse_string_argument<target_type>(argument_value);
+    }
+  }
+
+  if (!converted.has_value() && options.allow_custom_conversions) {
+    converted = detail::try_convert_custom_argument<target_type>(argument_value);
+  }
+
+  if (!converted.has_value()) {
+    return std::nullopt;
+  }
+
+  const target_type* value = converted->try_get<target_type>();
+  return value != nullptr ? std::optional<any>{any::from(*value)} : std::nullopt;
+}
+
+template <typename... Targets>
+[[nodiscard]] std::optional<any>
+try_make_converted_property_any_from_known(meta::type expected, const meta::value& source,
+                                           property_write_options options) {
+  std::optional<any> result{};
+  (([&] {
+     if (!result.has_value()) {
+       result = try_make_converted_property_any_for_type<Targets>(expected, source, options);
+     }
+   }()),
+   ...);
+  return result;
+}
+
+[[nodiscard]] std::optional<any> try_make_converted_property_any(meta::type expected,
+                                                                 const meta::value& source,
+                                                                 property_write_options options) {
+  return try_make_converted_property_any_from_known<
+      bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
+      unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
+      core::string, std::string, std::string_view, meta::object*>(expected, source, options);
+}
+
+[[nodiscard]] bool try_set_converted_runtime_value(const detail::property_record& property,
+                                                   void* object, const meta::value& source,
+                                                   property_write_options options) {
+  if (!should_try_property_conversion(options)) {
+    return false;
+  }
+
+  std::optional<any> converted =
+      try_make_converted_property_any(property.get_type(), source, options);
+  return converted.has_value() && property.try_set_value(object, *converted);
 }
 
 } // namespace
@@ -254,6 +335,21 @@ bool property::try_set_value(const instance& object, const meta::value& source) 
   return property->try_set_runtime_value(object.mutable_data(), source);
 }
 
+bool property::try_set_value(const instance& object, const meta::value& source,
+                             property_write_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
+  const detail::property_record* property = info();
+  if (property == nullptr || !object.writable()) {
+    return false;
+  }
+  void* target = object.mutable_data();
+  return property->try_set_runtime_value(target, source) ||
+         try_set_converted_runtime_value(*property, target, source, options);
+}
+
 bool property::try_set_value(const meta::value& source) const {
   const auto guard = call_guard_for(layer_);
   if (!guard) {
@@ -261,6 +357,17 @@ bool property::try_set_value(const meta::value& source) const {
   }
   const detail::property_record* property = info();
   return property != nullptr && property->try_set_runtime_value(nullptr, source);
+}
+
+bool property::try_set_value(const meta::value& source, property_write_options options) const {
+  const auto guard = call_guard_for(layer_);
+  if (!guard) {
+    return false;
+  }
+  const detail::property_record* property = info();
+  return property != nullptr &&
+         (property->try_set_runtime_value(nullptr, source) ||
+          try_set_converted_runtime_value(*property, nullptr, source, options));
 }
 
 bool property::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }

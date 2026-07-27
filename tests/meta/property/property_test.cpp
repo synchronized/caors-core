@@ -3,8 +3,9 @@
 
 // 原测试文件：meta_property_property_view_describes_composite_traits_test.cpp
 
-#include "meta_property_test_support.h"
 #include "caors/meta/property_accessor.h"
+#include "caors/serialization/schema_query.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
@@ -25,8 +26,7 @@ TEST_CASE("meta - compiled property accessor hides node storage", "[meta]") {
           .property("readonly_value", &compiled_property_actor::readonly_value)
           .commit() == caors::error{});
 
-  const caors::meta::type reflected =
-      require_reflected("caors.test.meta.compiled_property_actor");
+  const caors::meta::type reflected = require_reflected("caors.test.meta.compiled_property_actor");
   const caors::meta::property_accessor value =
       caors::meta::compile_property_accessor(require_property(reflected, "value"));
   const caors::meta::property_accessor readonly_value =
@@ -330,6 +330,23 @@ struct accessor_property_actor {
   [[nodiscard]] const int& get_level() const noexcept { return level; }
 };
 
+struct failing_setter_property_actor {
+  int value = 3;
+
+  [[nodiscard]] int get_value() const noexcept { return value; }
+  bool set_value(int) noexcept { return false; }
+};
+
+struct property_conversion_actor {
+  int value = 0;
+  bool enabled = false;
+  double scale = 0.0;
+};
+
+struct serialized_alias_property_actor {
+  int value = 0;
+};
+
 } // namespace
 
 TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
@@ -370,6 +387,85 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   CHECK(*level_ref.try_get<int>() == 7);
   CHECK_FALSE(level.try_set_value(caors::meta::view(instance), caors::meta::value{11}));
   CHECK_FALSE(object.set("level", 11));
+}
+
+TEST_CASE("meta - property value write string parse conversion is explicit", "[meta]") {
+  REQUIRE(caors::registration::type_<property_conversion_actor>(
+              "caors.test.meta.property_conversion_actor")
+              .meta()
+              .property("value", &property_conversion_actor::value)
+              .property("enabled", &property_conversion_actor::enabled)
+              .property("scale", &property_conversion_actor::scale)
+              .commit() == caors::error{});
+
+  const caors::meta::type reflected =
+      require_reflected("caors.test.meta.property_conversion_actor");
+  const caors::meta::property value = require_property(reflected, "value");
+  const caors::meta::property enabled = require_property(reflected, "enabled");
+  const caors::meta::property scale = require_property(reflected, "scale");
+
+  property_conversion_actor instance{};
+  caors::meta::value text{caors::core::string{"42"}};
+  CHECK_FALSE(value.try_set_value(caors::meta::view(instance), text));
+  CHECK(instance.value == 0);
+
+  caors::meta::property_write_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+  CHECK(value.try_set_value(caors::meta::view(instance), text, options));
+  CHECK(instance.value == 42);
+
+  caors::meta::instance object = caors::meta::view(instance);
+  CHECK(object.set("enabled", caors::meta::value{caors::core::string_name{"true"}}, options));
+  CHECK(instance.enabled);
+
+  CHECK(object.set("scale", caors::meta::value{caors::core::string{"3.5"}}, options));
+  CHECK(instance.scale == 3.5);
+
+  CHECK_FALSE(object.set("value", caors::meta::value{caors::core::string{"not-number"}}, options));
+  CHECK(instance.value == 42);
+}
+
+TEST_CASE("meta - property value write keeps accessor write access explicit", "[meta]") {
+  REQUIRE(caors::registration::type_<failing_setter_property_actor>(
+              "caors.test.meta.failing_setter_property_actor")
+              .meta()
+              .property("value", &failing_setter_property_actor::get_value,
+                        &failing_setter_property_actor::set_value)
+              .commit() == caors::error{});
+
+  const caors::meta::property value =
+      require_property(require_reflected("caors.test.meta.failing_setter_property_actor"), "value");
+
+  failing_setter_property_actor instance{};
+  CHECK(value.writable());
+  CHECK_FALSE(value.try_set_value(caors::meta::view(instance), caors::meta::value{9}));
+  CHECK(instance.value == 3);
+
+  const failing_setter_property_actor& readonly = instance;
+  CHECK_FALSE(value.try_set_value(caors::meta::view_const(readonly), caors::meta::value{9}));
+  CHECK(instance.value == 3);
+}
+
+TEST_CASE("meta - serialization field alias does not become property name", "[meta]") {
+  REQUIRE(caors::registration::type_<serialized_alias_property_actor>(
+              "caors.test.meta.serialized_alias_property_actor")
+              .meta()
+              .property("value", &serialized_alias_property_actor::value)
+              .serialization()
+              .field("value", "v")
+              .commit() == caors::error{});
+
+  const caors::meta::type reflected =
+      require_reflected("caors.test.meta.serialized_alias_property_actor");
+  CHECK(reflected.find_property("value"));
+  CHECK_FALSE(reflected.find_property("v"));
+
+  const caors::serialization::schema_view schema = caors::serialization::find_schema(reflected);
+  REQUIRE(schema);
+  REQUIRE(schema.field_count() == 1);
+  REQUIRE(schema.field_at(0) != nullptr);
+  CHECK(schema.field_at(0)->field_name == "value");
+  CHECK(schema.field_at(0)->serialized_name == "v");
 }
 
 // 原测试文件：meta_property_property_view_rejects_writes_to_readonly_properties_test.cpp

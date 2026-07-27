@@ -5,6 +5,7 @@
 #define CAORS_META_PROPERTY_H_
 
 #include "caors/export.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/property_schema.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
@@ -30,6 +31,14 @@ class property_access;
 
 class type;
 class instance;
+
+/** @brief 属性高层值写入选项。默认保持现有精确/fast path 写入行为。 */
+struct property_write_options {
+  /** @brief 写入失败后的显式参数转换策略。默认不额外转换。 */
+  argument_conversion_policy conversion_policy = argument_conversion_policy::exact_only;
+  /** @brief 允许查询来源类型注册的自定义参数转换能力。 */
+  bool allow_custom_conversions = false;
+};
 
 /**
  * @brief 属性反射只读视图。
@@ -100,9 +109,14 @@ public:
 
   /** @brief 从高层运行期值写入实例属性。 */
   bool try_set_value(const instance& object, const meta::value& source) const;
+  /** @brief 从高层运行期值写入实例属性，并在默认写入失败后按 options 尝试显式转换。 */
+  bool try_set_value(const instance& object, const meta::value& source,
+                     property_write_options options) const;
 
   /** @brief 从高层运行期值写入全局属性。成员属性会返回 false。 */
   bool try_set_value(const meta::value& source) const;
+  /** @brief 从高层运行期值写入全局属性，并在默认写入失败后按 options 尝试显式转换。 */
+  bool try_set_value(const meta::value& source, property_write_options options) const;
 
   /** @brief 从精确 C++ 运行期值写入实例属性。 */
   bool try_set_any(const instance& object, const any& source) const;

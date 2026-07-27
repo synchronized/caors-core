@@ -117,6 +117,16 @@ bool instance::set(std::string_view name, const meta::value& source) const {
   return reflected_property.try_set_value(*this, source);
 }
 
+bool instance::set(std::string_view name, const meta::value& source,
+                   property_write_options options) const {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_.writable()) {
+    return false;
+  }
+
+  return reflected_property.try_set_value(*this, source, options);
+}
+
 any instance::call_any(std::string_view name, std::span<const argument> arguments) const {
   const method_set reflected_method = find_method(name);
   if (!reflected_method || !value_) {

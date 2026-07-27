@@ -74,6 +74,8 @@ public:
 
   /** @brief 从高层运行期值写入属性。 */
   bool set(std::string_view name, const meta::value& source) const;
+  /** @brief 从高层运行期值写入属性，并在默认写入失败后按 options 尝试显式转换。 */
+  bool set(std::string_view name, const meta::value& source, property_write_options options) const;
 
   /** @brief 从运行期引用写入属性。 */
   bool set_ref(std::string_view name, const any_ref& source) const;

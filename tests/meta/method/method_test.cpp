@@ -371,6 +371,50 @@ TEST_CASE("meta - method named arguments can use registered defaults", "[meta]")
   CHECK(instance.value == 20);
 }
 
+TEST_CASE("meta - method named defaults and string conversion compose explicitly", "[meta]") {
+  const caors::error result = caors::registration::type_<named_default_conversion_actor>(
+                                  "caors.test.meta.named_default_conversion_actor")
+                                  .meta()
+                                  .method("add", &named_default_conversion_actor::add,
+                                          caors::meta::registration::parameter_name("left"),
+                                          caors::meta::registration::parameter_name("right"),
+                                          caors::meta::registration::parameter_name("scale"),
+                                          caors::meta::registration::default_argument(2))
+                                  .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.named_default_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set add = reflected.find_method("add");
+  REQUIRE(add);
+
+  int left = 4;
+  caors::core::string right{"6"};
+  std::array<caors::meta::named_argument, 2> arguments{
+      caors::meta::move_narg("right", right),
+      caors::meta::narg("left", left),
+  };
+
+  caors::meta::argument_match_options options{};
+  options.allow_named_arguments = true;
+  options.allow_default_arguments = true;
+  CHECK_FALSE(add.resolve(arguments, options));
+
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+  const caors::meta::method_match_result match = add.match(arguments, options);
+  REQUIRE(match);
+  CHECK(match.kind() == caors::meta::method_match_kind::conversion);
+
+  named_default_conversion_actor instance{};
+  const caors::meta::invoke_result invoke_result =
+      add.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 20);
+  CHECK(instance.value == 20);
+}
+
 TEST_CASE("meta - method default arguments keep overload ambiguity explicit", "[meta]") {
   const caors::error result =
       caors::registration::type_<default_argument_overload_actor>(

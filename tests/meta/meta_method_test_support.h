@@ -89,6 +89,15 @@ struct named_default_argument_actor {
   }
 };
 
+struct named_default_conversion_actor {
+  int value = 0;
+
+  int add(int left, int right, int scale) {
+    value = (left + right) * scale;
+    return value;
+  }
+};
+
 struct default_argument_overload_actor {
   int value = 0;
 

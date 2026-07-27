@@ -446,6 +446,19 @@ caors::meta::value value = id.get_value(caors::meta::view(instance));
 `false`。需要静态类型便利接口时也可以使用 `try_get<T>()` / `try_set<T>()`；它们在对象为空或
 类型不匹配时分别返回 `std::nullopt` / `false`。
 
+`try_set_value()` 默认只走现有 tagged value / exact any 写入路径，不做字符串解析或自定义转换。
+需要从文本写入标量属性时，调用方必须显式传入 `meta::property_write_options`：
+
+```cpp
+caors::meta::property_write_options options{};
+options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+id.try_set_value(caors::meta::view(instance), caors::meta::value{caors::string{"42"}}, options);
+```
+
+带 options 的重载仍会先尝试默认写入；只有默认路径失败且 options 开启转换时，才进入字符串解析、
+数值转换或自定义转换慢路径。
+
 也可以通过 `get_any()` 获取精确 C++ 运行期值拷贝：
 
 ```cpp
@@ -577,6 +590,8 @@ take.invoke_result_of(caors::meta::view(instance), args);
 - `find_property(name, search)`：按属性名查询属性视图；未命中时返回无效 `meta::property`。
   `search` 默认是 `meta::member_search::local_only`，只查当前类型；传入
   `meta::member_search::include_bases` 时会沿父类链查询，子类同名属性优先。
+  这里的名称只使用 meta 注册属性名；序列化 schema 的 `serialized_name`、legacy name 或字段 id
+  不会作为 `find_property()` 别名。
 - `method_count()` / `method_at()`：按索引遍历同名方法集合；索引越界时返回无效 `meta::method_set`。
 - `find_method(name, search)`：按方法名查询同名方法集合；未命中时返回无效 `meta::method_set`。
   `search` 默认只查当前类型；传入 `include_bases` 时会沿父类链查询，子类同名方法集合优先。
@@ -605,7 +620,8 @@ overload 合并进同一个 `method_set`。
   配置校验、编辑器提示和导入管线可以按约定键读取。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写属性。
 - `get_any()` / `try_set_any()`：按精确 C++ 运行期 `any` 读写属性。
-- `get_value()` / `try_set_value(meta::value)`：按高层动态 `meta::value` 读写属性。
+- `get_value()` / `try_set_value(meta::value)`：按高层动态 `meta::value` 读写属性；需要文本解析或自定义
+  转换时使用带 `property_write_options` 的重载。
 - `get_ref(meta::instance)`：按运行期 `any_ref` 引用属性，权限由实例可写性决定。
 - 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
