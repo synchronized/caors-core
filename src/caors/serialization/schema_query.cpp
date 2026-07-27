@@ -9,7 +9,7 @@
 namespace caors::serialization {
 
 schema_view find_schema(meta::type type) noexcept {
-  return type.registered() ? type.get_capability<schema_view>() : schema_view{};
+  return type.registered() ? type.get_capability<schema_capability>() : schema_view{};
 }
 
 bool contains(meta::type type) { return find_schema(type).valid(); }

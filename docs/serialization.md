@@ -423,7 +423,6 @@ if (schema) {
 }
 ```
 
-`type.get_capability<serialization::schema_view>()` 仍作为兼容写法保留。
 `serialization::find_schema(type)` 是同一能力查询的便捷入口。序列化 schema 查询只接受
 `meta::type`，不再提供按 `type_id` 复制 `type_schema` 的旧入口。
 
@@ -1190,7 +1189,7 @@ caors::serialization::schema_view schema = caors::serialization::find_schema(typ
 ```
 
 热点路径查询序列化 schema 时使用 `serialization::find_schema()` 或
-`type.get_capability<serialization::schema_view>()`，这两个入口都不会复制 schema。重复注册同一个
+`type.get_capability<serialization::schema_capability>()`，这两个入口都不会复制 schema。重复注册同一个
 类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
 对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 schema capability 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。

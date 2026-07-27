@@ -283,22 +283,20 @@ TEST_CASE("meta - capability info exposes optional stable metadata", "[meta]") {
 
 TEST_CASE("meta - type data stores runtime capabilities by type id", "[meta]") {
   static const runtime_capability capability{7};
-  const caors::type_id id = caors::meta::id_of<runtime_capability_type>();
 
-  CHECK(caors::meta::capabilities::find<runtime_capability>(id) == nullptr);
+  CHECK(caors::meta::resolve<runtime_capability_type>().get_capability<runtime_capability>() ==
+        nullptr);
   REQUIRE(caors::registration::type_<runtime_capability_type>("caors.test.runtime_capability_type")
               .meta()
               .capability<runtime_capability>(&capability)
               .commit()
               .succeeded());
 
-  const runtime_capability* found = caors::meta::capabilities::find<runtime_capability>(id);
+  const caors::meta::type type = caors::meta::resolve<runtime_capability_type>();
+  const runtime_capability* found = type.get_capability<runtime_capability>();
   REQUIRE(found != nullptr);
   CHECK(found == &capability);
   CHECK(found->value == 7);
-  CHECK(caors::meta::capabilities::contains<runtime_capability>(id));
-
-  const caors::meta::type type = caors::meta::resolve<runtime_capability_type>();
   CHECK(type.get_capability<runtime_capability>() == &capability);
   CHECK(type.has_capability<runtime_capability>());
 }
@@ -317,8 +315,8 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
               .commit()
               .succeeded());
 
-  const caors::type_id id = caors::meta::id_of<owned_matrix>();
-  const matrix_ops* found = caors::meta::capabilities::find<matrix_ops>(id);
+  const caors::meta::type type = caors::meta::resolve<owned_matrix>();
+  const matrix_ops* found = type.get_capability<matrix_ops>();
   REQUIRE(found != nullptr);
   CHECK(found != &local_capability);
   CHECK(found->rows != nullptr);
@@ -326,7 +324,6 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(found->get != nullptr);
   CHECK(found->set != nullptr);
 
-  const caors::meta::type type = caors::meta::resolve<owned_matrix>();
   CHECK(type.get_capability<matrix_ops>() == found);
   const matrix_capability capability = type.get_capability<matrix_capability>();
   REQUIRE(capability);
@@ -505,8 +502,8 @@ TEST_CASE("meta - capability static provider can be registered into type data", 
               .commit()
               .succeeded());
 
-  const static_capability_data* found = caors::meta::capabilities::find<static_capability_data>(
-      caors::meta::id_of<static_capability_type>());
+  const caors::meta::type type = caors::meta::resolve<static_capability_type>();
+  const static_capability_data* found = type.get_capability<static_capability_data>();
   REQUIRE(found != nullptr);
   CHECK(found == capability);
 }

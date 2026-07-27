@@ -103,7 +103,7 @@ TEST_CASE("registration - duplicate type builder commit does not mutate register
   CHECK_FALSE(static_cast<bool>(old_meta_type.find_property("second")));
 
   const caors::serialization::schema_view schema =
-      meta_type.get_capability<caors::serialization::schema_view>();
+      meta_type.get_capability<caors::serialization::schema_capability>();
   REQUIRE(schema);
   REQUIRE(schema.field_count() == 1);
   const caors::serialization::field_schema* field = schema.field_at(0);

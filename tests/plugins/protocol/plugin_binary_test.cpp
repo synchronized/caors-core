@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
   auto pointer = object.get_ref("object_pointer").get_capability<caors::objects::ptr_capability>();
   auto handle = object.get_ref("object_handle").get_capability<caors::objects::handle_capability>();
   auto enum_value = object.get_ref("enum").get_capability<caors::meta::enum_capability>();
-  auto schema = reflected.get_capability<caors::serialization::schema_view>();
+  auto schema = reflected.get_capability<caors::serialization::schema_capability>();
   auto proxy_capability = reflected.get_capability<caors_plugin_protocol_proxy_capability>();
   auto proxy_view = owned.ref().get_capability<caors_plugin_protocol_proxy_capability>();
   auto reflected_object = registry.find_type("caors.test.plugin.object");

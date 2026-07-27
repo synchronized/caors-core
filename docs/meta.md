@@ -438,7 +438,7 @@ caors::registration::type_<actor>("game.actor")
 注册类型数据上的动态能力。普通调用方应使用这个统一入口，不直接关心能力来自 C++ 类型事实
 还是注册类型数据。
 如果只剩 `type_id`，应先通过 `meta::find(id)` 找回 `meta::type` 视图；只有确实需要直接查运行期扩展时，
-才使用 `meta::capabilities::find<C>(id)`。
+才使用 registry 的 extension 查询入口。
 
 设计约束：
 
@@ -555,9 +555,9 @@ capability 索引。对象指针、对象句柄和 serialization codec 都通过
 动态扩展能力通过 `registration::type_<T>("name").meta().capability(ops)`、`registration::type_<T>("name").meta().capability<Capability>()`
 或内部稳定指针入口挂接到注册类型数据；类型必须通过 `registration::type_<T>("name").commit()`
 注册。`meta::capabilities` 命名空间只保留静态能力提供者、
-运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到注册类型数据中，
+静态能力聚合列表和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到注册类型数据中，
 由 CAORS 持有其生命周期；查询仍通过 `meta::type::get_capability<Capability>()` 或
-`meta::capabilities::find<Capability>(type_id)` 查询。默认用户 capability 返回只读指针；内置公开
+对应 facade 查询。默认用户 capability 返回只读指针；内置公开
 facade 可以通过 `type_capability_traits` 返回轻量对象。拿得到 C++ 类型 `T` 时，也可以通过
 `meta::capabilities::get<Capability, T>()` 直接查询静态能力。serialization codec 会作为静态能力接入
 `meta::type` 查询链路，并通过 `serialization::codec_capability` facade 暴露；当运行期只剩 `type_id` 时，应先通过
@@ -567,8 +567,8 @@ capability 和 registry 的边界：
 
 - C++ 类型静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
-- `meta::capabilities` 的动态查询适合“只剩 `type_id`，但仍需要查询某种用户外挂动态能力”的场景；
-  内置 object / serialization 能力优先通过 `meta::type` 静态能力查询。
+- 动态能力查询统一通过 `meta::type::get_capability<T>()`。当调用方只剩 `type_id` 时，应先通过
+  `meta::find(id)` 从目标 registry 找回 `meta::type`，再查询 capability。
 - 公开写入动态能力时优先使用 `registration::type_<T>("name").meta().capability(ops)`，让 CAORS 持有用户自定义
   concept table。内部模块如果已经拥有进程生命周期的静态函数表，可以使用指针注册入口。
   如果能力来自 `static_capability<Capability, T>`，可以在类型注册后使用
@@ -1159,7 +1159,7 @@ component 使用，它只是注册后类型数据的模块扩展槽。
 - 序列化 schema 作为 extension 保存在全局 meta 类型记录中；它由统一
   `registration::type_<T>(name).serialization()` 在注册提交时写入，并在提交阶段校验字段配置能解析到
   对应 `meta::property`。公开查询优先使用
-  `type.get_capability<serialization::schema_view>()` 或 `serialization::find_schema(type)`。
+  `type.get_capability<serialization::schema_capability>()` 或 `serialization::find_schema(type)`。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 跨模块批量扫描可以通过 `meta::registry::extension_view<T...>()` 完成。属性、方法和常规序列化

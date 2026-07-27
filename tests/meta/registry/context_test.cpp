@@ -93,7 +93,8 @@ TEST_CASE("meta context - dynamic capability lookup uses owning registry", "[met
   CHECK(found->value == 42);
 
   CHECK_FALSE(caors::meta::find<context_capability_type>());
-  CHECK(caors::meta::capabilities::find<context_capability>(local.id()) == nullptr);
+  CHECK(caors::meta::resolve<context_capability_type>().get_capability<context_capability>() ==
+        nullptr);
 }
 
 TEST_CASE("meta context - static identity is shared by independent registries", "[meta]") {

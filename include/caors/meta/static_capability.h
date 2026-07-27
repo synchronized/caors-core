@@ -252,25 +252,6 @@ template <typename T>
   return static_capability_entries<value_type, list_type>::size();
 }
 
-/** @brief 按运行期类型 id 查询注册类型数据上的动态能力。 */
-template <typename Capability> [[nodiscard]] const Capability* find(type_id id) noexcept {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  return static_cast<const capability_type*>(
-      detail::find_capability(id, capability_key_of<capability_type>()));
-}
-
-/** @brief 判断运行期类型 id 是否已经挂接指定动态能力。 */
-template <typename Capability> [[nodiscard]] bool contains(type_id id) noexcept {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  return detail::contains_capability(id, capability_key_of<capability_type>());
-}
-
-/** @brief 返回指定动态能力挂接到注册类型数据的数量。 */
-template <typename Capability> [[nodiscard]] std::size_t size() noexcept {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  return detail::capability_count(capability_key_of<capability_type>());
-}
-
 } // namespace caors::meta::capabilities
 
 #endif

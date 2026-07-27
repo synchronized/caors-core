@@ -182,13 +182,4 @@ private:
 
 } // namespace caors::serialization
 
-namespace caors::meta {
-
-/** @brief 兼容 `type.get_capability<serialization::schema_view>()` 查询写法。 */
-template <>
-struct type_capability_traits<serialization::schema_view>
-    : type_capability_traits<serialization::schema_capability> {};
-
-} // namespace caors::meta
-
 #endif

@@ -154,7 +154,8 @@ schema_member_matches_field(const meta::variant_member& member,
     return {};
   }
 
-  const serialization::schema_view schema_view = type.get_capability<serialization::schema_view>();
+  const serialization::schema_view schema_view =
+      type.get_capability<serialization::schema_capability>();
   const serialization::type_schema* schema = schema_view.raw();
   if (schema == nullptr) {
     return {error_domain::serialization, errc::missing_type};
