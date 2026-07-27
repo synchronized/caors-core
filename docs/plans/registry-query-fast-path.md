@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计草案；
+- 当前状态：分阶段实施中；已增加 registry 管理策略入口和 layer lifetime 基础语义；
 - 上游背景：`registry-overlay-safe-unload.md` 已引入 registry snapshot、插件 layer 和 library lease；
 - 目标：在保持插件安全卸载边界的前提下，把普通 meta 查询收敛为低成本只读路径；
 - 非目标：不改变插件 C ABI，不引入跨 runtime 共享 `meta::type`，不让插件卸载绕过 layer lease。
@@ -145,9 +145,9 @@ struct registry_options {
 - `locked_append_only`：默认策略。注册、publish、detach 和查询都由 registry 内部同步；类型一经 commit
   不支持隐式 replace，适合作为早期保守默认。
 - `frozen_read_optimized`：初始化期允许注册，显式 `freeze()` 或 `init()` 后进入只读快路径；冻结后写入返回
-  `errc::frozen`。
+  `errc::frozen`。当前已经保留策略入口，具体无锁查询快路径在后续阶段实现。
 - `manual_synchronization`：registry 不为普通查询提供内部互斥保护，调用方必须保证注册 / publish / detach
-  与查询调用没有数据竞争。该策略只适合引擎主循环、工具链加载阶段或高级嵌入场景。
+  与查询调用没有数据竞争。当前已经保留策略入口，内部仍按保守同步路径执行；真正跳过查询锁需要单独实现。
 
 策略命名刻意使用行为描述，而不是实现结构名：
 
@@ -196,20 +196,21 @@ struct registry_options {
 
 ### 阶段 1：补充 layer lifetime 标记
 
-- 在 `registry_layer_state` 增加 `registry_layer_lifetime`；
-- primary/default layer 标记为 `pinned_process`；
-- plugin layer 根据加载选项标记为 `pinned_process` 或 `detachable`，draft layer 默认继承目标发布策略；
-- `layer_call_guard` 对 `pinned_process` 做 no-op；
-- 保持现有测试通过。
+- [x] 在 `registry_layer_state` 增加 `registry_layer_lifetime`；
+- [x] primary/default layer 标记为 `pinned_process`；
+- [x] `registry::create_layer()` 默认创建 `detachable` layer，保持现有插件 detach 行为；
+- [x] `registry::create_layer(registry_layer_lifetime)` 支持显式创建 pinned 或 detachable layer；
+- [x] `layer_call_guard` 对 `pinned_process` 做 no-op；
+- [x] 保持现有测试通过。
 
 完成标准：主 registry 类型和 pinned 插件类型调用不再产生 in-flight 计数变化，detachable 插件 layer 行为不变。
 
 ### 阶段 2：补充 registry 管理策略 API
 
-- 增加 `registry_options` 和 `registry_management_policy`；
-- `registry()` 默认使用 `locked_append_only`，保持现有行为；
-- 文档说明 `locked_append_only`、`frozen_read_optimized` 和 `manual_synchronization` 的线程安全责任；
-- 暂时不增加多个 registry 派生类，避免策略和存储结构过早绑定。
+- [x] 增加 `registry_options` 和 `registry_management_policy`；
+- [x] `registry()` 默认使用 `locked_append_only`，保持现有行为；
+- [x] 文档说明 `locked_append_only`、`frozen_read_optimized` 和 `manual_synchronization` 的线程安全责任；
+- [x] 暂时不增加多个 registry 派生类，避免策略和存储结构过早绑定。
 
 完成标准：用户可以在创建 registry 时选择策略，但默认行为不变。
 

@@ -9,6 +9,7 @@
 #include "caors/meta/detail/call_guard.h"
 #include "caors/meta/detail/type_record.h"
 #include "caors/meta/registration.h"
+#include "caors/meta/registry.h"
 
 #include <atomic>
 #include <memory>
@@ -44,7 +45,9 @@ public:
 /** @brief 单个 registry layer 的稳定状态所有者。 */
 class registry_layer_state final {
 public:
-  explicit registry_layer_state(memory::memory_resource* resource);
+  explicit registry_layer_state(
+      memory::memory_resource* resource,
+      registry_layer_lifetime lifetime = registry_layer_lifetime::detachable);
   ~registry_layer_state();
 
   registry_layer_state(const registry_layer_state&) = delete;
@@ -52,6 +55,7 @@ public:
 
   [[nodiscard]] registry_state& state() noexcept { return *state_; }
   [[nodiscard]] const registry_state& state() const noexcept { return *state_; }
+  [[nodiscard]] registry_layer_lifetime lifetime() const noexcept { return lifetime_; }
   [[nodiscard]] bool frozen() const noexcept { return frozen_; }
   [[nodiscard]] bool active() const noexcept { return active_.load(std::memory_order_acquire); }
   [[nodiscard]] std::uint64_t generation() const noexcept { return generation_; }
@@ -65,6 +69,7 @@ public:
 private:
   memory::memory_resource* resource_ = nullptr;
   registry_state* state_ = nullptr;
+  registry_layer_lifetime lifetime_ = registry_layer_lifetime::detachable;
   std::atomic<bool> active_{true};
   std::atomic<std::size_t> in_flight_calls_{0};
   std::shared_ptr<void> lifetime_owner_{};

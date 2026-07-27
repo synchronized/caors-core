@@ -3,7 +3,9 @@
 
 // 原测试文件：meta_type_registry_meta_type_global_registry_checks_parent_relationship_test.cpp
 
+#include "caors/meta/detail/call_guard.h"
 #include "caors/meta/detail/registry_extension_templates.h"
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/property_accessor.h"
 #include "meta_type_registry_test_support.h"
 
@@ -19,6 +21,9 @@ struct overlay_frozen_type {};
 struct overlay_conflict_type {};
 struct overlay_parallel_a {};
 struct overlay_parallel_b {};
+struct overlay_pinned_layer_type {};
+struct overlay_pinned_call_type {};
+struct overlay_detachable_call_type {};
 struct overlay_reflected_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
@@ -345,4 +350,65 @@ TEST_CASE("meta registry 并发发布 layer 不会丢失已发布 snapshot") {
   CHECK_FALSE(second_publish.get());
   CHECK(caors::meta::find<overlay_parallel_a>(base_context));
   CHECK(caors::meta::find<overlay_parallel_b>(base_context));
+}
+
+TEST_CASE("meta registry 管理策略保持创建选项") {
+  caors::meta::registry default_registry{};
+  CHECK(default_registry.management_policy() ==
+        caors::meta::registry_management_policy::locked_append_only);
+
+  caors::meta::registry manual_registry{caors::meta::registry_options{
+      caors::meta::registry_management_policy::manual_synchronization}};
+  CHECK(manual_registry.management_policy() ==
+        caors::meta::registry_management_policy::manual_synchronization);
+}
+
+TEST_CASE("meta registry layer lifetime 控制 detach 和 call guard") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+
+  auto pinned = registry.create_layer(caors::meta::registry_layer_lifetime::pinned_process);
+  caors::meta::context pinned_context{pinned->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_pinned_layer_type>(
+                    pinned_context, "caors.test.meta.overlay_pinned_layer")
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*pinned));
+  CHECK(pinned->lifetime() == caors::meta::registry_layer_lifetime::pinned_process);
+  CHECK(registry.detach_layer(*pinned) ==
+        caors::error{caors::error_domain::meta, caors::errc::unsupported});
+  CHECK(pinned->active());
+  CHECK(caors::meta::find<overlay_pinned_layer_type>(context));
+
+  auto pinned_call = registry.create_layer(caors::meta::registry_layer_lifetime::pinned_process);
+  caors::meta::context pinned_call_context{pinned_call->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_pinned_call_type>(
+                    pinned_call_context, "caors.test.meta.overlay_pinned_call")
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*pinned_call));
+  const auto pinned_type = caors::meta::find<overlay_pinned_call_type>(context);
+  REQUIRE(pinned_type);
+  {
+    const caors::meta::detail::layer_call_guard guard{
+        caors::meta::detail::type_access::layer_of(pinned_type)};
+    REQUIRE(guard);
+    CHECK(pinned_call->in_flight_calls() == 0);
+  }
+  CHECK(pinned_call->in_flight_calls() == 0);
+
+  auto detachable = registry.create_layer();
+  caors::meta::context detachable_context{detachable->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_detachable_call_type>(
+                    detachable_context, "caors.test.meta.overlay_detachable_call")
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*detachable));
+  const auto detachable_type = caors::meta::find<overlay_detachable_call_type>(context);
+  REQUIRE(detachable_type);
+  CHECK(detachable->lifetime() == caors::meta::registry_layer_lifetime::detachable);
+  {
+    const caors::meta::detail::layer_call_guard guard{
+        caors::meta::detail::type_access::layer_of(detachable_type)};
+    REQUIRE(guard);
+    CHECK(detachable->in_flight_calls() == 1);
+  }
+  CHECK(detachable->in_flight_calls() == 0);
 }

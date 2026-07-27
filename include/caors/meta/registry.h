@@ -60,6 +60,29 @@ template <typename T> class type_builder;
 
 namespace caors::meta {
 
+/** @brief registry 注册和查询同步策略。 */
+enum class registry_management_policy {
+  /** @brief 默认策略：注册、发布、卸载和查询都由 registry 内部同步，类型提交后不隐式替换。 */
+  locked_append_only,
+  /** @brief 初始化期可写，冻结后查询走只读优化路径；当前仍按默认同步实现。 */
+  frozen_read_optimized,
+  /** @brief 调用方自行保证注册/发布/卸载与查询之间没有数据竞争；当前仍按默认同步实现。 */
+  manual_synchronization,
+};
+
+/** @brief registry 创建选项。 */
+struct registry_options {
+  registry_management_policy management = registry_management_policy::locked_append_only;
+};
+
+/** @brief registry layer 生命周期策略。 */
+enum class registry_layer_lifetime {
+  /** @brief 跟随进程或宿主生命周期，不支持提前 detach，调用 guard 不做 in-flight 计数。 */
+  pinned_process,
+  /** @brief 可从 registry snapshot 中 detach，进入函数指针调用时需要 in-flight guard。 */
+  detachable,
+};
+
 /**
  * @brief 类型元数据注册表。
  *
@@ -72,6 +95,7 @@ public:
   [[nodiscard]] static registry& instance() noexcept;
 
   registry();
+  explicit registry(registry_options options);
   ~registry();
 
   registry(const registry&) = delete;
@@ -94,9 +118,14 @@ public:
   [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
   [[nodiscard]] std::size_t size() const noexcept;
+  /** @brief 返回 registry 的管理策略。 */
+  [[nodiscard]] registry_management_policy management_policy() const noexcept;
 
   /** @brief 创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
   [[nodiscard]] std::unique_ptr<registry_layer> create_layer() const;
+  /** @brief 按指定生命周期创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
+  [[nodiscard]] std::unique_ptr<registry_layer>
+  create_layer(registry_layer_lifetime lifetime) const;
   /** @brief 校验、冻结并原子发布 layer；失败时当前 registry 保持不变。 */
   [[nodiscard]] error publish_layer(registry_layer& layer);
   /** @brief 从新 snapshot 原子移除已发布 layer，并使旧句柄失效。 */
@@ -130,7 +159,8 @@ private:
   friend class detail::registry_access;
   friend class registry_layer;
 
-  explicit registry(std::shared_ptr<detail::registry_snapshot> base_snapshot);
+  registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
+           registry_layer_lifetime layer_lifetime);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -160,6 +190,7 @@ private:
   [[nodiscard]] std::shared_ptr<detail::registry_snapshot> capture_snapshot() const noexcept;
 
   memory::memory_resource* state_resource_ = nullptr;
+  registry_options options_{};
   std::shared_ptr<detail::registry_layer_state> primary_layer_{};
   std::atomic<std::shared_ptr<detail::registry_snapshot>> snapshot_{};
   detail::registry_state* state_ = nullptr;
@@ -176,6 +207,8 @@ public:
   [[nodiscard]] const registry& get_registry() const noexcept;
   [[nodiscard]] bool published() const noexcept;
   [[nodiscard]] bool active() const noexcept;
+  /** @brief 返回当前 layer 的生命周期策略。 */
+  [[nodiscard]] registry_layer_lifetime lifetime() const noexcept;
   /** @brief 返回当前仍在执行的类型擦除调用数量。 */
   [[nodiscard]] std::size_t in_flight_calls() const noexcept;
   /** @brief 返回当前 layer 自身注册的类型数量，不包含基础 snapshot。 */
@@ -186,7 +219,8 @@ public:
 private:
   friend class registry;
   friend class ::caors::plugins::plugin_library_lease;
-  explicit registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot);
+  registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
+                 registry_layer_lifetime lifetime);
 
   [[nodiscard]] error attach_lifetime(std::shared_ptr<void> owner);
 

@@ -8,15 +8,20 @@
 
 namespace caors::meta {
 
-registry::registry()
-    : state_resource_(&memory::library_resource()),
-      primary_layer_(std::make_shared<detail::registry_layer_state>(state_resource_)),
+registry::registry() : registry(registry_options{}) {}
+
+registry::registry(registry_options options)
+    : state_resource_(&memory::library_resource()), options_(options),
+      primary_layer_(std::make_shared<detail::registry_layer_state>(
+          state_resource_, registry_layer_lifetime::pinned_process)),
       snapshot_(std::make_shared<detail::registry_snapshot>(primary_layer_)),
       state_(&primary_layer_->state()) {}
 
-registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot)
+registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
+                   registry_layer_lifetime layer_lifetime)
     : state_resource_(&memory::library_resource()),
-      primary_layer_(std::make_shared<detail::registry_layer_state>(state_resource_)),
+      primary_layer_(
+          std::make_shared<detail::registry_layer_state>(state_resource_, layer_lifetime)),
       state_(&primary_layer_->state()) {
   core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
       core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
@@ -31,8 +36,9 @@ registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot)
 
 registry::~registry() = default;
 
-registry_layer::registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot)
-    : registry_(new registry{std::move(base_snapshot)}) {}
+registry_layer::registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
+                               registry_layer_lifetime lifetime)
+    : registry_(new registry{std::move(base_snapshot), lifetime}) {}
 
 registry_layer::~registry_layer() { delete registry_; }
 
@@ -44,6 +50,11 @@ bool registry_layer::published() const noexcept { return published_; }
 
 bool registry_layer::active() const noexcept {
   return registry_ != nullptr && registry_->primary_layer_->active();
+}
+
+registry_layer_lifetime registry_layer::lifetime() const noexcept {
+  return registry_ != nullptr ? registry_->primary_layer_->lifetime()
+                              : registry_layer_lifetime::detachable;
 }
 
 std::size_t registry_layer::in_flight_calls() const noexcept {
@@ -70,7 +81,11 @@ error registry_layer::attach_lifetime(std::shared_ptr<void> owner) {
 }
 
 std::unique_ptr<registry_layer> registry::create_layer() const {
-  return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot()}};
+  return create_layer(registry_layer_lifetime::detachable);
+}
+
+std::unique_ptr<registry_layer> registry::create_layer(registry_layer_lifetime lifetime) const {
+  return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot(), lifetime}};
 }
 
 std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const noexcept {
@@ -80,6 +95,10 @@ std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const no
 registry& registry::instance() noexcept {
   static registry instance;
   return instance;
+}
+
+registry_management_policy registry::management_policy() const noexcept {
+  return options_.management;
 }
 
 error registry::add_registration(registration_fn fn) {

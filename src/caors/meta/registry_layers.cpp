@@ -110,6 +110,9 @@ error registry::detach_layer(registry_layer& layer) {
   std::lock_guard lock{state_->mutex};
   auto current = capture_snapshot();
   const auto target = layer.registry_->primary_layer_;
+  if (target->lifetime() == registry_layer_lifetime::pinned_process) {
+    return {error_domain::meta, errc::unsupported};
+  }
   const auto position = std::find(current->layers().begin(), current->layers().end(), target);
   if (position == current->layers().end()) {
     return {error_domain::meta, errc::not_found};

@@ -14,9 +14,10 @@ std::atomic<std::uint64_t> next_layer_generation{1};
 
 } // namespace
 
-registry_layer_state::registry_layer_state(memory::memory_resource* resource)
+registry_layer_state::registry_layer_state(memory::memory_resource* resource,
+                                           registry_layer_lifetime lifetime)
     : resource_(resource != nullptr ? resource : &memory::library_resource()),
-      state_(memory::make<registry_state>(resource_, resource_)),
+      state_(memory::make<registry_state>(resource_, resource_)), lifetime_(lifetime),
       generation_(next_layer_generation.fetch_add(1, std::memory_order_relaxed)) {}
 
 registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource_); }
@@ -24,6 +25,9 @@ registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource
 bool registry_layer_state::try_enter_call() noexcept {
   if (!active()) {
     return false;
+  }
+  if (lifetime_ == registry_layer_lifetime::pinned_process) {
+    return true;
   }
 
   in_flight_calls_.fetch_add(1, std::memory_order_acq_rel);
@@ -36,6 +40,9 @@ bool registry_layer_state::try_enter_call() noexcept {
 }
 
 void registry_layer_state::leave_call() noexcept {
+  if (lifetime_ == registry_layer_lifetime::pinned_process) {
+    return;
+  }
   in_flight_calls_.fetch_sub(1, std::memory_order_acq_rel);
 }
 

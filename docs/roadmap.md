@@ -163,7 +163,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `manual_synchronization`，并与 `pinned_process` / `detachable` 插件生命周期分离。
 - [ ] 收敛 registry 查询快路径：发布后的 layer 不可变，普通查询只做 snapshot 原子读取；
   主进程 layer 调用免 in-flight guard，插件 layer 仅在进入插件 ops 时使用调用级 guard。
-- [ ] 增加 registry 管理策略 API：`registry_options` / `registry_management_policy`，
+- [x] 增加 registry 管理策略 API：`registry_options` / `registry_management_policy`，
   默认保持内部加锁的 append-only 语义，后续支持冻结读优化和高级手动同步。
 - [ ] 评估注册项 replace、dry-run 校验和更完整的批量注册事务语义。
 
