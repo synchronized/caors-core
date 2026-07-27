@@ -77,4 +77,6 @@ TEST_CASE("append-only meta 注册和插件擦除值提供结构化卸载阻止�
                                     caors::plugins::plugin_unload_blocker::meta_registration));
   CHECK(caors::plugins::has_blocker(result.blockers,
                                     caors::plugins::plugin_unload_blocker::plugin_owned_value));
+  CHECK_FALSE(caors::plugins::has_blocker(result.blockers,
+                                          caors::plugins::plugin_unload_blocker::pinned_process));
 }

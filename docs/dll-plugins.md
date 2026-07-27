@@ -56,14 +56,20 @@ ABI。需要跨编译器、跨 CRT、可长期兼容或脚本/外部工具可消
 `type_id` 的类型模型不一致会返回 `errc::inconsistent_type_model`，常见原因是不同模块看到的
 traits、adapter 或静态能力特化不一致。
 
-当前默认 registry 是 append-only。插件卸载前必须保证：
+`plugin_manager::load(path)` 默认按 `detachable` 策略创建插件 registry layer。调用方也可以传入
+`plugin_load_options{plugin_lifetime_policy::pinned_process}`，表示该插件钉在 manager 或进程生命周期内，
+显式 `unload()` 会返回 `errc::unsupported` 并给出 `pinned_process` 诊断，不提前关闭动态库。
+
+detachable 插件卸载前必须保证：
 
 - registry、property、method、capability 和 extension 不再持有插件代码中的函数指针；
 - 不再存在由插件模型创建并需要插件析构代码的擦除值；
 - 其他线程不再执行插件注册或反射调用。
 
-因此当前推荐插件在进程生命周期内保持加载。需要可卸载插件时，应使用未来的独立 registry
-overlay 和生命周期管理方案，不能只卸载 DLL。
+`plugin_manager::unload()` 会执行 stop/shutdown、scope cleanup、registry layer detach 和 lease
+检查。仍有旧 view、owning value、in-flight call 或 scope blocker 时返回 `errc::pending`，插件状态为
+`detached_pending_release`；调用方可以通过 `plugin::unload_diagnostic()` 查看 generation、layer
+lease、in-flight 调用数、本地注册类型数量和阻止原因。
 
 ## Meta 视图和擦除值边界
 

@@ -240,9 +240,15 @@ int main(int argc, char** argv) {
     (void)invocation.get();
     return fail("插件 method 没有进入 in-flight 状态");
   }
-  if (manager.unload(managed_id) !=
-          caors::error{caors::error_domain::plugins, caors::errc::pending} ||
+  const caors::error pending_unload = manager.unload(managed_id);
+  const caors::plugins::plugin_unload_diagnostic pending_diagnostic = managed.unload_diagnostic();
+  if (pending_unload != caors::error{caors::error_domain::plugins, caors::errc::pending} ||
       managed.state() != caors::plugins::plugin_state::detached_pending_release ||
+      pending_diagnostic.id != managed_id || pending_diagnostic.generation != first_generation ||
+      pending_diagnostic.state != caors::plugins::plugin_state::detached_pending_release ||
+      pending_diagnostic.lifetime != caors::plugins::plugin_lifetime_policy::detachable ||
+      pending_diagnostic.in_flight_calls == 0 || pending_diagnostic.layer_lease_count <= 2 ||
+      pending_diagnostic.local_type_count == 0 || !pending_diagnostic.blocked() ||
       registry.find_type("caors.test.plugin.reflected") || reflected || reflected_property ||
       reflected_accessor || reflected_method || reflected_overload || reflected_nested || owned ||
       object || object_facade || factory || factory_owned || constructor || constructor_owned ||
@@ -353,6 +359,28 @@ int main(int argc, char** argv) {
        concurrent_unload != caors::error{caors::error_domain::plugins, caors::errc::pending}) ||
       (concurrent_unload && manager.unload(concurrent_id))) {
     return fail("并发查询没有一致观察 publish/detach snapshot");
+  }
+
+  caors::meta::registry pinned_registry{};
+  caors::plugins::plugin_manager pinned_manager{pinned_registry};
+  auto pinned_result = pinned_manager.load(
+      argv[1],
+      caors::plugins::plugin_load_options{caors::plugins::plugin_lifetime_policy::pinned_process});
+  if (!pinned_result ||
+      pinned_result->lifetime() != caors::plugins::plugin_lifetime_policy::pinned_process ||
+      pinned_manager.initialize(pinned_result->id())) {
+    return fail("pinned 插件无法按 pinned_process 策略加载");
+  }
+  const caors::error pinned_unload = pinned_manager.unload(pinned_result->id());
+  const caors::plugins::plugin_unload_diagnostic pinned_diagnostic =
+      pinned_result->unload_diagnostic();
+  if (pinned_unload != caors::error{caors::error_domain::plugins, caors::errc::unsupported} ||
+      pinned_result->state() != caors::plugins::plugin_state::initialized ||
+      !caors::plugins::has_blocker(pinned_diagnostic.blockers,
+                                   caors::plugins::plugin_unload_blocker::pinned_process) ||
+      pinned_diagnostic.lifetime != caors::plugins::plugin_lifetime_policy::pinned_process ||
+      pinned_manager.size() != 1) {
+    return fail("pinned 插件没有拒绝提前 unload 或诊断不正确");
   }
 
   return 0;

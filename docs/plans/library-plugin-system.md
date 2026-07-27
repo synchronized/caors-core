@@ -347,7 +347,7 @@ struct caors_plugin_host {
 当前 registry record、property/method wrapper、capability、extension 和擦除值可能保存插件代码地址。
 只有 `detachable` 插件需要证明这些地址不可达后才允许真正关闭动态库。
 
-后续引入：
+当前 scope 和 manager 已追踪：
 
 ```text
 plugin_registration_scope
@@ -368,8 +368,10 @@ plugin_registration_scope
 - 不存在需要插件析构函数的擦除值；
 - property/method/capability 函数指针不再可达。
 
-在这些条件实现前，`plugin_manager::unload()` 应返回 `errc::unsupported` 或明确的
-`plugin_in_use`，不能冒险调用 `FreeLibrary` / `dlclose`。
+`plugin_manager::unload()` 现在按插件 lifetime 策略处理：`pinned_process` 返回
+`errc::unsupported` 并保留插件；`detachable` 先 detach registry layer，仍有 scope blocker、layer
+lease 或 in-flight 调用时返回 `errc::pending`。`plugin::unload_diagnostic()` 暴露最近一次卸载诊断，
+包括 plugin ID、generation、状态、lifetime、blocker、layer lease、in-flight 调用和本地注册类型数量。
 
 ## 线程安全
 

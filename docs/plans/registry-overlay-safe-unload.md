@@ -271,6 +271,8 @@ block 保证这些回调执行前动态库不会关闭。
 - [x] stop/shutdown 后 detach；
 - [x] lease 未归零返回 pending，不关闭 DLL；
 - [x] 增加版本化 meta registration host extension，让插件 initialize 写入对应 draft。
+- [x] 增加 `plugin_lifetime_policy`，显式区分 `detachable` 和 `pinned_process`；
+- [x] 增加 manager 级 `plugin_unload_diagnostic`，报告 blocker、layer lease、in-flight 调用和本地注册类型数。
 
 `plugin_binary` 与 `plugin_library_lease` 现在共享动态库 control block；control block 绑定到
 `registry_layer_state`，因此 layer owner 被销毁后，旧 type/property/method/owning value 持有的
@@ -278,8 +280,8 @@ layer lease 仍会保持 DLL 已加载。绑定只允许发生在 publish 前，
 在并发查询期间发生变化。
 
 `plugin_manager` 已提供稳定只读 handle、重复 ID 拒绝、串行生命周期、自动
-stop/shutdown/cleanup/detach，以及重新加载 generation 隔离。当前 ABI 尚未提供 meta
-registration host extension。扩展只在 C ABI 中传递 `owner + opaque void*`，公共 C++ 适配层负责
+stop/shutdown/cleanup/detach、pinned/detachable lifetime 选项、最近一次卸载诊断，以及重新加载 generation
+隔离。meta registration host extension 只在 C ABI 中传递 `owner + opaque void*`，公共 C++ 适配层负责
 还原 `meta::registry*`；绑定只在 initialize 调用期间有效，返回后立即移除，插件不能保存并继续
 修改已经发布的 layer。
 

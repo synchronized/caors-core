@@ -8,6 +8,7 @@
 #include "caors/export.h"
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_host.h"
+#include "caors/plugins/registration_scope.h"
 #include "caors/result.h"
 
 #include <cstddef>
@@ -30,6 +31,37 @@ class managed_plugin;
 
 } // namespace detail
 
+/** @brief plugin_manager 管理插件动态库和 registry layer 的生命周期策略。 */
+enum class plugin_lifetime_policy {
+  /** @brief 默认可卸载策略：插件注册进入 detachable registry layer，unload 会 detach 并等待 lease
+     释放。 */
+  detachable,
+  /** @brief 固定到 manager 或进程生命周期；显式 unload 返回 unsupported，不提前关闭动态库。 */
+  pinned_process,
+};
+
+/** @brief 加载插件时使用的管理选项。 */
+struct plugin_load_options {
+  plugin_lifetime_policy lifetime = plugin_lifetime_policy::detachable;
+};
+
+/** @brief plugin_manager 最近一次卸载尝试的结构化诊断。 */
+struct plugin_unload_diagnostic {
+  guid id{};
+  std::uint64_t generation = 0;
+  plugin_state state = plugin_state::unloaded;
+  plugin_lifetime_policy lifetime = plugin_lifetime_policy::detachable;
+  plugin_unload_blocker blockers = plugin_unload_blocker::none;
+  std::size_t layer_lease_count = 0;
+  std::size_t in_flight_calls = 0;
+  std::size_t local_type_count = 0;
+  bool layer_published = false;
+
+  [[nodiscard]] bool blocked() const noexcept {
+    return blockers != plugin_unload_blocker::none || in_flight_calls != 0 || layer_lease_count > 0;
+  }
+};
+
 /** @brief 由 plugin_manager 管理的稳定只读插件句柄。 */
 class CAORS_API plugin final {
 public:
@@ -40,6 +72,8 @@ public:
   [[nodiscard]] guid id() const noexcept;
   [[nodiscard]] std::uint64_t generation() const noexcept;
   [[nodiscard]] plugin_state state() const noexcept;
+  [[nodiscard]] plugin_lifetime_policy lifetime() const noexcept;
+  [[nodiscard]] plugin_unload_diagnostic unload_diagnostic() const noexcept;
   [[nodiscard]] const plugin_descriptor& descriptor() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
   /** @brief 查询插件提供的版本化扩展；返回地址不拥有插件或动态库。 */
@@ -68,7 +102,8 @@ public:
   [[nodiscard]] plugin_host& host() noexcept;
   [[nodiscard]] const plugin_host& host() const noexcept;
 
-  [[nodiscard]] result<plugin> load(const std::filesystem::path& path);
+  [[nodiscard]] result<plugin> load(const std::filesystem::path& path,
+                                    plugin_load_options options = {});
   [[nodiscard]] plugin find(guid id) const noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
 

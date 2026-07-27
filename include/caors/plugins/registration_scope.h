@@ -20,6 +20,7 @@ enum class plugin_unload_blocker : std::uint32_t {
   meta_registration = 1u << 0u,
   pending_task = 1u << 1u,
   plugin_owned_value = 1u << 2u,
+  pinned_process = 1u << 3u,
 };
 
 [[nodiscard]] constexpr plugin_unload_blocker operator|(plugin_unload_blocker lhs,

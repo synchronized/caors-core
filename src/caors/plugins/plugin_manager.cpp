@@ -29,6 +29,8 @@ public:
   std::filesystem::path path{};
   std::uint64_t generation = 0;
   plugin_state state = plugin_state::unloaded;
+  plugin_lifetime_policy lifetime = plugin_lifetime_policy::detachable;
+  plugin_unload_diagnostic unload_diagnostic{};
   bool busy = false;
   bool layer_published = false;
   plugin_binary binary{};
@@ -79,6 +81,29 @@ void finish_operation(const std::shared_ptr<detail::managed_plugin>& node,
   node->busy = false;
 }
 
+[[nodiscard]] plugin_unload_diagnostic
+make_unload_diagnostic(const detail::managed_plugin& node,
+                       plugin_unload_blocker blockers = plugin_unload_blocker::none) noexcept {
+  plugin_unload_diagnostic diagnostic{};
+  diagnostic.id = node.descriptor.id;
+  diagnostic.generation = node.generation;
+  diagnostic.state = node.state;
+  diagnostic.lifetime = node.lifetime;
+  diagnostic.blockers = blockers;
+  diagnostic.layer_published = node.layer_published;
+  if (node.layer != nullptr) {
+    diagnostic.layer_lease_count = node.layer->lease_count();
+    diagnostic.in_flight_calls = node.layer->in_flight_calls();
+    diagnostic.local_type_count = node.layer->local_size();
+  }
+  return diagnostic;
+}
+
+void store_unload_diagnostic(detail::managed_plugin& node,
+                             plugin_unload_blocker blockers = plugin_unload_blocker::none) {
+  node.unload_diagnostic = make_unload_diagnostic(node, blockers);
+}
+
 } // namespace
 
 bool plugin::valid() const noexcept {
@@ -101,6 +126,22 @@ plugin_state plugin::state() const noexcept {
   }
   std::lock_guard lock{data_->mutex};
   return data_->state;
+}
+
+plugin_lifetime_policy plugin::lifetime() const noexcept {
+  if (data_ == nullptr) {
+    return plugin_lifetime_policy::detachable;
+  }
+  std::lock_guard lock{data_->mutex};
+  return data_->lifetime;
+}
+
+plugin_unload_diagnostic plugin::unload_diagnostic() const noexcept {
+  if (data_ == nullptr) {
+    return {};
+  }
+  std::lock_guard lock{data_->mutex};
+  return data_->unload_diagnostic;
 }
 
 const plugin_descriptor& plugin::descriptor() const noexcept {
@@ -157,7 +198,8 @@ plugin_host& plugin_manager::host() noexcept { return data_->host; }
 
 const plugin_host& plugin_manager::host() const noexcept { return data_->host; }
 
-result<plugin> plugin_manager::load(const std::filesystem::path& path) {
+result<plugin> plugin_manager::load(const std::filesystem::path& path,
+                                    plugin_load_options options) {
   if (data_ == nullptr) {
     return fail<plugin>({error_domain::plugins, errc::out_of_memory});
   }
@@ -182,7 +224,11 @@ result<plugin> plugin_manager::load(const std::filesystem::path& path) {
   node->path = node->binary.path();
   node->generation = next_plugin_generation.fetch_add(1, std::memory_order_relaxed);
   node->state = plugin_state::loaded;
-  node->layer = data_->registry->create_layer();
+  node->lifetime = options.lifetime;
+  node->layer =
+      data_->registry->create_layer(options.lifetime == plugin_lifetime_policy::pinned_process
+                                        ? meta::registry_layer_lifetime::pinned_process
+                                        : meta::registry_layer_lifetime::detachable);
   if (node->layer == nullptr) {
     return fail<plugin>({error_domain::plugins, errc::out_of_memory});
   }
@@ -281,10 +327,20 @@ error plugin_manager::unload(guid id) {
   {
     std::lock_guard lock{node->mutex};
     if (node->busy) {
+      store_unload_diagnostic(*node);
       return {error_domain::plugins, errc::pending};
     }
     node->busy = true;
     state = node->state;
+  }
+
+  if (node->lifetime == plugin_lifetime_policy::pinned_process) {
+    {
+      std::lock_guard lock{node->mutex};
+      store_unload_diagnostic(*node, plugin_unload_blocker::pinned_process);
+      node->busy = false;
+    }
+    return {error_domain::plugins, errc::unsupported};
   }
 
   error status{};
@@ -306,7 +362,12 @@ error plugin_manager::unload(guid id) {
   if (node->scope != nullptr) {
     const plugin_cleanup_result cleanup = node->scope->cleanup();
     if (!cleanup.can_unload()) {
-      finish_operation(node, plugin_state::detached_pending_release);
+      {
+        std::lock_guard lock{node->mutex};
+        node->state = plugin_state::detached_pending_release;
+        store_unload_diagnostic(*node, cleanup.blockers);
+        node->busy = false;
+      }
       return {error_domain::plugins, errc::pending};
     }
   }
@@ -320,7 +381,12 @@ error plugin_manager::unload(guid id) {
   }
   if (node->layer != nullptr &&
       (node->layer->in_flight_calls() != 0 || node->layer->lease_count() > 2)) {
-    finish_operation(node, plugin_state::detached_pending_release);
+    {
+      std::lock_guard lock{node->mutex};
+      node->state = plugin_state::detached_pending_release;
+      store_unload_diagnostic(*node);
+      node->busy = false;
+    }
     return {error_domain::plugins, errc::pending};
   }
 
