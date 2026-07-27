@@ -32,6 +32,17 @@ struct overloaded_method_actor {
   [[nodiscard]] int update() const { return value; }
 };
 
+struct const_context_overload_actor {
+  int value = 0;
+
+  int read() {
+    value = 1;
+    return value;
+  }
+
+  int read() const { return value + 10; }
+};
+
 struct rvalue_method_actor {
   int value = 0;
 

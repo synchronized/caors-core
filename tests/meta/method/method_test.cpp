@@ -95,6 +95,39 @@ TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
   CHECK(*value == 16);
 }
 
+TEST_CASE("meta - method set uses const context during invoke overload resolution", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<const_context_overload_actor>(
+          "caors.test.meta.const_context_overload_actor")
+          .meta()
+          .method("read", static_cast<int (const_context_overload_actor::*)()>(
+                              &const_context_overload_actor::read))
+          .method("read", static_cast<int (const_context_overload_actor::*)() const>(
+                              &const_context_overload_actor::read))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.const_context_overload_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set read = reflected.find_method("read");
+  REQUIRE(read);
+
+  const_context_overload_actor instance{5};
+  const caors::meta::invoke_result result_value =
+      read.invoke_result_of(caors::meta::view_const(instance));
+  REQUIRE(result_value.has_value());
+  REQUIRE(result_value.try_get<int>() != nullptr);
+  CHECK(*result_value.try_get<int>() == 15);
+  CHECK(instance.value == 5);
+
+  const caors::meta::invoke_value_result value_result =
+      read.invoke(caors::meta::view_const(instance));
+  REQUIRE(value_result.has_value());
+  CHECK(value_result.value().is_i64());
+  CHECK(value_result.value().as_i64() == 15);
+}
+
 // 原测试文件：meta_method_method_view_invokes_mutable_and_const_member_functions_test.cpp
 
 #include "meta_method_test_support.h"

@@ -38,6 +38,16 @@ struct method_resolution {
   }
 };
 
+struct method_invocation_resolution {
+  const method_record* method = nullptr;
+  method_match_kind kind = method_match_kind::none;
+  invoke_failure_reason failure_reason = invoke_failure_reason::argument_mismatch;
+
+  [[nodiscard]] bool matched() const noexcept {
+    return kind == method_match_kind::exact || kind == method_match_kind::conversion;
+  }
+};
+
 [[nodiscard]] constexpr method_match_kind
 method_match_kind_from_rank(argument_match_rank rank) noexcept {
   switch (rank) {
@@ -855,6 +865,56 @@ public:
   }
 
 private:
+  template <typename Arguments>
+  [[nodiscard]] method_invocation_resolution
+  match_invocable(Arguments arguments, argument_match_options options, const void* object,
+                  bool mutable_object) const noexcept {
+    const method_record* matched = nullptr;
+    argument_match_rank best_rank = argument_match_rank::none;
+    bool object_blocked = false;
+    bool const_blocked = false;
+
+    for (const method_record& method : overloads_) {
+      const argument_match_rank rank = method.match_rank(arguments, options);
+      if (rank == argument_match_rank::none) {
+        continue;
+      }
+
+      if (method.get_owner_type()) {
+        if (object == nullptr) {
+          object_blocked = true;
+          continue;
+        }
+        if (!method.const_method() && !mutable_object) {
+          const_blocked = true;
+          continue;
+        }
+      }
+
+      if (matched != nullptr && rank == best_rank) {
+        return {nullptr, method_match_kind::ambiguous, invoke_failure_reason::ambiguous_overload};
+      }
+
+      if (matched == nullptr ||
+          static_cast<unsigned char>(rank) > static_cast<unsigned char>(best_rank)) {
+        matched = &method;
+        best_rank = rank;
+      }
+    }
+
+    if (matched != nullptr) {
+      return {matched, method_match_kind_from_rank(best_rank), invoke_failure_reason::none};
+    }
+
+    if (const_blocked) {
+      return {nullptr, method_match_kind::none, invoke_failure_reason::const_violation};
+    }
+    if (object_blocked) {
+      return {nullptr, method_match_kind::none, invoke_failure_reason::invalid_object};
+    }
+    return {};
+  }
+
   string_name name_{};
   vector<method_record> overloads_{};
 };

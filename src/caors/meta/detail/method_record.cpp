@@ -30,8 +30,7 @@ namespace {
   }
 }
 
-[[nodiscard]] vector<argument>
-make_arguments(std::span<const meta::value> values) {
+[[nodiscard]] vector<argument> make_arguments(std::span<const meta::value> values) {
   vector<argument> arguments{};
   arguments.reserve(values.size());
   for (const meta::value& value : values) {
@@ -46,10 +45,9 @@ make_arguments(std::span<const meta::value> values) {
 
 } // namespace
 
-invoke_value_result
-method_record::invoke_runtime_value(const void* object, bool mutable_object,
-                                  std::span<const meta::value> arguments,
-                                  argument_match_options options) const {
+invoke_value_result method_record::invoke_runtime_value(const void* object, bool mutable_object,
+                                                        std::span<const meta::value> arguments,
+                                                        argument_match_options options) const {
   if (matches_arguments(arguments, options)) {
     return invoke_value_result_of(object, mutable_object, arguments, options);
   }
@@ -61,16 +59,19 @@ method_record::invoke_runtime_value(const void* object, bool mutable_object,
   return make_value_result(invoke_result_of(object, mutable_object, converted, options));
 }
 
-invoke_value_result
-method_set_record::invoke_runtime_value(const void* object, bool mutable_object,
-                                      std::span<const meta::value> arguments,
-                                      argument_match_options options) const {
-  const method_resolution value_match = match(arguments, options);
+invoke_value_result method_set_record::invoke_runtime_value(const void* object, bool mutable_object,
+                                                            std::span<const meta::value> arguments,
+                                                            argument_match_options options) const {
+  const method_invocation_resolution value_match =
+      match_invocable(arguments, options, object, mutable_object);
   if (value_match.kind == method_match_kind::ambiguous) {
-    return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
+    return invoke_value_result::failed(value_match.failure_reason);
   }
   if (value_match.matched()) {
     return value_match.method->invoke_runtime_value(object, mutable_object, arguments, options);
+  }
+  if (value_match.failure_reason != invoke_failure_reason::argument_mismatch) {
+    return invoke_value_result::failed(value_match.failure_reason);
   }
 
   vector<argument> converted = make_arguments(arguments);
@@ -78,41 +79,33 @@ method_set_record::invoke_runtime_value(const void* object, bool mutable_object,
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
   }
 
-  const method_resolution argument_match = match(converted, options);
-  if (argument_match.kind == method_match_kind::ambiguous) {
-    return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
-  }
-  if (!argument_match.matched()) {
-    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
+  const method_invocation_resolution argument_match =
+      match_invocable(std::span<const argument>{converted}, options, object, mutable_object);
+  if (argument_match.kind == method_match_kind::ambiguous || !argument_match.matched()) {
+    return invoke_value_result::failed(argument_match.failure_reason);
   }
   return make_value_result(
       argument_match.method->invoke_result_of(object, mutable_object, converted, options));
 }
 
-invoke_result
-method_set_record::invoke_result_of(const void* object, bool mutable_object,
-                                  std::span<const argument> arguments,
-                                  argument_match_options options) const {
-  const method_resolution result = match(arguments, options);
-  if (result.kind == method_match_kind::ambiguous) {
-    return invoke_result::failed(invoke_failure_reason::ambiguous_overload);
-  }
-  if (!result.matched()) {
-    return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+invoke_result method_set_record::invoke_result_of(const void* object, bool mutable_object,
+                                                  std::span<const argument> arguments,
+                                                  argument_match_options options) const {
+  const method_invocation_resolution result =
+      match_invocable(arguments, options, object, mutable_object);
+  if (result.kind == method_match_kind::ambiguous || !result.matched()) {
+    return invoke_result::failed(result.failure_reason);
   }
   return result.method->invoke_result_of(object, mutable_object, arguments, options);
 }
 
-invoke_result
-method_set_record::invoke_result_of(const void* object, bool mutable_object,
-                                  std::span<const named_argument> arguments,
-                                  argument_match_options options) const {
-  const method_resolution result = match(arguments, options);
-  if (result.kind == method_match_kind::ambiguous) {
-    return invoke_result::failed(invoke_failure_reason::ambiguous_overload);
-  }
-  if (!result.matched()) {
-    return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+invoke_result method_set_record::invoke_result_of(const void* object, bool mutable_object,
+                                                  std::span<const named_argument> arguments,
+                                                  argument_match_options options) const {
+  const method_invocation_resolution result =
+      match_invocable(arguments, options, object, mutable_object);
+  if (result.kind == method_match_kind::ambiguous || !result.matched()) {
+    return invoke_result::failed(result.failure_reason);
   }
   return result.method->invoke_result_of(object, mutable_object, arguments, options);
 }
