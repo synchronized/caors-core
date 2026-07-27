@@ -13,6 +13,14 @@
 #include <utility>
 
 namespace caors::meta::detail {
+namespace {
+
+struct capability_lookup {
+  bool type_found = false;
+  const void* capability = nullptr;
+};
+
+} // namespace
 
 const void* find_type_static_capability(const meta::type& type, capability_key key) noexcept {
   const type_record* data = type_access::data_of(type);
@@ -85,11 +93,13 @@ const void* find_capability(const registry& registry, type_id id, capability_key
 
   const auto snapshot = registry_access::snapshot(registry);
   for (const auto& layer : snapshot->layers()) {
-    const registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    const type_record* type = find_type_record(state, id);
-    if (type != nullptr) {
-      return type->find_capability(key);
+    const capability_lookup lookup = read_layer_state(*layer, [id, key](const auto& state) {
+      const type_record* type = find_type_record(state, id);
+      return capability_lookup{type != nullptr,
+                               type != nullptr ? type->find_capability(key) : nullptr};
+    });
+    if (lookup.type_found) {
+      return lookup.capability;
     }
   }
   return nullptr;
@@ -136,14 +146,16 @@ std::size_t capability_count(const registry& registry, capability_key key) noexc
   const auto snapshot = registry_access::snapshot(registry);
   std::size_t result = 0;
   for (const auto& layer : snapshot->layers()) {
-    const registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    for (const auto& [raw_id, type] : state.types) {
-      (void)raw_id;
-      if (type != nullptr && type->contains_capability(key)) {
-        ++result;
+    result += read_layer_state(*layer, [key](const auto& state) {
+      std::size_t count = 0;
+      for (const auto& [raw_id, type] : state.types) {
+        (void)raw_id;
+        if (type != nullptr && type->contains_capability(key)) {
+          ++count;
+        }
       }
-    }
+      return count;
+    });
   }
 
   return result;

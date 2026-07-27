@@ -12,10 +12,12 @@
 #include "caors/meta/registry.h"
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
 #include <typeindex>
+#include <utility>
 
 namespace caors::meta::detail {
 
@@ -98,6 +100,17 @@ private:
 [[nodiscard]] const type_record* find_type_record(const registry_state& state, type_id id);
 [[nodiscard]] error validate_registry(const registry_state& state,
                                       const registry_snapshot* snapshot = nullptr);
+
+template <typename Callback>
+decltype(auto) read_layer_state(const registry_layer_state& layer, Callback&& callback) {
+  const registry_state& state = layer.state();
+  if (layer.frozen() || state.frozen) {
+    return std::invoke(std::forward<Callback>(callback), state);
+  }
+
+  std::lock_guard lock{state.mutex};
+  return std::invoke(std::forward<Callback>(callback), state);
+}
 
 } // namespace caors::meta::detail
 

@@ -251,10 +251,6 @@ method method_set::single() const {
 
 method_match_result method_set::match(std::span<const argument> arguments,
                                       argument_match_options options) const {
-  const auto guard = call_guard_for(layer_);
-  if (!guard) {
-    return method_match_result::none();
-  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return method_match_result::none();
@@ -272,10 +268,6 @@ method_match_result method_set::match(std::span<const argument> arguments,
 
 method_match_result method_set::match(std::span<const named_argument> arguments,
                                       argument_match_options options) const {
-  const auto guard = call_guard_for(layer_);
-  if (!guard) {
-    return method_match_result::none();
-  }
   const detail::method_set_record* method_set = info();
   if (method_set == nullptr) {
     return method_match_result::none();

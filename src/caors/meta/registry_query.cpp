@@ -6,7 +6,6 @@
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/registry.h"
 
-#include <mutex>
 #include <string_view>
 
 namespace caors::meta {
@@ -19,9 +18,9 @@ struct found_record {
 
 [[nodiscard]] found_record find_record(const detail::registry_snapshot& snapshot, type_id id) {
   for (const auto& layer : snapshot.layers()) {
-    const detail::registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    if (const detail::type_record* record = detail::find_type_record(state, id)) {
+    const detail::type_record* record = detail::read_layer_state(
+        *layer, [id](const auto& state) { return detail::find_type_record(state, id); });
+    if (record != nullptr) {
       return {record, layer};
     }
   }
@@ -52,11 +51,12 @@ type registry::find_type(core::type_guid guid) const {
 
   const auto snapshot = capture_snapshot();
   for (const auto& layer : snapshot->layers()) {
-    const detail::registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    const auto position = state.guids.find(guid.value);
-    if (position != state.guids.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second, layer);
+    const detail::type_record* record = detail::read_layer_state(*layer, [guid](const auto& state) {
+      const auto position = state.guids.find(guid.value);
+      return position != state.guids.end() ? position->second : nullptr;
+    });
+    if (record != nullptr) {
+      return detail::type_access::make(this, record, layer);
     }
   }
   return {};
@@ -65,11 +65,14 @@ type registry::find_type(core::type_guid guid) const {
 type registry::find_type(const std::type_info& info) const {
   const auto snapshot = capture_snapshot();
   for (const auto& layer : snapshot->layers()) {
-    const detail::registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    const auto position = state.cpp_types.find(std::type_index{info});
-    if (position != state.cpp_types.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second, layer);
+    const std::type_index index{info};
+    const detail::type_record* record =
+        detail::read_layer_state(*layer, [index](const auto& state) {
+          const auto position = state.cpp_types.find(index);
+          return position != state.cpp_types.end() ? position->second : nullptr;
+        });
+    if (record != nullptr) {
+      return detail::type_access::make(this, record, layer);
     }
   }
   return {};
@@ -87,11 +90,12 @@ type registry::find_type(std::string_view name) const {
 type registry::find_type(core::string_name name) const {
   const auto snapshot = capture_snapshot();
   for (const auto& layer : snapshot->layers()) {
-    const detail::registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    const auto position = state.names.find(name);
-    if (position != state.names.end() && position->second != nullptr) {
-      return detail::type_access::make(this, position->second, layer);
+    const detail::type_record* record = detail::read_layer_state(*layer, [name](const auto& state) {
+      const auto position = state.names.find(name);
+      return position != state.names.end() ? position->second : nullptr;
+    });
+    if (record != nullptr) {
+      return detail::type_access::make(this, record, layer);
     }
   }
   return {};
@@ -210,9 +214,8 @@ std::size_t registry::size() const noexcept {
   const auto snapshot = capture_snapshot();
   std::size_t result = 0;
   for (const auto& layer : snapshot->layers()) {
-    const detail::registry_state& state = layer->state();
-    std::lock_guard lock(state.mutex);
-    result += state.types.size();
+    result +=
+        detail::read_layer_state(*layer, [](const auto& state) { return state.types.size(); });
   }
   return result;
 }

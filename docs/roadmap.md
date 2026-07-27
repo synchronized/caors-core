@@ -134,8 +134,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 收敛 Proxy 自定义能力入口，移除早期 X-macro DSL，统一推荐 dispatch + `capability_builder`。
 - [x] 增加通用 `meta::metadata_map`，用于给类型、属性、方法和枚举项挂载轻量键值附加信息；
   metadata 只承载工具、配置和编辑器提示，不替代类型身份或 capability。
-- [ ] 收敛 identity ID 底座：内部提供按 domain/canonical name 发号的统一 identity state，
+- [x] 收敛 identity ID 底座：内部提供按 domain/canonical name 发号的统一 identity state，
   外部保留 `type_id`、`capability_id`、`extension_id` 等强类型 ID。
+- [ ] 增加 identity store 调试查询，并评估后续 `schema_id`、`event_id`、`resource_type_id`
+  等新 ID 是否复用同一发号器模式。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。
@@ -163,8 +165,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 文档化当前 append-only 注册生命周期、无隐式 replace、批量注册非事务和 view 稳定性边界。
 - [x] 整理未来 registry 管理策略方向：`locked_append_only`、`frozen_read_optimized`、
   `manual_synchronization`，并与 `pinned_process` / `detachable` 插件生命周期分离。
-- [ ] 收敛 registry 查询快路径：发布后的 layer 不可变，普通查询只做 snapshot 原子读取；
-  主进程 layer 调用免 in-flight guard，插件 layer 仅在进入插件 ops 时使用调用级 guard。
+- [x] 收敛 registry 查询快路径第一阶段：发布后的 frozen layer 查询基于 snapshot 无锁读取；
+  主进程 pinned layer 调用免 in-flight guard，插件 detachable layer 仅在进入插件 ops 时使用调用级 guard。
+- [ ] 继续收敛主 registry freeze 文档和 benchmark，评估显式 `registry::freeze()` 与延迟注册的交互。
 - [x] 增加 registry 管理策略 API：`registry_options` / `registry_management_policy`，
   默认保持内部加锁的 append-only 语义，后续支持冻结读优化和高级手动同步。
 - [ ] 评估注册项 replace、dry-run 校验和更完整的批量注册事务语义。

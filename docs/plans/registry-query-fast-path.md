@@ -104,12 +104,13 @@ enum class plugin_lifetime {
 };
 
 struct plugin_load_options {
-  plugin_lifetime lifetime = plugin_lifetime::pinned_process;
+  plugin_lifetime lifetime = plugin_lifetime::detachable;
 };
 ```
 
-`pinned_process` 插件加载后跟随 `plugin_manager` 或进程生命周期，`plugin_manager::unload()` 应返回
-`errc::unsupported` 或明确的状态错误，不执行 `detach_layer()` / `FreeLibrary`。它的 registry layer
+`detachable` 是当前默认策略，保留显式热卸载语义。`pinned_process` 插件加载后跟随
+`plugin_manager` 或进程生命周期，`plugin_manager::unload()` 应返回 `errc::unsupported`
+或明确的状态错误，不执行 `detach_layer()` / `FreeLibrary`。它的 registry layer
 可以走 `pinned_process` fast path，不承担插件热卸载的 in-flight 原子成本。
 
 `detachable` 插件显式选择热卸载语义，发布后的 layer 可 detach，进入插件 ops 前必须使用 call guard，
@@ -216,37 +217,41 @@ struct registry_options {
 
 ### 阶段 3：插件加载 lifetime 选项
 
-- 增加 `plugin_load_options` 和 `plugin_lifetime`；
-- `plugin_manager::load(path)` 保留便捷重载，默认使用 `pinned_process`；
-- `plugin_manager::load(path, options)` 允许显式选择 `detachable`；
-- `plugin_manager::unload()` 遇到 `pinned_process` 插件返回不支持，不 detach layer；
-- 文档说明 pinned 插件是默认推荐模式，detachable 是高级热卸载模式。
+- [x] 增加 `plugin_load_options` 和 `plugin_lifetime_policy`；
+- [x] `plugin_manager::load(path)` 保留便捷入口，默认使用 `detachable`；
+- [x] `plugin_manager::load(path, options)` 允许显式选择 `pinned_process`；
+- [x] `plugin_manager::unload()` 遇到 `pinned_process` 插件返回不支持，不 detach layer；
+- [x] 文档说明 pinned 插件是无法提前卸载的低开销模式，detachable 是可热卸载模式。
 
 完成标准：pinned 插件无法提前 unload，detachable 插件保留现有 unload/detach 行为。
 
 ### 阶段 4：区分 metadata 查询和 ops 调用
 
-- 盘点所有 `layer_call_guard` 使用点；
-- 纯记录查询只做有效性检查，不进入 call guard；
-- 真正调用函数指针的路径继续使用 call guard；
-- 为 detach 后纯查询和 detach 后调用分别补测试。
+- [x] 盘点所有 `layer_call_guard` 使用点；
+- [x] `method_set::match/resolve` 只做已注册签名匹配，不进入 call guard；
+- [x] 纯 extension presence / view 查询只做 snapshot 记录读取；
+- [x] 真正调用函数指针的路径继续使用 call guard；
+- [ ] 继续拆分 `type::get_value_type()` / `get_key_type()` 这类依赖 ops 回调的类型查询，
+  长期应把常见内置类型信息固化到记录或安全 facade；
+- [ ] 为 detach 后纯查询和 detach 后调用分别补测试。
 
 完成标准：detach 后旧 view 查询基础 id/name 可按文档定义处理，调用插件 ops 明确失败。
 
 ### 阶段 5：冻结 layer 查询无锁
 
-- 明确 `registry_state::frozen` 后不可变；
-- 为 frozen layer 增加无锁只读查找 helper；
-- `find_type()`、`has_extension()`、`find_extension()`、`extension_view()` 改为 snapshot + frozen fast path；
-- 未冻结 draft layer 仍只允许注册写入，不进入主查询 snapshot。
+- [x] 明确 `registry_state::frozen` 后不可变；
+- [x] 为 frozen layer 增加无锁只读查找 helper；
+- [x] `find_type()`、`contains()`、`size()`、capability 查询和 extension 查询改为 snapshot + frozen fast path；
+- [x] 未冻结主 layer 仍保留锁，已发布插件 layer 查询不再加 `state.mutex`。
 
 完成标准：已发布 layer 查询不再加 `state.mutex`；并发 publish/detach/query 测试通过。
 
 ### 阶段 6：主 registry freeze 策略
 
-- 增加显式 `registry::freeze()` 或在 `init()` 后冻结默认 registry；
-- 文档说明默认运行期查询推荐在 freeze 后进行；
-- 如果保留运行期主 registry 注册，定义它与无锁查询的同步边界。
+- [x] `registry_management_policy::frozen_read_optimized` 在 `init()` 成功后冻结 primary layer；
+- [x] 默认 `locked_append_only` 仍允许后续注册并保留查询锁；
+- [ ] 文档说明运行期查询推荐使用 frozen registry 或已发布 layer；
+- [ ] 如果未来增加显式 `registry::freeze()`，定义它与延迟注册和插件 publish 的交互。
 
 完成标准：普通应用初始化完成后，默认 registry 可进入无锁查询模式。
 

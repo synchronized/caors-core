@@ -24,6 +24,8 @@ struct overlay_parallel_b {};
 struct overlay_pinned_layer_type {};
 struct overlay_pinned_call_type {};
 struct overlay_detachable_call_type {};
+struct overlay_frozen_policy_type {};
+struct overlay_frozen_policy_late_type {};
 struct overlay_reflected_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
@@ -361,6 +363,23 @@ TEST_CASE("meta registry 管理策略保持创建选项") {
       caors::meta::registry_management_policy::manual_synchronization}};
   CHECK(manual_registry.management_policy() ==
         caors::meta::registry_management_policy::manual_synchronization);
+}
+
+TEST_CASE("meta registry frozen_read_optimized 在 init 后冻结 primary layer") {
+  caors::meta::registry registry{caors::meta::registry_options{
+      caors::meta::registry_management_policy::frozen_read_optimized}};
+  caors::meta::context context{registry};
+
+  REQUIRE_FALSE(caors::registration::type_<overlay_frozen_policy_type>(
+                    context, "caors.test.meta.frozen_policy")
+                    .commit());
+  REQUIRE_FALSE(registry.init());
+
+  CHECK(caors::meta::find<overlay_frozen_policy_type>(context));
+  CHECK(registry.size() == 1);
+  CHECK(caors::registration::type_<overlay_frozen_policy_late_type>(
+            context, "caors.test.meta.frozen_policy_late")
+            .commit() == caors::error{caors::error_domain::meta, caors::errc::frozen});
 }
 
 TEST_CASE("meta registry layer lifetime 控制 detach 和 call guard") {

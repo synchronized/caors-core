@@ -65,8 +65,8 @@ std::size_t registry_layer::local_size() const noexcept {
   if (registry_ == nullptr) {
     return 0;
   }
-  std::lock_guard lock{registry_->state_->mutex};
-  return registry_->state_->types.size();
+  return detail::read_layer_state(*registry_->primary_layer_,
+                                  [](const auto& state) { return state.types.size(); });
 }
 
 std::size_t registry_layer::lease_count() const noexcept {
@@ -160,7 +160,18 @@ error registry::init() {
     return registration_status;
   }
 
-  return validate();
+  const error validation_status = validate();
+  if (validation_status) {
+    return validation_status;
+  }
+
+  if (options_.management == registry_management_policy::frozen_read_optimized) {
+    std::lock_guard lock{state_->mutex};
+    state_->frozen = true;
+    primary_layer_->freeze();
+  }
+
+  return {};
 }
 
 error registry::validate() const {
