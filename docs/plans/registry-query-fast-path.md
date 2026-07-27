@@ -27,7 +27,7 @@
 ```text
 registry
 └─ atomic shared_ptr<registry_snapshot>
-   ├─ static/process layer     查询无锁，call guard no-op
+   ├─ pinned/process layer     查询无锁，call guard no-op
    └─ detachable/plugin layer  查询无锁，调用插件 ops 时 in-flight guard
 ```
 
@@ -70,18 +70,21 @@ auto snapshot = registry.capture_snapshot();
 
 `layer_call_guard` 只表达“正在进入可能属于可卸载模块的函数指针”。它不应被普通 metadata 查询滥用。
 
-### Static Layer Fast Path
+### Layer 生命周期策略
 
 给 layer 增加生命周期分类：
 
 ```cpp
 enum class registry_layer_lifetime {
-  static_process,
+  pinned_process,
   detachable,
 };
 ```
 
-`static_process` layer 不支持 detach/unload，`layer_call_guard` 对它直接成功，不做原子 inc/dec。
+这里推荐使用 `pinned_process`，不使用 `static` 作为公开枚举名。原因是 `static` 容易和静态链接、
+静态初始化、静态存储期混淆；实际语义是“该 layer 被钉在进程生命周期内，不支持提前卸载”。
+
+`pinned_process` layer 不支持 detach/unload，`layer_call_guard` 对它直接成功，不做原子 inc/dec。
 `detachable` layer 在调用插件 ops 前执行：
 
 ```text
@@ -91,6 +94,26 @@ recheck active
 call
 decrement in_flight
 ```
+
+插件加载 API 可以暴露同一套语义：
+
+```cpp
+enum class plugin_lifetime {
+  pinned_process,
+  detachable,
+};
+
+struct plugin_load_options {
+  plugin_lifetime lifetime = plugin_lifetime::pinned_process;
+};
+```
+
+`pinned_process` 插件加载后跟随 `plugin_manager` 或进程生命周期，`plugin_manager::unload()` 应返回
+`errc::unsupported` 或明确的状态错误，不执行 `detach_layer()` / `FreeLibrary`。它的 registry layer
+可以走 `pinned_process` fast path，不承担插件热卸载的 in-flight 原子成本。
+
+`detachable` 插件显式选择热卸载语义，发布后的 layer 可 detach，进入插件 ops 前必须使用 call guard，
+unload 前仍要检查 layer lease、in-flight 调用、任务、服务和插件 owned erased value。
 
 ## 需要整理的路径
 
@@ -133,14 +156,24 @@ decrement in_flight
 ### 阶段 1：补充 layer lifetime 标记
 
 - 在 `registry_layer_state` 增加 `registry_layer_lifetime`；
-- primary/default layer 标记为 `static_process`；
-- plugin/draft layer 标记为 `detachable`；
-- `layer_call_guard` 对 `static_process` 做 no-op；
+- primary/default layer 标记为 `pinned_process`；
+- plugin layer 根据加载选项标记为 `pinned_process` 或 `detachable`，draft layer 默认继承目标发布策略；
+- `layer_call_guard` 对 `pinned_process` 做 no-op；
 - 保持现有测试通过。
 
-完成标准：主 registry 类型调用不再产生 in-flight 计数变化，插件 layer 行为不变。
+完成标准：主 registry 类型和 pinned 插件类型调用不再产生 in-flight 计数变化，detachable 插件 layer 行为不变。
 
-### 阶段 2：区分 metadata 查询和 ops 调用
+### 阶段 2：插件加载 lifetime 选项
+
+- 增加 `plugin_load_options` 和 `plugin_lifetime`；
+- `plugin_manager::load(path)` 保留便捷重载，默认使用 `pinned_process`；
+- `plugin_manager::load(path, options)` 允许显式选择 `detachable`；
+- `plugin_manager::unload()` 遇到 `pinned_process` 插件返回不支持，不 detach layer；
+- 文档说明 pinned 插件是默认推荐模式，detachable 是高级热卸载模式。
+
+完成标准：pinned 插件无法提前 unload，detachable 插件保留现有 unload/detach 行为。
+
+### 阶段 3：区分 metadata 查询和 ops 调用
 
 - 盘点所有 `layer_call_guard` 使用点；
 - 纯记录查询只做有效性检查，不进入 call guard；
@@ -149,7 +182,7 @@ decrement in_flight
 
 完成标准：detach 后旧 view 查询基础 id/name 可按文档定义处理，调用插件 ops 明确失败。
 
-### 阶段 3：冻结 layer 查询无锁
+### 阶段 4：冻结 layer 查询无锁
 
 - 明确 `registry_state::frozen` 后不可变；
 - 为 frozen layer 增加无锁只读查找 helper；
@@ -158,7 +191,7 @@ decrement in_flight
 
 完成标准：已发布 layer 查询不再加 `state.mutex`；并发 publish/detach/query 测试通过。
 
-### 阶段 4：主 registry freeze 策略
+### 阶段 5：主 registry freeze 策略
 
 - 增加显式 `registry::freeze()` 或在 `init()` 后冻结默认 registry；
 - 文档说明默认运行期查询推荐在 freeze 后进行；
@@ -166,7 +199,7 @@ decrement in_flight
 
 完成标准：普通应用初始化完成后，默认 registry 可进入无锁查询模式。
 
-### 阶段 5：性能与回归验证
+### 阶段 6：性能与回归验证
 
 - 增加 registry find/property/method/schema 查询 micro benchmark；
 - 对比加锁查询与 frozen fast path；
@@ -179,6 +212,6 @@ decrement in_flight
 
 - 如果某条写入路径绕过 builder 修改已发布 `type_record`，无锁查询会产生数据竞争；
 - extension value 如果内部保存可变对象，即使 extension 容器不可变，也需要调用方自行同步；
-- 静态 layer fast path 不能误用于可卸载插件 layer；
+- pinned layer fast path 不能误用于可卸载插件 layer；
+- pinned 插件虽然不能 unload，但仍可能被 stop；插件服务 API 应自行定义 stop 后是否允许继续调用；
 - 旧 view 的“detach 后哪些纯查询仍可用”需要文档和测试统一，不应出现有的返回快照、有的返回空的混乱行为。
-

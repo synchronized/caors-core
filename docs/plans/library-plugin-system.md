@@ -336,9 +336,16 @@ struct caors_plugin_host {
 
 ## Registration Scope 与卸载
 
-第一版允许插件在 `initialize` 中使用统一 registration builder，但插件默认保持加载到进程结束。
-原因是当前 registry record、property/method wrapper、capability、extension 和擦除值可能保存插件
-代码地址。
+第一版允许插件在 `initialize` 中使用统一 registration builder。插件 lifetime 应显式区分
+`pinned_process` 和 `detachable`：`pinned_process` 插件默认保持加载到 `plugin_manager` 或进程结束，
+不支持提前 unload，也不需要为插件 ops 调用承担 in-flight 原子 guard；`detachable` 插件显式选择
+热卸载语义，必须通过 registry layer detach、library lease 和 call guard 保护。
+
+这样命名避免使用 `static plugin`，因为 `static` 容易和静态链接、静态初始化或静态存储期混淆。
+实际语义是插件被钉在进程生命周期内，而不是插件以静态库形式链接。
+
+当前 registry record、property/method wrapper、capability、extension 和擦除值可能保存插件代码地址。
+只有 `detachable` 插件需要证明这些地址不可达后才允许真正关闭动态库。
 
 后续引入：
 
