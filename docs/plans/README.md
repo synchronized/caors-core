@@ -10,6 +10,8 @@
 
 - [library-plugin-system.md](library-plugin-system.md)：跨平台动态库封装、稳定插件 ABI、
   manifest、依赖、生命周期、registration scope 与安全卸载计划。
+- [registry-query-fast-path.md](registry-query-fast-path.md)：基于不可变 snapshot/layer 的
+  registry 查询无锁快路径和插件 layer 调用 guard 收敛计划。
 
 ## Meta
 

@@ -161,6 +161,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 文档化当前 append-only 注册生命周期、无隐式 replace、批量注册非事务和 view 稳定性边界。
 - [x] 整理未来 registry strategy 方向：`append_only_registry`、`mutable_registry`、
   `snapshot_registry` 和插件 registry overlay。
+- [ ] 收敛 registry 查询快路径：发布后的 layer 不可变，普通查询只做 snapshot 原子读取；
+  主进程 layer 调用免 in-flight guard，插件 layer 仅在进入插件 ops 时使用调用级 guard。
 - [ ] 评估注册项 replace、dry-run 校验和更完整的批量注册事务语义。
 
 ## 2. 定制化分配器
