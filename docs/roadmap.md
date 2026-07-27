@@ -135,7 +135,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   metadata 只承载工具、配置和编辑器提示，不替代类型身份或 capability。
 - [x] 收敛 identity ID 底座：内部提供按 domain/canonical name 发号的统一 identity state，
   外部保留 `type_id`、`capability_id` 等强类型 ID。
-- [ ] 增加 identity store 调试查询，并评估后续 `schema_id`、`event_id`、`resource_type_id`
+- [x] 增加 identity store 调试查询，并评估后续 `schema_id`、`event_id`、`resource_type_id`
   等新 ID 是否复用同一发号器模式。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。

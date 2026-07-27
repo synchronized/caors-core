@@ -4,10 +4,12 @@
 #ifndef CAORS_META_IDENTITY_ID_H_
 #define CAORS_META_IDENTITY_ID_H_
 
+#include "caors/core/containers.h"
 #include "caors/export.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace caors::meta {
 
@@ -34,6 +36,34 @@ private:
 };
 
 using capability_key = capability_id;
+
+/** @brief identity 调试查询的 domain。 */
+enum class identity_debug_domain {
+  type,
+  capability,
+};
+
+/** @brief 一条已分配 identity 的调试快照记录。 */
+struct identity_debug_record {
+  identity_debug_domain domain = identity_debug_domain::type;
+  std::uint64_t id = 0;
+  string canonical_name{};
+};
+
+/** @brief 返回指定 domain 中已经分配的 identity 记录快照。 */
+[[nodiscard]] CAORS_API vector<identity_debug_record>
+identity_debug_snapshot(identity_debug_domain domain);
+
+/** @brief 返回所有已分配 identity 记录快照。 */
+[[nodiscard]] CAORS_API vector<identity_debug_record> identity_debug_snapshot();
+
+/** @brief 按进程内 ID 反查 canonical name；未命中返回空视图。 */
+[[nodiscard]] CAORS_API std::string_view find_identity_debug_name(identity_debug_domain domain,
+                                                                  std::uint64_t id) noexcept;
+
+/** @brief 按 canonical name 反查进程内 ID；未命中返回 0。 */
+[[nodiscard]] CAORS_API std::uint64_t
+find_identity_debug_id(identity_debug_domain domain, std::string_view canonical_name) noexcept;
 
 namespace detail {
 

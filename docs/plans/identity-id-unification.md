@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：type 与 capability 已落地，早期 type extension ID 已删除，阶段 4 诊断查询保留后续；
+- 当前状态：type 与 capability 已落地，早期 type extension ID 已删除，identity 调试查询已提供；
 - 目标：统一 type、capability 等进程内 ID 的底层发号逻辑；
 - 非目标：不把所有公开 API 改成同一个万能 ID，不把 identity state 变成 registry。
 
@@ -156,7 +156,7 @@ template <typename T>
 
 ### 阶段 4：诊断与未来扩展
 
-- [ ] 为 identity store 增加按 domain/name/id 的调试查询；
+- [x] 为 identity store 增加按 domain/name/id 的调试查询；
 - [x] 为 capability 预留 name、GUID、version 元信息挂接点；
 - [ ] 评估新增 `schema_id`、`event_id` 或 `resource_type_id` 是否复用同一发号器；
 - [x] 更新跨 DLL 文档，说明进程内 ID 与稳定 GUID 的边界。

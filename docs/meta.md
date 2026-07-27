@@ -38,6 +38,7 @@
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
 
 - `caors/meta/type_id.h`：`type_id` 和 `meta::type_guid` 兼容类型别名。
+- `caors/meta/identity_id.h`：`type_id` / `capability_key` 的进程内 identity 调试查询。
 - `caors/core/type_guid.h`：`type_guid` 稳定类型标识。
 - `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
@@ -137,11 +138,24 @@ meta 类型记录由当前 `meta::context` 指向的注册表内部保存，普�
 `is_object()` 表示该类型是否是已注册 `meta::object` 或其派生类型；对象生命周期和工厂入口仍由
 `objects` 模块提供。
 `registered()` 表示该类型是否已经通过 `registration::type_<T>("name")` 写入稳定注册数据；只有已注册类型
-才有稳定注册名、GUID、父类型和可挂载 extension。
+才有稳定注册名、GUID、父类型、metadata 和动态 capability data。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析静态类型节点，也会返回空视图。
 `registration::type_<T>("name")` 链式 builder 在 `commit()` 时一次性发布完整类型数据；发布后的
 `type_record` 不再通过 builder 修改。已有 `meta::type` 视图引用稳定注册数据，重复提交同一类型会返回重复错误。
 属性和成员方法也挂在同一份类型数据上，应在同一次注册提交前通过 `.meta()` 段写入。
+
+identity 调试查询只用于诊断当前 runtime 已经分配过哪些 `type_id` / `capability_key`。它返回快照拷贝，
+不修改 registry，也不表示对应类型一定已经注册：
+
+```cpp
+caors::type_id id = caors::meta::id_of<player>();
+
+std::string_view canonical_name = caors::meta::find_identity_debug_name(
+    caors::meta::identity_debug_domain::type, id.value());
+
+caors::vector<caors::meta::identity_debug_record> records =
+    caors::meta::identity_debug_snapshot(caors::meta::identity_debug_domain::type);
+```
 
 `meta::type` 是对外查询返回的只读视图：
 

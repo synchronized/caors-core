@@ -5,6 +5,14 @@
 
 #include "serialization_test_support.h"
 
+namespace {
+
+struct schema_capability_metadata_actor {
+  int value = 0;
+};
+
+} // namespace
+
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - registration builder commits meta and schema together",
@@ -240,4 +248,37 @@ TEST_CASE("serialization - registers type schema capability", "[serialization]")
   CHECK(duplicate.failed());
   CHECK(duplicate.domain() == caors::error_domain::meta);
   CHECK(duplicate.value() == caors::errc::duplicate_id);
+}
+
+TEST_CASE("serialization - schema capability data coexists with type metadata", "[serialization]") {
+  const caors::error status = caors::registration::type_<schema_capability_metadata_actor>(
+                                  "caors.test.serialization.schema_capability_metadata_actor")
+                                  .meta()
+                                  .metadata("category", "serialization")
+                                  .property("value", &schema_capability_metadata_actor::value)
+                                  .serialization()
+                                  .field("value", "v")
+                                  .commit();
+
+  REQUIRE(registration_result_ok(status));
+
+  const caors::meta::type type = caors::meta::find<schema_capability_metadata_actor>();
+  REQUIRE(type);
+  const caors::serialization::schema_view schema =
+      type.get_capability<caors::serialization::schema_capability>();
+  REQUIRE(schema);
+  CHECK(type.has_capability<caors::serialization::schema_capability>());
+  CHECK(schema.field_count() == 1);
+  REQUIRE(schema.field_at(0) != nullptr);
+  CHECK(schema.field_at(0)->field_name == "value");
+  CHECK(schema.field_at(0)->serialized_name == "v");
+
+  const caors::serialization::type_schema* raw_schema =
+      caors::meta::type_capability_traits<caors::serialization::schema_capability>::get_raw(type);
+  REQUIRE(raw_schema != nullptr);
+  CHECK(raw_schema == schema.raw());
+
+  const caors::meta::metadata_value* category = type.find_metadata(caors::string_name{"category"});
+  REQUIRE(category != nullptr);
+  CHECK(category->as_string() == "serialization");
 }
