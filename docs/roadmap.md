@@ -132,7 +132,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `CAORS_META_DEF_TYPE_DISPATCH + add_type_convention<Dispatch, Signature>` 自动生成 capability，
   并通过成员函数名、静态成员函数名、自由函数指针和函数签名接入自动 model。
 - [x] 收敛 Proxy 自定义能力入口，移除早期 X-macro DSL，统一推荐 dispatch + `capability_builder`。
-- [x] 增加通用 `meta::metadata_map` / `meta::type_metadata`，用于给类型挂载轻量键值附加信息；
+- [x] 增加通用 `meta::metadata_map`，用于给类型、属性、方法和枚举项挂载轻量键值附加信息；
   metadata 只承载工具、配置和编辑器提示，不替代类型身份或 capability。
 - [ ] 收敛 identity ID 底座：内部提供按 domain/canonical name 发号的统一 identity state，
   外部保留 `type_id`、`capability_id`、`extension_id` 等强类型 ID。

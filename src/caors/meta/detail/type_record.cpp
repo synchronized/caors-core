@@ -8,6 +8,7 @@
 #include "caors/meta/detail/enum_value_record.h"
 #include "caors/meta/detail/method_record.h"
 #include "caors/meta/detail/property_record.h"
+#include "caors/meta/metadata.h"
 
 #include <utility>
 
@@ -16,6 +17,7 @@ namespace caors::meta::detail {
 struct type_details {
   type_id parent_id{};
   parent_cast_ops parent_cast{};
+  memory::unique_ptr<meta::metadata_map> metadata{};
   vector<property_record> properties{};
   vector<method_set_record> methods{};
   vector<nested_type_data> nested_types{};
@@ -182,6 +184,29 @@ bool type_record::members_valid() const noexcept {
   }
 
   return true;
+}
+
+const meta::metadata_map& type_record::metadata() const noexcept {
+  static const meta::metadata_map empty{
+      typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+
+  const type_details* value = details();
+  return value != nullptr && value->metadata != nullptr ? *value->metadata : empty;
+}
+
+const meta::metadata_value* type_record::find_metadata(meta::metadata_key key) const noexcept {
+  const type_details* value = details();
+  return value != nullptr && value->metadata != nullptr ? meta::find_metadata(*value->metadata, key)
+                                                        : nullptr;
+}
+
+void type_record::set_metadata(meta::metadata_key key, meta::metadata_value value) {
+  type_details& details_value = ensure_details();
+  if (details_value.metadata == nullptr) {
+    details_value.metadata = memory::make_unique<meta::metadata_map>(
+        &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+  }
+  meta::set_metadata(*details_value.metadata, key, std::move(value));
 }
 
 std::size_t type_record::property_count() const noexcept {

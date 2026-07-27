@@ -110,11 +110,7 @@ const metadata_map& type::metadata() const noexcept {
     return empty_metadata_map();
   }
 
-  const detail::extension_data* metadata =
-      data->find_extension(detail::extension_key_of<type_metadata>());
-  const type_metadata* value =
-      metadata != nullptr ? detail::extension_value<type_metadata>(*metadata) : nullptr;
-  return value != nullptr ? value->values : empty_metadata_map();
+  return data->metadata();
 }
 
 const metadata_value* type::find_metadata(metadata_key key) const noexcept {

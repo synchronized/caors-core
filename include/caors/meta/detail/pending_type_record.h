@@ -72,8 +72,8 @@ public:
     property->set_metadata(key, std::move(value));
     return {};
   }
-  [[nodiscard]] error apply_property_schema_entry(
-      string_name name, registration::property_schema_entry entry) {
+  [[nodiscard]] error apply_property_schema_entry(string_name name,
+                                                  registration::property_schema_entry entry) {
     property_record* property = data_.mutable_find_property_ptr(name);
     if (property == nullptr) {
       return {error_domain::meta, errc::invalid_field};
@@ -104,8 +104,8 @@ public:
     }
     return {};
   }
-  [[nodiscard]] error add_method_parameter_name(string_name method_name,
-                                                std::size_t overload_index, string_name name) {
+  [[nodiscard]] error add_method_parameter_name(string_name method_name, std::size_t overload_index,
+                                                string_name name) {
     method_set_record* method_set = data_.mutable_find_method_ptr(method_name);
     method_record* method =
         method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
@@ -151,23 +151,7 @@ public:
     if (!key) {
       return {error_domain::meta, errc::invalid_type};
     }
-
-    extension_data* extension = data_.mutable_find_extension(extension_key_of<type_metadata>());
-    if (extension == nullptr) {
-      error result = data_.add_extension(
-          make_extension_data<type_metadata>(&memory::library_resource()));
-      if (result) {
-        return result;
-      }
-      extension = data_.mutable_find_extension(extension_key_of<type_metadata>());
-    }
-
-    type_metadata* metadata =
-        extension != nullptr ? mutable_extension_value<type_metadata>(*extension) : nullptr;
-    if (metadata == nullptr) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-    set_metadata(metadata->values, key, std::move(value));
+    data_.set_metadata(key, std::move(value));
     return {};
   }
   [[nodiscard]] error add_extension(extension_data extension) {

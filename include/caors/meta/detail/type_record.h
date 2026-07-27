@@ -10,6 +10,7 @@
 #include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_id.h"
 #include "caors/meta/value_ops.h"
@@ -86,6 +87,9 @@ public:
   void set_parent_cast(parent_cast_ops cast);
 
   [[nodiscard]] bool members_valid() const noexcept;
+  [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
+  [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
+  void set_metadata(meta::metadata_key key, meta::metadata_value value);
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] const property_record* property_at(std::size_t index) const noexcept;
   [[nodiscard]] const property_record* find_property_ptr(string_name name) const noexcept;
