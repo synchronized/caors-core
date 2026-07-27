@@ -25,6 +25,9 @@ struct overlay_pinned_call_type {};
 struct overlay_detachable_call_type {};
 struct overlay_frozen_policy_type {};
 struct overlay_frozen_policy_late_type {};
+struct overlay_explicit_freeze_type {};
+struct overlay_explicit_freeze_late_type {};
+struct overlay_explicit_freeze_layer_type {};
 struct overlay_reflected_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
@@ -348,6 +351,36 @@ TEST_CASE("meta registry frozen_read_optimized 在 init 后冻结 primary layer"
   CHECK(caors::registration::type_<overlay_frozen_policy_late_type>(
             context, "caors.test.meta.frozen_policy_late")
             .commit() == caors::error{caors::error_domain::meta, caors::errc::frozen});
+}
+
+TEST_CASE("meta registry 显式 freeze 冻结 primary 但允许发布和 detach layer") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+
+  REQUIRE_FALSE(caors::registration::type_<overlay_explicit_freeze_type>(
+                    context, "caors.test.meta.explicit_freeze")
+                    .commit());
+  REQUIRE_FALSE(registry.freeze());
+  CHECK(registry.frozen());
+  CHECK_FALSE(registry.freeze());
+  CHECK(caors::meta::find<overlay_explicit_freeze_type>(context));
+  CHECK(caors::registration::type_<overlay_explicit_freeze_late_type>(
+            context, "caors.test.meta.explicit_freeze_late")
+            .commit() == caors::error{caors::error_domain::meta, caors::errc::frozen});
+
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_explicit_freeze_layer_type>(
+                    layer_context, "caors.test.meta.explicit_freeze_layer")
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+  CHECK(caors::meta::find<overlay_explicit_freeze_layer_type>(context));
+  CHECK(registry.size() == 2);
+
+  REQUIRE_FALSE(registry.detach_layer(*layer));
+  CHECK_FALSE(caors::meta::find<overlay_explicit_freeze_layer_type>(context));
+  CHECK(registry.size() == 1);
+  CHECK(registry.frozen());
 }
 
 TEST_CASE("meta registry layer lifetime 控制 detach 和 call guard") {

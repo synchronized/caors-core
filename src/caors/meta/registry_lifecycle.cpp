@@ -101,6 +101,10 @@ registry_management_policy registry::management_policy() const noexcept {
   return options_.management;
 }
 
+bool registry::frozen() const noexcept {
+  return detail::read_layer_state(*primary_layer_, [](const auto& state) { return state.frozen; });
+}
+
 error registry::add_registration(registration_fn fn) {
   if (fn == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
@@ -166,11 +170,33 @@ error registry::init() {
   }
 
   if (options_.management == registry_management_policy::frozen_read_optimized) {
-    std::lock_guard lock{state_->mutex};
-    state_->frozen = true;
-    primary_layer_->freeze();
+    return freeze();
   }
 
+  return {};
+}
+
+error registry::freeze() {
+  {
+    std::lock_guard lock{state_->mutex};
+    if (state_->frozen) {
+      return {};
+    }
+  }
+
+  const error registration_status = run_registrations();
+  if (registration_status) {
+    return registration_status;
+  }
+
+  const error validation_status = validate();
+  if (validation_status) {
+    return validation_status;
+  }
+
+  std::lock_guard lock{state_->mutex};
+  state_->frozen = true;
+  primary_layer_->freeze();
   return {};
 }
 
@@ -213,6 +239,8 @@ bool registry_snapshot_active(const std::shared_ptr<registry_snapshot>& snapshot
 error run_registrations() { return get_registry().run_registrations(); }
 
 error init_registry() { return get_registry().init(); }
+
+error freeze_registry() { return get_registry().freeze(); }
 
 error validate_registry() { return get_registry().validate(); }
 

@@ -21,7 +21,7 @@
 - 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用 `meta::context` 定位当前使用的 `meta::registry`，默认上下文覆盖普通全局用法。
-- 用 `meta::registry` 集中处理 meta 类型注册、查找、继承关系判断和扩展数据查询。
+- 用 `meta::registry` 集中处理 meta 类型注册、查找、继承关系判断和 capability / metadata 查询。
 - 避免对象系统、meta 属性/方法和序列化系统各自重复实现类型注册和属性/方法索引逻辑。
 
 当前不会包含：
@@ -629,12 +629,12 @@ caors::error result = caors::registration::type_<actor>("game.actor").commit();
 
 registry 使用边界：
 
-- 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块 extension 查询、父类型关系、对象工厂、
+- 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块 capability 查询、父类型关系、对象工厂、
   反射属性列表、序列化属性配置或多态构造。
 - 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
   静态 capability 或 `any` / `any_ref` 的局部值访问。
 - 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `registration::type_<T>("name")` 注册业务
-  类型。序列化等模块不应为了挂载 extension 隐式创建业务类型注册记录。
+  类型。序列化等模块不应为了挂载 capability data 隐式创建业务类型注册记录。
 - `meta::resolve<T>()` 返回 C++ 类型视图，未注册类型也可能有效；`registered()` 才表示
   registry 中已经存在稳定注册数据。
 - `meta::find<T>()` 只查询已注册 C++ 类型；未注册类型返回空视图。
@@ -678,6 +678,12 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 `meta::init_registry()` 会先执行所有通过 `CAORS_META_REGISTRATION` 或内部延迟注册入口收集到的注册函数，
 再校验 meta 层索引和父类型关系。它不会把注册表切换为只读；后续注册仍允许，但调用方需要自行保证不会和运行期查询形成业务竞态。
 
+如果应用希望进入只读查询阶段，可以显式调用 `meta::freeze_registry()` 或
+`meta::get_registry().freeze()`。`freeze()` 会执行尚未运行的延迟注册函数、校验 registry，然后冻结
+primary 写入层；之后直接向 primary 提交类型、枚举、metadata 或 capability data 会返回 `errc::frozen`。
+`registry::create_layer()`、`publish_layer()` 和 `detach_layer()` 仍可用于插件或模块热加载场景；已发布 layer
+按各自生命周期参与 snapshot 查询，detach 后从新 snapshot 中移除。
+
 `CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
 静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
 测试隔离或插件加载时，优先使用显式 `register_all()`。
@@ -685,7 +691,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引和类型记录：
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，保存静态类型节点、父类转换、
-  属性、方法、enum 值、capability 和 extension。
+  属性、方法、enum 值、metadata 和 capability。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
@@ -1190,7 +1196,7 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 - `registration::type_<T>(name).meta().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
   `meta::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
-- `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。
+- `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 capability / metadata 挂载。
 - `meta::value`：高频动态运行期值，内联保存常见标量、`string_name` 和 `meta::object*`，
   通过 `any_ref` 表达非拥有 C++ 引用，通过 `any` 兜底表达拥有的精确 C++ 类型值；它面向脚本、
   编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。`property::get_value()`、
@@ -1198,7 +1204,8 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
   是当前高层动态调用入口；常见标量、字符串和对象指针会优先走 tagged value fast path。需要精确 C++
   拷贝或引用参数时使用 `property::get_any()` / `instance::get_any()` / `instance::call_any()`。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
-- `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。
+- `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；默认策略下不会阻止后续注册。
+- `meta::freeze_registry()`：执行延迟元数据注册函数、校验并冻结全局 registry primary 写入层。
 - `meta::validate_registry()`：只校验注册表，不执行延迟注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `meta::get_registry()`：进程内全局元数据注册表。

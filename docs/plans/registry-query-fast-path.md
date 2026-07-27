@@ -145,8 +145,8 @@ struct registry_options {
 
 - `locked_append_only`：默认策略。注册、publish、detach 和查询都由 registry 内部同步；类型一经 commit
   不支持隐式 replace，适合作为早期保守默认。
-- `frozen_read_optimized`：初始化期允许注册，显式 `freeze()` 或 `init()` 后进入只读快路径；冻结后写入返回
-  `errc::frozen`。当前已经保留策略入口，具体无锁查询快路径在后续阶段实现。
+- `frozen_read_optimized`：初始化期允许注册，显式 `freeze()` 或 `init()` 后进入只读快路径；冻结后 primary
+  写入返回 `errc::frozen`。已发布 layer 仍按 snapshot 参与查询，detachable layer 可继续 detach。
 - `manual_synchronization`：registry 不为普通查询提供内部互斥保护，调用方必须保证注册 / publish / detach
   与查询调用没有数据竞争。当前已经保留策略入口，内部仍按保守同步路径执行；真正跳过查询锁需要单独实现。
 
@@ -247,8 +247,8 @@ struct registry_options {
 
 - [x] `registry_management_policy::frozen_read_optimized` 在 `init()` 成功后冻结 primary layer；
 - [x] 默认 `locked_append_only` 仍允许后续注册并保留查询锁；
-- [ ] 文档说明运行期查询推荐使用 frozen registry 或已发布 layer；
-- [ ] 如果未来增加显式 `registry::freeze()`，定义它与延迟注册和插件 publish 的交互。
+- [x] 文档说明运行期查询推荐使用 frozen registry 或已发布 layer；
+- [x] 增加显式 `registry::freeze()`，定义它与延迟注册和插件 publish 的交互。
 
 完成标准：普通应用初始化完成后，默认 registry 可进入无锁查询模式。
 

@@ -102,7 +102,11 @@ public:
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error init();
+  /** @brief 执行延迟注册、校验并冻结 primary registry，冻结后 primary 写入返回 `errc::frozen`。 */
+  [[nodiscard]] error freeze();
   [[nodiscard]] error validate() const;
+  /** @brief 查询 primary registry 是否已经冻结。 */
+  [[nodiscard]] bool frozen() const noexcept;
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] type find_type() const;

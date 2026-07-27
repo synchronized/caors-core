@@ -196,6 +196,8 @@ CAORS_META_REGISTRATION(register_actor) {
 - 静态库中未被最终程序引用的翻译单元可能不会参与链接，因此注册函数也不会进入队列。
 - 多个翻译单元之间的注册函数执行顺序不应被依赖。
 - 如果 `init_registry()` 后又加载了带注册函数的模块，新注册函数会立即执行；调用方仍需保证此时没有其他线程并发读取依赖中的半成品类型。
+- 如果已经调用 `meta::freeze_registry()`，后续延迟注册和直接注册都会返回 `errc::frozen`；插件或模块热加载应通过
+  独立 registry layer 发布。
 
 如果类型之间有明确依赖，优先使用显式 `register_all()`。
 
@@ -207,7 +209,11 @@ CAORS_META_REGISTRATION(register_actor) {
 - 校验 meta 层基础索引和父类型关系。
 - 不冻结注册表，也不阻止后续注册。
 
-`meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。CAORS 不再提供冻结注册表的公开入口。
+`meta::freeze_registry()` 会执行尚未运行的延迟注册函数、校验注册表，并冻结全局 registry 的 primary 写入层。
+冻结后 primary 上的类型、枚举、metadata 和 capability data 注册返回 `errc::frozen`；已发布插件 layer
+仍可以按生命周期参与查询和 detach。
+
+`meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。
 
 注册表内部会对单次注册和查询加锁，但 CAORS 不保证“运行期一边读一边改注册表”的业务一致性。推荐由应用在启动期、
 模块加载期或测试初始化阶段完成注册；进入主循环后只做查询。如果需要脚本类型、插件热卸载或热重载注册，后续应使用独立的动态注册系统。
@@ -218,7 +224,7 @@ CAORS_META_REGISTRATION(register_actor) {
 
 - `errc::duplicate_id`：同一个运行期类型 id 已经注册。测试和初始化代码可按需视为成功。
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
-- `errc::missing_type`：给不存在的 `type_id` 挂载 extension。
+- `errc::missing_type`：nested 类型或其它被引用类型尚未注册。
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：meta 属性描述无效、属性名冲突，或属性类型无法生成有效 `meta::type` 能力。
 

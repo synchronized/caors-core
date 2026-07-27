@@ -166,7 +166,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `manual_synchronization`，并与 `pinned_process` / `detachable` 插件生命周期分离。
 - [x] 收敛 registry 查询快路径第一阶段：发布后的 frozen layer 查询基于 snapshot 无锁读取；
   主进程 pinned layer 调用免 in-flight guard，插件 detachable layer 仅在进入插件 ops 时使用调用级 guard。
-- [ ] 继续收敛主 registry freeze 文档和 benchmark，评估显式 `registry::freeze()` 与延迟注册的交互。
+- [x] 继续收敛主 registry freeze 文档，增加显式 `registry::freeze()` / `freeze_registry()`，明确延迟注册、
+  primary 写入、插件 layer publish/detach 的交互。
+- [ ] 增加 registry 查询 fast path benchmark，覆盖 frozen registry 与已发布 layer 查询。
 - [x] 增加 registry 管理策略 API：`registry_options` / `registry_management_policy`，
   默认保持内部加锁的 append-only 语义，后续支持冻结读优化和高级手动同步。
 - [ ] 评估注册项 replace、dry-run 校验和更完整的批量注册事务语义。

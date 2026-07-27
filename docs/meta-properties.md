@@ -772,6 +772,8 @@ auto reflected = caors::meta::find("game.actor");
 
 属性/方法注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
 `init_registry()` 不会冻结注册表；如果后续继续注册属性或方法，调用方需要自行保证没有并发读取依赖中的半成品类型。
+如果应用进入主循环后不再允许 primary registry 写入，可以调用 `meta::freeze_registry()`；冻结后新的属性/方法注册会返回
+`errc::frozen`，插件或模块热加载应通过 registry layer 发布。
 
 `meta::registry` 由库内部管理；注册后不提供清理和撤销入口。
 

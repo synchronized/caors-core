@@ -26,8 +26,11 @@ namespace detail {
 /** @brief 执行所有已收集的元数据注册函数；最多执行一次。 */
 [[nodiscard]] CAORS_API error run_registrations();
 
-/** @brief 执行延迟注册函数并校验全局元数据注册表；不会阻止后续注册。 */
+/** @brief 执行延迟注册函数并校验全局元数据注册表；默认策略下不会阻止后续注册。 */
 [[nodiscard]] CAORS_API error init_registry();
+
+/** @brief 执行延迟注册函数、校验并冻结全局元数据注册表的 primary 写入层。 */
+[[nodiscard]] CAORS_API error freeze_registry();
 
 /** @brief 校验全局元数据注册表的内部索引一致性。 */
 [[nodiscard]] CAORS_API error validate_registry();

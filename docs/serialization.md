@@ -1193,6 +1193,8 @@ caors::serialization::schema_view schema = caors::serialization::find_schema(typ
 类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
 对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 schema capability 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
+进入只读运行期后可以调用 `meta::freeze_registry()` 冻结 primary 写入层，之后新的 schema 注册会返回
+`errc::frozen`；插件 schema 应通过 registry layer 发布。
 
 ### serialization::to_text
 
