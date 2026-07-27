@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 1 至阶段 7 核心实现已完成，剩余工作是持续补充 benchmark 结果摘要和跨平台复验；
+- 当前状态：阶段 1 至阶段 7 已完成；剩余工作是持续补充跨平台复验；
 - 上游背景：`registry-overlay-safe-unload.md` 已引入 registry snapshot、插件 layer 和 library lease；
 - 目标：在保持插件安全卸载边界的前提下，把普通 meta 查询收敛为低成本只读路径；
 - 非目标：不改变插件 C ABI，不引入跨 runtime 共享 `meta::type`，不让插件卸载绕过 layer lease。
@@ -259,7 +259,7 @@ detachable layer 调用 guard。
 
 - [x] 增加 registry find/property/method/schema 查询 micro benchmark；
 - [x] 对比加锁查询与 frozen fast path 的 benchmark 用例；
-- 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
+- [x] 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
 - [x] 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
 
 当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
@@ -267,6 +267,26 @@ detachable layer 调用 guard。
 `locked_schema_lookup`、`frozen_schema_lookup` 和 `layer_schema_lookup`。
 
 完成标准：查询快路径有可测收益，插件 detach/unload 安全测试继续通过。
+
+## Benchmark 摘要
+
+`windows-clang-benchmark`、提交 `7015a59`、`100000` 次迭代的快速样本显示：
+
+| case | time acc | per iter |
+| --- | ---: | ---: |
+| `meta.registry.locked_find_type_id` | 4.71 ms | 47.10 ns |
+| `meta.registry.frozen_find_type_id` | 3.70 ms | 37.00 ns |
+| `meta.registry.layer_find_type_id` | 3.70 ms | 37.00 ns |
+| `meta.registry.locked_schema_lookup` | 6.08 ms | 60.80 ns |
+| `meta.registry.frozen_schema_lookup` | 4.65 ms | 46.50 ns |
+| `meta.registry.layer_schema_lookup` | 4.62 ms | 46.20 ns |
+| `meta.registry.frozen_contains` | 2.83 ms | 28.30 ns |
+| `meta.registry.frozen_property_lookup` | 9.22 ms | 92.20 ns |
+| `meta.registry.frozen_method_lookup` | 1.14 ms | 11.40 ns |
+
+该结果只作为同机同 preset 的趋势记录。当前数据说明 frozen primary 和已发布 layer 的只读查询成本低于
+默认 locked primary；schema 查询也能走同一套 snapshot/frozen fast path。完整摘要见
+`benchmarks/results/2026-07-27-windows-clang-benchmark-7015a59.md`。
 
 ## 风险
 

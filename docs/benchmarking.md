@@ -43,6 +43,9 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 人工整理后的 release benchmark 历史摘要放在 `benchmarks/results/`。该目录只提交摘要，不提交完整
 `ctrack` 原始控制台输出。
 
+当前 registry 查询快路径的 release 摘要见
+`benchmarks/results/2026-07-27-windows-clang-benchmark-7015a59.md`。
+
 ## 当前用例
 
 当前 `caors_benchmarks` 覆盖以下稳定热路径：

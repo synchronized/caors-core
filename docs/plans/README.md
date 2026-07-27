@@ -28,7 +28,7 @@
 - [value-boundary-redesign.md](value-boundary-redesign.md)：保留 `type_record` 单一事实源，
   收敛 `any_ref`、object factory 和 adapter/ODR 边界的开发计划。
 - [enum-view-migration.md](enum-view-migration.md)：enum capability 与实例 view 的迁移计划。
-- [identity-id-unification.md](identity-id-unification.md)：统一 type、capability、extension
+- [identity-id-unification.md](identity-id-unification.md)：统一 type、capability
   等进程内 ID 的底层发号逻辑，并保留外层强类型 ID 边界。
 
 ## Object
