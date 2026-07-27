@@ -61,7 +61,7 @@ void benchmark_serialization(std::size_t iterations) {
     CTRACK_NAME("serialization.schema_view_property_lookup");
     for (std::size_t index = 0; index < iterations; ++index) {
       const caors::serialization::schema_view schema =
-          actor_type.get_capability<caors::serialization::schema_view>();
+          caors::serialization::find_schema(actor_type);
       const caors::serialization::type_schema* raw_schema = schema.get();
       if (raw_schema == nullptr) {
         std::cerr << "benchmark 序列化 schema 未注册\n";

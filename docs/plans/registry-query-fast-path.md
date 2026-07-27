@@ -230,7 +230,7 @@ struct registry_options {
 - [x] 真正调用函数指针的路径继续使用 call guard；
 - [ ] 继续拆分 `type::get_value_type()` / `get_key_type()` 这类依赖 ops 回调的类型查询，
   长期应把常见内置类型信息固化到记录或安全 facade；
-- [ ] 为 detach 后纯查询和 detach 后调用分别补测试。
+- [x] 为 detach 后纯查询和 detach 后调用分别补测试。
 
 完成标准：detach 后旧 view 查询基础 id/name 可按文档定义处理，调用插件 ops 明确失败。
 
@@ -254,10 +254,14 @@ struct registry_options {
 
 ### 阶段 7：性能与回归验证
 
-- 增加 registry find/property/method/schema 查询 micro benchmark；
+- [x] 增加 registry find/property/method/schema 查询 micro benchmark；
 - 对比加锁查询与 frozen fast path；
 - 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
 - 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
+
+当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
+`frozen_contains`、`frozen_property_lookup` 和 `frozen_method_lookup`；schema 查询可在后续随
+serialization benchmark 合并补充。
 
 完成标准：查询快路径有可测收益，插件 detach/unload 安全测试继续通过。
 

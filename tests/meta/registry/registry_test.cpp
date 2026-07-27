@@ -32,6 +32,10 @@ struct overlay_reflected_type {
   int value = 0;
   [[nodiscard]] int get_value() const { return value; }
 };
+struct overlay_detach_boundary_type {
+  int value = 0;
+  [[nodiscard]] int get_value() const { return value; }
+};
 struct overlay_owned_value {
   int* destructions = nullptr;
   ~overlay_owned_value() {
@@ -275,6 +279,80 @@ TEST_CASE("meta registry detach 让旧 property method 和 accessor 失效") {
   CHECK_FALSE(stale_method_set);
   CHECK_FALSE(stale_method);
   CHECK_FALSE(stale_accessor);
+}
+
+TEST_CASE("meta registry detach 后旧 view 查询和调用边界稳定") {
+  caors::meta::registry registry{};
+  caors::meta::context context{registry};
+  auto layer = registry.create_layer();
+  caors::meta::context layer_context{layer->get_registry()};
+
+  REQUIRE_FALSE(caors::registration::type_<overlay_detach_boundary_type>(
+                    layer_context, "caors.test.meta.overlay_detach_boundary")
+                    .meta()
+                    .property("value", &overlay_detach_boundary_type::value)
+                    .method("get_value", &overlay_detach_boundary_type::get_value)
+                    .commit());
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+
+  caors::meta::type stale_type = caors::meta::find<overlay_detach_boundary_type>(context);
+  REQUIRE(stale_type);
+  caors::meta::property stale_property = stale_type.find_property("value");
+  caors::meta::method_set stale_method_set = stale_type.find_method("get_value");
+  caors::meta::method stale_method = stale_method_set.single();
+  caors::meta::property_accessor stale_accessor =
+      caors::meta::compile_property_accessor(stale_property);
+  REQUIRE(stale_property);
+  REQUIRE(stale_method_set);
+  REQUIRE(stale_method);
+  REQUIRE(stale_accessor);
+
+  overlay_detach_boundary_type object{7};
+  const caors::meta::instance instance = caors::meta::view(object);
+  REQUIRE(stale_property.try_get<int>(instance) == 7);
+  REQUIRE(stale_method.invoke_result_of(instance));
+
+  REQUIRE_FALSE(registry.detach_layer(*layer));
+  CHECK_FALSE(layer->active());
+  CHECK(layer->in_flight_calls() == 0);
+
+  CHECK_FALSE(caors::meta::find<overlay_detach_boundary_type>(context));
+  CHECK_FALSE(stale_type);
+  CHECK_FALSE(stale_type.id());
+  CHECK_FALSE(stale_type.name());
+  CHECK(stale_type.property_count() == 0);
+  CHECK(stale_type.method_count() == 0);
+  CHECK_FALSE(stale_type.find_property("value"));
+  CHECK_FALSE(stale_type.find_method("get_value"));
+
+  CHECK_FALSE(stale_property);
+  CHECK_FALSE(stale_property.name());
+  CHECK_FALSE(stale_property.get_owner_type());
+  CHECK_FALSE(stale_property.get_type());
+  CHECK_FALSE(stale_property.get_ref(instance));
+  CHECK_FALSE(stale_property.get_any(instance));
+  CHECK_FALSE(stale_property.try_set(instance, 42));
+  CHECK_FALSE(stale_accessor);
+  CHECK_FALSE(stale_accessor.get_ref(&object));
+
+  CHECK_FALSE(stale_method_set);
+  CHECK_FALSE(stale_method_set.name());
+  CHECK(stale_method_set.overload_count() == 0);
+  CHECK_FALSE(stale_method_set.single());
+  CHECK_FALSE(stale_method_set.resolve());
+  CHECK_FALSE(stale_method_set.invoke_result_of(instance));
+  CHECK(stale_method_set.invoke_result_of(instance).failure_reason() ==
+        caors::meta::invoke_failure_reason::invalid_method);
+
+  CHECK_FALSE(stale_method);
+  CHECK_FALSE(stale_method.name());
+  CHECK_FALSE(stale_method.get_owner_type());
+  CHECK_FALSE(stale_method.get_return_type());
+  CHECK(stale_method.parameter_count() == 0);
+  CHECK_FALSE(stale_method.invoke_result_of(instance));
+  CHECK(stale_method.invoke_result_of(instance).failure_reason() ==
+        caors::meta::invoke_failure_reason::invalid_method);
+  CHECK(layer->in_flight_calls() == 0);
 }
 
 TEST_CASE("meta registry detach 后旧 any 拒绝复制但仍安全析构") {
