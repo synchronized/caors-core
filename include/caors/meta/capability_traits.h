@@ -82,6 +82,91 @@ template <typename Ops> [[nodiscard]] bool capability_ops_valid(const Ops* ops) 
   }
 }
 
+template <typename Capability, typename = void> struct capability_data_type {
+  using type = void;
+};
+
+template <typename Capability>
+struct capability_data_type<
+    Capability,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::data_type>> {
+  using type = std::remove_cv_t<std::remove_reference_t<
+      typename std::remove_cv_t<std::remove_reference_t<Capability>>::data_type>>;
+};
+
+template <typename Capability, typename = void> struct capability_view_type {
+  using type = void;
+};
+
+template <typename Capability>
+struct capability_view_type<
+    Capability,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::view_type>> {
+  using type = std::remove_cv_t<std::remove_reference_t<
+      typename std::remove_cv_t<std::remove_reference_t<Capability>>::view_type>>;
+};
+
+template <typename Capability, typename = void> struct capability_ops_type {
+  using type = void;
+};
+
+template <typename Capability>
+struct capability_ops_type<
+    Capability,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::ops_type>> {
+  using type = std::remove_cv_t<std::remove_reference_t<
+      typename std::remove_cv_t<std::remove_reference_t<Capability>>::ops_type>>;
+};
+
+template <typename Capability>
+inline constexpr bool has_capability_data_type_v =
+    !std::is_void_v<typename capability_data_type<Capability>::type>;
+
+template <typename Capability>
+inline constexpr bool has_capability_view_type_v =
+    !std::is_void_v<typename capability_view_type<Capability>::type>;
+
+template <typename Capability>
+inline constexpr bool has_capability_ops_type_v =
+    !std::is_void_v<typename capability_ops_type<Capability>::type>;
+
+template <typename View> [[nodiscard]] bool capability_view_valid(const View& view) noexcept {
+  if constexpr (requires(const View& value) { value.valid(); }) {
+    return static_cast<bool>(view.valid());
+  } else if constexpr (requires(const View& value) { static_cast<bool>(value); }) {
+    return static_cast<bool>(view);
+  } else {
+    return true;
+  }
+}
+
+template <typename View, typename Data>
+[[nodiscard]] View make_data_capability_view(const meta::type& source, const Data* data) noexcept {
+  if constexpr (requires { View{source, data}; }) {
+    return View{source, data};
+  } else if constexpr (requires { View{data}; }) {
+    return View{data};
+  } else {
+    return View{};
+  }
+}
+
+template <typename View, typename Ops, typename Data>
+[[nodiscard]] View make_ops_data_capability_view(const meta::type& source, const Ops* ops,
+                                                 const Data* data) noexcept {
+  if constexpr (requires { View{source, ops, data}; }) {
+    return View{source, ops, data};
+  } else if constexpr (requires { View{source, data, ops}; }) {
+    return View{source, data, ops};
+  } else if constexpr (requires { View{ops, data}; }) {
+    return View{ops, data};
+  } else if constexpr (requires { View{data, ops}; }) {
+    return View{data, ops};
+  } else {
+    return View{};
+  }
+}
+
 } // namespace detail
 
 /**
@@ -115,6 +200,69 @@ template <typename Capability, typename = void> struct type_capability_traits {
   }
 
   [[nodiscard]] static bool has(const type& source) noexcept { return get_raw(source) != nullptr; }
+};
+
+/**
+ * @brief data + view 类型级 capability 的默认查询规则。
+ *
+ * `Capability` 提供 `data_type` 和 `view_type` 时，capability key 仍使用 `Capability`，
+ * 存储的数据解释为 `data_type`，查询返回 `view_type`。
+ */
+template <typename Capability>
+struct type_capability_traits<Capability,
+                              std::enable_if_t<detail::has_capability_data_type_v<Capability> &&
+                                               detail::has_capability_view_type_v<Capability> &&
+                                               !detail::has_capability_ops_type_v<Capability>>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using data_type = typename detail::capability_data_type<capability_type>::type;
+  using result_type = typename detail::capability_view_type<capability_type>::type;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return detail::make_data_capability_view<result_type>(source, get_raw(source));
+  }
+
+  [[nodiscard]] static const data_type* get_raw(const type& source) noexcept {
+    return static_cast<const data_type*>(
+        detail::find_type_capability(source, capability_key_of<capability_type>()));
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept {
+    return detail::capability_view_valid(get(source));
+  }
+};
+
+/**
+ * @brief ops + data + view 类型级 capability 的默认查询规则。
+ *
+ * `ops_type` 按自身 key 查询，`data_type` 按 capability key 查询，最终返回 `view_type`。
+ */
+template <typename Capability>
+struct type_capability_traits<Capability,
+                              std::enable_if_t<detail::has_capability_data_type_v<Capability> &&
+                                               detail::has_capability_view_type_v<Capability> &&
+                                               detail::has_capability_ops_type_v<Capability>>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using ops_type = typename detail::capability_ops_type<capability_type>::type;
+  using data_type = typename detail::capability_data_type<capability_type>::type;
+  using result_type = typename detail::capability_view_type<capability_type>::type;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return detail::make_ops_data_capability_view<result_type>(source, get_ops(source),
+                                                              get_raw(source));
+  }
+
+  [[nodiscard]] static const data_type* get_raw(const type& source) noexcept {
+    return static_cast<const data_type*>(
+        detail::find_type_capability(source, capability_key_of<capability_type>()));
+  }
+
+  [[nodiscard]] static const ops_type* get_ops(const type& source) noexcept {
+    return type_capability_traits<ops_type>::get_raw(source);
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept {
+    return detail::capability_view_valid(get(source));
+  }
 };
 
 /** @brief 返回能力类型的查询 key 和可选稳定描述信息。 */

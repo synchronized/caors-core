@@ -284,6 +284,36 @@ private:
     return *this;
   }
 
+  /** @brief 按 capability key 挂载外部生命周期管理的动态数据。 */
+  template <typename Capability>
+  type_builder& register_capability_data(
+      const typename meta::detail::capability_data_type<Capability>::type* data) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    if constexpr (meta::detail::has_capability_data_type_v<capability_type>) {
+      status_ = pending_.add_capability(meta::capability_key_of<capability_type>(), data);
+    } else {
+      (void)data;
+      status_ = {error_domain::meta, errc::unsupported};
+    }
+    return *this;
+  }
+
+  /** @brief 按 capability key 挂载由 CAORS 持有的动态数据。 */
+  template <typename Capability, typename Data>
+  type_builder& register_capability_data(Data&& data) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    if constexpr (meta::detail::has_capability_data_type_v<capability_type>) {
+      using data_type = typename meta::detail::capability_data_type<capability_type>::type;
+      status_ = pending_.add_owned_capability(
+          meta::capability_key_of<capability_type>(),
+          meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)}));
+    } else {
+      (void)data;
+      status_ = {error_domain::meta, errc::unsupported};
+    }
+    return *this;
+  }
+
   /** @brief 从 C++ 类型静态 capability provider 挂载 capability。 */
   template <typename Capability> type_builder& register_capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -706,6 +736,18 @@ public:
 
   template <typename Capability> meta_section& capability() {
     owner_->template register_capability<Capability>();
+    return *this;
+  }
+
+  template <typename Capability>
+  meta_section&
+  capability_data(const typename meta::detail::capability_data_type<Capability>::type* data) {
+    owner_->template register_capability_data<Capability>(data);
+    return *this;
+  }
+
+  template <typename Capability, typename Data> meta_section& capability_data(Data&& data) {
+    owner_->template register_capability_data<Capability>(std::forward<Data>(data));
     return *this;
   }
 

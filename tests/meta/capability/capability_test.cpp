@@ -41,6 +41,10 @@ struct owned_matrix {
   int values[4]{};
 };
 
+struct configured_matrix {
+  int values[4]{};
+};
+
 struct builder_proxy_matrix {
   int values[4]{};
 
@@ -97,6 +101,42 @@ public:
 
   matrix_capability() noexcept = default;
   explicit matrix_capability(caors::meta::type type) noexcept : base_type(type) {}
+};
+
+struct matrix_settings {
+  int bias = 0;
+};
+
+class configured_matrix_view final {
+public:
+  configured_matrix_view() noexcept = default;
+  configured_matrix_view(caors::meta::type type, const matrix_ops* ops,
+                         const matrix_settings* settings) noexcept
+      : type_(type), ops_(ops), settings_(settings) {}
+
+  [[nodiscard]] bool valid() const noexcept {
+    return type_ && caors::meta::detail::capability_ops_valid(ops_) && settings_ != nullptr;
+  }
+
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] caors::meta::type get_type() const noexcept {
+    return valid() ? type_ : caors::meta::type{};
+  }
+  [[nodiscard]] int bias() const noexcept { return valid() ? settings_->bias : 0; }
+  [[nodiscard]] std::size_t rows(const void* object) const noexcept {
+    return valid() ? ops_->rows(object) : 0;
+  }
+
+private:
+  caors::meta::type type_{};
+  const matrix_ops* ops_ = nullptr;
+  const matrix_settings* settings_ = nullptr;
+};
+
+struct configured_matrix_capability {
+  using ops_type = matrix_ops;
+  using data_type = matrix_settings;
+  using view_type = configured_matrix_view;
 };
 
 struct static_capability_data {
@@ -331,6 +371,39 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
   CHECK(capability.get_type().id() == type.id());
   CHECK(capability.value() == 31);
   CHECK(type.has_capability<creator_capability>());
+}
+
+TEST_CASE("meta - type capability combines ops and dynamic data", "[meta]") {
+  matrix_ops local_ops{
+      &matrix_rows,
+      &matrix_columns,
+      &matrix_get,
+      &matrix_set,
+  };
+  matrix_settings settings{13};
+
+  REQUIRE(caors::registration::type_<configured_matrix>("caors.test.configured_matrix")
+              .meta()
+              .capability(local_ops)
+              .capability_data<configured_matrix_capability>(settings)
+              .commit()
+              .succeeded());
+
+  const caors::meta::type type = caors::meta::resolve<configured_matrix>();
+  const configured_matrix_view view = type.get_capability<configured_matrix_capability>();
+  REQUIRE(view);
+  CHECK(type.has_capability<configured_matrix_capability>());
+  CHECK(view.get_type().id() == type.id());
+  CHECK(view.bias() == 13);
+
+  configured_matrix matrix{};
+  CHECK(view.rows(&matrix) == 2);
+
+  const matrix_settings* raw_data =
+      caors::meta::type_capability_traits<configured_matrix_capability>::get_raw(type);
+  REQUIRE(raw_data != nullptr);
+  CHECK(raw_data != &settings);
+  CHECK(raw_data->bias == 13);
 }
 
 TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]") {

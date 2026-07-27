@@ -184,22 +184,6 @@ private:
 
 namespace caors::meta {
 
-/** @brief `serialization::schema_capability` 的类型级能力查询特化。 */
-template <> struct type_capability_traits<serialization::schema_capability> {
-  using result_type = serialization::schema_view;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return result_type{source, get_raw(source)};
-  }
-
-  [[nodiscard]] static const serialization::type_schema* get_raw(const type& source) noexcept {
-    return static_cast<const serialization::type_schema*>(detail::find_type_capability(
-        source, capability_key_of<serialization::schema_capability>()));
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
-};
-
 /** @brief 兼容 `type.get_capability<serialization::schema_view>()` 查询写法。 */
 template <>
 struct type_capability_traits<serialization::schema_view>
