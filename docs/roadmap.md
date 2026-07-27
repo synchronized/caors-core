@@ -82,7 +82,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 在 `meta::registry` 中集中处理运行期类型索引、重名、重复 GUID、不一致类型描述和父类型缺失。
 - [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、序列化和自定义 extension 数据。
 - [x] 提供 `meta::registry::extension_view<T...>()`，查询同时拥有指定 extension 数据的类型。
-- [x] 补充 meta 属性和序列化 extension 的跨模块查询测试。
+- [x] 补充 meta 属性和序列化 schema capability 的跨模块查询测试。
 - [x] 将 registry extension 数据收进 `type_record`，extension 查询直接遍历注册类型记录，不再维护重复反向索引。
 - [x] 将动态 capability 挂到注册类型数据，支持 `type_id + capability_key` 查询模块扩展能力。
 - [x] 将 serialization codec 接入 `meta::type` 静态 capability；编译期已知 `T` 或携带 `meta::type` 的
@@ -273,7 +273,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 - [x] 定义统一的序列化接口和错误模型。
 - [x] 基于 `meta::registry` 挂载序列化元信息组件。
-- [x] 支持基于已注册 `meta::type` 挂载序列化 extension，减少序列化层隐式类型注册。
+- [x] 支持基于已注册 `meta::type` 挂载序列化 schema capability，减少序列化层隐式类型注册。
 - [x] 提供字段级序列化配置，支持字段别名、跳过和注册顺序解耦。
 - [x] 设计 writer 后端接口，为文本、二进制和 msgpack 等格式预留扩展点。
 - [x] 与 meta 属性/方法打通，实现基于元信息的基础字段文本序列化。

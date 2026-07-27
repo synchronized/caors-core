@@ -14,7 +14,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_options` 表示用户注册时填写的字段级序列化配置。
 - 用 `serialization::field_schema` 表示提交后的公开字段配置；运行期属性视图和调度缓存由序列化 detail 按需编译。
-- 默认基于全局 `meta::registry` 挂载序列化 extension；需要隔离注册表时，可通过
+- 默认基于全局 `meta::registry` 挂载序列化 schema capability；需要隔离注册表时，可通过
   `serialization::context::type_context` 指定本次读写使用的 `meta::context`。
 - 提供 `serialization::schema_view` 查询序列化 schema；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
@@ -63,7 +63,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 序列化模块按职责拆分公共头文件：
 
-- `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化 extension 数据。
+- `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化 schema capability 数据。
 - `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
 - `caors/serialization/types.h`：通用外部引用选项、对象工厂函数表、单次调度上下文和结果类型。
 - `caors/serialization/schema_query.h`：序列化 schema 查询入口。
@@ -387,8 +387,8 @@ caors::error status = caors::read_json_from(context, holder, json);
 
 ### serialization::type_schema
 
-`serialization::type_schema` 是挂载在 meta 类型上的序列化 extension。它保存提交后的公开字段
-schema；具体输出格式由当前使用的 `writer` 后端决定：
+`serialization::type_schema` 是挂载在 meta 类型上的 `serialization::schema_capability`
+动态数据。它保存提交后的公开字段 schema；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
 caors::registration::type_<actor>("game.actor")
@@ -414,7 +414,7 @@ caors::registration::type_<actor>("game.actor")
 ```cpp
 caors::meta::type type = caors::meta::find<actor>();
 caors::serialization::schema_view schema =
-    type.get_capability<caors::serialization::schema_view>();
+    type.get_capability<caors::serialization::schema_capability>();
 
 if (schema) {
   for (std::size_t i = 0; i < schema.field_count(); ++i) {
@@ -423,6 +423,7 @@ if (schema) {
 }
 ```
 
+`type.get_capability<serialization::schema_view>()` 仍作为兼容写法保留。
 `serialization::find_schema(type)` 是同一能力查询的便捷入口。序列化 schema 查询只接受
 `meta::type`，不再提供按 `type_id` 复制 `type_schema` 的旧入口。
 
@@ -1191,7 +1192,7 @@ caors::serialization::schema_view schema = caors::serialization::find_schema(typ
 热点路径查询序列化 schema 时使用 `serialization::find_schema()` 或
 `type.get_capability<serialization::schema_view>()`，这两个入口都不会复制 schema。重复注册同一个
 类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
-对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 extension 注册推荐在启动期或
+对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 schema capability 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
 ### serialization::to_text
@@ -1235,7 +1236,7 @@ caors::string text = *result;
 
 ## 当前已实现能力
 
-- `serialization::type_schema`：序列化 extension 数据。
+- `serialization::type_schema`：序列化 schema capability 的动态数据。
 - `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
@@ -1248,6 +1249,7 @@ caors::string text = *result;
 - `serialization::find_codec(meta::type)`：按 meta 类型查询静态 codec capability。
 - `serialization::codec_capability`：类型级 codec 查询 facade，通过 `bind(any_ref)` 创建实例 view。
 - `serialization::codec_view`：绑定实际运行期值，负责 codec 的 write、read 和 make_value。
+- `serialization::schema_capability`：类型级 schema 查询 capability，动态数据为 `type_schema`。
 - `serialization::schema_view`：序列化 schema 的只读查询视图。
 - `serialization::find_schema()` / `serialization::contains()`：基于 `meta::type` 查询是否挂载了序列化 schema。
 - `serialization::size(meta::context&)`：统计指定类型上下文中已注册序列化 schema 的数量；无参数版本使用默认类型上下文。

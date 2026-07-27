@@ -424,7 +424,7 @@ caors::registration::type_<actor>("game.actor")
 - `meta::type` 是统一类型视图。调用方通过 `meta::resolve<T>()`、`meta::find<T>()`、`meta::find(id)` 和
   `meta::type::get_capability<C>()` 查询类型身份、注册数据和能力。
 - `meta::registry` 是注册后元数据和模块数据索引。只有显式 `registration::type_<T>("name")` 注册后的类型，
-  才拥有稳定名称、GUID、父类型关系、属性、方法、对象 extension 和序列化 extension 等全局可查询数据。
+  才拥有稳定名称、GUID、父类型关系、属性、方法、对象数据和序列化 schema capability 等全局可查询数据。
 - static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们通过 `meta::type` 查询，不要求类型先注册到 registry。
@@ -593,7 +593,7 @@ capability 和 registry 的边界：
 类型形态和通用类型关系只从静态 `type_record` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
 独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `meta::type` 视图，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。未注册类型不会拥有反射属性、对象工厂或序列化 extension；如果
+自身注册为 meta 类型。未注册类型不会拥有反射属性、对象工厂或序列化 schema capability；如果
 `traits::type_identity<T>` 能提供静态名称或 GUID，`type_name()` / `guid()` 仍可返回相应身份。
 无静态名称的未注册业务类型名称为空，但仍可通过属性、`any` / `any_ref` 或嵌套容器元素携带的
 `meta::type` 使用布局、值操作和运行期视图能力。

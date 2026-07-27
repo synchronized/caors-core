@@ -34,8 +34,8 @@ TEST_CASE("meta - cross module view supports unified meta and serialization regi
   const caors::meta::type type = caors::meta::find<cross_module_serialization_first>();
   REQUIRE(type.valid());
 
-  auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();
-  CHECK(view_contains(view, type.id()));
+  CHECK(type.has_capability<caors::serialization::schema_capability>());
+  CHECK(caors::serialization::find_schema(type));
 
   const cross_module_serialization_first instance{42};
   const caors::serialization::serialization_text_result result =
@@ -44,12 +44,13 @@ TEST_CASE("meta - cross module view supports unified meta and serialization regi
   CHECK(result.value == R"({"actor_id":42})");
 }
 
-// 原测试文件：cross_module_meta_view_finds_types_with_meta_properties_and_serialization_extensions_test.cpp
+// 原测试文件：cross_module_meta_view_finds_types_with_meta_properties_and_serialization_schema_capability_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - view finds types with meta properties and serialization extensions", "[meta]") {
+TEST_CASE("meta - view finds types with meta properties and serialization schema capability",
+          "[meta]") {
   REQUIRE(serialization_result_ok(caors::registration::type_<cross_module_schema_actor>(
                                       "caors.test.meta.cross_module_schema_actor")
                                       .meta()
@@ -65,16 +66,16 @@ TEST_CASE("meta - view finds types with meta properties and serialization extens
   const auto type = caors::meta::find<cross_module_schema_actor>();
   REQUIRE(type);
 
-  auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();
-  CHECK(view_contains(view, type.id()));
+  CHECK(type.has_capability<caors::serialization::schema_capability>());
 
   auto meta_type = caors::meta::find(type.id());
   REQUIRE(meta_type);
   CHECK(meta_type.property_count() == 2);
 
-  auto serialization = view.find<caors::serialization::type_schema>(type.id());
-  REQUIRE(serialization.has_value());
-  CHECK(serialization->fields.size() == 2);
+  const caors::serialization::schema_view serialization =
+      caors::serialization::find_schema(meta_type);
+  REQUIRE(serialization);
+  CHECK(serialization.field_count() == 2);
 }
 
 // 原测试文件：cross_module_meta_property_handles_remain_valid_after_later_registrations_test.cpp

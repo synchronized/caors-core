@@ -7,7 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
 #include "caors/meta/capability_traits.h"
-#include "caors/meta/detail/type_extension_templates.h"
+#include "caors/meta/type.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +17,8 @@
 #include <utility>
 
 namespace caors::serialization {
+
+class schema_view;
 
 namespace detail {
 
@@ -104,9 +106,23 @@ private:
   std::shared_ptr<const detail::type_runtime_schema> runtime_{};
 };
 
+/**
+ * @brief 序列化 schema 的类型级 capability。
+ *
+ * capability 槽位按 `schema_capability` 查询，实际动态数据为每个注册类型独立的
+ * `type_schema`。
+ */
+struct schema_capability {
+  using data_type = type_schema;
+  using view_type = schema_view;
+};
+
 /** @brief 序列化 schema 的类型级只读能力视图。 */
 class schema_view {
 public:
+  using capability_type = schema_capability;
+  using data_type = type_schema;
+
   schema_view() noexcept = default;
   explicit schema_view(const type_schema* schema) noexcept : schema_(schema) {}
   schema_view(meta::type owner, const type_schema* schema) noexcept
@@ -168,20 +184,26 @@ private:
 
 namespace caors::meta {
 
-/** @brief `serialization::type_schema` 的类型级能力查询特化。 */
-template <> struct type_capability_traits<serialization::schema_view> {
+/** @brief `serialization::schema_capability` 的类型级能力查询特化。 */
+template <> struct type_capability_traits<serialization::schema_capability> {
   using result_type = serialization::schema_view;
 
   [[nodiscard]] static result_type get(const type& source) noexcept {
-    return result_type{source, detail::find_type_extension<serialization::type_schema>(source)};
+    return result_type{source, get_raw(source)};
   }
 
   [[nodiscard]] static const serialization::type_schema* get_raw(const type& source) noexcept {
-    return detail::find_type_extension<serialization::type_schema>(source);
+    return static_cast<const serialization::type_schema*>(detail::find_type_capability(
+        source, capability_key_of<serialization::schema_capability>()));
   }
 
   [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
 };
+
+/** @brief 兼容 `type.get_capability<serialization::schema_view>()` 查询写法。 */
+template <>
+struct type_capability_traits<serialization::schema_view>
+    : type_capability_traits<serialization::schema_capability> {};
 
 } // namespace caors::meta
 

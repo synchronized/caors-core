@@ -154,8 +154,8 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
 
 - `meta::type` 是统一类型视图。`meta::resolve<T>()` 可返回未注册 C++ 类型视图，`meta::find<T>()`
   只返回已注册类型。
-- registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、nested 关系、
-  factory、字段、方法和序列化 extension。
+- registry 只保存显式注册后的稳定元数据和模块数据，例如名称、GUID、父类型、nested 关系、factory、
+  字段、方法和序列化 schema capability。
 - static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
 - dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").meta().capability(ops).commit()`

@@ -208,13 +208,13 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
   CHECK(*result == R"({"hp":42.5,"id":7})");
 }
 
-// 原测试文件：serialization_registration_registers_type_metadata_component_test.cpp
+// 原测试文件：serialization_registration_registers_type_schema_capability_test.cpp
 
 #include "serialization_test_support.h"
 
 using namespace caors::tests::serialization;
 
-TEST_CASE("serialization - registers type metadata component", "[serialization]") {
+TEST_CASE("serialization - registers type schema capability", "[serialization]") {
   const caors::error status =
       caors::registration::type_<serializable_actor>("caors.test.serialization.actor")
           .meta()
@@ -229,6 +229,10 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
   const caors::meta::type type = caors::meta::find<serializable_actor>();
   CHECK(caors::serialization::contains(type));
   CHECK(caors::serialization::find_schema(type));
+  CHECK(type.has_capability<caors::serialization::schema_capability>());
+  CHECK(type.get_capability<caors::serialization::schema_capability>());
+  CHECK_FALSE(
+      caors::meta::get_registry().has_extension<caors::serialization::type_schema>(type.id()));
   CHECK(caors::serialization::size() >= 1);
 
   const caors::error duplicate =

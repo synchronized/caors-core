@@ -74,7 +74,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 - 由 serialization 提供完整的 schema 准备入口；
 - 入口内部完成默认字段生成、校验和运行时缓存编译；
-- registration 只接收准备完成的 `type_schema` 并提交 extension；
+- registration 只接收准备完成的 `type_schema` 并提交 schema capability 数据；
 - 删除公开安装的 `serialization/detail/runtime_schema.h`；
 - 保持字段缓存只编译一次的性能特征。
 
@@ -83,7 +83,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 实现结果：
 
 - 新增 `serialization::prepare_type_schema()`，统一完成默认字段生成、字段引用验证和运行时缓存编译；
-- registration 仅调用稳定的 schema 准备入口并提交完整 extension；
+- registration 仅调用稳定的 schema 准备入口并提交完整 schema capability 数据；
 - 删除公开安装的 `serialization/detail/runtime_schema.h`；
 - Clang Debug 单线程全量构建完成，75 项测试全部通过。
 

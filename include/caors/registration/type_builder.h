@@ -21,8 +21,8 @@
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
-#include "caors/serialization/schema_registration.h"
 #include "caors/serialization/schema_query.h"
+#include "caors/serialization/schema_registration.h"
 #include "caors/traits/type_identity.h"
 
 #include <string_view>
@@ -169,7 +169,8 @@ public:
       return status_;
     }
 
-    const meta::detail::type_record* fallback = meta::detail::static_type_record_ptr_of<value_type>();
+    const meta::detail::type_record* fallback =
+        meta::detail::static_type_record_ptr_of<value_type>();
     if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return status_;
@@ -188,9 +189,11 @@ public:
           return status_;
         }
 
-        status_ = registry_->add_extension(
-            committed_type_.id(), meta::detail::make_extension_data<serialization::type_schema>(
-                                      &memory::library_resource(), serialization_schema_));
+        status_ = meta::detail::register_owned_capability(
+            *registry_, committed_type_.id(),
+            meta::capability_key_of<serialization::schema_capability>(),
+            meta::detail::make_owned_capability<serialization::type_schema>(
+                serialization_schema_, &memory::library_resource()));
       }
     }
     return status_;
@@ -257,8 +260,8 @@ private:
       return *this;
     }
 
-    status_ = pending_.set_type_metadata(
-        key, meta::make_metadata_value(std::forward<Value>(value)));
+    status_ =
+        pending_.set_type_metadata(key, meta::make_metadata_value(std::forward<Value>(value)));
     return *this;
   }
 
@@ -552,8 +555,7 @@ private:
       return *this;
     }
 
-    status_ =
-        pending_.set_method_metadata(method_name, overload_index, key, std::move(value));
+    status_ = pending_.set_method_metadata(method_name, overload_index, key, std::move(value));
     return *this;
   }
 
@@ -564,8 +566,7 @@ private:
       return *this;
     }
 
-    status_ =
-        pending_.add_method_default_argument(method_name, overload_index, std::move(value));
+    status_ = pending_.add_method_default_argument(method_name, overload_index, std::move(value));
     return *this;
   }
 
