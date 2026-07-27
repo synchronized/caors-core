@@ -50,6 +50,7 @@ CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_b_register_consistent_type() noex
   return static_cast<int>(status.value());
 }
 
-CAORS_TEST_PLUGIN_EXPORT const void* caors_test_plugin_b_capability_key() noexcept {
-  return caors::meta::capability_key_of<caors::tests::plugin_identity::shared_static_capability>();
+CAORS_TEST_PLUGIN_EXPORT std::uint64_t caors_test_plugin_b_capability_key() noexcept {
+  return caors::meta::capability_key_of<caors::tests::plugin_identity::shared_static_capability>()
+      .value();
 }

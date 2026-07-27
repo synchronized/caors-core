@@ -7,6 +7,7 @@
 #include "caors/core/guid.h"
 #include "caors/export.h"
 #include "caors/meta/detail/canonical_type_name.h"
+#include "caors/meta/identity_id.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,34 +18,32 @@ namespace caors::meta {
 
 class type;
 
-using capability_key = const void*;
-
 namespace detail {
 
 [[nodiscard]] CAORS_API const void* find_type_capability(const meta::type& type,
                                                          capability_key key) noexcept;
-[[nodiscard]] CAORS_API capability_key get_or_create_capability_key(const char* canonical_name,
-                                                                    std::size_t length) noexcept;
+[[nodiscard]] CAORS_API capability_id get_or_create_capability_id(const char* canonical_name,
+                                                                  std::size_t length) noexcept;
 
 } // namespace detail
 
 /** @brief 能力类型的可选稳定描述信息。 */
 struct capability_info {
-  capability_key key = nullptr;
+  capability_key key{};
   std::string_view name{};
   guid stable_guid{};
   std::uint32_t version = 0;
 
-  [[nodiscard]] bool valid() const noexcept { return key != nullptr; }
+  [[nodiscard]] bool valid() const noexcept { return static_cast<bool>(key); }
   [[nodiscard]] bool named() const noexcept { return !name.empty(); }
 };
 
 /** @brief 一条静态能力记录。 */
 struct capability_entry {
-  capability_key key = nullptr;
+  capability_key key{};
   const void* data = nullptr;
 
-  [[nodiscard]] bool valid() const noexcept { return key != nullptr && data != nullptr; }
+  [[nodiscard]] bool valid() const noexcept { return key && data != nullptr; }
 };
 
 /** @brief 返回能力类型在当前进程内的唯一 key。 */
@@ -52,7 +51,7 @@ template <typename Capability> [[nodiscard]] capability_key capability_key_of() 
   using capability_type = std::remove_cvref_t<Capability>;
   constexpr std::string_view canonical_name = detail::canonical_cpp_type_name<capability_type>();
   static const capability_key key =
-      detail::get_or_create_capability_key(canonical_name.data(), canonical_name.size());
+      detail::get_or_create_capability_id(canonical_name.data(), canonical_name.size());
   return key;
 }
 

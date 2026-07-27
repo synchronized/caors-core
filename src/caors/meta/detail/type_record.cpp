@@ -31,9 +31,9 @@ type_record::type_record(type_id id, string_name name, type_guid guid, type_id p
 }
 
 type_record::type_record(type_id id, string_name name, type_guid guid, value_storage_ops value,
-                     type_semantics semantics, builtin_ops builtin,
-                     const capability_entry* static_capabilities,
-                     std::size_t static_capability_count, bool registered) noexcept
+                         type_semantics semantics, builtin_ops builtin,
+                         const capability_entry* static_capabilities,
+                         std::size_t static_capability_count, bool registered) noexcept
     : id_(id), name_(name), guid_(guid), value_(value), semantics_(semantics), builtin_(builtin),
       static_capabilities_(static_capabilities), static_capability_count_(static_capability_count),
       registered_(registered) {}
@@ -85,11 +85,11 @@ bool type_record::static_model_matches(const type_record& other) const noexcept 
       (value_.ops.assign != nullptr) != (other.value_.ops.assign != nullptr) ||
       (value_.ops.resource_construct != nullptr) !=
           (other.value_.ops.resource_construct != nullptr) ||
-      (value_.ops.resource_destroy != nullptr) !=
-          (other.value_.ops.resource_destroy != nullptr) ||
+      (value_.ops.resource_destroy != nullptr) != (other.value_.ops.resource_destroy != nullptr) ||
       semantics_.kind != other.semantics_.kind || semantics_.wrapper != other.semantics_.wrapper ||
       semantics_.indirect != other.semantics_.indirect ||
-      semantics_.nullable != other.semantics_.nullable || builtin_.index() != other.builtin_.index() ||
+      semantics_.nullable != other.semantics_.nullable ||
+      builtin_.index() != other.builtin_.index() ||
       static_capability_count_ != other.static_capability_count_) {
     return false;
   }
@@ -432,7 +432,7 @@ void type_record::add_enum_value(enum_value_record value) {
 }
 
 const void* type_record::find_capability(capability_key key) const noexcept {
-  if (key == nullptr) {
+  if (!key) {
     return nullptr;
   }
 
@@ -450,7 +450,7 @@ const void* type_record::find_capability(capability_key key) const noexcept {
 }
 
 const void* type_record::find_static_capability(capability_key key) const noexcept {
-  if (key == nullptr) {
+  if (!key) {
     return nullptr;
   }
 
@@ -496,7 +496,7 @@ std::size_t type_record::capability_count() const noexcept {
 }
 
 error type_record::add_capability(capability_key key, const void* capability) {
-  if (key == nullptr || capability == nullptr) {
+  if (!key || capability == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
 
@@ -512,8 +512,8 @@ error type_record::add_capability(capability_key key, const void* capability) {
 }
 
 error type_record::add_owned_capability(capability_key key,
-                                      memory::unique_ptr<owned_capability_base> capability) {
-  if (key == nullptr || capability == nullptr || capability->data() == nullptr) {
+                                        memory::unique_ptr<owned_capability_base> capability) {
+  if (!key || capability == nullptr || capability->data() == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
 
@@ -534,7 +534,7 @@ bool type_record::contains_extension(extension_key key) const noexcept {
 }
 
 const extension_data* type_record::find_extension(extension_key key) const noexcept {
-  if (key == nullptr) {
+  if (!key) {
     return nullptr;
   }
 
@@ -552,7 +552,7 @@ const extension_data* type_record::find_extension(extension_key key) const noexc
 }
 
 extension_data* type_record::mutable_find_extension(extension_key key) noexcept {
-  if (key == nullptr) {
+  if (!key) {
     return nullptr;
   }
 

@@ -52,11 +52,11 @@ make_owned_capability(Capability capability) {
 
 /** @brief 注册类型上的一条动态 capability 记录。 */
 struct capability_data {
-  capability_key key = nullptr;
+  capability_key key{};
   const void* data = nullptr;
   memory::unique_ptr<owned_capability_base> owned{};
 
-  [[nodiscard]] bool valid() const noexcept { return key != nullptr && data != nullptr; }
+  [[nodiscard]] bool valid() const noexcept { return key && data != nullptr; }
 };
 
 } // namespace caors::meta::detail

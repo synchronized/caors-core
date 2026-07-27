@@ -18,7 +18,7 @@ struct consistent_plugin_type final {
 
 using type_id_fn = std::uint64_t (*)() noexcept;
 using register_type_fn = int (*)() noexcept;
-using capability_key_fn = const void* (*)() noexcept;
+using capability_key_fn = std::uint64_t (*)() noexcept;
 
 struct conflicting_static_capability final {
   int marker = 0;

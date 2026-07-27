@@ -4,6 +4,7 @@
 #include "caors/meta/detail/type_identity.h"
 
 #include "caors/meta/capability_traits.h"
+#include "caors/meta/identity_id.h"
 
 #include <exception>
 #include <limits>
@@ -16,18 +17,14 @@ namespace caors::meta::detail {
 namespace {
 
 struct type_identity final {
-  type_id id{};
+  std::uint64_t id = 0;
   std::string canonical_name{};
 };
 
-class type_identity_state final {
+class identity_table final {
 public:
-  [[nodiscard]] type_id get_or_create(std::string_view canonical_name) {
+  [[nodiscard]] std::uint64_t get_or_create(std::string_view canonical_name) {
     return get_or_create_identity(canonical_name).id;
-  }
-
-  [[nodiscard]] const void* get_or_create_key(std::string_view canonical_name) {
-    return &get_or_create_identity(canonical_name);
   }
 
 private:
@@ -46,7 +43,7 @@ private:
       std::terminate();
     }
 
-    identities_.push_back(type_identity{type_id{next_id_++}, std::string{canonical_name}});
+    identities_.push_back(type_identity{next_id_++, std::string{canonical_name}});
     type_identity& identity = identities_.back();
     identities_by_name_.emplace(identity.canonical_name, &identity);
     return identity;
@@ -58,26 +55,54 @@ private:
   std::uint64_t next_id_ = 1;
 };
 
-[[nodiscard]] type_identity_state& identity_state() {
-  static type_identity_state state;
+class identity_state final {
+public:
+  [[nodiscard]] std::uint64_t get_or_create(identity_domain domain,
+                                            std::string_view canonical_name) {
+    return table(domain).get_or_create(canonical_name);
+  }
+
+private:
+  [[nodiscard]] identity_table& table(identity_domain domain) noexcept {
+    switch (domain) {
+    case identity_domain::type:
+      return type_;
+    case identity_domain::capability:
+      return capability_;
+    case identity_domain::extension:
+      return extension_;
+    default:
+      return type_;
+    }
+  }
+
+  identity_table type_{};
+  identity_table capability_{};
+  identity_table extension_{};
+};
+
+[[nodiscard]] identity_state& global_identity_state() {
+  static identity_state state;
   return state;
 }
 
 } // namespace
 
-type_id get_or_create_type_id(const char* canonical_name, std::size_t length) noexcept {
+std::uint64_t get_or_create_identity_id(identity_domain domain, const char* canonical_name,
+                                        std::size_t length) noexcept {
   if (canonical_name == nullptr) {
     std::terminate();
   }
-  return identity_state().get_or_create(std::string_view{canonical_name, length});
+  return global_identity_state().get_or_create(domain, std::string_view{canonical_name, length});
 }
 
-capability_key get_or_create_capability_key(const char* canonical_name,
-                                            std::size_t length) noexcept {
-  if (canonical_name == nullptr) {
-    std::terminate();
-  }
-  return identity_state().get_or_create_key(std::string_view{canonical_name, length});
+type_id get_or_create_type_id(const char* canonical_name, std::size_t length) noexcept {
+  return type_id{get_or_create_identity_id(identity_domain::type, canonical_name, length)};
+}
+
+capability_id get_or_create_capability_id(const char* canonical_name, std::size_t length) noexcept {
+  return capability_id{
+      get_or_create_identity_id(identity_domain::capability, canonical_name, length)};
 }
 
 } // namespace caors::meta::detail

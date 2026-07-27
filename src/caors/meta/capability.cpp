@@ -16,7 +16,7 @@ namespace caors::meta::detail {
 
 const void* find_type_static_capability(const meta::type& type, capability_key key) noexcept {
   const type_record* data = type_access::data_of(type);
-  if (data == nullptr || key == nullptr) {
+  if (data == nullptr || !key) {
     return nullptr;
   }
 
@@ -29,7 +29,7 @@ error register_capability(registry& registry, type_id id, capability_key key,
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (key == nullptr || capability == nullptr) {
+  if (!key || capability == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
 
@@ -56,7 +56,7 @@ error register_owned_capability(registry& registry, type_id id, capability_key k
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (key == nullptr || capability == nullptr || capability->data() == nullptr) {
+  if (!key || capability == nullptr || capability->data() == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
 
@@ -79,7 +79,7 @@ error register_owned_capability(type_id id, capability_key key,
 }
 
 const void* find_capability(const registry& registry, type_id id, capability_key key) noexcept {
-  if (!id || key == nullptr) {
+  if (!id || !key) {
     return nullptr;
   }
 
@@ -100,7 +100,7 @@ const void* find_capability(type_id id, capability_key key) noexcept {
 }
 
 const void* find_type_capability(const meta::type& type, capability_key key) noexcept {
-  if (!type || key == nullptr) {
+  if (!type || !key) {
     return nullptr;
   }
 
@@ -129,7 +129,7 @@ bool contains_capability(type_id id, capability_key key) noexcept {
 }
 
 std::size_t capability_count(const registry& registry, capability_key key) noexcept {
-  if (key == nullptr) {
+  if (!key) {
     return 0;
   }
 

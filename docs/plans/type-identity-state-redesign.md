@@ -349,7 +349,7 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 - 所有 EXE/DLL 必须使用相同编译器主版本、标准库 ABI、公共类型定义和 CAORS 配置；
 - display name、GUID、adapter 和 static capability 等模型 traits 仍应通过统一公共头文件提供，
   但它们不参与 canonical identity intern；
-- `capability_key` 复用同一 runtime canonical C++ 类型驻留节点的稳定地址作为 opaque key，
+- `capability_key` 由同一 runtime 按 capability domain 与 canonical C++ 类型名分配进程内整数 ID，
   避免相同静态 capability 模型仅因位于不同 DLL 就被误判为冲突；
 - 匿名 namespace 类型、lambda 和局部类型可以获得模块内 identity，但不承诺跨模块合并；
 - 插件不能把与宿主同名但 ABI 不同的 C++ 类型视为同一类型；

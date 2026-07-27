@@ -15,7 +15,7 @@ namespace {
                                            const detail::extension_key* keys,
                                            std::size_t count) noexcept {
   for (std::size_t index = 0; index < count; ++index) {
-    if (keys[index] == nullptr || !type.contains_extension(keys[index])) {
+    if (!keys[index] || !type.contains_extension(keys[index])) {
       return false;
     }
   }
@@ -47,7 +47,7 @@ error registry::add_extension(type_id id, detail::extension_data extension) {
 }
 
 bool registry::has_extension(type_id id, detail::extension_key key) const {
-  if (!id || key == nullptr) {
+  if (!id || !key) {
     return false;
   }
 
@@ -65,7 +65,7 @@ bool registry::has_extension(type_id id, detail::extension_key key) const {
 
 const detail::extension_data* registry::find_extension_data(type_id id,
                                                             detail::extension_key key) const {
-  if (!id || key == nullptr) {
+  if (!id || !key) {
     return nullptr;
   }
 
@@ -80,7 +80,7 @@ const detail::extension_data* registry::find_extension_data(type_id id,
 
 bool registry::copy_extension_data(type_id id, detail::extension_key key, void* destination,
                                    extension_copy_fn copy) const {
-  if (!id || key == nullptr || destination == nullptr || copy == nullptr) {
+  if (!id || !key || destination == nullptr || copy == nullptr) {
     return false;
   }
 

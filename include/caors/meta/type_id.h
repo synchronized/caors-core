@@ -7,6 +7,7 @@
 #include "caors/core/type_guid.h"
 #include "caors/export.h"
 #include "caors/meta/detail/canonical_type_name.h"
+#include "caors/meta/identity_id.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -119,7 +119,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 梳理开放 dynamic capability / poly concept table 的最终 API；`meta::type` 提供内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，dynamic capability 作为用户扩展能力入口。
 - [x] 增加 capability 稳定元信息扩展点，例如 capability name / guid / version，用于插件、工具链诊断和
-  跨模块协议；当前 `capability_key` 仍只是进程内模板静态 key。
+  跨模块协议；当前 `capability_key` 是共享 runtime 分配的进程内查询 ID。
 - [x] 增加多模块静态 capability 扩展机制，外部模块可通过 module tag 和
   `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
   `custom_static_capability_module` 造成特化覆盖。

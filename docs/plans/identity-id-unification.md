@@ -5,20 +5,22 @@
 
 ## 文档状态
 
-- 当前状态：设计草案；
+- 当前状态：阶段 1-3 已落地，阶段 4 诊断查询保留后续；
 - 目标：统一 type、capability、extension 等进程内 ID 的底层发号逻辑；
 - 非目标：不把所有公开 API 改成同一个万能 ID，不把 identity state 变成 registry。
 
 ## 背景
 
-当前 `type_id` 由 CAORS runtime 按 canonical C++ 类型名分配递增整数。`capability_key` 和
-`extension_key` 仍使用模板静态 key 语义，底层是 `const void*`。这在单一 runtime 内可用，但对插件、
-跨 DLL 诊断和未来稳定协议不够理想：
+当前 `type_id`、`capability_key` 和 `extension_key` 都由 CAORS runtime 按 domain 与 canonical
+C++ 类型名分配进程内递增整数。该改造替代了早期 `const void*` 模板静态 key 方案，解决了插件和
+跨 DLL 场景下模板静态地址可能不一致的问题。
 
-- 模板静态 key 可能受模块实例化位置影响；
-- `const void*` 不便记录名称、GUID、版本和日志诊断；
-- capability / extension 与 type 使用了不同的身份机制；
-- 后续新增 event、schema、resource type 等 ID 时容易继续复制新机制。
+仍需注意：
+
+- 这些 ID 只在同一 runtime 进程内有效，不是持久化或跨版本协议 ID；
+- capability 的名称、GUID、版本仍用于诊断和未来稳定插件协议；
+- 插件 extension 的 value 构造、复制和析构代码仍可能来自插件 DLL，需要独立生命周期策略；
+- 后续新增 event、schema、resource type 等 ID 时应复用同一发号器模式。
 
 ## 设计原则
 
@@ -124,14 +126,14 @@ public:
 };
 ```
 
-模板入口：
+当前模板入口：
 
 ```cpp
 template <typename T>
-[[nodiscard]] capability_id capability_id_of() noexcept;
+[[nodiscard]] capability_key capability_key_of() noexcept;
 
 template <typename T>
-[[nodiscard]] extension_id extension_id_of() noexcept;
+[[nodiscard]] detail::extension_key detail::extension_key_of() noexcept;
 ```
 
 `type_id` 保持现有公开语义，只把内部实现迁移到统一 identity state。
@@ -140,45 +142,44 @@ template <typename T>
 
 ### 阶段 1：抽出通用 identity state
 
-- 从当前 `type_identity_state` 抽出 domain-aware identity store；
-- 保持 `get_or_create_type_id()` 对外行为不变；
-- 补充 type id 分配和 canonical name 查询测试；
-- 不改 capability / extension 调用侧。
+- [x] 从当前 `type_identity_state` 抽出 domain-aware identity store；
+- [x] 保持 `get_or_create_type_id()` 对外行为不变；
+- [x] 保持 type id 分配和 canonical name 查询测试通过；
+- [x] 不改变 registry 与 type record 的职责边界。
 
 完成标准：`type_id` 测试保持通过，内部实现已经可复用。
 
 ### 阶段 2：引入 `capability_id`
 
-- 新增 `capability_id` 强类型；
-- 将 `capability_key` 从 `const void*` 迁移到 `capability_id` 或兼容包装；
-- `capability_key_of<T>()` 改为基于 identity domain `capability`；
-- 更新 `type_record::capabilities`、动态 capability 注册、查询和测试；
-- 文档说明 capability id 是进程内 ID，跨版本稳定协议仍应使用 capability GUID / version。
+- [x] 新增 `capability_id` 强类型；
+- [x] 将 `capability_key` 从 `const void*` 迁移到 `capability_id`；
+- [x] `capability_key_of<T>()` 改为基于 identity domain `capability`；
+- [x] 更新 `type_record::capabilities`、动态 capability 注册、查询和测试；
+- [x] 文档说明 capability id 是进程内 ID，跨版本稳定协议仍应使用 capability GUID / version。
 
 完成标准：动态 capability 不再依赖模板静态地址作为 key。
 
 ### 阶段 3：引入 `extension_id`
 
-- 新增 `extension_id` 强类型；
-- 将 `extension_key` 从 `const void*` 迁移到 `extension_id` 或兼容包装；
-- `extension_key_of<T>()` 改为基于 identity domain `extension`；
-- 更新 registry extension 存储、查询、`extension_view` 和测试；
-- 明确 C++ 模板 extension 仍不等于插件稳定 ABI，插件扩展需要后续稳定协议。
+- [x] 新增 `extension_id` 强类型；
+- [x] 将 `extension_key` 从 `const void*` 迁移到 `extension_id`；
+- [x] `extension_key_of<T>()` 改为基于 identity domain `extension`；
+- [x] 更新 registry extension 存储、查询和测试；
+- [x] 明确 C++ 模板 extension 仍不等于插件稳定 ABI，插件扩展需要后续稳定协议。
 
 完成标准：extension key 不再依赖模板静态地址作为 key。
 
 ### 阶段 4：诊断与未来扩展
 
-- 为 identity store 增加按 domain/name/id 的调试查询；
-- 为 capability / extension 预留 name、GUID、version 元信息挂接点；
-- 评估新增 `schema_id`、`event_id` 或 `resource_type_id` 是否复用同一发号器；
-- 更新跨 DLL 文档，说明进程内 ID 与稳定 GUID 的边界。
+- [ ] 为 identity store 增加按 domain/name/id 的调试查询；
+- [x] 为 capability 预留 name、GUID、version 元信息挂接点；
+- [ ] 评估新增 `schema_id`、`event_id` 或 `resource_type_id` 是否复用同一发号器；
+- [x] 更新跨 DLL 文档，说明进程内 ID 与稳定 GUID 的边界。
 
 完成标准：identity 机制可以作为后续模块 ID 的统一底座。
 
 ## 风险
 
-- `capability_key` / `extension_key` 改型会触及较多模板和测试，需要分阶段兼容或一次性迁移；
 - 如果某处仍裸传 `uint64_t`，会削弱强类型 ID 的边界；
 - ID 仍是进程内身份，不应替代持久化 GUID；
 - 插件 extension 即使 key 稳定，value 的构造/析构代码仍可能来自插件 DLL，仍需独立生命周期策略。

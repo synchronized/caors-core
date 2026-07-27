@@ -7,16 +7,19 @@
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/capability_traits.h"
+#include "caors/meta/identity_id.h"
 
 #include <type_traits>
 #include <utility>
 
 namespace caors::meta::detail {
 
-using extension_key = const void*;
-
 template <typename Extension> [[nodiscard]] extension_key extension_key_of() noexcept {
-  return capability_key_of<std::remove_cvref_t<Extension>>();
+  using extension_type = std::remove_cvref_t<Extension>;
+  constexpr std::string_view canonical_name = canonical_cpp_type_name<extension_type>();
+  static const extension_key key{get_or_create_identity_id(
+      identity_domain::extension, canonical_name.data(), canonical_name.size())};
+  return key;
 }
 
 class extension_storage_base {
@@ -33,9 +36,9 @@ public:
 };
 
 struct extension_data {
-  [[nodiscard]] bool valid() const noexcept { return key != nullptr && storage != nullptr; }
+  [[nodiscard]] bool valid() const noexcept { return key && storage != nullptr; }
 
-  extension_key key = nullptr;
+  extension_key key{};
   memory::unique_ptr<extension_storage_base> storage{};
 };
 
