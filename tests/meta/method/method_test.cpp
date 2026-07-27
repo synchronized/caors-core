@@ -426,6 +426,36 @@ TEST_CASE("meta - method invoke result owns move-only by-value returns", "[meta]
   CHECK(returned->value == 31);
 }
 
+TEST_CASE("meta - method invoke result diagnoses unsupported by-value returns", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<immovable_return_actor>("caors.test.meta.immovable_return_actor")
+          .meta()
+          .method("make", &immovable_return_actor::make)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.immovable_return_actor");
+  REQUIRE(reflected);
+  const caors::meta::method make = reflected.find_method("make").single();
+  REQUIRE(make);
+
+  int value = 41;
+  std::array<caors::argument, 1> arguments{caors::arg(value)};
+  immovable_return_actor instance{};
+  const caors::meta::invoke_result invoke_result =
+      make.invoke_result_of(caors::meta::view(instance), arguments);
+  REQUIRE_FALSE(invoke_result);
+  CHECK(invoke_result.failure_reason() ==
+        caors::meta::invoke_failure_reason::unsupported_return_value);
+
+  std::array<caors::meta::value, 1> value_arguments{caors::meta::value{value}};
+  const caors::meta::invoke_value_result value_result =
+      make.invoke(caors::meta::view(instance), value_arguments);
+  REQUIRE_FALSE(value_result);
+  CHECK(value_result.failure_reason() ==
+        caors::meta::invoke_failure_reason::unsupported_return_value);
+}
+
 TEST_CASE("meta - method numeric safe conversion requires explicit policy", "[meta]") {
   const caors::error result = caors::registration::type_<numeric_conversion_actor>(
                                   "caors.test.meta.numeric_conversion_actor")

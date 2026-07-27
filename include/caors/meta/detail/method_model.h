@@ -101,7 +101,7 @@ template <typename Return, typename Result>
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            })));
     } else {
-      return invoke_result::failed();
+      return invoke_result::failed(invoke_failure_reason::unsupported_return_value);
     }
   }
 }
@@ -128,7 +128,7 @@ template <typename Return, typename Result>
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            }))));
     } else {
-      return invoke_value_result::failed();
+      return invoke_value_result::failed(invoke_failure_reason::unsupported_return_value);
     }
   }
 }

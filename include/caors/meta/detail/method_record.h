@@ -387,8 +387,10 @@ public:
     }
 
     invoke_result result = invoke_model(object, mutable_object, completed);
-    return result ? std::move(result)
-                  : invoke_result::failed(invoke_failure_reason::invocation_failed);
+    if (result || result.failure_reason() != invoke_failure_reason::none) {
+      return result;
+    }
+    return invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] invoke_value_result
@@ -410,8 +412,10 @@ public:
     }
 
     invoke_value_result result = invoke_model_value(object, mutable_object, completed);
-    return result ? std::move(result)
-                  : invoke_value_result::failed(invoke_failure_reason::invocation_failed);
+    if (result || result.failure_reason() != invoke_failure_reason::none) {
+      return result;
+    }
+    return invoke_value_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] invoke_value_result invoke_runtime_value(const void* object, bool mutable_object,
@@ -441,8 +445,10 @@ public:
     }
 
     invoke_result result = invoke_model(object, mutable_object, prepared);
-    return result ? std::move(result)
-                  : invoke_result::failed(invoke_failure_reason::invocation_failed);
+    if (result || result.failure_reason() != invoke_failure_reason::none) {
+      return result;
+    }
+    return invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,

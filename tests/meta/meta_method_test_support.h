@@ -116,6 +116,20 @@ struct move_only_return_actor {
   move_only_return_value make(int value) { return move_only_return_value{value}; }
 };
 
+struct immovable_return_value {
+  explicit immovable_return_value(int input) : value(input) {}
+  immovable_return_value(const immovable_return_value&) = delete;
+  immovable_return_value& operator=(const immovable_return_value&) = delete;
+  immovable_return_value(immovable_return_value&&) = delete;
+  immovable_return_value& operator=(immovable_return_value&&) = delete;
+
+  int value = 0;
+};
+
+struct immovable_return_actor {
+  immovable_return_value make(int value) { return immovable_return_value{value}; }
+};
+
 struct numeric_conversion_actor {
   int value = 0;
 

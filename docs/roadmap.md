@@ -273,8 +273,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `method::invoke()`、`instance::call()`、`instance::call_any()` 和属性 typed/value/any 路径。
 - [x] 将 `method_set` 调用重载选择对齐调用上下文：const 实例只选择可调用的 const 重载，
   无实例调用成员方法、const 违规和歧义重载返回明确 `invoke_failure_reason`。
+- [x] 支持既不可复制也不可移动的 by-value 方法返回值诊断：调用路径返回
+  `invoke_failure_reason::unsupported_return_value`，不再退化为通用底层调用失败。
 - [ ] 扩展字符串解析或更完整的类型转换策略。
-- [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
 - [ ] 扩展成员函数指针存储和调用适配，覆盖多继承等可能导致成员函数指针尺寸更大的平台 ABI。
 - [ ] 扩展属性别名、访问控制、重载选择和类型转换测试。
 

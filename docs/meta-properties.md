@@ -638,7 +638,9 @@ overload 合并进同一个 `method_set`。
 - `succeeded()` / `operator bool()`：判断调用是否成功。`void` 成功也会返回 true。
 - `kind()`：返回 `failed`、`void_value`、`value` 或 `reference`。
 - `failure_reason()`：调用失败时返回 `invalid_method`、`invalid_object`、`const_violation`、
-  `argument_mismatch`、`ambiguous_overload` 或 `invocation_failed`；成功结果返回 `none`。
+  `argument_mismatch`、`ambiguous_overload`、`invocation_failed` 或
+  `unsupported_return_value`；成功结果返回 `none`。`unsupported_return_value` 表示 C++ 方法已调用，
+  但 by-value 返回值既不可复制也不可移动，无法放入 `invoke_result` 或 `meta::value`。
 - `value()` / `mutable_value()`：读取拥有值返回。
 - `ref()`：读取引用返回。
 - `try_get<T>()` / `try_get_mutable<T>()`：同时支持从拥有值或引用结果按类型读取。

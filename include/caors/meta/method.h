@@ -60,6 +60,7 @@ enum class invoke_failure_reason {
   argument_mismatch,
   ambiguous_overload,
   invocation_failed,
+  unsupported_return_value,
 };
 
 /**
