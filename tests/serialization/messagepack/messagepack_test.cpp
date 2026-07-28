@@ -3,6 +3,7 @@
 
 #include "caors/serialization/messagepack.h"
 #include "caors/serialization/operations.h"
+#include "serialization_test_support.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -16,6 +17,7 @@
 namespace {
 
 using caors::meta::variant;
+using namespace caors::tests::serialization;
 
 [[nodiscard]] std::uint8_t byte_at(const caors::io::byte_buffer& bytes, std::size_t index) {
   return std::to_integer<std::uint8_t>(bytes[index]);
@@ -215,4 +217,50 @@ TEST_CASE("serialization - MessagePack selects container length markers",
   CHECK(byte_at(map16.value, 0) == 0xDE);
   CHECK(byte_at(map16.value, 1) == 0x00);
   CHECK(byte_at(map16.value, 2) == 0x10);
+}
+
+TEST_CASE("serialization - MessagePack typed APIs round trip reflected objects",
+          "[serialization][messagepack]") {
+  require_reader_actor_metadata();
+  const reader_actor source{7, 95.5F, true, "Ada"};
+
+  const caors::io::byte_buffer_result encoded = caors::to_messagepack(source);
+  REQUIRE(encoded.succeeded());
+
+  reader_actor decoded{};
+  REQUIRE(caors::read_messagepack_from(decoded, encoded.value).succeeded());
+  CHECK(decoded.id == source.id);
+  CHECK(decoded.health == source.health);
+  CHECK(decoded.active == source.active);
+  CHECK(decoded.name == source.name);
+
+  const reader_actor previous = decoded;
+  const std::array truncated{std::byte{0x81}, std::byte{0xA2}, std::byte{'i'}};
+  const caors::error status = caors::read_messagepack_from(decoded, truncated);
+  CHECK(status == caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+  CHECK(decoded.id == previous.id);
+  CHECK(decoded.health == previous.health);
+  CHECK(decoded.active == previous.active);
+  CHECK(decoded.name == previous.name);
+}
+
+TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
+          "[serialization][messagepack]") {
+  require_serializable_property_type<codec_string_view_actor>(
+      "caors.test.serialization.messagepack_string_view_actor", "name",
+      &codec_string_view_actor::name);
+
+  const codec_string_view_actor source{"Mina"};
+  const caors::io::byte_buffer_result encoded = caors::to_messagepack(source);
+  REQUIRE(encoded.succeeded());
+
+  codec_string_view_actor rejected{};
+  CHECK(caors::read_messagepack_from(rejected, encoded.value).value() == caors::errc::unsupported);
+
+  caors::serialization::string_storage storage;
+  caors::serialization::context context;
+  context.state.storage.string_view_storage = &storage;
+  codec_string_view_actor decoded{};
+  REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
+  CHECK(decoded.name == "Mina");
 }

@@ -116,8 +116,9 @@ template <typename T>
 
 ### 阶段 2：typed serialization 接入
 
-- [ ] 增加 `to_messagepack()` 与 `read_messagepack_from()`；
-- [ ] 复用现有 `serialize()`、`variant_reader`、schema migration 和未知字段策略；
+- [x] 增加 `to_messagepack()` 与 `read_messagepack_from()`；
+- [x] typed API 复用现有 `serialize()`、`variant_reader` 和 context；
+- [ ] 覆盖 schema migration 和未知字段策略；
 - [ ] 覆盖嵌套对象、容器、tuple/variant、多态 envelope 和 external-ref；
 - [ ] 确认失败时目标值遵守现有事务边界。
 

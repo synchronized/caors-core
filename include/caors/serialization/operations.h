@@ -15,6 +15,7 @@
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/json_reader.h"
 #include "caors/serialization/json_writer.h"
+#include "caors/serialization/messagepack.h"
 #include "caors/serialization/schema_query.h"
 #include "caors/serialization/writer.h"
 
@@ -949,15 +950,52 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
+/** @brief 把对象编码为 MessagePack 字节。 */
+template <typename T> [[nodiscard]] io::byte_buffer_result to_messagepack(const T& object) {
+  io::byte_buffer output = io::make_byte_buffer();
+  messagepack_writer writer{output};
+  const error status = serialize(object, writer);
+  return {status, std::move(output)};
+}
+
+/** @brief 按上下文把对象编码为 MessagePack 字节。 */
+template <typename T>
+[[nodiscard]] io::byte_buffer_result to_messagepack(const serialization::context& context,
+                                                    const T& object) {
+  io::byte_buffer output = io::make_byte_buffer(context.effective_memory_resource());
+  messagepack_writer writer{output};
+  const error status = serialize(context, object, writer);
+  return {status, std::move(output)};
+}
+
+/** @brief 从一个完整 MessagePack 根值读回对象。 */
+template <typename T>
+[[nodiscard]] error read_messagepack_from(T& object, std::span<const std::byte> bytes,
+                                          messagepack_options options = {}) {
+  variant_result value = parse_messagepack(bytes, options);
+  return value.failed() ? value.status : read_value_from(object, value.value);
+}
+
+/** @brief 按上下文从一个完整 MessagePack 根值读回对象。 */
+template <typename T>
+[[nodiscard]] error read_messagepack_from(const serialization::context& context, T& object,
+                                          std::span<const std::byte> bytes,
+                                          messagepack_options options = {}) {
+  variant_result value = parse_messagepack(bytes, options);
+  return value.failed() ? value.status : read_value_from(context, object, value.value);
+}
+
 } // namespace caors::serialization
 
 namespace caors {
 
 using serialization::deserialize;
 using serialization::read_json_from;
+using serialization::read_messagepack_from;
 using serialization::read_value_from;
 using serialization::serialize;
 using serialization::to_json;
+using serialization::to_messagepack;
 using serialization::to_value;
 
 } // namespace caors

@@ -668,8 +668,25 @@ caors::serialization::json_writer writer{output, options};
 caors::serialize(context, object, writer);
 ```
 
-二进制 reader、资源包 / 远程流读取和真正事件式 JSON reader 后续再扩展；当前上层 API 已经不需要假设
-数据来自本地文件或一次性字符串。
+### MessagePack
+
+MessagePack 后端不依赖第三方库。`messagepack_writer` 实现通用 `serialization::writer`，对象字段按
+序列化名称写为 map，数组和字典分别写为 MessagePack array 和 map。typed 便捷 API 复用与 JSON 相同的
+schema、context、codec 和 `variant_reader` 读入路径：
+
+```cpp
+caors::io::byte_buffer_result bytes = caors::to_messagepack(context, object);
+if (bytes.succeeded()) {
+  caors::error status = caors::read_messagepack_from(context, decoded, bytes.value);
+}
+```
+
+`messagepack_options` 是 parser 自己持有的格式层限制，不进入 `serialization::context`。当前支持
+null、bool、整数、float32/float64、字符串、数组和 map；写出浮点统一使用 float64。bin、extension 和
+timestamp extension 尚未实现，遇到这些标记会返回 `errc::unsupported`。
+
+MessagePack 读入目前先构造 `variant` DOM，再复用 typed 反序列化；资源包 / 远程流读取和真正增量式
+reader 后续再扩展。
 
 ### object pointers
 
