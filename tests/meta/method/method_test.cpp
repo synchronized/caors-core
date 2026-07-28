@@ -7,6 +7,18 @@
 
 using namespace test_meta;
 using namespace caors::tests::meta_method;
+
+TEST_CASE("meta - method wrapper stores wide member pointer payloads", "[meta]") {
+  caors::meta::detail::method_wrapper wrapper{&dummy_method_wrapper_invoke};
+  wide_method_member_payload payload{};
+  for (std::size_t index = 0; index < payload.bytes.size(); ++index) {
+    payload.bytes[index] = static_cast<std::byte>((index * 17U) & 0xFFU);
+  }
+
+  wrapper.store_member(payload);
+  CHECK(wrapper.load_member<wide_method_member_payload>() == payload);
+}
+
 TEST_CASE("meta - class builder rejects duplicate method signatures", "[meta]") {
   CHECK(caors::registration::type_<duplicate_method_actor>("caors.test.meta.duplicate_method_actor")
             .meta()

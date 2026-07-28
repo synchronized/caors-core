@@ -141,7 +141,29 @@ struct method_callable_storage_model final : method_callable_storage_base {
 struct method_wrapper_state {
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
+  explicit method_wrapper_state(memory::memory_resource* resource) noexcept
+      : member_resource(resource != nullptr ? resource : &memory::library_resource()) {}
+  ~method_wrapper_state() { reset_member_storage(); }
+
+  method_wrapper_state(const method_wrapper_state&) = delete;
+  method_wrapper_state& operator=(const method_wrapper_state&) = delete;
+  method_wrapper_state(method_wrapper_state&&) = delete;
+  method_wrapper_state& operator=(method_wrapper_state&&) = delete;
+
+  void reset_member_storage() noexcept {
+    if (member_heap != nullptr) {
+      member_resource->deallocate(member_heap, member_size, member_alignment);
+      member_heap = nullptr;
+      member_size = 0;
+      member_alignment = alignof(std::max_align_t);
+    }
+  }
+
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
+  void* member_heap = nullptr;
+  std::size_t member_size = 0;
+  std::size_t member_alignment = alignof(std::max_align_t);
+  memory::memory_resource* member_resource = nullptr;
   std::shared_ptr<const method_callable_storage_base> callable{};
 };
 
@@ -153,8 +175,8 @@ public:
   method_wrapper() noexcept = default;
   explicit method_wrapper(invoke_fn invoke)
       : resource_(&memory::library_resource()),
-        state_(memory::make<method_wrapper_state>(resource_)), invoke_(invoke), destroy_(&destroy) {
-  }
+        state_(memory::make<method_wrapper_state>(resource_, resource_)), invoke_(invoke),
+        destroy_(&destroy) {}
 
   method_wrapper(const method_wrapper&) = delete;
   method_wrapper& operator=(const method_wrapper&) = delete;
@@ -181,17 +203,27 @@ public:
     return valid() && invoke_(state_, kind, payload);
   }
 
-  template <typename Member> void store_member(Member member) noexcept {
+  template <typename Member> void store_member(Member member) {
     static_assert(std::is_trivially_copyable_v<Member>);
-    static_assert(sizeof(Member) <= method_wrapper_state::storage_size);
-    std::memcpy(static_cast<method_wrapper_state*>(state_)->storage.data(), &member,
-                sizeof(Member));
+    auto* state = static_cast<method_wrapper_state*>(state_);
+    state->reset_member_storage();
+    if constexpr (sizeof(Member) <= method_wrapper_state::storage_size) {
+      std::memcpy(state->storage.data(), &member, sizeof(Member));
+    } else {
+      state->member_heap = state->member_resource->allocate(sizeof(Member), alignof(Member));
+      state->member_size = sizeof(Member);
+      state->member_alignment = alignof(Member);
+      std::memcpy(state->member_heap, &member, sizeof(Member));
+    }
   }
 
   template <typename Member> [[nodiscard]] Member load_member() const noexcept {
     Member member{};
-    std::memcpy(&member, static_cast<const method_wrapper_state*>(state_)->storage.data(),
-                sizeof(Member));
+    const auto* state = static_cast<const method_wrapper_state*>(state_);
+    const void* source = state->member_heap != nullptr
+                             ? state->member_heap
+                             : static_cast<const void*>(state->storage.data());
+    std::memcpy(&member, source, sizeof(Member));
     return member;
   }
 
@@ -461,7 +493,7 @@ public:
     return wrapper_.template load_member<Member>();
   }
 
-  template <typename Member> void store_member_pointer(Member member) noexcept {
+  template <typename Member> void store_member_pointer(Member member) {
     wrapper_.store_member(member);
   }
 

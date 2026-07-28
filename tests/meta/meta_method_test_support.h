@@ -5,6 +5,8 @@
 
 #include "meta_property_test_support.h"
 
+#include "caors/meta/detail/method_record.h"
+
 namespace caors::tests::meta_method {
 
 using namespace test_meta;
@@ -18,6 +20,19 @@ struct method_actor {
 
   [[nodiscard]] int score() const { return value * 2; }
 };
+
+struct wide_method_member_payload {
+  std::array<std::byte, sizeof(void*) * 8U> bytes{};
+
+  friend bool operator==(const wide_method_member_payload& lhs,
+                         const wide_method_member_payload& rhs) noexcept = default;
+};
+
+[[nodiscard]] inline bool
+dummy_method_wrapper_invoke(void*, caors::meta::detail::method_request_kind,
+                            caors::meta::detail::request_payload) noexcept {
+  return false;
+}
 
 struct duplicate_method_actor {
   void first() {}
