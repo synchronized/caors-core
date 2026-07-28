@@ -15,7 +15,6 @@ struct plugin_registration_scope::impl {
   void* owner = nullptr;
   std::vector<events::connection> connections{};
   std::vector<tasks::request> requests{};
-  std::size_t meta_registrations = 0;
   std::size_t plugin_owned_values = 0;
   plugin_cleanup_result cleanup_result{};
   bool cleaned = false;
@@ -70,12 +69,6 @@ error plugin_registration_scope::track(tasks::request request) {
   return {};
 }
 
-void plugin_registration_scope::record_meta_registration(std::size_t count) noexcept {
-  if (data_ != nullptr && !data_->cleaned) {
-    data_->meta_registrations += count;
-  }
-}
-
 void plugin_registration_scope::record_plugin_owned_value(std::size_t count) noexcept {
   if (data_ != nullptr && !data_->cleaned) {
     data_->plugin_owned_values += count;
@@ -114,10 +107,6 @@ plugin_cleanup_result plugin_registration_scope::cleanup() noexcept {
     // cancel 只改变共享状态，不能证明 executor 已销毁插件 callable。
     data_->cleanup_result.blockers =
         data_->cleanup_result.blockers | plugin_unload_blocker::pending_task;
-  }
-  if (data_->meta_registrations != 0) {
-    data_->cleanup_result.blockers =
-        data_->cleanup_result.blockers | plugin_unload_blocker::meta_registration;
   }
   if (data_->plugin_owned_values != 0) {
     data_->cleanup_result.blockers =

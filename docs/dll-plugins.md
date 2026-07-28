@@ -60,6 +60,8 @@ traits、adapter 或静态能力特化不一致。
 `plugin_manager::load(path)` 默认按 `detachable` 策略创建插件 registry layer。调用方也可以传入
 `plugin_load_options{plugin_lifetime_policy::pinned_process}`，表示该插件钉在 manager 或进程生命周期内，
 显式 `unload()` 会返回 `errc::unsupported` 并给出 `pinned_process` 诊断，不提前关闭动态库。
+`detachable` 插件必须通过 Host meta registration extension 写入自身 draft layer；需要绕过 layer
+写入 primary 或其他外部 append-only registry 的插件必须使用 `pinned_process`，不能声明为可卸载。
 
 detachable 插件卸载前必须保证：
 

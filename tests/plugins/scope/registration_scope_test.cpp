@@ -63,18 +63,15 @@ TEST_CASE("插件 registration scope 取消请求但不错误宣称任务可卸�
                                     caors::plugins::plugin_unload_blocker::pending_task));
 }
 
-TEST_CASE("append-only meta 注册和插件擦除值提供结构化卸载阻止原因") {
+TEST_CASE("插件擦除值提供结构化卸载阻止原因") {
   caors::plugins::plugin_host host{};
   int owner = 0;
   caors::plugins::plugin_registration_scope scope{host, &owner};
-  scope.record_meta_registration();
   scope.record_plugin_owned_value(2);
   scope.release_plugin_owned_value();
 
   const auto result = scope.cleanup();
   CHECK_FALSE(result.can_unload());
-  CHECK(caors::plugins::has_blocker(result.blockers,
-                                    caors::plugins::plugin_unload_blocker::meta_registration));
   CHECK(caors::plugins::has_blocker(result.blockers,
                                     caors::plugins::plugin_unload_blocker::plugin_owned_value));
   CHECK_FALSE(caors::plugins::has_blocker(result.blockers,

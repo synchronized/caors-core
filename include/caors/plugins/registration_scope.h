@@ -17,7 +17,6 @@ namespace caors::plugins {
 /** @brief 当前阶段能够识别的插件安全卸载阻止原因。 */
 enum class plugin_unload_blocker : std::uint32_t {
   none = 0,
-  meta_registration = 1u << 0u,
   pending_task = 1u << 1u,
   plugin_owned_value = 1u << 2u,
   pinned_process = 1u << 3u,
@@ -67,8 +66,6 @@ public:
   /** @brief 追踪请求，并在清理时请求取消。 */
   [[nodiscard]] error track(tasks::request request);
 
-  /** @brief 记录 append-only meta 注册；在 overlay 完成前它会永久阻止卸载。 */
-  void record_meta_registration(std::size_t count = 1) noexcept;
   /** @brief 记录一个仍需插件代码析构的擦除值。 */
   void record_plugin_owned_value(std::size_t count = 1) noexcept;
   /** @brief 通知 scope 已释放对应数量的插件擦除值。 */
