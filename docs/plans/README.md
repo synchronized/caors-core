@@ -40,3 +40,7 @@
 
 - [codec-view-migration.md](codec-view-migration.md)：serialization codec 的 capability/view
   职责收敛计划。
+- [non-owning-serialization.md](non-owning-serialization.md)：借用字符串、调用方 span 缓冲区和
+  对象弱引用的显式反序列化条件。
+- [messagepack-backend.md](messagepack-backend.md)：零第三方依赖的标准 MessagePack
+  writer、DOM parser 和 typed serialization 后端计划。
