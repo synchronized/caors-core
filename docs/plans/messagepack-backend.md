@@ -107,7 +107,7 @@ template <typename T>
 
 - [x] 增加 `messagepack_options`；
 - [x] 实现 `variant` 到 MessagePack byte buffer 的基础 DOM 编码；
-- [ ] 实现 `messagepack_writer` 的 null、bool、整数、float64、字符串、数组、对象和字典编码；
+- [x] 实现 `messagepack_writer` 的 null、bool、整数、float64、字符串、数组、对象和字典编码；
 - [x] 实现 byte span parser，解析为 `meta::variant`；
 - [x] 覆盖最短整数编码、大端字节序、截断输入、非法标记、解析限制和尾随数据测试；
 - [ ] 补齐字符串与容器各级长度标记边界测试。

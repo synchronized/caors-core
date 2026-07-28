@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/serialization/messagepack.h"
+#include "caors/serialization/operations.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -9,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -115,4 +117,102 @@ TEST_CASE("serialization - MessagePack enforces parser limits", "[serialization]
       caors::serialization::parse_messagepack(text, string_options);
   CHECK(string_result.status ==
         caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+}
+
+TEST_CASE("serialization - MessagePack writer accepts generic writer events",
+          "[serialization][messagepack]") {
+  variant root = variant::object({});
+  REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::uint64_t{7})));
+
+  variant values = variant::array({});
+  REQUIRE(values.push_back(variant::from(true)));
+  REQUIRE(values.push_back(variant::from(std::int64_t{-2})));
+  REQUIRE(root.add_member(caors::string_name{"values"}, 0, std::move(values)));
+
+  variant labels = variant::dictionary({});
+  REQUIRE(
+      labels.add_entry(variant::from(std::uint64_t{3}), variant::from(std::string_view{"three"})));
+  REQUIRE(root.add_member(caors::string_name{"labels"}, 0, std::move(labels)));
+
+  caors::serialization::messagepack_writer writer;
+  REQUIRE(caors::serialization::write_value_to(writer, root).succeeded());
+  REQUIRE_FALSE(writer.bytes().empty());
+
+  const caors::serialization::variant_result decoded =
+      caors::serialization::parse_messagepack(writer.bytes());
+  REQUIRE(decoded.succeeded());
+  const variant* id = decoded.value.find_member_variant(caors::string_name{"id"});
+  REQUIRE(id != nullptr);
+  CHECK(id->as_u64() == 7);
+  const variant* decoded_values = decoded.value.find_member_variant(caors::string_name{"values"});
+  REQUIRE(decoded_values != nullptr);
+  REQUIRE(decoded_values->is_array());
+  CHECK(decoded_values->as_array()[0].as_bool());
+  CHECK(decoded_values->as_array()[1].as_i64() == -2);
+  const variant* decoded_labels = decoded.value.find_member_variant(caors::string_name{"labels"});
+  REQUIRE(decoded_labels != nullptr);
+  REQUIRE(decoded_labels->is_dictionary());
+  REQUIRE(decoded_labels->as_dictionary().size() == 1);
+  CHECK(decoded_labels->as_dictionary()[0].key.as_u64() == 3);
+  CHECK(decoded_labels->as_dictionary()[0].value.as_string() == "three");
+
+  writer.reset();
+  CHECK(writer.bytes().empty());
+  REQUIRE(writer.write_null().succeeded());
+  REQUIRE(writer.bytes().size() == 1);
+  CHECK(byte_at(writer.bytes(), 0) == 0xC0);
+}
+
+TEST_CASE("serialization - MessagePack selects string length markers",
+          "[serialization][messagepack]") {
+  const auto require_marker = [](std::size_t size, std::uint8_t marker) {
+    const std::string text(size, 'x');
+    const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(
+        variant::from(std::string_view{text.data(), text.size()}));
+    REQUIRE(encoded.succeeded());
+    REQUIRE_FALSE(encoded.value.empty());
+    CHECK(byte_at(encoded.value, 0) == marker);
+  };
+
+  require_marker(31, 0xBF);
+  require_marker(32, 0xD9);
+  require_marker(255, 0xD9);
+  require_marker(256, 0xDA);
+  require_marker(65535, 0xDA);
+  require_marker(65536, 0xDB);
+}
+
+TEST_CASE("serialization - MessagePack selects container length markers",
+          "[serialization][messagepack]") {
+  variant::array_type fixed_values;
+  fixed_values.resize(15);
+  const caors::io::byte_buffer_result fixed_array =
+      caors::serialization::encode_messagepack(variant::array(std::move(fixed_values)));
+  REQUIRE(fixed_array.succeeded());
+  CHECK(byte_at(fixed_array.value, 0) == 0x9F);
+
+  variant::array_type array16_values;
+  array16_values.resize(16);
+  const caors::io::byte_buffer_result array16 =
+      caors::serialization::encode_messagepack(variant::array(std::move(array16_values)));
+  REQUIRE(array16.succeeded());
+  CHECK(byte_at(array16.value, 0) == 0xDC);
+  CHECK(byte_at(array16.value, 1) == 0x00);
+  CHECK(byte_at(array16.value, 2) == 0x10);
+
+  variant::dictionary_type fixed_entries;
+  fixed_entries.resize(15);
+  const caors::io::byte_buffer_result fixed_map =
+      caors::serialization::encode_messagepack(variant::dictionary(std::move(fixed_entries)));
+  REQUIRE(fixed_map.succeeded());
+  CHECK(byte_at(fixed_map.value, 0) == 0x8F);
+
+  variant::dictionary_type map16_entries;
+  map16_entries.resize(16);
+  const caors::io::byte_buffer_result map16 =
+      caors::serialization::encode_messagepack(variant::dictionary(std::move(map16_entries)));
+  REQUIRE(map16.succeeded());
+  CHECK(byte_at(map16.value, 0) == 0xDE);
+  CHECK(byte_at(map16.value, 1) == 0x00);
+  CHECK(byte_at(map16.value, 2) == 0x10);
 }
