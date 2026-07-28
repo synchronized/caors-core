@@ -15,7 +15,7 @@
 - 在 `meta::registry` 的类型记录上保存属性和成员方法数据。
 - 通过 RTTR 风格 builder 描述属性和成员方法。
 - 提供按类型 id、类型名和稳定 GUID 查询 meta 类型；新代码直接使用 `meta::find()`。
-- 提供全局 append-only 注册表，以及稳定的类型、属性和方法视图。
+- 提供 append-only primary layer、可整体 detach 的插件 layer，以及带 layer lease 的类型、属性和方法视图。
 - 提供属性基础读写入口和运行期值拷贝。
 - 提供 getter / setter 属性、只读 getter 属性和成员方法基础调用入口。
 - 提供同名成员方法重载集合，并按运行期 `argument` 参数精确匹配唯一重载。
@@ -578,12 +578,13 @@ std::array<caors::meta::argument, 1> args{
 take.invoke_result_of(caors::meta::view(instance), args);
 ```
 
-`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
-保存的属性和方法数据。注册表是进程级 append-only 注册表，类型、属性和方法注册后不可撤销、
-不可替换，因此有效视图可以在进程生命周期内稳定使用。
+`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用
+`meta::registry` layer 保存的属性和方法数据。primary layer 是进程级 append-only 注册层，其有效
+视图可以在进程生命周期内稳定使用。插件 draft layer 发布后同样不可变；detachable layer 从新
+snapshot 移除后，旧视图立即失效，但 layer lease 会继续保活底层记录和动态库。
 
-属性和方法视图的稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换成员。如果后续支持热重载、
-增量注册或组件替换，需要先重新设计成员存储和视图失效规则。
+属性和方法视图的稳定性依赖“发布后冻结”约束：已发布类型不会再追加、删除或替换成员。当前插件卸载
+只整体 detach layer，不原地修改成员存储；脚本热替换或类型 record 原地 replace 仍需要独立设计。
 
 `meta::type` 当前提供：
 

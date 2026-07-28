@@ -104,8 +104,9 @@ CAORS 插件使用 `caors/plugins/abi.h` 中的纯 C ABI，并只导出
 `struct_size` 和 ABI 版本，然后提供 `initialize()`、`start()`、`stop()`、`shutdown()` 以及
 版本化 extension 查询。
 
-当前 `plugin_binary` 是协议和单插件生命周期基础设施，不是完整 plugin manager。它还没有依赖图、
-registration scope 或 registry overlay，因此不能把“生命周期停止”解释为“可以安全卸载 DLL”。
+`plugin_binary` 只是协议和单插件生命周期基础设施；单独使用它时，不能把“生命周期停止”解释为
+“可以安全卸载 DLL”。完整卸载流程由 `plugin_manager` 负责，它会处理依赖、registration scope、
+registry layer detach、旧 lease 和 in-flight 调用；任一前置条件未满足时不会关闭动态库。
 
 ## 验证
 

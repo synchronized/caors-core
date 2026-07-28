@@ -249,7 +249,9 @@ auto inherited_id = caors::meta::find<player>().find_property(
     "id", caors::meta::member_search::include_bases);
 ```
 
-`meta::type` 不拥有数据；类型已注册时引用所属 registry 中 append-only 保存的 meta 类型记录。
+`meta::type` 是轻量只读 view；类型已注册时引用所属 registry layer 中不可变的 meta 类型记录，并通过
+layer lease 保证记录生命周期。primary layer 在发布后保持 append-only；detachable 插件 layer
+从新 snapshot 移除后，旧 `meta::type` 不再允许访问插件能力。
 未注册类型仍可以作为 C++ 类型视图参与 value、反射字段和序列化内部调度。需要查询类型信息时使用
 `meta::type`。
 
@@ -626,9 +628,11 @@ caors::error result = caors::registration::type_<actor>("game.actor").commit();
 ```
 
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
-统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
-当前对象、序列化等扩展数据同样按 append-only 方式挂载：同一类型的同类扩展注册后不可替换。
-属性和方法数据也按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+统一查询。primary layer 是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回
+重复结果。插件可以先写入独立 draft layer；publish 后该 layer 同样不可变，detach 只会让新的
+snapshot 不再包含整个 layer，不会原地删除 record。对象、序列化能力、属性和方法也遵循“发布后
+不替换”的约束。primary view 可在进程生命周期内稳定使用；detachable layer 的旧 view 在 detach
+后失效，但其 lease 会继续保活底层数据和动态库，直到最后一个引用释放。
 
 registry 使用边界：
 

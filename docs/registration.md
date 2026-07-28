@@ -94,10 +94,11 @@ builder；当 `T` 继承自 `meta::object` 时，`commit()` 会自动写入对�
 和 capability 都在 builder pending 阶段收集；只有 `.commit()` 成功后，`meta::find<T>()` 才能查到该枚举类型。
 如果枚举项名称重复或类型名为空，builder 会保存错误状态，`commit()` 不会发布半成品类型。
 
-当前 registry 使用 append-only 生命周期。普通注册不提供 replace、update 或覆盖语义；一旦
+primary registry 使用 append-only 生命周期。普通注册不提供 replace、update 或覆盖语义；一旦
 `commit()` 成功发布 `type_record`，后续重复类型、重复名称或重复 GUID 注册都会返回错误，已经发布的
-属性、方法、nested 关系、序列化 schema、对象能力、metadata 和 capability 保持不变。已经获取的
-`meta::type` view 也继续指向旧的稳定数据。
+属性、方法、nested 关系、序列化 schema、对象能力、metadata 和 capability 保持不变。插件注册可以
+先写入独立 draft layer；layer 发布后同样不可变，但可以在插件卸载时从新的 registry snapshot
+整体 detach。已经获取的 view 通过 layer lease 保持底层数据存活，并在 detachable layer 失活后返回无效。
 
 批量注册第一版不提供事务回滚。`registration::batch_builder::commit()` 会按追加顺序提交每个 builder，
 遇到第一个错误立即停止并通过 `diagnostic()` 返回失败项的 index、kind、type id、name 和 error。已经成功提交的
@@ -135,16 +136,16 @@ if (status) {
 稳定指向已发布数据。这是普通游戏运行期、工具启动和测试环境的推荐模型。`frozen_read_optimized`
 适合初始化结束后显式冻结 primary registry；`manual_synchronization` 预留给调用方自行管理同步的高级场景。
 
-如果需要插件热加载、脚本动态类型或编辑器热替换，应使用 registry layer / overlay 或独立动态注册系统，
-而不是让当前默认 registry 隐式变成可变结构。当前不计划在主 registry 上支持原地 replace。
+插件热加载使用现有 registry layer / snapshot；脚本动态类型或编辑器热替换仍应使用独立动态注册系统，
+而不是让默认 primary registry 隐式变成可变结构。当前不计划在 primary registry 上支持原地 replace。
 可继续评估的策略包括：
 
 - `mutable_registry`：允许显式替换或删除类型数据，但需要 generation、失效检测和更严格的锁策略；旧 view
   不能继续假定永久稳定。
 - `snapshot_registry`：在后台构建新快照，提交时原子切换读取快照；旧 view 的生命周期绑定到旧快照，
   适合读多写少的工具或热重载场景。
-- 插件 registry overlay：应用主 registry 保持 append-only，插件注册写入 overlay；查询时先查 overlay
-  再查主 registry，插件卸载时整体丢弃 overlay，避免修改主 registry。
+- 插件 registry layer（已实现）：应用 primary registry 保持 append-only，插件注册写入 draft layer；
+  publish 时原子替换查询 snapshot，detach 时从新 snapshot 整体移除该 layer，避免修改 primary 数据。
 
 `validate()` / `validate_all()` 是当前的 dry-run 形式。它们只保证调用时刻的结构和冲突检查成立，
 不提供跨线程事务隔离；真正的全事务提交仍需要独立 registry draft 或 layer 作为边界。

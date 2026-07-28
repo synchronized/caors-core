@@ -5,9 +5,10 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 5 已完成，阶段 6 详细设计已冻结并开始实施；
+- 当前状态：阶段 0 至阶段 5、阶段 6A 至 6E 已完成；阶段 6F 仅剩 POSIX
+  Debug/Release 与 ASan 验证；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
-- 后续范围：依赖图、服务扩展、registration scope、registry overlay 和安全卸载；
+- 已实施范围：依赖图、服务扩展、registration scope、registry layer/snapshot 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
 
 ## 已冻结的首版决策
@@ -17,7 +18,7 @@
 - 第一版只支持显式动态库路径，不扫描目录；
 - plugin manager 只提供显式实例，不提供默认进程级全局对象；
 - 第一版不支持静态插件；
-- 第一版不承诺安全卸载或热重载；
+- 第一版支持满足 unload 前置条件的 `detachable` 插件安全卸载，不支持热重载；
 - 插件错误后续增加独立 `error_domain::plugins`，动态库错误使用
   `error_domain::platform`。
 
@@ -40,12 +41,12 @@
 - 服务使用稳定 GUID 和整数版本，不复用 meta capability key，并支持在版本区间内选择最高版本；
 - 服务地址采用借用语义，由发布方 owner 标识并在生命周期结束前统一移除；
 - 已新增显式 `plugin_registration_scope`，可统一移除服务、断开事件并请求取消任务；
-- scope 使用结构化 blocker 区分 meta 注册、未排空任务和插件拥有的擦除值；
-- append-only meta 注册和不能证明 callable 已销毁的任务会返回 `errc::unsupported`，不会错误
-  宣称可以卸载；
+- scope 使用结构化 blocker 区分外部不可撤销 meta 注册、未排空任务和插件拥有的擦除值；
+- 正常插件 meta 注册通过独立 registry layer 发布并可整体 detach；绕过 layer 写入外部
+  append-only registry 的注册，以及不能证明 callable 已销毁的任务，仍会阻止卸载；
 - `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
   `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
-- Windows Clang Shared Debug 使用 `--parallel 1` 构建通过，阶段 1/2 相关测试 3/3 通过。
+- Windows Clang Shared Debug/Release 使用 `--parallel 1` 完整构建通过，81/81 测试通过。
 
 ## 背景
 
@@ -94,8 +95,8 @@ DLL 边界传递 STL、异常或内部 C++ 类型。
 ### RTTR
 
 借鉴动态库注册内容追踪和“卸载前不得保留插件 property/method/value”的生命周期约束。
-CAORS 不直接复制 RTTR 从全局 registry 删除节点的方式；当前 append-only registry 需要先引入
-overlay 才能安全卸载。
+CAORS 不直接复制 RTTR 从全局 registry 删除节点的方式；当前实现通过不可变 snapshot 和独立
+registry layer 发布插件注册，卸载时整体 detach 对应 layer。
 
 ## 命名与模块边界
 
@@ -344,14 +345,14 @@ struct caors_plugin_host {
 这样命名避免使用 `static plugin`，因为 `static` 容易和静态链接、静态初始化或静态存储期混淆。
 实际语义是插件被钉在进程生命周期内，而不是插件以静态库形式链接。
 
-当前 registry record、property/method wrapper、capability、extension 和擦除值可能保存插件代码地址。
+当前 registry record、property/method wrapper、capability、factory/codec 和擦除值可能保存插件代码地址。
 只有 `detachable` 插件需要证明这些地址不可达后才允许真正关闭动态库。
 
 当前 scope 和 manager 已追踪：
 
 ```text
 plugin_registration_scope
-├─ registry overlay
+├─ registry layer
 ├─ service registrations
 ├─ event connections
 ├─ task/request cancellation
@@ -429,7 +430,7 @@ struct plugin_diagnostic {
 - [x] 固定 namespace、文件布局和错误语义；
 - [x] 记录 Windows/POSIX 测试环境；
 - [x] 复用现有 plugin identity 测试作为基线；
-- [x] 明确第一版不支持安全卸载和热重载。
+- [x] 记录初始基线不支持安全卸载和热重载，并冻结后续分阶段实施边界。
 
 ### 阶段 1：跨平台 `shared_library`
 
@@ -474,17 +475,19 @@ struct plugin_diagnostic {
 
 当前 scope 可以直接清理服务和事件。请求取消只阻止任务逻辑开始或状态继续提交，不能证明
 executor 队列中的擦除 callable 已经析构，因此清理前尚未完成的请求仍保留 `pending_task`
-blocker。meta 注册在阶段 6 overlay 完成前始终保留 `meta_registration` blocker。插件生命周期
+blocker。正常插件 meta 注册现在由阶段 6 的 registry layer 承载，不再形成永久 blocker；只有绕过
+layer 写入外部 append-only registry 的不可撤销注册仍使用 `meta_registration` blocker。插件生命周期
 调用者必须先 `stop/shutdown`，再执行 scope 清理；任一步成功都不能单独作为关闭 DLL 的依据。
 
 ### 阶段 6：Registry Overlay 与安全卸载
 
-- 详细实施计划见 `registry-overlay-safe-unload.md`；
-- 独立设计并实现 plugin registry overlay 或 snapshot；
-- 为 view 增加 generation/所有权策略；
-- 完成异步任务、事件和擦除值清理；
-- 满足卸载前置条件后再启用真正 `unload`；
-- 覆盖反复加载、卸载、错误回滚和并发查询。
+- [x] 详细实施计划见 `registry-overlay-safe-unload.md`；
+- [x] 使用不可变 snapshot 和独立 registry layer 发布插件注册；
+- [x] 为 view 增加 generation、layer lease 与失效策略；
+- [x] 完成异步任务、事件和擦除值清理；
+- [x] 满足卸载前置条件后启用真正 `unload`；
+- [x] 覆盖反复加载、卸载、错误回滚和并发查询；
+- [ ] 完成 POSIX Debug/Release 与 ASan use-after-unload 验证。
 
 ### 阶段 7：热重载
 
@@ -533,15 +536,14 @@ plugin_model_conflict.dll
 - 依赖按拓扑顺序启动、逆序停止；
 - plugin descriptor 和字符串由 manager 拷贝并拥有；
 - manager 不在持锁状态调用插件代码；
-- 第一版不会错误宣称可安全卸载；
-- registry overlay 完成前，不关闭仍被 registry 引用的 DLL；
+- `pinned_process` 插件不承诺提前卸载，`detachable` 插件只有满足全部前置条件才安全关闭；
+- detach 后新 snapshot 不再包含目标 layer，旧 view、值和 in-flight 调用通过 lease 保活 DLL；
 - Windows Clang Debug/Shared 使用 `--parallel 1` 完成相关构建和测试；
 - 每个实施阶段独立提交并推送。
 
 ## 后续待确认问题
 
-1. registry overlay 采用查询链 overlay 还是不可变 snapshot；
-2. 热重载的数据迁移协议需在阶段 7 前另立计划。
+1. 热重载的数据迁移协议需在阶段 7 前另立计划。
 
 ## 非目标
 
