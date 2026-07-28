@@ -31,6 +31,13 @@ namespace caors::serialization::detail {
     return status;
   }
 
+  if (view.read_in_place()) {
+    const std::optional<std::size_t> target_size = view.size();
+    if (!target_size.has_value() || *target_size != size) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+  }
+
   if (!view.clear()) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -110,6 +117,10 @@ namespace caors::serialization::detail {
                                         const serialization::context& context) {
   const meta::sequence_view target_view = target.get_capability<meta::sequence_capability>();
   if (!target_view.can_read()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+  if (target_view.read_in_place() &&
+      !context.satisfies(serialization::decode_requirement::caller_buffer)) {
     return {error_domain::serialization, errc::unsupported};
   }
 

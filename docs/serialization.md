@@ -126,6 +126,7 @@ buffer：
 | `context.resolvers.construction` | 反序列化新建运行期值时使用的构造策略 | 可按字段、容器元素、wrapper 内部值和 variant 候选定制 |
 | `context.resolvers.memory` | 多态值、空拥有型 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
 | `context.state.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
+| `context.config.borrowed_views` | 调用方缓冲区写入策略 | 显式允许长度匹配的可写 `std::span<T>` 接收数据 |
 | `context.config.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `context.config.limits` | 递归深度等安全限制 | `max_depth = 0` 表示关闭递归深度限制 |
 | `json_options` | JSON 格式层选项 | 控制 writer 格式化和 parser 安全/兼容策略 |
@@ -876,7 +877,8 @@ codec 和 meta 类型系统的边界：
 - `std::forward_list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组；反射随机访问需要线性遍历。
 - `std::deque<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
 - `std::array<T, N>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组；读入长度必须等于 `N`。
-- `std::span<T>` / `std::span<T, N>`：通过 `traits::sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
+- `std::span<T>` / `std::span<T, N>`：通过 `traits::sequence_traits<T>` 输出为数组；默认拒绝读回，
+  显式开启 `context.config.borrowed_views.allow_caller_buffer_write` 后可写入长度完全一致的可写 span。
 - `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `traits::set_traits<T>` 和 `set_view`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
@@ -1024,8 +1026,8 @@ template <> struct codec_traits<custom_value> {
 - 多层组合会逐层通过 `indirect_view` 展开，例如 `std::optional<std::optional<T>>` 和
   `std::shared_ptr<std::optional<T>>` 会最终读写内部 `T`。遇到空中间层时，拥有型 wrapper 和
   `optional` 会按当前构造策略创建下一层；裸指针仍要求目标已经指向有效对象。
-- `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
-  当前不作为普通 value 序列化或反序列化。
+- `std::weak_ptr<T>` 仍不作为普通 value 序列化；`objects::weak_ref<T>` 通过
+  `context.resolvers.external_refs.resolver` 按对象身份读写，不展开对象本体。
 - `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
@@ -1060,11 +1062,12 @@ template <> struct codec_traits<custom_value> {
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；拥有型智能指针非空读入可通过上下文构造策略、factory、空参数 constructor 或默认构造创建内部值并接管所有权；`std::optional<T>` 非空读入会用同一构造策略创建临时值，再按值 move/copy 到 optional；空 wrapper 读入非空值但 `T` 不可构造时返回错误；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
-| `std::weak_ptr<T>`、`objects::weak_ref<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
+| `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
+| `objects::weak_ref<T>` | 弱引用本身不暴露普通 inline value | 通过 resolver 写出 `object_id` 或 `object_guid`；空或已失效引用写 `null` / `0` | 通过 resolver 找到仍由 `objects::ref<T>` 管理的对象并恢复弱引用 |
 | `objects::ptr<T>` | 作为对象指针类型，可通过 `any_ref::get_capability<objects::ptr_capability>()` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
 | `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `any_ref::get_capability<objects::handle_capability>()` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 可走上下文构造策略，仍不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
-| `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
+| `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝；显式允许调用方缓冲区写入后，长度完全一致的可写 span 可以读回 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |
 | `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；pair / tuple 长度、variant envelope 长度或下标错误返回 `errc::invalid_argument`；切换 variant 候选时目标候选可走上下文构造策略、factory、constructor 或默认构造 |
 
@@ -1078,8 +1081,8 @@ template <> struct codec_traits<custom_value> {
   `resolvers.external_refs.resolution` 让读入过程立即解析。
 - `resource_handle<T>` / `resource_weak_handle<T>` 是运行期所有权句柄，当前不作为默认序列化 codec。
   需要持久化资源关系时应序列化 `resource_ref<T>` 或稳定 `resource_guid`。
-- `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
-  `objects::ptr<T>` 类似的显式引用语义处理。
+- `std::weak_ptr<T>` 默认不展开内部值。`objects::weak_ref<T>` 使用与 `objects::ptr<T>` 相同的
+  external-ref 身份格式；写出期间会短暂提升为强引用，读回目标必须仍绑定 `objects::ref<T>` 控制块。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
   字段存在回边或自环时应由调用方跳过对应字段，或改用显式引用类型。`context.config.limits.max_depth`
   会阻止无限展开，但不会把对象图转换为引用图；需要身份保持时使用 `caors::objects::ptr<T>`、
@@ -1093,8 +1096,9 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_field` 或 `errc::unsupported`，不会隐式分配 backing storage 或决定弱引用语义。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回
   `errc::invalid_argument`。
-- `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
-  避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
+- `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回。
+  调用方显式开启 `context.config.borrowed_views.allow_caller_buffer_write` 后，只允许写入长度完全一致的
+  `std::span<T>`；`std::span<const T>` 始终拒绝读回。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
   可以通过 `context.resolvers.construction`、`registration::type_<T>(name).meta().factory()` 或空参数
   `registration::type_<T>(name).meta().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。

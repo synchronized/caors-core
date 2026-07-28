@@ -477,6 +477,33 @@ public:
   /** @brief 判断当前是否仍能提升为强引用。 */
   [[nodiscard]] explicit operator bool() const noexcept { return !expired(); }
 
+  /**
+   * @brief 观察一个仍由 `objects::ref<T>` 控制块管理的对象。
+   *
+   * 对象不是由 `make_ref()` 创建、已经失效或没有绑定控制块时返回空弱引用。调用方必须保证读取对象
+   * 控制块期间没有其他线程并发销毁该对象。
+   */
+  [[nodiscard]] static weak_ref observe(T* instance) noexcept {
+    if (instance == nullptr) {
+      return {};
+    }
+
+    auto* counted = static_cast<ref_counted*>(instance);
+    detail::ref_control_block* control = counted->control_;
+    if (control == nullptr || detail::ref_count(control) == 0) {
+      return {};
+    }
+
+    weak_ref result;
+    result.instance_ = instance;
+    result.control_ = control;
+    result.retain();
+    if (detail::ref_count(control) == 0) {
+      result.reset();
+    }
+    return result;
+  }
+
   /** @brief 释放当前弱引用。 */
   void reset(std::nullptr_t = nullptr) noexcept { release(); }
 

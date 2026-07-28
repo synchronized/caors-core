@@ -135,6 +135,36 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
   CHECK(storage == std::array<int, 3>{1, 2, 3});
 }
 
+TEST_CASE("serialization - writes std span caller buffers only when explicitly enabled",
+          "[serialization]") {
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
+
+  std::array<int, 3> storage{1, 2, 3};
+  span_actor actor{std::span<int>{storage}};
+  caors::serialization::context context;
+  context.config.borrowed_views.allow_caller_buffer_write = true;
+
+  REQUIRE(context.satisfies(caors::serialization::decode_requirement::caller_buffer));
+  REQUIRE(caors::read_json_from(context, actor, R"({"scores":[5,6,7]})").succeeded());
+  CHECK(storage == std::array<int, 3>{5, 6, 7});
+}
+
+TEST_CASE("serialization - validates std span caller buffer length before writing",
+          "[serialization]") {
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
+
+  std::array<int, 3> storage{1, 2, 3};
+  span_actor actor{std::span<int>{storage}};
+  caors::serialization::context context;
+  context.config.borrowed_views.allow_caller_buffer_write = true;
+
+  const caors::error result = caors::read_json_from(context, actor, R"({"scores":[5,6]})");
+  CHECK(result == caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+  CHECK(storage == std::array<int, 3>{1, 2, 3});
+}
+
 // 原测试文件：serialization_sequence_roundtrips_std_array_fields_test.cpp
 
 #include "serialization_test_support.h"

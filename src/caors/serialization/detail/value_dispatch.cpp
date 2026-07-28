@@ -246,11 +246,12 @@ field_runtime_schema compile_field_schema(const meta::type& owner_type,
   result.uses_inline_indirect_value =
       (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper) &&
       result.property.wrapper_semantics() == meta::wrapper_semantics::inline_value;
-  result.uses_direct_value =
-      kind == meta::type_kind::value || kind == meta::type_kind::enumeration ||
-      kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
-      kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
-      kind == meta::type_kind::tuple || kind == meta::type_kind::variant;
+  result.uses_direct_value = result.codec_operations != nullptr || kind == meta::type_kind::value ||
+                             kind == meta::type_kind::enumeration ||
+                             kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
+                             kind == meta::type_kind::associative ||
+                             kind == meta::type_kind::pair || kind == meta::type_kind::tuple ||
+                             kind == meta::type_kind::variant;
   return result;
 }
 

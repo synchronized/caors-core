@@ -44,7 +44,7 @@ void require_object_weak_ref_actor_metadata() {
 
 } // namespace
 
-TEST_CASE("serialization - rejects object weak refs", "[serialization]") {
+TEST_CASE("serialization - object weak refs use external reference identity", "[serialization]") {
   require_object_weak_ref_actor_metadata();
 
   const caors::objects::ref<weak_object_ref_target> owner =
@@ -52,9 +52,54 @@ TEST_CASE("serialization - rejects object weak refs", "[serialization]") {
   object_weak_ref_actor actor{};
   actor.observer = owner;
 
+  object_ptr_resolver_data resolver_data{caors::object_id{72}, owner.get()};
+  const caors::objects::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
+  caors::serialization::context context;
+  context.resolvers.external_refs.resolver = &resolver;
+
+  const caors::serialization::serialization_text_result json = caors::to_json(context, actor);
+  REQUIRE(json.succeeded());
+  CHECK(json.value == R"({"observer":72})");
+
+  object_weak_ref_actor decoded{};
+  REQUIRE(caors::read_json_from(context, decoded, R"({"observer":72})").succeeded());
+  const caors::objects::ref<weak_object_ref_target> decoded_owner = decoded.observer.lock();
+  REQUIRE(decoded_owner);
+  CHECK(decoded_owner.get() == owner.get());
+}
+
+TEST_CASE("serialization - object weak refs require an external reference resolver",
+          "[serialization]") {
+  require_object_weak_ref_actor_metadata();
+
+  const caors::objects::ref<weak_object_ref_target> owner =
+      caors::objects::make_ref<weak_object_ref_target>();
+  const object_weak_ref_actor actor{owner};
   const caors::serialization::serialization_text_result json = caors::to_json(actor);
 
   CHECK(json.failed());
   CHECK(json.status.domain() == caors::error_domain::serialization);
-  CHECK(json.status.value() == caors::errc::unsupported);
+  CHECK(json.status.value() == caors::errc::invalid_argument);
+
+  object_weak_ref_actor decoded{};
+  const caors::error read = caors::read_json_from(decoded, R"({"observer":72})");
+  CHECK(read == caors::error{caors::error_domain::serialization, caors::errc::unsupported});
+}
+
+TEST_CASE("serialization - expired object weak refs serialize as null", "[serialization]") {
+  require_object_weak_ref_actor_metadata();
+
+  object_weak_ref_actor actor{};
+  object_ptr_resolver_data resolver_data{caors::object_id{72}, nullptr};
+  const caors::objects::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
+  caors::serialization::context context;
+  context.resolvers.external_refs.resolver = &resolver;
+
+  const caors::serialization::serialization_text_result json = caors::to_json(context, actor);
+  REQUIRE(json.succeeded());
+  CHECK(json.value == R"({"observer":0})");
+
+  object_weak_ref_actor decoded{};
+  REQUIRE(caors::read_json_from(context, decoded, R"({"observer":0})").succeeded());
+  CHECK(decoded.observer.expired());
 }

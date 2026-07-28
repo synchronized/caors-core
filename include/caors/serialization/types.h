@@ -297,6 +297,16 @@ struct storage_options {
   string_storage* string_view_storage = nullptr;
 };
 
+/** @brief 调用方提供的借用 view 反序列化策略。 */
+struct borrowed_view_options {
+  /**
+   * @brief 是否允许解码器写入目标 view 已经绑定的外部缓冲区。
+   *
+   * 首批实现只接受输入长度与目标缓冲区长度完全一致的情况。
+   */
+  bool allow_caller_buffer_write = false;
+};
+
 /** @brief schema 策略读入阶段可写入的外部状态。 */
 struct schema_state {
   /** @brief 兼容旧接口：只保存未知成员本身，不保存路径。 */
@@ -312,6 +322,7 @@ struct context_config {
   limit_options limits{};
   polymorphic_options polymorphic{};
   json_options json{};
+  borrowed_view_options borrowed_views{};
 };
 
 /** @brief 单次序列化调度可使用的外部服务和解析器。 */
@@ -391,6 +402,7 @@ struct context {
     case decode_requirement::reference_resolver:
       return effective_external_ref_resolver() != nullptr;
     case decode_requirement::caller_buffer:
+      return config.borrowed_views.allow_caller_buffer_write;
     case decode_requirement::object_graph:
       return false;
     }

@@ -325,7 +325,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。
 - [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。
-- [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图反射访问和序列化写出，默认禁止反序列化写回。
+- [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图反射访问和序列化写出；默认禁止读回，
+  显式启用调用方缓冲区策略后允许等长写入。
 - [x] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
 - [x] 将 `serialization::context::state.storage.string_view_storage` 从单个字符串存储升级为多段
   `string_storage` / `string_buffer`，支持同一对象内多个 `std::string_view` 字段安全读回。
@@ -358,8 +359,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持显式序列化字段缺失时从 `meta::property_schema::default_value` 恢复默认值。
 - [x] 增加缺失字段策略，允许 typed config 等配置读入路径采用“保留已有默认值后局部覆盖”的语义。
 - [x] 扩展未知字段按对象树位置保留、跨对象迁移调度和更完整的字段删除转换策略。
-- [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
-  提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。
+- [x] 为 `objects::weak_ref<T>` 提供基于 external-ref resolver 的显式身份序列化，不展开对象本体；
+  `std::weak_ptr<T>` 对象图语义继续保留为后续工作。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [x] 增加版本兼容、缺失字段和未知字段基础测试。
 - [ ] 增加跨平台字节序测试。

@@ -8,6 +8,7 @@
 #include "caors/object/handle.h"
 #include "caors/object/manager.h"
 #include "caors/object/ptr.h"
+#include "caors/object/ref_counted.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/types.h"
 
@@ -382,6 +383,45 @@ template <typename T>
   return {};
 }
 
+template <typename T>
+[[nodiscard]] serialization::variant_result
+make_object_weak_ref_value(const serialization::context& context,
+                           const objects::weak_ref<T>& value) {
+  const objects::ref<T> strong = value.lock();
+  return make_object_ptr_value(context, objects::ptr<T>{strong.get()});
+}
+
+template <typename T>
+[[nodiscard]] error write_object_weak_ref(const serialization::context& context,
+                                          serialization::writer& writer,
+                                          const objects::weak_ref<T>& value) {
+  const objects::ref<T> strong = value.lock();
+  return write_object_ptr(context, writer, objects::ptr<T>{strong.get()});
+}
+
+template <typename T>
+[[nodiscard]] error read_object_weak_ref(const serialization::context& context,
+                                         serialization::reader& reader,
+                                         objects::weak_ref<T>& value) {
+  objects::ptr<T> resolved;
+  const error status = read_object_ptr(context, reader, resolved);
+  if (status) {
+    return status;
+  }
+  if (!resolved) {
+    value.reset();
+    return {};
+  }
+
+  objects::weak_ref<T> observed = objects::weak_ref<T>::observe(resolved.get());
+  if (!observed) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = std::move(observed);
+  return {};
+}
+
 } // namespace detail
 
 /** @brief 使用对象生命周期管理器创建运行期 id 形式的对象引用 resolver。 */
@@ -424,6 +464,7 @@ template <typename T> struct codec_traits<objects::ptr<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
+  static constexpr decode_requirement requirement = decode_requirement::reference_resolver;
 
   [[nodiscard]] static error write(const serialization::context& context, writer& writer,
                                    const objects::ptr<T>& value) {
@@ -438,6 +479,29 @@ template <typename T> struct codec_traits<objects::ptr<T>> {
   [[nodiscard]] static variant_result make_value(const serialization::context& context,
                                                  const objects::ptr<T>& value) {
     return objects::detail::make_object_ptr_value(context, value);
+  }
+};
+
+/** @brief `objects::weak_ref<T>` 按对象身份序列化，不展开对象本体。 */
+template <typename T> struct codec_traits<objects::weak_ref<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+  static constexpr decode_requirement requirement = decode_requirement::reference_resolver;
+
+  [[nodiscard]] static error write(const serialization::context& context, writer& writer,
+                                   const objects::weak_ref<T>& value) {
+    return objects::detail::write_object_weak_ref(context, writer, value);
+  }
+
+  [[nodiscard]] static error read(const serialization::context& context, reader& reader,
+                                  objects::weak_ref<T>& value) {
+    return objects::detail::read_object_weak_ref(context, reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const serialization::context& context,
+                                                 const objects::weak_ref<T>& value) {
+    return objects::detail::make_object_weak_ref_value(context, value);
   }
 };
 
