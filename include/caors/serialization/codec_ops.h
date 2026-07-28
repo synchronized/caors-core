@@ -19,6 +19,15 @@ struct context;
 class reader;
 class writer;
 
+/** @brief codec 解码前必须由调用上下文满足的外部条件。 */
+enum class decode_requirement {
+  none,
+  borrowed_storage,
+  caller_buffer,
+  reference_resolver,
+  object_graph,
+};
+
 /** @brief 单个类型的序列化 codec 操作表。 */
 struct codec_ops {
   using write_fn = error (*)(const serialization::context& context, writer& writer,
@@ -37,6 +46,7 @@ struct codec_ops {
   read_fn read = nullptr;
   value_fn make_value = nullptr;
   value_ref_fn make_value_ref = nullptr;
+  decode_requirement requirement = decode_requirement::none;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
     return write != nullptr || write_ref != nullptr || read != nullptr || make_value != nullptr ||

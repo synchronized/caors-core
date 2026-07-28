@@ -11,6 +11,7 @@
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/variant.h"
 #include "caors/result.h"
+#include "caors/serialization/codec_ops.h"
 #include "caors/serialization/external_ref.h"
 #include "caors/serialization/type_schema.h"
 
@@ -374,6 +375,26 @@ struct context {
 
   [[nodiscard]] string_storage* effective_string_view_storage() const noexcept {
     return state.storage.string_view_storage;
+  }
+
+  /**
+   * @brief 判断当前上下文是否满足 codec 的解码前置条件。
+   *
+   * 调用方缓冲区和对象图需要专用解码入口；通用上下文暂不隐式提供这两项能力。
+   */
+  [[nodiscard]] bool satisfies(decode_requirement requirement) const noexcept {
+    switch (requirement) {
+    case decode_requirement::none:
+      return true;
+    case decode_requirement::borrowed_storage:
+      return effective_string_view_storage() != nullptr;
+    case decode_requirement::reference_resolver:
+      return effective_external_ref_resolver() != nullptr;
+    case decode_requirement::caller_buffer:
+    case decode_requirement::object_graph:
+      return false;
+    }
+    return false;
   }
 
   [[nodiscard]] const serialization::polymorphic_factory_ops*

@@ -114,8 +114,9 @@ namespace {
 [[nodiscard]] error read_with_codec_ops(const serialization::codec_ops* ops,
                                         const serialization::context& context, reader& reader,
                                         const any_ref& target) {
-  return codec_can_read(ops) ? ops->read(context, reader, target)
-                             : error{error_domain::serialization, errc::unsupported};
+  return codec_can_read(ops) && context.satisfies(ops->requirement)
+             ? ops->read(context, reader, target)
+             : error{error_domain::serialization, errc::unsupported};
 }
 
 [[nodiscard]] const serialization::codec_ops* cached_codec_ops(const field_runtime_schema* field,

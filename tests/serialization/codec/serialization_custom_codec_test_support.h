@@ -25,6 +25,14 @@ struct static_codec_actor {
   static_codec_value value{};
 };
 
+struct borrowed_codec_value {
+  int value = 0;
+};
+
+struct borrowed_codec_actor {
+  borrowed_codec_value value{};
+};
+
 } // namespace caors::tests::serialization
 
 namespace caors::serialization {
@@ -100,6 +108,25 @@ template <> struct codec_traits<caors::tests::serialization::static_codec_value>
 
   [[nodiscard]] static caors::serialization::variant_result make_value(const value_type& value) {
     return {{}, caors::variant::from(static_cast<std::int64_t>(value.value + 200))};
+  }
+};
+
+template <> struct codec_traits<caors::tests::serialization::borrowed_codec_value> {
+  using value_type = caors::tests::serialization::borrowed_codec_value;
+
+  static constexpr bool can_write = false;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = false;
+  static constexpr decode_requirement requirement = decode_requirement::borrowed_storage;
+
+  [[nodiscard]] static caors::error read(reader& reader, value_type& value) {
+    std::int64_t decoded = 0;
+    const caors::error status = reader.read_i64(decoded);
+    if (status) {
+      return status;
+    }
+    value.value = static_cast<int>(decoded);
+    return {};
   }
 };
 

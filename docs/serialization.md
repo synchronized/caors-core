@@ -835,6 +835,13 @@ codec 和 meta 类型系统的边界：
 - `serialization::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。它作为 serialization 模块静态能力接入 `meta::type` 能力查询链路，并通过
   `serialization::codec_capability` facade 对外查询。
+- `codec_ops::requirement` 描述执行读入前必须由 `serialization::context` 提供的外部条件。
+  `none` 不需要附加服务；`borrowed_storage` 需要稳定的借用存储；
+  `reference_resolver` 需要外部引用解析器。`caller_buffer` 和 `object_graph` 只允许由对应的专用
+  解码入口满足，通用反序列化入口不会隐式提供。
+- codec 特化可通过 `static constexpr decode_requirement requirement` 声明条件。调度层会在调用
+  `read` 前统一执行 `context::satisfies()` 预检；不满足时返回序列化域的 `unsupported`，不会进入
+  codec 实现。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
   并通过 `meta::type` 的静态能力 facade 暴露。
 - `any`、`any_ref` 和反射字段这类内部携带 `meta::type` 的路径会先查询该类型的 codec capability，

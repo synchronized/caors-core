@@ -32,6 +32,7 @@ template <typename T> struct codec_traits {
   static constexpr bool can_write = false;
   static constexpr bool can_read = false;
   static constexpr bool can_make_value = false;
+  static constexpr decode_requirement requirement = decode_requirement::none;
 };
 
 namespace detail {
@@ -340,6 +341,8 @@ public:
   [[nodiscard]] bool can_write() const noexcept;
   [[nodiscard]] bool can_read() const noexcept;
   [[nodiscard]] bool can_make_value() const noexcept;
+  /** @brief 返回解码该类型前需要满足的外部条件。 */
+  [[nodiscard]] decode_requirement requirement() const noexcept;
 };
 
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
@@ -479,6 +482,9 @@ template <typename Codec, typename T> struct codec_ops_model_from {
 
   [[nodiscard]] static codec_ops make() {
     codec_ops data{};
+    if constexpr (requires { Codec::requirement; }) {
+      data.requirement = Codec::requirement;
+    }
 
     if constexpr (Codec::can_write) {
       if constexpr (requires(const serialization::context& context, serialization::writer& writer,

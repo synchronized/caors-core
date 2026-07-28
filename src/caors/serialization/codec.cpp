@@ -29,6 +29,10 @@ bool codec_capability::can_make_value() const noexcept {
   return ops_ != nullptr && (ops_->make_value != nullptr || ops_->make_value_ref != nullptr);
 }
 
+decode_requirement codec_capability::requirement() const noexcept {
+  return ops_ != nullptr ? ops_->requirement : decode_requirement::none;
+}
+
 error codec_view::write(const serialization::context& context, writer& writer) const {
   const meta::detail::layer_call_guard guard{meta::detail::type_access::layer_of(raw_type())};
   if (!guard) {
@@ -63,6 +67,9 @@ error codec_view::read(const serialization::context& context, reader& reader) co
   }
   const codec_ops* operations = ops();
   if (!writable() || operations == nullptr || operations->read == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+  if (!context.satisfies(operations->requirement)) {
     return {error_domain::serialization, errc::unsupported};
   }
 

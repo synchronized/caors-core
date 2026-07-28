@@ -136,6 +136,46 @@ TEST_CASE("serialization - static codec handles erased values without registrati
   CHECK(caors::serialization::find_codec(caors::meta::resolve<static_codec_value>()));
 }
 
+TEST_CASE("serialization - codec validates decode requirements before dispatch",
+          "[serialization]") {
+  const caors::serialization::codec_capability capability =
+      caors::serialization::codec_of<borrowed_codec_value>();
+  REQUIRE(capability);
+  CHECK(capability.can_read());
+  CHECK(capability.requirement() == caors::serialization::decode_requirement::borrowed_storage);
+
+  borrowed_codec_value value{};
+  const caors::serialization::codec_view view = capability.bind(caors::any_ref::from(value));
+  REQUIRE(view);
+
+  caors::serialization::context missing_storage_context;
+  CHECK_FALSE(missing_storage_context.satisfies(
+      caors::serialization::decode_requirement::borrowed_storage));
+  caors::serialization::json_reader rejected_reader{"17"};
+  const caors::error rejected = view.read(missing_storage_context, rejected_reader);
+  CHECK(rejected == caors::error{caors::error_domain::serialization, caors::errc::unsupported});
+  CHECK(value.value == 0);
+
+  caors::serialization::string_storage storage;
+  caors::serialization::context context;
+  context.state.storage.string_view_storage = &storage;
+  CHECK(context.satisfies(caors::serialization::decode_requirement::borrowed_storage));
+  CHECK_FALSE(context.satisfies(caors::serialization::decode_requirement::caller_buffer));
+  CHECK_FALSE(context.satisfies(caors::serialization::decode_requirement::object_graph));
+
+  caors::serialization::json_reader accepted_reader{"17"};
+  REQUIRE(view.read(context, accepted_reader).succeeded());
+  CHECK(value.value == 17);
+
+  require_serializable_property_type<borrowed_codec_actor>(
+      "caors.test.serialization.borrowed_codec_actor", "value", &borrowed_codec_actor::value);
+
+  borrowed_codec_actor actor{};
+  CHECK(caors::read_json_from(actor, R"({"value":23})").value() == caors::errc::unsupported);
+  REQUIRE(caors::read_json_from(context, actor, R"({"value":23})").succeeded());
+  CHECK(actor.value.value == 23);
+}
+
 // 原测试文件：serialization_custom_codec_serialization_writer_features_validate_required_field_identifiers_test.cpp
 
 #include "serialization_custom_codec_test_support.h"
