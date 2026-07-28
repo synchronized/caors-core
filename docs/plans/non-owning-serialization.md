@@ -43,6 +43,7 @@
 - 写出时短暂 `lock()`，保证 resolver 读取对象身份期间目标仍然存活；
 - 读入时通过 `external_ref_resolver_ops` 解析对象；
 - 解析结果必须是仍绑定 `objects::ref<T>` 控制块的兼容对象，否则返回错误；
+- resolver 未命中、动态类型不匹配或对象没有引用控制块时，目标 weak ref 保持原值；
 - weak ref 不拥有未解析身份，因此首批不支持 `keep_unresolved`；
 - 空或已失效 weak ref 按空值写出。
 

@@ -483,7 +483,7 @@ public:
    * 对象不是由 `make_ref()` 创建、已经失效或没有绑定控制块时返回空弱引用。调用方必须保证读取对象
    * 控制块期间没有其他线程并发销毁该对象。
    */
-  [[nodiscard]] static weak_ref observe(T* instance) noexcept {
+  [[nodiscard]] static weak_ref try_observe(T* instance) noexcept {
     if (instance == nullptr) {
       return {};
     }

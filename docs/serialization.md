@@ -1083,6 +1083,8 @@ template <> struct codec_traits<custom_value> {
   需要持久化资源关系时应序列化 `resource_ref<T>` 或稳定 `resource_guid`。
 - `std::weak_ptr<T>` 默认不展开内部值。`objects::weak_ref<T>` 使用与 `objects::ptr<T>` 相同的
   external-ref 身份格式；写出期间会短暂提升为强引用，读回目标必须仍绑定 `objects::ref<T>` 控制块。
+  resolver 未命中、动态类型不匹配或对象没有控制块时返回错误并保留字段原值。resolver 返回的裸对象
+  在解析和建立弱引用期间必须保持存活，跨线程销毁由调用方与 resolver 自行同步。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
   字段存在回边或自环时应由调用方跳过对应字段，或改用显式引用类型。`context.config.limits.max_depth`
   会阻止无限展开，但不会把对象图转换为引用图；需要身份保持时使用 `caors::objects::ptr<T>`、

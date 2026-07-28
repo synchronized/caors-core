@@ -22,6 +22,13 @@ public:
   int value = 0;
 };
 
+class other_weak_object_ref_target : public caors::object_base<other_weak_object_ref_target>,
+                                     public caors::objects::ref_counted {
+public:
+  static constexpr std::string_view object_type_name =
+      "caors.test.serialization.other_weak_object_ref_target";
+};
+
 struct object_weak_ref_actor {
   caors::object_weak_ref<weak_object_ref_target> observer{};
 };
@@ -102,4 +109,54 @@ TEST_CASE("serialization - expired object weak refs serialize as null", "[serial
   object_weak_ref_actor decoded{};
   REQUIRE(caors::read_json_from(context, decoded, R"({"observer":0})").succeeded());
   CHECK(decoded.observer.expired());
+}
+
+TEST_CASE("serialization - object weak ref resolver failures preserve the existing reference",
+          "[serialization]") {
+  require_object_weak_ref_actor_metadata();
+
+  const caors::objects::ref<weak_object_ref_target> owner =
+      caors::objects::make_ref<weak_object_ref_target>();
+  object_weak_ref_actor actor{owner};
+
+  weak_object_ref_target unmanaged;
+  object_ptr_resolver_data unmanaged_data{caors::object_id{73}, &unmanaged};
+  const caors::objects::object_ref_resolver unmanaged_resolver =
+      make_test_object_ref_resolver(unmanaged_data);
+  caors::serialization::context unmanaged_context;
+  unmanaged_context.resolvers.external_refs.resolver = &unmanaged_resolver;
+
+  const caors::error unmanaged_result =
+      caors::read_json_from(unmanaged_context, actor, R"({"observer":73})");
+  CHECK(unmanaged_result ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_type});
+  REQUIRE(actor.observer.lock());
+  CHECK(actor.observer.lock().get() == owner.get());
+
+  const caors::objects::ref<other_weak_object_ref_target> other =
+      caors::objects::make_ref<other_weak_object_ref_target>();
+  object_ptr_resolver_data wrong_type_data{caors::object_id{74}, other.get()};
+  const caors::objects::object_ref_resolver wrong_type_resolver =
+      make_test_object_ref_resolver(wrong_type_data);
+  caors::serialization::context wrong_type_context;
+  wrong_type_context.resolvers.external_refs.resolver = &wrong_type_resolver;
+
+  const caors::error wrong_type_result =
+      caors::read_json_from(wrong_type_context, actor, R"({"observer":74})");
+  CHECK(wrong_type_result ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_type});
+  REQUIRE(actor.observer.lock());
+  CHECK(actor.observer.lock().get() == owner.get());
+
+  object_ptr_resolver_data missing_data{caors::object_id{75}, nullptr};
+  const caors::objects::object_ref_resolver missing_resolver =
+      make_test_object_ref_resolver(missing_data);
+  caors::serialization::context missing_context;
+  missing_context.resolvers.external_refs.resolver = &missing_resolver;
+
+  const caors::error missing_result =
+      caors::read_json_from(missing_context, actor, R"({"observer":75})");
+  CHECK(missing_result == caors::error{caors::error_domain::serialization, caors::errc::not_found});
+  REQUIRE(actor.observer.lock());
+  CHECK(actor.observer.lock().get() == owner.get());
 }

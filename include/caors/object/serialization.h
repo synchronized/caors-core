@@ -413,7 +413,7 @@ template <typename T>
     return {};
   }
 
-  objects::weak_ref<T> observed = objects::weak_ref<T>::observe(resolved.get());
+  objects::weak_ref<T> observed = objects::weak_ref<T>::try_observe(resolved.get());
   if (!observed) {
     return {error_domain::serialization, errc::invalid_type};
   }
