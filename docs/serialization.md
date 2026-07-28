@@ -1098,7 +1098,8 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_argument`。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回。
   调用方显式开启 `context.config.borrowed_views.allow_caller_buffer_write` 后，只允许写入长度完全一致的
-  `std::span<T>`；`std::span<const T>` 始终拒绝读回。
+  `std::span<T>`；所有元素会先读入暂存值，读取失败不会部分修改调用方缓冲区。
+  `std::span<const T>` 始终拒绝读回。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
   可以通过 `context.resolvers.construction`、`registration::type_<T>(name).meta().factory()` 或空参数
   `registration::type_<T>(name).meta().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。

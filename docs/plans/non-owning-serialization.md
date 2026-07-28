@@ -34,6 +34,7 @@
 - 只有显式启用 `context.config.borrowed_views.allow_caller_buffer_write` 才允许写入；
 - 首批只支持输入长度与目标 span 长度完全一致；
 - 长度不匹配时必须在写入任何元素前返回 `invalid_argument`；
+- 所有元素先解码到独立暂存值，读取任一元素失败时调用方缓冲区保持不变；
 - `std::span<const T>` 始终禁止读入。
 
 ## 外部引用解析

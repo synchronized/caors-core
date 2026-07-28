@@ -19,6 +19,71 @@ namespace caors::serialization::detail {
   return {error_domain::serialization, errc::invalid_type};
 }
 
+[[nodiscard]] error read_sequence_in_place(reader& reader, const meta::sequence_view& view,
+                                           const serialization::context& context) {
+  if (!view.valid() || !view.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  std::size_t size = 0;
+  error status = reader.begin_array(size);
+  if (status) {
+    return status;
+  }
+
+  const std::optional<std::size_t> target_size = view.size();
+  if (!target_size.has_value() || *target_size != size) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  vector<any> staged;
+  staged.reserve(size);
+  for (std::size_t index = 0; index < size; ++index) {
+    any_ref target = view.element_ref(index);
+    if (!target.valid() || !target.assignable()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    any decoded = target.to_any();
+    if (!decoded.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    status = reader.begin_element(index);
+    if (status) {
+      return status;
+    }
+
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
+    }
+
+    status = read_serialized_value(reader, decoded.ref(), nested_context);
+    if (status) {
+      return status;
+    }
+
+    status = reader.end_element();
+    if (status) {
+      return status;
+    }
+    staged.push_back(std::move(decoded));
+  }
+
+  status = reader.end_array();
+  if (status) {
+    return status;
+  }
+
+  for (std::size_t index = 0; index < size; ++index) {
+    if (!view.element_ref(index).try_set(staged[index])) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+  }
+  return {};
+}
+
 [[nodiscard]] error read_sequence_into_view(reader& reader, const meta::sequence_view& view,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
@@ -123,8 +188,11 @@ namespace caors::serialization::detail {
       !context.satisfies(serialization::decode_requirement::caller_buffer)) {
     return {error_domain::serialization, errc::unsupported};
   }
+  if (target_view.read_in_place()) {
+    return read_sequence_in_place(reader, target_view, context);
+  }
 
-  if (!target_view.read_in_place() && target.assignable()) {
+  if (target.assignable()) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_sequence_into_view(
