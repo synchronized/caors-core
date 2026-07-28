@@ -44,7 +44,9 @@ MessagePack map 必须在容器头中提前写入成员数量，而现有 `write
 ### 资源与限制
 
 - parser 接受 `std::span<const std::byte>` 和 `io::input_stream`；
-- DOM 和临时缓冲区使用调用方传入的 `memory_resource`；
+- DOM、返回 byte buffer 和目标对象使用调用方传入的结果资源；
+- parser/writer 暂存结构使用独立的作用域临时资源，具体设计见
+  [scoped-temporary-memory.md](scoped-temporary-memory.md)；
 - 解析深度、字符串长度、数组长度和 map 长度在分配前校验；
 - 首批复用 `context.config.limits.max_depth` 作为 typed read 的递归限制，并为独立 parser 提供格式层限制；
 - 所有多字节数值按 MessagePack 规定的大端字节序读写，不能依赖主机字节序；
@@ -128,7 +130,7 @@ template <typename T>
 
 - [ ] 接入 `io::input_stream` 和 `io::output_stream`；
 - [ ] 校验短读、短写和流错误传播；
-- [ ] 将 parser DOM、writer 暂存容器和返回 byte buffer 接入 `memory_resource`；
+- [ ] 将 parser DOM 和返回 byte buffer 接入结果资源，并将 parser/writer 暂存结构接入作用域临时资源；
 - [ ] 增加深度、字符串长度和容器长度限制测试。
 
 完成标准：流式入口行为明确，所有外部长度均在分配前受限。

@@ -13,6 +13,11 @@
 - [registry-query-fast-path.md](registry-query-fast-path.md)：基于不可变 snapshot/layer 的
   registry 查询无锁快路径和插件 layer 调用 guard 收敛计划。
 
+## Memory
+
+- [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
+  线程局部临时资源，以及 serialization 双资源接入计划。
+
 ## Meta
 
 - [detail-api-boundary-redesign.md](detail-api-boundary-redesign.md)：meta 内部 detail API
