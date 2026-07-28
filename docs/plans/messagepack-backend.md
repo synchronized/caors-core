@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 已完成，阶段 1 待实施；
+- 当前状态：阶段 0 已完成，阶段 1 进行中；
 - 目标：在不引入第三方库的前提下，为现有 serialization reader/writer 增加标准 MessagePack 后端；
 - 非目标：不设计 CAORS 私有二进制协议，不在首批实现 MessagePack Extension 类型或对象图格式。
 
@@ -65,6 +65,10 @@ public:
   void reset();
 };
 
+[[nodiscard]] io::byte_buffer_result
+encode_messagepack(const variant& value,
+                   memory_resource* resource = nullptr);
+
 [[nodiscard]] variant_result
 parse_messagepack(std::span<const std::byte> bytes,
                   messagepack_options options = {},
@@ -97,10 +101,12 @@ template <typename T>
 
 ### 阶段 1：基础 DOM 编解码
 
-- [ ] 增加 `messagepack_options`；
+- [x] 增加 `messagepack_options`；
+- [x] 实现 `variant` 到 MessagePack byte buffer 的基础 DOM 编码；
 - [ ] 实现 `messagepack_writer` 的 null、bool、整数、float64、字符串、数组、对象和字典编码；
-- [ ] 实现 byte span parser，解析为 `meta::variant`；
-- [ ] 覆盖最短整数编码、长度边界、大端字节序、截断输入、非法标记和尾随数据测试。
+- [x] 实现 byte span parser，解析为 `meta::variant`；
+- [x] 覆盖最短整数编码、大端字节序、截断输入、非法标记、解析限制和尾随数据测试；
+- [ ] 补齐字符串与容器各级长度标记边界测试。
 
 完成标准：MessagePack 官方兼容编码可以与 `variant` 双向转换，错误输入不产生成功结果。
 
