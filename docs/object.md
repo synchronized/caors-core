@@ -273,8 +273,10 @@ if (player* current = manager.find(typed)) {
 `reset()` 时维护计数；最后一个强引用释放时，会按创建时传入的 `memory_resource` 销毁对象。
 弱引用使用 `objects::weak_ref<T>` 表达，它不延长对象生命周期；对象仍存活时可以通过 `lock()`
 尝试提升为强引用，对象销毁后 `lock()` 返回空强引用。
-`objects::weak_ref<T>` 不作为普通属性序列化；需要保存弱关系时应使用 `objects::handle`、资源 id
-或上层对象数据库可解析的身份。
+`objects::weak_ref<T>` 不按普通 inline value 展开对象本体，而是通过序列化 context 的
+external-ref resolver 写出和恢复 `object_id` 或 `object_guid`。读回目标必须仍由
+`objects::ref<T>` 控制块管理；resolver 未命中、类型不匹配或对象没有控制块时返回错误并保留原弱引用。
+不具备稳定外部身份的关系应改用 `objects::handle`、资源 id 或上层对象数据库可解析的身份。
 
 `objects::ref<Derived>` 可以隐式转换为 `objects::ref<Base>`，`objects::weak_ref<Derived>`
 也可以转换为 `objects::weak_ref<Base>`。转换只在 `Derived*` 可安全转换为 `Base*` 时启用，引用计数

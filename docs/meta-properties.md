@@ -289,7 +289,9 @@ struct sequence_traits<my_sequence<T>> {
 内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
 `std::forward_list<T>`、`std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
-类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`，默认只用于反射访问和序列化写出。
+类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`。两者默认只用于
+反射访问和序列化写出；调用方在序列化 context 中显式允许缓冲区写入后，可将等长数组事务式读入可写 span，
+任一元素失败时保持原缓冲区不变。`std::span<const T>` 始终禁止读回。
 
 集合容器识别通过 `traits::set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
 反序列化时遇到重复元素会返回失败：

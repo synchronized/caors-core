@@ -377,7 +377,8 @@ caors::error status = caors::read_json_from(context, holder, json);
   `errc::invalid_field`。
 - 需要序列化层创建新对象但没有可用构造策略、factory、constructor 或默认构造能力时返回
   `errc::invalid_type`。
-- 借用视图、弱引用和当前刻意禁止的类型形态返回 `errc::unsupported`。
+- 借用视图缺少所需 storage / 调用方缓冲区策略、弱引用缺少 resolver，以及当前刻意禁止的类型形态
+  返回 `errc::unsupported`；已提供对应 context 条件后，支持的非拥有类型按各自策略读回。
 
 当前不支持：
 
