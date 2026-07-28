@@ -40,7 +40,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 - 内置二进制格式。
 - 完整版本迁移、字段删除转换和未知字段按对象树位置保留。
-- 多层指针、多层 wrapper 和完整对象图身份保持。
+- 完整对象图身份保持。
 - 自动把任意裸指针或非拥有 wrapper 字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
 
@@ -167,8 +167,8 @@ caors::read_json_from(context, object, text);
 `context.config.limits.max_depth` 限制对象字段、容器元素、指针和 wrapper 内部值的递归展开深度，
 默认值为 `64`。超过限制时返回 `errc::recursion_limit`；设置为 `0` 表示关闭该保护。
 这个限制只是防止意外无限递归的安全网，不提供对象图身份追踪、共享实例去重或循环引用恢复。
-当前测试覆盖裸指针自环、指针读入深链和拥有型 wrapper 自环；多层 pointer / wrapper 展开策略
-仍按路线图继续收敛。
+当前测试覆盖裸指针自环、指针读入深链、拥有型 wrapper 自环和多层 pointer / wrapper
+逐层展开路径。
 
 ### 运行期构造策略
 
@@ -1007,6 +1007,9 @@ template <> struct codec_traits<custom_value> {
 - 裸指针、`std::reference_wrapper<T>` 和普通 inline wrapper 都按借用值递归处理。字段形成父指针、
   双向链表、自环或共享对象图时，调用方应跳过反向字段或改用显式引用；`context.config.limits.max_depth`
   只负责在递归过深时返回 `errc::recursion_limit`。
+- 多层组合会逐层通过 `indirect_view` 展开，例如 `std::optional<std::optional<T>>` 和
+  `std::shared_ptr<std::optional<T>>` 会最终读写内部 `T`。遇到空中间层时，拥有型 wrapper 和
+  `optional` 会按当前构造策略创建下一层；裸指针仍要求目标已经指向有效对象。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
   当前不作为普通 value 序列化或反序列化。
 - `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
@@ -1071,8 +1074,9 @@ template <> struct codec_traits<custom_value> {
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 `meta::type` 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
   GUID、多态构造或对象工厂，仍应作为业务类型显式注册。
-- 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
-  `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
+- 多层指针 / wrapper 组合按每一层 `indirect_view` 递归展开，受
+  `context.config.limits.max_depth` 保护。空裸指针、不可写引用 wrapper、弱引用或所有权不明确的中间层仍会返回
+  `errc::invalid_field` 或 `errc::unsupported`，不会隐式分配 backing storage 或决定弱引用语义。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回
   `errc::invalid_argument`。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，

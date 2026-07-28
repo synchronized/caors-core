@@ -301,6 +301,62 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
   CHECK(level->value.as_i64() == 2);
 }
 
+TEST_CASE("serialization - expands nested inline wrapper values", "[serialization]") {
+  require_multi_wrapper_actor_metadata();
+
+  multi_wrapper_actor actor{};
+  actor.nested_optional.emplace(std::optional<int>{12});
+  actor.shared_optional = std::make_shared<std::optional<int>>(34);
+
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"nested_optional":12,"shared_optional":34})");
+
+  const caors::serialization::variant_result value = caors::to_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::meta::variant_member* nested =
+      value.value.find_member(caors::string_name{"nested_optional"});
+  const caors::meta::variant_member* shared =
+      value.value.find_member(caors::string_name{"shared_optional"});
+  REQUIRE(nested != nullptr);
+  REQUIRE(shared != nullptr);
+  CHECK(nested->value.as_i64() == 12);
+  CHECK(shared->value.as_i64() == 34);
+}
+
+TEST_CASE("serialization - deserializes nested inline wrapper values", "[serialization]") {
+  require_multi_wrapper_actor_metadata();
+
+  multi_wrapper_actor actor{};
+
+  const caors::error result =
+      caors::read_json_from(actor, R"({"nested_optional":56,"shared_optional":78})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.nested_optional.has_value());
+  REQUIRE(actor.nested_optional->has_value());
+  CHECK(**actor.nested_optional == 56);
+  REQUIRE(actor.shared_optional != nullptr);
+  REQUIRE(actor.shared_optional->has_value());
+  CHECK(**actor.shared_optional == 78);
+}
+
+TEST_CASE("serialization - resets outer nested inline wrappers from null", "[serialization]") {
+  require_multi_wrapper_actor_metadata();
+
+  multi_wrapper_actor actor{};
+  actor.nested_optional.emplace(std::optional<int>{12});
+  actor.shared_optional = std::make_shared<std::optional<int>>(34);
+
+  const caors::error result =
+      caors::read_json_from(actor, R"({"nested_optional":null,"shared_optional":null})");
+
+  REQUIRE(result.succeeded());
+  CHECK_FALSE(actor.nested_optional.has_value());
+  CHECK(actor.shared_optional == nullptr);
+}
+
 TEST_CASE("serialization - stops raw pointer inline recursion at configured depth",
           "[serialization]") {
   require_recursive_node_metadata();

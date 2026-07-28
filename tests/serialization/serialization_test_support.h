@@ -222,6 +222,11 @@ struct pointer_actor {
   nested_stats* stats = nullptr;
 };
 
+struct multi_wrapper_actor {
+  std::optional<std::optional<int>> nested_optional{};
+  std::shared_ptr<std::optional<int>> shared_optional{};
+};
+
 struct recursive_node {
   int value = 0;
   recursive_node* next = nullptr;
@@ -417,6 +422,17 @@ inline void require_pointer_actor_metadata() {
           .property("stats", &pointer_actor::stats)
           .serialization()
           .commit()));
+}
+
+inline void require_multi_wrapper_actor_metadata() {
+  REQUIRE(
+      registration_result_ok(caors::registration::type_<multi_wrapper_actor>(
+                                 "caors.test.serialization.multi_wrapper_actor")
+                                 .meta()
+                                 .property("nested_optional", &multi_wrapper_actor::nested_optional)
+                                 .property("shared_optional", &multi_wrapper_actor::shared_optional)
+                                 .serialization()
+                                 .commit()));
 }
 
 inline void require_recursive_node_metadata() {

@@ -31,9 +31,6 @@ template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_cv_t<std::remove_pointer_t<type>>;
 
-    static_assert(!meta::is_nested_type_indirection_v<value_type>,
-                  "CAORS value supports at most one pointer or wrapper level");
-
     result.kind = type_kind::raw_pointer;
     result.wrapper = meta::wrapper_semantics::inline_value;
     result.value_type = static_type_relation<value_type>();
@@ -62,9 +59,6 @@ template <typename T> [[nodiscard]] type_semantics static_type_semantics() {
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
     using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
     using value_type = std::remove_cv_t<wrapped_type>;
-
-    static_assert(!meta::is_nested_type_indirection_v<value_type>,
-                  "CAORS value supports at most one pointer or wrapper level");
 
     result.kind = type_kind::wrapper;
     result.wrapper = traits::wrapper_traits<type>::semantics;

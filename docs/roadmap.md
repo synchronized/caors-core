@@ -349,7 +349,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `serialization::apply_config_defaults()` 显式应用 schema 默认值；旧 metadata 键仅作为兼容输入保留。
 - [x] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
   `optional` 的按值存储语义。
-- [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect `meta::type` 展开；默认设置合理最大深度，
+- [x] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect `meta::type` 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [x] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
   读入能力；DOM/JSON reader 通过内置 hook 接入，自定义 reader 可不暴露 `current_variant()`。
