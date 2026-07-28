@@ -6,6 +6,7 @@
 
 #include "caors/io/file_system.h"
 #include "caors/meta/object.h"
+#include "caors/meta/property.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/object.h"
@@ -147,9 +148,201 @@ schema_member_matches_field(const meta::variant_member& member,
   return false;
 }
 
+[[nodiscard]] inline const serialization::field_schema*
+find_schema_member_field(const serialization::type_schema& schema,
+                         const meta::variant_member& member) noexcept {
+  for (const serialization::field_schema& field : schema.fields) {
+    if (schema_member_matches_field(member, field)) {
+      return &field;
+    }
+  }
+
+  return nullptr;
+}
+
+[[nodiscard]] inline schema_path append_schema_member_path(const schema_path& path,
+                                                           const meta::variant_member& member) {
+  schema_path nested = path;
+  nested.push_back(schema_path_segment{
+      schema_path_segment_kind::member,
+      member.name,
+      member.field_id,
+      0,
+  });
+  return nested;
+}
+
+[[nodiscard]] inline schema_path append_schema_index_path(const schema_path& path,
+                                                          schema_path_segment_kind kind,
+                                                          std::size_t index) {
+  schema_path nested = path;
+  nested.push_back(schema_path_segment{
+      kind,
+      {},
+      0,
+      index,
+  });
+  return nested;
+}
+
+[[nodiscard]] inline meta::type schema_unwrap_inline_indirect_type(meta::type type) {
+  for (std::uint32_t depth = 0; type && depth < 64; ++depth) {
+    const meta::type_kind kind = type.kind();
+    if ((kind != meta::type_kind::raw_pointer && kind != meta::type_kind::wrapper) ||
+        type.wrapper() != meta::wrapper_semantics::inline_value) {
+      break;
+    }
+
+    type = type.get_value_type();
+  }
+
+  return type;
+}
+
+[[nodiscard]] inline meta::type schema_field_type(const meta::type& owner_type,
+                                                  const serialization::field_schema& field) {
+  const meta::property property =
+      owner_type.find_property(field.field_name, meta::member_search::include_bases);
+  return property ? property.get_type() : meta::type{};
+}
+
+[[nodiscard]] inline error schema_check_path_depth(const serialization::context& context,
+                                                   const schema_path& path) noexcept {
+  return context.config.limits.max_depth != 0 && path.size() >= context.config.limits.max_depth
+             ? error{error_domain::serialization, errc::recursion_limit}
+             : error{};
+}
+
+[[nodiscard]] inline error apply_schema_migration_tree(const serialization::context& context,
+                                                       const meta::type& type, variant& value,
+                                                       const schema_path& path);
+
+[[nodiscard]] inline error apply_unknown_field_policy_tree(const serialization::context& context,
+                                                           const meta::type& type,
+                                                           const variant& value,
+                                                           const schema_path& path);
+
+[[nodiscard]] inline error
+apply_schema_migration_to_nested_value(const serialization::context& context, meta::type value_type,
+                                       variant& value, const schema_path& path) {
+  if (const error status = schema_check_path_depth(context, path); status) {
+    return status;
+  }
+
+  value_type = schema_unwrap_inline_indirect_type(value_type);
+  if (value_type.kind() == meta::type_kind::sequence || value_type.kind() == meta::type_kind::set) {
+    const meta::type element_type = schema_unwrap_inline_indirect_type(value_type.get_value_type());
+    variant::array_type* elements = value.try_mutable_array();
+    if (elements == nullptr || !serialization::contains(element_type)) {
+      return {};
+    }
+
+    for (std::size_t index = 0; index < elements->size(); ++index) {
+      schema_path element_path =
+          append_schema_index_path(path, schema_path_segment_kind::element, index);
+      if (const error status =
+              apply_schema_migration_tree(context, element_type, (*elements)[index], element_path);
+          status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  if (value_type.kind() == meta::type_kind::associative) {
+    const meta::type mapped_type = schema_unwrap_inline_indirect_type(value_type.get_value_type());
+    variant::dictionary_type* entries = value.try_mutable_dictionary();
+    if (entries == nullptr || !serialization::contains(mapped_type)) {
+      return {};
+    }
+
+    for (std::size_t index = 0; index < entries->size(); ++index) {
+      schema_path mapped_path =
+          append_schema_index_path(path, schema_path_segment_kind::dictionary_value, index);
+      if (const error status = apply_schema_migration_tree(context, mapped_type,
+                                                           (*entries)[index].value, mapped_path);
+          status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  if (!value.is_object() || !serialization::contains(value_type)) {
+    return {};
+  }
+
+  return apply_schema_migration_tree(context, value_type, value, path);
+}
+
+[[nodiscard]] inline error
+apply_unknown_field_policy_to_nested_value(const serialization::context& context,
+                                           meta::type value_type, const variant& value,
+                                           const schema_path& path) {
+  if (const error status = schema_check_path_depth(context, path); status) {
+    return status;
+  }
+
+  value_type = schema_unwrap_inline_indirect_type(value_type);
+  if (value_type.kind() == meta::type_kind::sequence || value_type.kind() == meta::type_kind::set) {
+    const meta::type element_type = schema_unwrap_inline_indirect_type(value_type.get_value_type());
+    const variant::array_type* elements = value.try_as_array();
+    if (elements == nullptr || !serialization::contains(element_type)) {
+      return {};
+    }
+
+    for (std::size_t index = 0; index < elements->size(); ++index) {
+      schema_path element_path =
+          append_schema_index_path(path, schema_path_segment_kind::element, index);
+      if (const error status = apply_unknown_field_policy_tree(context, element_type,
+                                                               (*elements)[index], element_path);
+          status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  if (value_type.kind() == meta::type_kind::associative) {
+    const meta::type mapped_type = schema_unwrap_inline_indirect_type(value_type.get_value_type());
+    const variant::dictionary_type* entries = value.try_as_dictionary();
+    if (entries == nullptr || !serialization::contains(mapped_type)) {
+      return {};
+    }
+
+    for (std::size_t index = 0; index < entries->size(); ++index) {
+      schema_path mapped_path =
+          append_schema_index_path(path, schema_path_segment_kind::dictionary_value, index);
+      if (const error status = apply_unknown_field_policy_tree(
+              context, mapped_type, (*entries)[index].value, mapped_path);
+          status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  if (!value.is_object() || !serialization::contains(value_type)) {
+    return {};
+  }
+
+  return apply_unknown_field_policy_tree(context, value_type, value, path);
+}
+
 [[nodiscard]] inline error apply_unknown_field_policy(const serialization::context& context,
                                                       const meta::type& type,
                                                       const variant& value) {
+  return apply_unknown_field_policy_tree(context, type, value, schema_path{});
+}
+
+[[nodiscard]] inline error apply_unknown_field_policy_tree(const serialization::context& context,
+                                                           const meta::type& type,
+                                                           const variant& value,
+                                                           const schema_path& path) {
   if (context.config.schema.unknown_fields == unknown_field_policy::ignore || !value.is_object()) {
     return {};
   }
@@ -166,7 +359,15 @@ schema_member_matches_field(const meta::variant_member& member,
   }
 
   for (const meta::variant_member& member : value.as_object()) {
-    if (schema_member_is_known(*schema, member)) {
+    const serialization::field_schema* field = find_schema_member_field(*schema, member);
+    if (field != nullptr) {
+      const meta::type field_type = schema_field_type(type, *field);
+      schema_path nested_path = append_schema_member_path(path, member);
+      if (const error status = apply_unknown_field_policy_to_nested_value(
+              context, field_type, member.value, nested_path);
+          status) {
+        return status;
+      }
       continue;
     }
 
@@ -176,6 +377,13 @@ schema_member_matches_field(const meta::variant_member& member,
     case unknown_field_policy::preserve:
       if (context.state.schema.preserved_unknown_fields != nullptr) {
         context.state.schema.preserved_unknown_fields->push_back(member);
+      }
+      if (context.state.schema.preserved_unknown_field_entries != nullptr) {
+        context.state.schema.preserved_unknown_field_entries->push_back(preserved_unknown_field{
+            path,
+            type,
+            member,
+        });
       }
       break;
     case unknown_field_policy::reject:
@@ -188,17 +396,55 @@ schema_member_matches_field(const meta::variant_member& member,
 
 [[nodiscard]] inline error apply_schema_migration(const serialization::context& context,
                                                   const meta::type& type, variant& value) {
+  return apply_schema_migration_tree(context, type, value, schema_path{});
+}
+
+[[nodiscard]] inline error apply_schema_migration_tree(const serialization::context& context,
+                                                       const meta::type& type, variant& value,
+                                                       const schema_path& path) {
   const serialization::schema_migration_ops* migration = context.effective_schema_migration();
-  if (migration == nullptr || !migration->valid()) {
+  if (migration == nullptr || !migration->valid() || !value.is_object()) {
     return {};
   }
 
   const serialization::schema_migration_request request{
       type,
+      &path,
       context.effective_schema_source_version(),
       context.effective_schema_version(),
   };
-  return (*migration)(request, value);
+  if (const error status = (*migration)(request, value); status) {
+    return status;
+  }
+
+  const serialization::schema_view schema_view =
+      type.get_capability<serialization::schema_capability>();
+  const serialization::type_schema* schema = schema_view.raw();
+  if (schema == nullptr || !schema_view.valid()) {
+    return {};
+  }
+
+  variant::object_type* members = value.try_mutable_object();
+  if (members == nullptr) {
+    return {};
+  }
+
+  for (meta::variant_member& member : *members) {
+    const serialization::field_schema* field = find_schema_member_field(*schema, member);
+    if (field == nullptr) {
+      continue;
+    }
+
+    const meta::type field_type = schema_field_type(type, *field);
+    schema_path nested_path = append_schema_member_path(path, member);
+    if (const error status =
+            apply_schema_migration_to_nested_value(context, field_type, member.value, nested_path);
+        status) {
+      return status;
+    }
+  }
+
+  return {};
 }
 
 template <typename T>

@@ -554,8 +554,14 @@ caors::error status = caors::read_value_from(instance, *value);
 
 - `unknown_field_policy::ignore`：默认行为，忽略目标类型 schema 未声明的 DOM 成员。
 - `unknown_field_policy::preserve`：把未知成员复制到
-  `context.state.schema.preserved_unknown_fields` 指向的列表；未提供列表时等价于忽略。
+  `context.state.schema.preserved_unknown_fields` 指向的兼容列表；如果提供
+  `context.state.schema.preserved_unknown_field_entries`，还会记录未知字段所在对象路径、目标 owner type
+  和未知 member 本身。两个列表都未提供时等价于忽略。
 - `unknown_field_policy::reject`：遇到未知成员立即返回 `errc::invalid_field`。
+
+未知字段策略会递归检查已注册 schema 的嵌套对象、顺序容器、集合容器和关联容器 mapped value。
+路径中的 `member` 片段表示对象字段，`element` 表示数组元素，`dictionary_value` 表示字典条目的 value；
+弱引用、对象指针和未注册数据仍按各自边界处理，不隐式展开。
 
 字段重命名的第一版策略是给字段配置 `legacy_serialized_name` 或 `legacy_field_id`。读入时接受旧字段，
 写出时只输出当前字段名和当前字段 id。属性级通用 schema 默认值可通过
@@ -570,6 +576,7 @@ caors::serialization::schema_migration_ops migration{
        caors::variant& value,
        void* user_data) -> caors::error {
       // 根据 request.type / source_version / target_version 改写 value。
+      // request.path 指向当前正在迁移的对象路径；根对象为空。
       return {};
     }};
 
@@ -582,9 +589,9 @@ context.config.schema.unknown_fields = caors::serialization::unknown_field_polic
 caors::read_value_from(context, object, value);
 ```
 
-迁移函数只在 DOM 路径生效。`read_json_from(text)` 默认仍走直接 JSON reader；当启用 migration、
-缺失字段宽松策略或未知字段保留/严格拒绝时，会先解析为 DOM，再应用迁移、缺失字段和未知字段策略。
-未知字段按对象树位置保留、跨对象统一迁移调度和更完整的字段删除转换仍放在路线图中。
+迁移函数只在 DOM 路径生效，并会按已注册 schema 的对象树递归调度：根对象先迁移，然后进入已知字段中的
+嵌套对象、容器元素和关联容器 mapped value。`read_json_from(text)` 默认仍走直接 JSON reader；当启用
+migration、缺失字段宽松策略或未知字段保留/严格拒绝时，会先解析为 DOM，再应用迁移、缺失字段和未知字段策略。
 
 ### JSON
 

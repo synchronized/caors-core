@@ -29,6 +29,17 @@ struct schema_policy_actor {
   int score = 0;
 };
 
+struct schema_policy_child {
+  int id = 0;
+  int score = 0;
+};
+
+struct schema_policy_parent {
+  int id = 0;
+  schema_policy_child child{};
+  caors::vector<schema_policy_child> children{};
+};
+
 struct schema_default_actor {
   caors::string format{};
   int priority = 0;
@@ -69,6 +80,33 @@ void require_schema_policy_actor_metadata() {
                                      .property("score", &schema_policy_actor::score)
                                      .serialization()
                                      .fields({id, score})
+                                     .commit()));
+}
+
+void require_schema_policy_parent_metadata() {
+  caors::serialization::field_options child_id = caors::serialization::make_field("id");
+  child_id.field_id = 1;
+  caors::serialization::field_options child_score = caors::serialization::make_field("score");
+  child_score.field_id = 7;
+  child_score.legacy_serialized_name = caors::string_name{"points"};
+  child_score.legacy_field_id = 3;
+
+  REQUIRE(registration_result_ok(caors::registration::type_<schema_policy_child>(
+                                     "caors.test.serialization.schema_policy_child")
+                                     .meta()
+                                     .property("id", &schema_policy_child::id)
+                                     .property("score", &schema_policy_child::score)
+                                     .serialization()
+                                     .fields({child_id, child_score})
+                                     .commit()));
+
+  REQUIRE(registration_result_ok(caors::registration::type_<schema_policy_parent>(
+                                     "caors.test.serialization.schema_policy_parent")
+                                     .meta()
+                                     .property("id", &schema_policy_parent::id)
+                                     .property("child", &schema_policy_parent::child)
+                                     .property("children", &schema_policy_parent::children)
+                                     .serialization()
                                      .commit()));
 }
 
@@ -731,6 +769,118 @@ TEST_CASE("serialization - schema policies support legacy fields and unknown mem
   CHECK(preserved_unknown_fields.front().name == caors::string_name{"extra"});
 }
 
+TEST_CASE("serialization - schema unknown field preservation records nested paths",
+          "[serialization]") {
+  require_schema_policy_parent_metadata();
+
+  caors::variant::object_type child_members;
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      1,
+      caors::variant::from(std::int64_t{2}),
+  });
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"extra_child"},
+      0,
+      caors::variant::from(std::int64_t{20}),
+  });
+
+  caors::variant::object_type array_child_members;
+  array_child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      1,
+      caors::variant::from(std::int64_t{3}),
+  });
+  array_child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"extra_array"},
+      0,
+      caors::variant::from(std::int64_t{30}),
+  });
+
+  caors::variant::array_type children;
+  children.push_back(caors::variant::object(std::move(array_child_members)));
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{1}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"child"},
+      0,
+      caors::variant::object(std::move(child_members)),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"children"},
+      0,
+      caors::variant::array(std::move(children)),
+  });
+
+  schema_policy_parent actor{};
+  caors::vector<caors::serialization::preserved_unknown_field> preserved_entries;
+  caors::serialization::context context{};
+  context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::preserve;
+  context.state.schema.preserved_unknown_field_entries = &preserved_entries;
+
+  REQUIRE(caors::read_value_from(context, actor, caors::variant::object(std::move(members)))
+              .succeeded());
+
+  CHECK(actor.id == 1);
+  CHECK(actor.child.id == 2);
+  REQUIRE(actor.children.size() == 1U);
+  CHECK(actor.children.front().id == 3);
+  REQUIRE(preserved_entries.size() == 2U);
+
+  CHECK(preserved_entries[0].path.size() == 1U);
+  CHECK(preserved_entries[0].path[0].kind ==
+        caors::serialization::schema_path_segment_kind::member);
+  CHECK(preserved_entries[0].path[0].name == caors::string_name{"child"});
+  CHECK(preserved_entries[0].member.name == caors::string_name{"extra_child"});
+
+  CHECK(preserved_entries[1].path.size() == 2U);
+  CHECK(preserved_entries[1].path[0].name == caors::string_name{"children"});
+  CHECK(preserved_entries[1].path[1].kind ==
+        caors::serialization::schema_path_segment_kind::element);
+  CHECK(preserved_entries[1].path[1].index == 0U);
+  CHECK(preserved_entries[1].member.name == caors::string_name{"extra_array"});
+}
+
+TEST_CASE("serialization - schema unknown field rejection checks nested objects",
+          "[serialization]") {
+  require_schema_policy_parent_metadata();
+
+  caors::variant::object_type child_members;
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"extra_child"},
+      0,
+      caors::variant::from(std::int64_t{20}),
+  });
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{1}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"child"},
+      0,
+      caors::variant::object(std::move(child_members)),
+  });
+
+  schema_policy_parent actor{};
+  caors::serialization::context context{};
+  context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+
+  const caors::error result =
+      caors::read_value_from(context, actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_field);
+}
+
 TEST_CASE("serialization - json reader accepts legacy field names", "[serialization]") {
   require_schema_policy_actor_metadata();
 
@@ -789,6 +939,61 @@ TEST_CASE("serialization - schema migration can rewrite DOM before strict unknow
   REQUIRE(result.succeeded());
   CHECK(actor.id == 9);
   CHECK(actor.score == 77);
+}
+
+TEST_CASE("serialization - schema migration is dispatched for nested object values",
+          "[serialization]") {
+  require_schema_policy_parent_metadata();
+
+  caors::variant::object_type child_members;
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      1,
+      caors::variant::from(std::int64_t{2}),
+  });
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"legacy_score"},
+      0,
+      caors::variant::from(std::int64_t{88}),
+  });
+  child_members.push_back(caors::meta::variant_member{
+      caors::string_name{"removed"},
+      0,
+      caors::variant::from(std::int64_t{123}),
+  });
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{1}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"child"},
+      0,
+      caors::variant::object(std::move(child_members)),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"children"},
+      0,
+      caors::variant::array({}),
+  });
+
+  caors::serialization::schema_migration_ops migration{&migrate_schema_policy_actor};
+  caors::serialization::context context{};
+  context.config.fields.schema_version = 2;
+  context.config.schema.source_version = 1;
+  context.config.schema.migration = &migration;
+  context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+
+  schema_policy_parent actor{};
+  const caors::error result =
+      caors::read_value_from(context, actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 1);
+  CHECK(actor.child.id == 2);
+  CHECK(actor.child.score == 88);
 }
 
 TEST_CASE("serialization - json text can keep existing values for missing auto schema fields",

@@ -153,10 +153,45 @@ enum class missing_field_policy {
   apply_default,
 };
 
+/** @brief schema DOM 路径片段类型。 */
+enum class schema_path_segment_kind {
+  /** @brief 对象成员。 */
+  member,
+  /** @brief 数组元素。 */
+  element,
+  /** @brief 字典条目的 key。 */
+  dictionary_key,
+  /** @brief 字典条目的 value。 */
+  dictionary_value,
+};
+
+/** @brief schema DOM 路径片段，用于定位迁移或未知字段所在对象。 */
+struct schema_path_segment {
+  schema_path_segment_kind kind = schema_path_segment_kind::member;
+  string_name name{};
+  std::uint32_t field_id = 0;
+  std::size_t index = 0;
+};
+
+/** @brief schema DOM 路径。 */
+using schema_path = vector<schema_path_segment>;
+
+/** @brief 带路径的未知字段保留条目。 */
+struct preserved_unknown_field {
+  /** @brief 未知字段所在对象的路径；根对象为空。 */
+  schema_path path{};
+  /** @brief 未知字段所在对象的目标类型。 */
+  meta::type owner_type{};
+  /** @brief 未知成员本身。 */
+  meta::variant_member member{};
+};
+
 /** @brief schema 迁移函数收到的上下文信息。 */
 struct schema_migration_request {
   /** @brief 目标 C++ 类型。 */
   meta::type type{};
+  /** @brief 当前正在迁移的 DOM 对象路径；根对象为空。 */
+  const schema_path* path = nullptr;
   /** @brief 输入数据声明的 schema version；0 表示调用方未声明。 */
   std::uint32_t source_version = 0;
   /** @brief 本次读入希望使用的目标 schema version；0 表示不启用版本过滤。 */
@@ -263,7 +298,10 @@ struct storage_options {
 
 /** @brief schema 策略读入阶段可写入的外部状态。 */
 struct schema_state {
+  /** @brief 兼容旧接口：只保存未知成员本身，不保存路径。 */
   variant::object_type* preserved_unknown_fields = nullptr;
+  /** @brief 保存带路径的未知字段条目。 */
+  vector<preserved_unknown_field>* preserved_unknown_field_entries = nullptr;
 };
 
 /** @brief 单次序列化调度的策略配置。 */

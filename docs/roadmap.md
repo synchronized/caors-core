@@ -357,7 +357,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 schema migration hook，支持在 DOM 反序列化前按源版本、目标版本和目标类型改写输入数据。
 - [x] 支持显式序列化字段缺失时从 `meta::property_schema::default_value` 恢复默认值。
 - [x] 增加缺失字段策略，允许 typed config 等配置读入路径采用“保留已有默认值后局部覆盖”的语义。
-- [ ] 扩展未知字段按对象树位置保留、跨对象迁移调度和更完整的字段删除转换策略。
+- [x] 扩展未知字段按对象树位置保留、跨对象迁移调度和更完整的字段删除转换策略。
 - [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
   提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
