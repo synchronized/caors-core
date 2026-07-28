@@ -200,6 +200,38 @@ struct string_parse_conversion_actor {
   }
 };
 
+enum class string_parse_state {
+  idle = 1,
+  running = 2,
+};
+
+struct string_parse_extended_actor {
+  caors::core::string_name label{};
+  caors::guid guid{};
+  caors::type_guid type{};
+  string_parse_state state = string_parse_state::idle;
+
+  int take_label(caors::core::string_name input) {
+    label = input;
+    return label == caors::core::string_name{"runtime.label"} ? 1 : 0;
+  }
+
+  int take_guid(caors::guid input) {
+    guid = input;
+    return guid ? 1 : 0;
+  }
+
+  int take_type_guid(caors::type_guid input) {
+    type = input;
+    return type ? 1 : 0;
+  }
+
+  int take_state(string_parse_state input) {
+    state = input;
+    return input == string_parse_state::running ? 2 : 1;
+  }
+};
+
 struct string_parse_ambiguous_actor {
   int select(int input) { return input; }
   int select(bool input) { return input ? 1 : 0; }

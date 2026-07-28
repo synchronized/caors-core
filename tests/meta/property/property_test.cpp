@@ -343,6 +343,18 @@ struct property_conversion_actor {
   double scale = 0.0;
 };
 
+enum class property_conversion_state {
+  idle = 1,
+  running = 2,
+};
+
+struct property_conversion_extended_actor {
+  caors::core::string_name label{};
+  caors::guid guid{};
+  caors::type_guid type{};
+  property_conversion_state state = property_conversion_state::idle;
+};
+
 struct serialized_alias_property_actor {
   int value = 0;
 };
@@ -444,6 +456,54 @@ TEST_CASE("meta - property value write keeps accessor write access explicit", "[
   const failing_setter_property_actor& readonly = instance;
   CHECK_FALSE(value.try_set_value(caors::meta::view_const(readonly), caors::meta::value{9}));
   CHECK(instance.value == 3);
+}
+
+TEST_CASE("meta - property value write string parse supports named scalars and enum", "[meta]") {
+  auto enum_builder = caors::registration::enum_<property_conversion_state>(
+      "caors.test.meta.property_conversion_state");
+  enum_builder.value("idle", property_conversion_state::idle)
+      .value("running", property_conversion_state::running);
+  const caors::error enum_result = enum_builder.commit();
+  REQUIRE((enum_result == caors::error{} || enum_result == meta_error(caors::errc::duplicate_id)));
+
+  REQUIRE(caors::registration::type_<property_conversion_extended_actor>(
+              "caors.test.meta.property_conversion_extended_actor")
+              .meta()
+              .property("label", &property_conversion_extended_actor::label)
+              .property("guid", &property_conversion_extended_actor::guid)
+              .property("type", &property_conversion_extended_actor::type)
+              .property("state", &property_conversion_extended_actor::state)
+              .commit() == caors::error{});
+
+  const caors::meta::type reflected =
+      require_reflected("caors.test.meta.property_conversion_extended_actor");
+  property_conversion_extended_actor instance{};
+  const caors::meta::instance object = caors::meta::view(instance);
+
+  caors::meta::property_write_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+  CHECK(object.set("label", caors::meta::value{caors::core::string{"runtime.label"}}, options));
+  CHECK(instance.label == "runtime.label");
+
+  CHECK(object.set("guid",
+                   caors::meta::value{caors::core::string{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"}},
+                   options));
+  CHECK(instance.guid.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+
+  CHECK(object.set("type",
+                   caors::meta::value{caors::core::string{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"}},
+                   options));
+  CHECK(instance.type.value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+
+  CHECK(object.set("state", caors::meta::value{caors::core::string{"running"}}, options));
+  CHECK(instance.state == property_conversion_state::running);
+
+  CHECK(object.set("state", caors::meta::value{caors::core::string{"1"}}, options));
+  CHECK(instance.state == property_conversion_state::idle);
+
+  CHECK_FALSE(object.set("guid", caors::meta::value{caors::core::string{"not-guid"}}, options));
+  CHECK(instance.guid.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
 }
 
 TEST_CASE("meta - serialization field alias does not become property name", "[meta]") {

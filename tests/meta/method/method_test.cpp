@@ -777,6 +777,68 @@ TEST_CASE("meta - method string parse conversion works through value arguments",
   CHECK(instance.value == 24);
 }
 
+TEST_CASE("meta - method string parse conversion supports named scalars and enum", "[meta]") {
+  auto enum_builder =
+      caors::registration::enum_<string_parse_state>("caors.test.meta.string_parse_state");
+  enum_builder.value("idle", string_parse_state::idle)
+      .value("running", string_parse_state::running);
+  const caors::error enum_result = enum_builder.commit();
+  REQUIRE((enum_result == caors::error{} || enum_result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::error actor_result =
+      caors::registration::type_<string_parse_extended_actor>(
+          "caors.test.meta.string_parse_extended_actor")
+          .meta()
+          .method("take_label", &string_parse_extended_actor::take_label)
+          .method("take_guid", &string_parse_extended_actor::take_guid)
+          .method("take_type_guid", &string_parse_extended_actor::take_type_guid)
+          .method("take_state", &string_parse_extended_actor::take_state)
+          .commit();
+  REQUIRE(
+      (actor_result == caors::error{} || actor_result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.string_parse_extended_actor");
+  REQUIRE(reflected);
+
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+  string_parse_extended_actor instance{};
+  caors::core::string label{"runtime.label"};
+  const caors::meta::invoke_result label_result =
+      reflected.find_method("take_label")
+          .invoke_result_of(caors::meta::view(instance), std::array{caors::arg(label)}, options);
+  REQUIRE(label_result.has_value());
+  REQUIRE(label_result.try_get<int>() != nullptr);
+  CHECK(*label_result.try_get<int>() == 1);
+  CHECK(instance.label == "runtime.label");
+
+  const caors::core::string guid_text{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"};
+  const caors::meta::invoke_result guid_result =
+      reflected.find_method("take_guid")
+          .invoke_result_of(caors::meta::view(instance), std::array{caors::arg(guid_text)},
+                            options);
+  REQUIRE(guid_result.has_value());
+  CHECK(instance.guid.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+
+  const caors::core::string type_guid_text{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"};
+  const caors::meta::invoke_result type_guid_result =
+      reflected.find_method("take_type_guid")
+          .invoke_result_of(caors::meta::view(instance), std::array{caors::arg(type_guid_text)},
+                            options);
+  REQUIRE(type_guid_result.has_value());
+  CHECK(instance.type.value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+
+  const caors::core::string state_text{"running"};
+  const caors::meta::invoke_result state_result =
+      reflected.find_method("take_state")
+          .invoke_result_of(caors::meta::view(instance), std::array{caors::arg(state_text)},
+                            options);
+  REQUIRE(state_result.has_value());
+  CHECK(instance.state == string_parse_state::running);
+}
+
 TEST_CASE("meta - method custom argument conversion is explicit", "[meta]") {
   const caors::error source_result =
       caors::registration::type_<custom_argument_value>("caors.test.meta.custom_argument_value")

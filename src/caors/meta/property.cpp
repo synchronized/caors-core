@@ -10,13 +10,13 @@
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/capabilities/enum_capability.h"
 #include "caors/meta/value/value.h"
 #include "caors/meta/value_ops.h"
 
 #include "detail/registry_state.h"
 
 #include <optional>
-#include <string>
 #include <utility>
 
 namespace caors::meta {
@@ -72,19 +72,8 @@ try_make_converted_property_any_for_type(meta::type expected, const meta::value&
     return std::nullopt;
   }
 
-  std::optional<argument> converted{};
-  if constexpr (std::is_arithmetic_v<target_type>) {
-    if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
-      converted = detail::try_convert_numeric_argument<target_type>(argument_value);
-    } else if (options.conversion_policy == argument_conversion_policy::string_parse) {
-      converted = detail::try_parse_string_argument<target_type>(argument_value);
-    }
-  }
-
-  if (!converted.has_value() && options.allow_custom_conversions) {
-    converted = detail::try_convert_custom_argument<target_type>(argument_value);
-  }
-
+  std::optional<argument> converted = detail::try_convert_argument<target_type>(
+      argument_value, options.conversion_policy, options.allow_custom_conversions);
   if (!converted.has_value()) {
     return std::nullopt;
   }
@@ -107,13 +96,74 @@ try_make_converted_property_any_from_known(meta::type expected, const meta::valu
   return result;
 }
 
+[[nodiscard]] bool try_set_enum_from_argument(const meta::enum_capability& capability,
+                                              const meta::enum_view& target,
+                                              const argument& argument_value) {
+  const std::optional<std::string_view> text = detail::try_get_argument_string_view(argument_value);
+  if (text.has_value()) {
+    if (const meta::enum_value value = capability.find_value(*text)) {
+      return capability.is_signed() ? target.from_i64(value.to_i64())
+                                    : target.from_u64(value.to_u64());
+    }
+
+    if (capability.is_signed()) {
+      std::int64_t parsed = 0;
+      return detail::parse_integral_argument(*text, parsed) && target.from_i64(parsed);
+    }
+
+    std::uint64_t parsed = 0;
+    return detail::parse_integral_argument(*text, parsed) && target.from_u64(parsed);
+  }
+
+  if (capability.is_signed()) {
+    if (auto converted = detail::try_convert_numeric_argument<std::int64_t>(argument_value)) {
+      const std::int64_t* value = converted->try_get<std::int64_t>();
+      return value != nullptr && target.from_i64(*value);
+    }
+  } else if (auto converted = detail::try_convert_numeric_argument<std::uint64_t>(argument_value)) {
+    const std::uint64_t* value = converted->try_get<std::uint64_t>();
+    return value != nullptr && target.from_u64(*value);
+  }
+
+  return false;
+}
+
+[[nodiscard]] std::optional<any>
+try_make_converted_enum_property_any(meta::type expected, const meta::value& source,
+                                     property_write_options options) {
+  if (!expected || expected.kind() != meta::type_kind::enumeration ||
+      !should_try_property_conversion(options)) {
+    return std::nullopt;
+  }
+
+  argument argument_value = source.to_argument();
+  if (!argument_value) {
+    return std::nullopt;
+  }
+
+  any target = any::default_construct(expected);
+  const meta::enum_capability capability = expected.get_capability<meta::enum_capability>();
+  const meta::enum_view view = capability.bind(target.ref());
+  if (!view || !try_set_enum_from_argument(capability, view, argument_value)) {
+    return std::nullopt;
+  }
+
+  return target;
+}
+
 [[nodiscard]] std::optional<any> try_make_converted_property_any(meta::type expected,
                                                                  const meta::value& source,
                                                                  property_write_options options) {
+  if (std::optional<any> enum_value =
+          try_make_converted_enum_property_any(expected, source, options)) {
+    return enum_value;
+  }
+
   return try_make_converted_property_any_from_known<
       bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
       unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
-      core::string, std::string, std::string_view, meta::object*>(expected, source, options);
+      core::string, std::string, std::string_view, core::guid, core::type_guid, meta::object*>(
+      expected, source, options);
 }
 
 [[nodiscard]] bool try_set_converted_runtime_value(const detail::property_record& property,

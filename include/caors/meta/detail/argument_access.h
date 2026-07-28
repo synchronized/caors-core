@@ -5,7 +5,10 @@
 #define CAORS_META_DETAIL_ARGUMENT_ACCESS_H_
 
 #include "caors/core/containers.h"
+#include "caors/core/guid.h"
+#include "caors/core/type_guid.h"
 #include "caors/meta/argument.h"
+#include "caors/meta/value/capabilities/enum_capability.h"
 
 #include <array>
 #include <charconv>
@@ -13,6 +16,7 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -247,6 +251,37 @@ template <typename Target>
     }
 
     return argument::move(any::from(parsed));
+  } else if constexpr (std::is_same_v<target_type, core::string_name>) {
+    return argument::move(any::from(core::string_name{*text}));
+  } else if constexpr (std::is_same_v<target_type, core::string>) {
+    return argument::move(any::from(core::string{*text}));
+  } else if constexpr (std::is_same_v<target_type, std::string>) {
+    return argument::move(any::from(std::string{*text}));
+  } else if constexpr (std::is_same_v<target_type, core::guid>) {
+    const std::optional<core::guid> parsed = core::guid::parse(*text);
+    return parsed.has_value() ? std::optional<argument>{argument::move(any::from(*parsed))}
+                              : std::nullopt;
+  } else if constexpr (std::is_same_v<target_type, core::type_guid>) {
+    const std::optional<core::guid> parsed = core::guid::parse(*text);
+    return parsed.has_value()
+               ? std::optional<argument>{argument::move(any::from(core::type_guid{*parsed}))}
+               : std::nullopt;
+  } else if constexpr (std::is_enum_v<target_type>) {
+    const meta::type enum_type = meta::resolve<target_type>();
+    const meta::enum_capability values = enum_type.get_capability<meta::enum_capability>();
+    if (const meta::enum_value named = values.find_value(*text)) {
+      const std::optional<target_type> parsed = named.template get<target_type>();
+      return parsed.has_value() ? std::optional<argument>{argument::move(any::from(*parsed))}
+                                : std::nullopt;
+    }
+
+    using underlying_type = std::underlying_type_t<target_type>;
+    underlying_type parsed{};
+    if (!parse_integral_argument(*text, parsed)) {
+      return std::nullopt;
+    }
+
+    return argument::move(any::from(static_cast<target_type>(parsed)));
   } else {
     return std::nullopt;
   }
@@ -287,6 +322,38 @@ template <typename Target>
   return converted;
 }
 
+template <typename Target>
+[[nodiscard]] std::optional<argument> try_convert_argument(const argument& value,
+                                                           argument_conversion_policy policy,
+                                                           bool allow_custom_conversions) {
+  using value_type = argument_value_type<Target>;
+  if constexpr (std::is_reference_v<Target>) {
+    return std::nullopt;
+  } else {
+    if constexpr (std::is_arithmetic_v<value_type>) {
+      if (policy == argument_conversion_policy::numeric_safe) {
+        if (auto converted = try_convert_numeric_argument<value_type>(value)) {
+          return converted;
+        }
+      }
+    }
+
+    if (policy == argument_conversion_policy::string_parse) {
+      if (auto converted = try_parse_string_argument<value_type>(value)) {
+        return converted;
+      }
+    }
+
+    if (allow_custom_conversions) {
+      if (auto converted = try_convert_custom_argument<value_type>(value)) {
+        return converted;
+      }
+    }
+
+    return std::nullopt;
+  }
+}
+
 template <typename Parameter>
 [[nodiscard]] argument_match_rank argument_rank(const argument& value,
                                                 argument_match_options options) noexcept {
@@ -294,21 +361,10 @@ template <typename Parameter>
     return argument_match_rank::exact;
   }
 
-  using value_type = argument_value_type<Parameter>;
-  if constexpr (std::is_arithmetic_v<value_type> && !std::is_reference_v<Parameter>) {
-    if (options.conversion_policy == argument_conversion_policy::numeric_safe &&
-        try_convert_numeric_argument<value_type>(value).has_value()) {
-      return argument_match_rank::conversion;
-    }
-    if (options.conversion_policy == argument_conversion_policy::string_parse &&
-        try_parse_string_argument<value_type>(value).has_value()) {
-      return argument_match_rank::conversion;
-    }
-  }
-
   if constexpr (!std::is_reference_v<Parameter>) {
-    if (options.allow_custom_conversions &&
-        custom_argument_conversion_available<value_type>(value)) {
+    if (try_convert_argument<Parameter>(value, options.conversion_policy,
+                                        options.allow_custom_conversions)
+            .has_value()) {
       return argument_match_rank::conversion;
     }
   }
@@ -322,25 +378,10 @@ template <typename Parameter>
     return value;
   }
 
-  using value_type = argument_value_type<Parameter>;
-  if constexpr (std::is_arithmetic_v<value_type> && !std::is_reference_v<Parameter>) {
-    if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
-      if (auto converted = try_convert_numeric_argument<value_type>(value)) {
-        return std::move(*converted);
-      }
-    }
-    if (options.conversion_policy == argument_conversion_policy::string_parse) {
-      if (auto converted = try_parse_string_argument<value_type>(value)) {
-        return std::move(*converted);
-      }
-    }
-  }
-
   if constexpr (!std::is_reference_v<Parameter>) {
-    if (options.allow_custom_conversions) {
-      if (auto converted = try_convert_custom_argument<value_type>(value)) {
-        return std::move(*converted);
-      }
+    if (auto converted = try_convert_argument<Parameter>(value, options.conversion_policy,
+                                                         options.allow_custom_conversions)) {
+      return std::move(*converted);
     }
   }
 

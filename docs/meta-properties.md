@@ -188,8 +188,10 @@ caors::registration::type_<actor>("game.actor")
   `float -> double`，以及能完整表示来源整数精度的整数到浮点转换；窄化、浮点到整数、
   有符号到无符号、可能丢失取值范围的转换和字符串解析都不会隐式发生。
 - 显式设置为 `string_parse` 时，方法匹配允许把 `core::string`、`core::string_name` 或
-  `std::string_view` 解析为布尔、整数和浮点标量。解析要求完整消费输入；解析失败、溢出或非有限浮点值
-  都视为参数不匹配。该策略不包含 `numeric_safe` 的数值 widening。
+  `std::string_view` 解析为布尔、整数、浮点、`core::string_name`、`core::string`、`std::string`、
+  `guid`、`type_guid` 和枚举值。枚举优先按已注册枚举项名称匹配，未命中时再按底层整数文本解析。
+  解析要求完整消费输入；解析失败、溢出或非有限浮点值都视为参数不匹配。该策略不包含
+  `numeric_safe` 的数值 widening。
 - 开启转换策略后，重载解析仍优先选择精确匹配；如果多个重载只能通过同等级转换匹配，则视为歧义并返回失败。
 - `argument_match_options::allow_custom_conversions` 默认关闭。开启后，匹配会查询来源类型注册的
   `meta::argument_conversion_ops` capability；该能力只负责把来源参数转换成目标参数类型，转换结果仍必须精确匹配目标类型。
@@ -447,7 +449,7 @@ caors::meta::value value = id.get_value(caors::meta::view(instance));
 类型不匹配时分别返回 `std::nullopt` / `false`。
 
 `try_set_value()` 默认只走现有 tagged value / exact any 写入路径，不做字符串解析或自定义转换。
-需要从文本写入标量属性时，调用方必须显式传入 `meta::property_write_options`：
+需要从文本写入标量、GUID 或枚举属性时，调用方必须显式传入 `meta::property_write_options`：
 
 ```cpp
 caors::meta::property_write_options options{};
@@ -457,7 +459,8 @@ id.try_set_value(caors::meta::view(instance), caors::meta::value{caors::string{"
 ```
 
 带 options 的重载仍会先尝试默认写入；只有默认路径失败且 options 开启转换时，才进入字符串解析、
-数值转换或自定义转换慢路径。
+数值转换或自定义转换慢路径。`string_parse` 支持的目标类型与方法参数一致，但 `std::string_view`
+只建议走精确匹配路径，避免把临时文本视图写入长期存活的属性。
 
 也可以通过 `get_any()` 获取精确 C++ 运行期值拷贝：
 
