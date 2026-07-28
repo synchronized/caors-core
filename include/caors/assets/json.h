@@ -40,10 +40,12 @@ template <typename T> class loader final : public resources::loader<T> {
 public:
   using resource_type = T;
 
-  explicit loader(const resources::provider& provider) : provider_(&provider) {}
+  explicit loader(const resources::provider& provider, serialization::json_options options = {})
+      : provider_(&provider), options_(options) {}
 
-  loader(const serialization::context& context, const resources::provider& provider)
-      : provider_(&provider), context_(context) {}
+  loader(const serialization::context& context, const resources::provider& provider,
+         serialization::json_options options = {})
+      : provider_(&provider), context_(context), options_(options) {}
 
   [[nodiscard]] resources::load_result<resource_type>
   load(resources::resource_guid guid, memory_resource* resource = nullptr) override {
@@ -53,7 +55,7 @@ public:
     }
 
     serialization::variant_result parsed =
-        serialization::parse_json(*stream.value, context_.config.json, resource);
+        serialization::parse_json(*stream.value, options_, resource);
     if (parsed.failed()) {
       return {parsed.status, {}};
     }
@@ -65,6 +67,7 @@ public:
 private:
   const resources::provider* provider_ = nullptr;
   serialization::context context_{};
+  serialization::json_options options_{};
 };
 
 /**
@@ -80,10 +83,12 @@ template <typename T> class saver final : public resources::saver<T> {
 public:
   using resource_type = T;
 
-  explicit saver(const resources::provider& provider) : provider_(&provider) {}
+  explicit saver(const resources::provider& provider, serialization::json_options options = {})
+      : provider_(&provider), options_(options) {}
 
-  saver(const serialization::context& context, const resources::provider& provider)
-      : provider_(&provider), context_(context) {}
+  saver(const serialization::context& context, const resources::provider& provider,
+        serialization::json_options options = {})
+      : provider_(&provider), context_(context), options_(options) {}
 
   [[nodiscard]] error save(const resource_type& value) override {
     io::output_stream_result stream = provider_->open_write(value.guid(), provider_->resource());
@@ -91,7 +96,7 @@ public:
       return stream.status;
     }
 
-    serialization::json_writer writer{*stream.value, context_.config.json};
+    serialization::json_writer writer{*stream.value, options_};
     const error status = assets::save_serialized(context_, value, writer);
     if (status) {
       return status;
@@ -103,6 +108,7 @@ public:
 private:
   const resources::provider* provider_ = nullptr;
   serialization::context context_{};
+  serialization::json_options options_{};
 };
 
 /** @brief 从序列化 DOM 导入资源清单。导入会新增或替换 target 中的条目，不会清空已有条目。 */

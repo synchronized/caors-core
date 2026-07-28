@@ -27,6 +27,10 @@
 MessagePack map 必须在容器头中提前写入成员数量，而现有 `writer::begin_object()` 不知道字段过滤后的
 实际数量。因此后端不能在 `begin_object()` 时直接写出 map header。
 
+`messagepack_options` 由 MessagePack parser/writer 或对应便捷 API 显式持有，不进入通用
+`serialization::context`。同理，JSON 格式选项已经从 context 移到 `json_reader` / `json_writer`
+边界；context 只保存跨格式的 schema、resolver、构造、借用存储和 typed traversal 策略。
+
 首批采用容器栈暂存：
 
 1. 标量直接编码为一段完整字节；

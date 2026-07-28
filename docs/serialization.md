@@ -129,7 +129,7 @@ buffer：
 | `context.config.borrowed_views` | 调用方缓冲区写入策略 | 显式允许长度匹配的可写 `std::span<T>` 接收数据 |
 | `context.config.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `context.config.limits` | 递归深度等安全限制 | `max_depth = 0` 表示关闭递归深度限制 |
-| `json_options` | JSON 格式层选项 | 控制 writer 格式化和 parser 安全/兼容策略 |
+| `json_options` | JSON reader、writer 和 parser 自己持有的格式层选项 | 不放入通用 context；控制格式化和 parser 安全/兼容策略 |
 
 公开序列化入口保留无 context 便捷重载；一旦需要上下文，统一把
 `serialization::context` 放在第一个参数：
@@ -655,6 +655,18 @@ JSON 字符串。
 - `max_parse_depth`：parser 最大对象 / 数组嵌套深度，`0` 表示不限制。
 - `allow_trailing_commas`：是否允许对象和数组末尾多一个逗号。
 - `duplicate_key_policy`：对象重复 key 策略，可保留全部、保留第一项、保留最后一项或直接拒绝。
+
+JSON 格式选项不属于 `serialization::context`。需要同时指定跨格式语义和 JSON 行为时，应显式把两者
+分别传给 JSON 便捷 API，或先使用选项构造 `json_reader` / `json_writer`，再调用通用
+`serialize(context, ...)` / `deserialize(context, ...)`：
+
+```cpp
+caors::serialization::json_options options{};
+options.pretty = true;
+
+caors::serialization::json_writer writer{output, options};
+caors::serialize(context, object, writer);
+```
 
 二进制 reader、资源包 / 远程流读取和真正事件式 JSON reader 后续再扩展；当前上层 API 已经不需要假设
 数据来自本地文件或一次性字符串。

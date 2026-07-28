@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_JSON_READER_H_
 #define CAORS_SERIALIZATION_JSON_READER_H_
 
+#include "caors/serialization/json_options.h"
 #include "caors/serialization/reader.h"
 
 #include <string_view>

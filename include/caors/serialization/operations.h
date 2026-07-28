@@ -14,6 +14,7 @@
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/json_reader.h"
+#include "caors/serialization/json_writer.h"
 #include "caors/serialization/schema_query.h"
 #include "caors/serialization/writer.h"
 
@@ -594,15 +595,14 @@ template <typename T> [[nodiscard]] error read_value_from(T& object, const varia
 
 /** @brief 从 JSON 文本读回对象。 */
 template <typename T> [[nodiscard]] error read_json_from(T& object, std::string_view text) {
-  serialization::context context{};
-  return detail::read_json_text_from(context, object, text, context.config.json);
+  return detail::read_json_text_from(serialization::context{}, object, text, {});
 }
 
 /** @brief 按上下文从 JSON 文本读回对象。 */
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    std::string_view text) {
-  return detail::read_json_text_from(context, object, text, context.config.json);
+  return detail::read_json_text_from(context, object, text, {});
 }
 
 /** @brief 按 JSON 格式选项从 JSON 文本读回对象。 */
@@ -646,7 +646,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::input_stream& stream, memory_resource* resource = nullptr) {
-  variant_result value = parse_json(stream, context.config.json, resource);
+  variant_result value = parse_json(stream, json_options{}, resource);
   if (value.failed()) {
     return value.status;
   }
@@ -696,7 +696,7 @@ template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::file_system& file_system, io::path_view path,
                                    memory_resource* resource = nullptr) {
-  variant_result value = parse_json_from(file_system, path, context.config.json, resource);
+  variant_result value = parse_json_from(file_system, path, json_options{}, resource);
   if (value.failed()) {
     return value.status;
   }
@@ -870,7 +870,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output) {
-  serialization::json_writer writer{output, context.config.json};
+  serialization::json_writer writer{output};
   return serialize(context, object, writer);
 }
 
@@ -878,7 +878,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output) {
-  serialization::json_writer writer{output, context.config.json};
+  serialization::json_writer writer{output};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }
