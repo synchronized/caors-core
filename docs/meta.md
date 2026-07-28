@@ -634,6 +634,10 @@ snapshot 不再包含整个 layer，不会原地删除 record。对象、序列�
 不替换”的约束。primary view 可在进程生命周期内稳定使用；detachable layer 的旧 view 在 detach
 后失效，但其 lease 会继续保活底层数据和动态库，直到最后一个引用释放。
 
+插件必须在 `initialize()` 期间通过 Host meta registration extension 取得自身 draft registry，并使用
+显式 `meta::context` 注册。插件不得使用默认 context，也不得直接向 primary 或其他外部 registry
+注册；该规则同样适用于 `pinned_process` 插件。
+
 registry 使用边界：
 
 - 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块 capability 查询、父类型关系、对象工厂、

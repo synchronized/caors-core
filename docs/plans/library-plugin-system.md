@@ -42,8 +42,8 @@
 - 服务地址采用借用语义，由发布方 owner 标识并在生命周期结束前统一移除；
 - 已新增显式 `plugin_registration_scope`，可统一移除服务、断开事件并请求取消任务；
 - scope 使用结构化 blocker 区分未排空任务和插件拥有的擦除值；
-- `detachable` 插件 meta 注册必须通过独立 registry layer 发布并整体 detach；需要写入外部
-  append-only registry 的插件必须使用 `pinned_process` 生命周期；
+- 所有插件 meta 注册必须通过 manager 分配的独立 registry layer；`detachable` 与
+  `pinned_process` 都不得写入 primary 或其他外部 registry；
 - `plugins::plugin` 只读 handle 需要引用 manager 拥有的稳定节点，因此不在
   `plugin_binary` 阶段制造无所有权裸视图；它随首个 manager 阶段实现；
 - Windows Clang Shared Debug/Release 使用 `--parallel 1` 完整构建通过，81/81 测试通过。
@@ -475,9 +475,9 @@ struct plugin_diagnostic {
 
 当前 scope 可以直接清理服务和事件。请求取消只阻止任务逻辑开始或状态继续提交，不能证明
 executor 队列中的擦除 callable 已经析构，因此清理前尚未完成的请求仍保留 `pending_task`
-blocker。正常插件 meta 注册由阶段 6 的 registry layer 承载，不形成永久 blocker。`detachable`
-插件不得绕过 layer 写入外部 append-only registry；确实需要进程级长期注册的插件必须声明为
-`pinned_process`。插件生命周期调用者必须先 `stop/shutdown`，再执行 scope 清理；任一步成功都不能
+blocker。正常插件 meta 注册由阶段 6 的 registry layer 承载，不形成永久 blocker。所有插件都不得
+绕过 layer 写入 primary 或其他外部 registry；`pinned_process` 只表示动态库不提前卸载，不授予
+primary 写权限。插件生命周期调用者必须先 `stop/shutdown`，再执行 scope 清理；任一步成功都不能
 单独作为关闭 DLL 的依据。
 
 ### 阶段 6：Registry Overlay 与安全卸载

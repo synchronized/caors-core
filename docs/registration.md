@@ -99,6 +99,8 @@ primary registry 使用 append-only 生命周期。普通注册不提供 replace
 属性、方法、nested 关系、序列化 schema、对象能力、metadata 和 capability 保持不变。插件注册可以
 先写入独立 draft layer；layer 发布后同样不可变，但可以在插件卸载时从新的 registry snapshot
 整体 detach。已经获取的 view 通过 layer lease 保持底层数据存活，并在 detachable layer 失活后返回无效。
+插件必须通过 Host meta registration extension 取得自身 draft registry，并使用显式 `meta::context`
+注册；无论插件采用何种 lifetime，都不得使用默认 context 写入 primary 或其他外部 registry。
 
 批量注册第一版不提供事务回滚。`registration::batch_builder::commit()` 会按追加顺序提交每个 builder，
 遇到第一个错误立即停止并通过 `diagnostic()` 返回失败项的 index、kind、type id、name 和 error。已经成功提交的
@@ -225,8 +227,9 @@ CAORS_META_REGISTRATION(register_actor) {
 
 `meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。
 
-注册表内部会对单次注册和查询加锁，但 CAORS 不保证“运行期一边读一边改注册表”的业务一致性。推荐由应用在启动期、
-模块加载期或测试初始化阶段完成注册；进入主循环后只做查询。如果需要脚本类型、插件热卸载或热重载注册，后续应使用独立的动态注册系统。
+注册表内部会对单次注册和查询加锁，但 CAORS 不保证“运行期一边读一边改注册表”的业务一致性。推荐由
+应用在启动期、模块加载期或测试初始化阶段完成 primary 注册；进入主循环后只做查询。插件注册使用
+manager 分配的独立 layer；脚本类型和编辑器热替换仍应使用独立动态注册系统。
 
 ## 注册失败处理
 

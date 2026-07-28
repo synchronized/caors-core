@@ -82,6 +82,8 @@ host 复制字符串和 descriptor 数据。
 
 因此 `meta::type` 可以在同一 runtime、同一进程、插件 layer 活着时短期传递；不能当作跨 DLL 稳定
 ABI 数据包。需要跨边界持久表达类型时，传 `type_guid`、注册名或短期 `type_id`，使用时重新查询。
+插件注册必须写入 `plugin_manager` 为当前插件创建的 draft layer，不允许使用默认 context 向
+primary 或其他外部 registry 注册；`pinned_process` 也不例外。
 
 `meta::any` 和 `meta::any_ref` 的风险更高：`any_ref` 引用外部对象，`any` 可能拥有对象并在析构时调用
 类型擦除 destroy ops。如果对象类型来自插件，插件卸载必须等待这些值释放，或由 registry layer lease

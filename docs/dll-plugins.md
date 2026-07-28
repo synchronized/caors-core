@@ -53,15 +53,17 @@ C ABI 服务查询机制，使用字符串 ID 和版本，不使用 `capability_
 
 ## 注册与卸载
 
-插件应提供显式注册入口，在主循环开始前完成 `registration::type_<T>(...).commit()`。同一
-`type_id` 的类型模型不一致会返回 `errc::inconsistent_type_model`，常见原因是不同模块看到的
-traits、adapter 或静态能力特化不一致。
+插件必须在 `initialize()` 期间通过 Host meta registration extension 取得自身 draft registry，
+创建显式 `meta::context`，再完成 `registration::type_<T>(context, ...).commit()`。插件不得使用
+默认 context，也不得直接向 primary registry 注册。同一 `type_id` 的类型模型不一致会返回
+`errc::inconsistent_type_model`，常见原因是不同模块看到的 traits、adapter 或静态能力特化不一致。
 
 `plugin_manager::load(path)` 默认按 `detachable` 策略创建插件 registry layer。调用方也可以传入
 `plugin_load_options{plugin_lifetime_policy::pinned_process}`，表示该插件钉在 manager 或进程生命周期内，
 显式 `unload()` 会返回 `errc::unsupported` 并给出 `pinned_process` 诊断，不提前关闭动态库。
-`detachable` 插件必须通过 Host meta registration extension 写入自身 draft layer；需要绕过 layer
-写入 primary 或其他外部 append-only registry 的插件必须使用 `pinned_process`，不能声明为可卸载。
+无论使用 `detachable` 还是 `pinned_process`，插件都只能写入 manager 为其创建的 draft layer，
+不得绕过 layer 写入 primary 或其他外部 registry。`pinned_process` 只改变卸载和调用 guard 策略，
+不放宽注册目标约束。
 
 detachable 插件卸载前必须保证：
 
