@@ -40,6 +40,21 @@ std::size_t fixed_block_pool::block_alignment() const noexcept { return block_al
 
 std::size_t fixed_block_pool::blocks_per_chunk() const noexcept { return blocks_per_chunk_; }
 
+fixed_block_pool_statistics fixed_block_pool::statistics() const noexcept { return statistics_; }
+
+void fixed_block_pool::reset_statistics() noexcept {
+  const std::size_t used_block_count = statistics_.used_block_count;
+  const std::size_t total_block_count = statistics_.total_block_count;
+  const std::size_t free_block_count = statistics_.free_block_count;
+  const std::size_t chunk_count = statistics_.chunk_count;
+  statistics_ = {};
+  statistics_.used_block_count = used_block_count;
+  statistics_.peak_used_block_count = used_block_count;
+  statistics_.total_block_count = total_block_count;
+  statistics_.free_block_count = free_block_count;
+  statistics_.chunk_count = chunk_count;
+}
+
 void fixed_block_pool::release() noexcept {
   chunk* current = chunks_;
   while (current != nullptr) {
@@ -51,19 +66,31 @@ void fixed_block_pool::release() noexcept {
 
   chunks_ = nullptr;
   free_blocks_ = nullptr;
+  statistics_.used_block_count = 0;
+  statistics_.total_block_count = 0;
+  statistics_.free_block_count = 0;
+  statistics_.chunk_count = 0;
+  ++statistics_.release_count;
 }
 
 void* fixed_block_pool::do_try_allocate(std::size_t size, std::size_t alignment) noexcept {
   if (size > block_size_ || alignment > block_alignment_) {
+    ++statistics_.rejected_request_count;
     return nullptr;
   }
 
   if (free_blocks_ == nullptr && !try_add_chunk()) {
+    ++statistics_.allocation_failure_count;
     return nullptr;
   }
 
   free_block* block = free_blocks_;
   free_blocks_ = block->next;
+  ++statistics_.used_block_count;
+  --statistics_.free_block_count;
+  ++statistics_.allocation_count;
+  statistics_.peak_used_block_count =
+      std::max(statistics_.peak_used_block_count, statistics_.used_block_count);
   return block;
 }
 
@@ -71,6 +98,9 @@ void fixed_block_pool::do_deallocate(void* ptr, std::size_t, std::size_t) noexce
   auto* block = static_cast<free_block*>(ptr);
   block->next = free_blocks_;
   free_blocks_ = block;
+  --statistics_.used_block_count;
+  ++statistics_.free_block_count;
+  ++statistics_.deallocation_count;
 }
 
 bool fixed_block_pool::do_is_equal(const memory_resource&) const noexcept { return false; }
@@ -96,6 +126,10 @@ bool fixed_block_pool::try_add_chunk() noexcept {
   new_chunk->bytes = bytes;
   new_chunk->next = chunks_;
   chunks_ = new_chunk;
+  ++statistics_.chunk_count;
+  ++statistics_.chunk_allocation_count;
+  statistics_.total_block_count += blocks_per_chunk_;
+  statistics_.free_block_count += blocks_per_chunk_;
 
   auto* memory = static_cast<unsigned char*>(new_chunk->memory);
   for (std::size_t index = 0; index < blocks_per_chunk_; ++index) {

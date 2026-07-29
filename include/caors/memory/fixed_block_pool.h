@@ -10,6 +10,21 @@
 
 namespace caors::memory {
 
+/** @brief fixed_block_pool 的运行状态快照。 */
+struct fixed_block_pool_statistics {
+  std::size_t used_block_count = 0;
+  std::size_t peak_used_block_count = 0;
+  std::size_t total_block_count = 0;
+  std::size_t free_block_count = 0;
+  std::size_t chunk_count = 0;
+  std::size_t allocation_count = 0;
+  std::size_t deallocation_count = 0;
+  std::size_t chunk_allocation_count = 0;
+  std::size_t rejected_request_count = 0;
+  std::size_t allocation_failure_count = 0;
+  std::size_t release_count = 0;
+};
+
 class CAORS_API fixed_block_pool final : public memory_resource {
 public:
   fixed_block_pool(std::size_t block_size, std::size_t block_alignment = default_memory_alignment,
@@ -23,6 +38,10 @@ public:
   [[nodiscard]] std::size_t block_size() const noexcept;
   [[nodiscard]] std::size_t block_alignment() const noexcept;
   [[nodiscard]] std::size_t blocks_per_chunk() const noexcept;
+  /** @brief 返回当前资源统计快照。 */
+  [[nodiscard]] fixed_block_pool_statistics statistics() const noexcept;
+  /** @brief 重置累计统计；当前水位和资源内容保持不变。 */
+  void reset_statistics() noexcept;
   void release() noexcept;
 
 private:
@@ -41,6 +60,7 @@ private:
   std::size_t block_size_ = 0;
   std::size_t block_alignment_ = 0;
   std::size_t blocks_per_chunk_ = 0;
+  fixed_block_pool_statistics statistics_{};
 };
 
 } // namespace caors::memory
@@ -48,6 +68,7 @@ private:
 namespace caors {
 
 using memory::fixed_block_pool;
+using memory::fixed_block_pool_statistics;
 
 } // namespace caors
 

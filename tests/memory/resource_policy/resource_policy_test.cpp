@@ -30,6 +30,84 @@ TEST_CASE("memory - fixed block pool reuses released blocks", "[memory]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
+TEST_CASE("memory - fixed block pool reports block and chunk statistics", "[memory]") {
+  caors::fixed_block_pool pool(sizeof(int), alignof(int), 2);
+
+  void* first = pool.allocate(sizeof(int), alignof(int));
+  REQUIRE(first != nullptr);
+
+  auto statistics = pool.statistics();
+  CHECK(statistics.used_block_count == 1);
+  CHECK(statistics.peak_used_block_count == 1);
+  CHECK(statistics.total_block_count == 2);
+  CHECK(statistics.free_block_count == 1);
+  CHECK(statistics.chunk_count == 1);
+  CHECK(statistics.allocation_count == 1);
+  CHECK(statistics.chunk_allocation_count == 1);
+
+  void* second = pool.allocate(sizeof(int), alignof(int));
+  void* third = pool.allocate(sizeof(int), alignof(int));
+  REQUIRE(second != nullptr);
+  REQUIRE(third != nullptr);
+
+  statistics = pool.statistics();
+  CHECK(statistics.used_block_count == 3);
+  CHECK(statistics.peak_used_block_count == 3);
+  CHECK(statistics.total_block_count == 4);
+  CHECK(statistics.free_block_count == 1);
+  CHECK(statistics.chunk_count == 2);
+  CHECK(statistics.allocation_count == 3);
+  CHECK(statistics.chunk_allocation_count == 2);
+
+  pool.deallocate(second, sizeof(int), alignof(int));
+  statistics = pool.statistics();
+  CHECK(statistics.used_block_count == 2);
+  CHECK(statistics.free_block_count == 2);
+  CHECK(statistics.deallocation_count == 1);
+
+  CHECK(pool.try_allocate(pool.block_size() + 1, pool.block_alignment()) == nullptr);
+  CHECK(pool.statistics().rejected_request_count == 1);
+
+  pool.release();
+  statistics = pool.statistics();
+  CHECK(statistics.used_block_count == 0);
+  CHECK(statistics.total_block_count == 0);
+  CHECK(statistics.free_block_count == 0);
+  CHECK(statistics.chunk_count == 0);
+  CHECK(statistics.peak_used_block_count == 3);
+  CHECK(statistics.release_count == 1);
+
+  caors::memory::callback_memory_resource failing_upstream{
+      [](std::size_t, std::size_t, void*) -> void* { return nullptr; },
+      [](void*, std::size_t, std::size_t, void*) {}};
+  caors::fixed_block_pool failing_pool{sizeof(int), alignof(int), 2, &failing_upstream};
+  CHECK(failing_pool.try_allocate(sizeof(int), alignof(int)) == nullptr);
+  CHECK(failing_pool.statistics().allocation_failure_count == 1);
+  CHECK(failing_pool.statistics().chunk_count == 0);
+}
+
+TEST_CASE("memory - fixed block pool resets counters without changing current watermarks",
+          "[memory]") {
+  caors::fixed_block_pool pool(sizeof(int), alignof(int), 2);
+  REQUIRE(pool.allocate(sizeof(int), alignof(int)) != nullptr);
+
+  const auto before_reset = pool.statistics();
+  pool.reset_statistics();
+  const auto after_reset = pool.statistics();
+
+  CHECK(after_reset.used_block_count == before_reset.used_block_count);
+  CHECK(after_reset.peak_used_block_count == before_reset.used_block_count);
+  CHECK(after_reset.total_block_count == before_reset.total_block_count);
+  CHECK(after_reset.free_block_count == before_reset.free_block_count);
+  CHECK(after_reset.chunk_count == before_reset.chunk_count);
+  CHECK(after_reset.allocation_count == 0);
+  CHECK(after_reset.deallocation_count == 0);
+  CHECK(after_reset.chunk_allocation_count == 0);
+  CHECK(after_reset.rejected_request_count == 0);
+  CHECK(after_reset.allocation_failure_count == 0);
+  CHECK(after_reset.release_count == 0);
+}
+
 // 原测试文件：memory_resource_policy_monotonic_resource_releases_allocations_on_reset_test.cpp
 
 #include "caors/memory.h"

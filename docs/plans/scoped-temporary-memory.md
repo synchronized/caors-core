@@ -288,7 +288,8 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - `stack_resource_statistics`：当前/峰值占用字节、当前/峰值 chunk 数、large allocation、
   mark、rewind、trim 和 reset 次数；
 - `monotonic_resource_statistics`：当前/峰值占用字节、当前/峰值 chunk 数、独立大块分配和 reset 次数；
-- `fixed_block_pool_statistics`：当前/峰值使用块数、总块数、空闲块数、池命中、扩容和拒绝请求次数。
+- `fixed_block_pool_statistics`：当前/峰值使用块数、总块数、空闲块数、池分配/归还、扩容、拒绝请求和
+  上游分配失败次数。
 
 三种资源统计分别实施。统计结构在 Debug/Release 均可用，计数使用普通整数，不增加原子操作；这些策略资源
 本身不是线程安全资源。`reset_statistics()` 只重置累计计数，并把峰值重置为当前水位，不改变资源内容。
@@ -298,7 +299,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 
 - [x] `stack_resource_statistics`；
 - [x] `monotonic_resource_statistics`；
-- [ ] `fixed_block_pool_statistics`。
+- [x] `fixed_block_pool_statistics`。
 
 完成标准：同步调用可以用一行 RAII scope 获得并安全回滚临时资源。
 

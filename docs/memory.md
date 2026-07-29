@@ -334,6 +334,19 @@ marker 必须由同一个资源创建、在同一线程使用，并严格按后�
 长期空闲或完成异常大的任务后，可以在没有活动 marker 时调用 `trim()`，释放基础 chunk 之外的缓存；
 `reset()` 则释放全部 chunk。
 
+### strategy resource 统计
+
+三种内置策略资源都提供独立的 `statistics()` 快照和 `reset_statistics()`：
+
+- `stack_resource_statistics`：占用字节、chunk、large allocation、mark、rewind、trim 和 reset；
+- `monotonic_resource_statistics`：占用字节、chunk、large allocation 和 reset；
+- `fixed_block_pool_statistics`：使用/空闲/总块数、chunk、分配/归还、拒绝请求、上游失败和 release。
+
+统计在 Debug/Release 均可用，并使用普通整数；它不会改变这些策略资源本身“非线程安全”的约束。
+`reset_statistics()` 只清零累计事件计数，把峰值重置为当前水位，不释放资源内容。策略资源内部水位用于观察
+chunk 或 block 的实际使用情况；需要逐地址泄漏、标签和错误释放诊断时，仍应使用
+`debug_tracking_resource`。
+
 ### wrapper resource
 
 包装资源不一定改变底层分配策略，而是在另一个资源外面增加能力。
