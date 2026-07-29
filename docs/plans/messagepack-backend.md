@@ -134,8 +134,8 @@ template <typename T>
 
 - [x] 接入 `io::input_stream` 和 `io::output_stream`；
 - [x] 校验短读、短写和流错误传播；
-- [ ] 将 parser DOM 和返回 byte buffer 接入结果资源，并将 parser/writer 暂存结构接入作用域临时资源；
-- [ ] 增加深度、字符串长度和容器长度限制测试。
+- [x] 将 parser DOM 和返回 byte buffer 接入结果资源，并将 parser/writer 暂存结构接入作用域临时资源；
+- [x] 增加深度、字符串长度和容器长度限制测试。
 
 完成标准：流式入口行为明确，所有外部长度均在分配前受限。
 

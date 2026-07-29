@@ -275,6 +275,25 @@ TEST_CASE("serialization - MessagePack enforces parser limits", "[serialization]
       caors::serialization::parse_messagepack(text, string_options);
   CHECK(string_result.status ==
         caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+
+  const std::array array{std::byte{0x92}, std::byte{0xC0}, std::byte{0xC0}};
+  caors::serialization::messagepack_options container_options;
+  container_options.max_container_size = 1;
+  const caors::serialization::variant_result array_result =
+      caors::serialization::parse_messagepack(array, container_options);
+  CHECK(array_result.status ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+
+  const std::array map{std::byte{0x82}, std::byte{0xC0}, std::byte{0xC0}, std::byte{0xC0},
+                       std::byte{0xC0}};
+  const caors::serialization::variant_result map_result =
+      caors::serialization::parse_messagepack(map, container_options);
+  CHECK(map_result.status ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+
+  container_options.max_container_size = 2;
+  CHECK(caors::serialization::parse_messagepack(array, container_options).succeeded());
+  CHECK(caors::serialization::parse_messagepack(map, container_options).succeeded());
 }
 
 TEST_CASE("serialization - MessagePack writer accepts generic writer events",
@@ -349,6 +368,31 @@ TEST_CASE("serialization - MessagePack writer uses and rewinds a temporary stack
 
   temporary.reset();
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("serialization - MessagePack owned results use the requested resource",
+          "[serialization][messagepack][memory]") {
+  caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
+  const variant source = variant::from(std::string_view{"resource-owned-messagepack"});
+
+  {
+    const caors::io::byte_buffer_result encoded =
+        caors::serialization::encode_messagepack(source, &result_resource);
+    REQUIRE(encoded.succeeded());
+    CHECK(encoded.value.get_allocator().resource() == &result_resource);
+
+    caors::io::byte_buffer stream_bytes{encoded.value.begin(), encoded.value.end(),
+                                        caors::io::byte_buffer::allocator_type{&result_resource}};
+    caors::io::byte_buffer_input_stream stream{std::move(stream_bytes)};
+    const caors::serialization::variant_result decoded = caors::serialization::parse_messagepack(
+        stream, caors::serialization::messagepack_options{}, &result_resource);
+    REQUIRE(decoded.succeeded());
+    CHECK(decoded.value.resource() == &result_resource);
+    REQUIRE(decoded.value.is_string());
+    CHECK(decoded.value.as_string() == "resource-owned-messagepack");
+  }
+
+  CHECK(result_resource.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - MessagePack selects string length markers",
