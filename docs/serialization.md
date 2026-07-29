@@ -685,8 +685,36 @@ if (bytes.succeeded()) {
 null、bool、整数、float32/float64、字符串、数组和 map；写出浮点统一使用 float64。bin、extension 和
 timestamp extension 尚未实现，遇到这些标记会返回 `errc::unsupported`。
 
-MessagePack 读入目前先构造 `variant` DOM，再复用 typed 反序列化；资源包 / 远程流读取和真正增量式
-reader 后续再扩展。
+MessagePack 支持 byte span 和 `io::input_stream` 读入，也可以把通用 writer 事件写入
+`io::output_stream`：
+
+```cpp
+caors::serialization::variant_result value =
+    caors::serialization::parse_messagepack(input_stream, options, result_resource);
+
+caors::serialization::messagepack_writer writer{output_stream, temporary_resource};
+caors::error status = caors::serialize(context, object, writer);
+if (!status) {
+  status = output_stream.flush();
+}
+```
+
+输入流入口会处理短读并一直读取到 EOF，随后解析一个完整根值；它不是增量 parser。输出流入口通过
+`output_stream::write_all()` 处理短写。无进展读写和底层失败返回 `error_domain::io`，格式错误返回
+`error_domain::serialization`。
+
+`messagepack_options` 的 `max_parse_depth`、`max_string_size` 和 `max_container_size` 会在对应分配前
+限制嵌套深度、字符串字节数及单个 array/map 的元素数量，`0` 表示不限制。多字节整数和长度始终按
+MessagePack 规定的大端字节序处理。
+
+`encode_messagepack(value, result_resource)` 的返回 buffer 及 `parse_messagepack()` 返回的 DOM
+使用结果资源。parser 的流输入缓冲、map 转换暂存和 writer 容器帧使用调用方提供的临时资源；为空时使用
+当前线程的库临时资源。返回 buffer 和 DOM 不引用临时资源。
+
+MessagePack typed 读入先完整解析 `variant` DOM，再复用 `variant_reader`，因此 schema migration、
+未知字段策略、多态 envelope 和 external-ref resolver 与 JSON/DOM 路径一致。格式解析完成前不会修改
+目标；进入 typed 字段写入后按字段顺序提交，后续字段失败不会回滚此前字段。整对象事务读取需要单独设计
+通用 clone/commit，不属于格式后端职责。
 
 ### object pointers
 
@@ -1314,6 +1342,11 @@ caors::string text = *result;
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
 - `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
 - `serialization::json_reader`：从 JSON 文本范围直接读入字段的后端。
+- `serialization::messagepack_writer`：把通用 writer 事件编码到拥有式字节缓冲或输出流。
+- `serialization::encode_messagepack()` / `serialization::parse_messagepack()`：MessagePack DOM
+  编解码入口，支持 byte span、输入流、结果资源和临时资源。
+- `serialization::to_messagepack()` / `serialization::read_messagepack_from()`：MessagePack typed
+  便捷入口。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialize()`：通过指定 writer 后端序列化对象。

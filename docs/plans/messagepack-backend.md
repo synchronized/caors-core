@@ -141,7 +141,7 @@ template <typename T>
 
 ### 阶段 4：文档与跨平台验证
 
-- [ ] 更新正式序列化文档和公开头文件自包含测试；
+- [x] 更新正式序列化文档和公开头文件自包含测试；
 - [x] Windows Clang Shared Debug/Release 全量构建与测试；
 - [ ] Windows MSVC 环境可用后补充 Debug/Release 验证；
 - [ ] Linux 环境可用后补充 Clang/GCC 与大小端编码测试向量验证。
