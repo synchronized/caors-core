@@ -571,6 +571,7 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
 
   temporary_resource.reset();
   CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+  CHECK(decoded.name == "Mina");
 }
 
 TEST_CASE("serialization - nested MessagePack codec preserves outer temporary frames",
@@ -663,6 +664,51 @@ TEST_CASE("serialization - MessagePack typed APIs preserve unknown field policie
   REQUIRE(preserved_fields.size() == 1);
   CHECK(preserved_fields.front().name == caors::string_name{"extra"});
   CHECK(preserved_fields.front().value.as_u64() == 99);
+}
+
+TEST_CASE("serialization - preserved MessagePack fields outlive temporary storage",
+          "[serialization][messagepack][schema][memory]") {
+  require_messagepack_schema_actor_metadata();
+
+  variant extra = variant::object({});
+  REQUIRE(extra.add_member(caors::string_name{"name"}, 0,
+                           variant::from(std::string_view{"persistent"})));
+  variant root = variant::object({});
+  REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::int64_t{7})));
+  REQUIRE(root.add_member(caors::string_name{"extra"}, 0, std::move(extra)));
+  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  REQUIRE(encoded.succeeded());
+
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary_resource{64, &temporary_tracking};
+
+  {
+    caors::variant::object_type preserved_fields{
+        caors::variant::object_type::allocator_type{&result_tracking}};
+    caors::serialization::context context;
+    context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::preserve;
+    context.state.schema.preserved_unknown_fields = &preserved_fields;
+    context.resolvers.memory.resource = &result_tracking;
+    context.resolvers.memory.temporary_resource = &temporary_resource;
+
+    reader_unknown_field_actor decoded{};
+    REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
+    REQUIRE(preserved_fields.size() == 1);
+    CHECK(result_tracking.statistics().bytes_in_use > 0);
+    CHECK(temporary_resource.active_scope_count() == 0);
+
+    temporary_resource.reset();
+    CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+
+    const variant* name =
+        preserved_fields.front().value.find_member_variant(caors::string_name{"name"});
+    REQUIRE(name != nullptr);
+    REQUIRE(name->try_as_string() != nullptr);
+    CHECK(*name->try_as_string() == "persistent");
+  }
+
+  CHECK(result_tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - MessagePack typed APIs migrate DOM before strict validation",

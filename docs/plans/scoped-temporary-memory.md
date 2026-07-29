@@ -320,7 +320,18 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - [x] MessagePack map 判型所需的中间 entry 容器使用 temporary resource；
 - [ ] 评估 typed MessagePack 内部临时 DOM；
 - [ ] 将事务式容器元素和 schema 临时列表迁移到 temporary resource；
-- [ ] 审计 unknown fields、string storage、resolver 和构造结果，防止临时地址逃逸。
+- [x] 审计 unknown fields、string storage、resolver 和构造结果，防止临时地址逃逸。
+
+审计结论：
+
+- MessagePack typed 路径的 DOM 和 preserved unknown fields 使用 result resource，临时资源回滚后仍然
+  有效；
+- `string_view` 等借用值只保存到调用方显式提供的 `string_storage`，不借用 parser 临时字符串；
+- external-ref resolver 返回调用方管理的外部对象，context 只在同步调用期间借用 resolver ops；
+- 自定义构造结果由目标接管，必须使用 `effective_memory_resource()` 或其他长期资源；公共注释已明确禁止
+  返回 temporary resource 中的对象；
+- 如果调用方主动把同一个 `stack_resource` 同时作为 result resource 和 temporary resource，或主动让
+  callback 保存临时地址，仍属于违反资源生命周期契约的用法。
 
 完成标准：失败路径和成功路径都不遗留临时分配，目标/返回值生命周期不受 rewind 影响。
 

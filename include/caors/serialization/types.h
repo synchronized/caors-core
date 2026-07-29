@@ -75,7 +75,12 @@ struct construction_request {
   std::size_t index = construction_request_no_index;
 };
 
-/** @brief 自定义构造策略返回的运行期对象和匹配销毁函数。 */
+/**
+ * @brief 自定义构造策略返回的运行期对象和匹配销毁函数。
+ *
+ * 返回对象会逃出当前临时工作作用域。构造回调必须使用 `context.effective_memory_resource()` 或其他
+ * 生命周期足够长的资源，不能把对象放入 `context.effective_temporary_resource()`。
+ */
 struct construction_result {
   void* value = nullptr;
   meta::resource_destroy_fn destroy = nullptr;
@@ -228,7 +233,12 @@ struct factory_options {
   const polymorphic_factory_ops* polymorphic_factory = nullptr;
 };
 
-/** @brief 反序列化需要创建运行期值时使用的构造策略。 */
+/**
+ * @brief 反序列化需要创建运行期值时使用的构造策略。
+ *
+ * 自定义回调返回的对象由反序列化流程接管，失败时调用配套 destroy 回滚；成功转移后由目标值持有。
+ * 回调不得返回指向临时工作资源的对象。
+ */
 struct construction_options {
   using construct_fn = construction_result (*)(const construction_request& request,
                                                const serialization::context& context,
