@@ -13,6 +13,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -25,6 +26,59 @@ using namespace caors::tests::serialization;
 [[nodiscard]] std::uint8_t byte_at(const caors::io::byte_buffer& bytes, std::size_t index) {
   return std::to_integer<std::uint8_t>(bytes[index]);
 }
+
+class chunked_input_stream final : public caors::io::input_stream {
+public:
+  chunked_input_stream(std::span<const std::byte> bytes, std::size_t chunk_size)
+      : bytes_(bytes), chunk_size_(chunk_size) {}
+
+  [[nodiscard]] caors::io::size_result read(std::span<std::byte> buffer) override {
+    const std::size_t count = std::min({buffer.size(), chunk_size_, bytes_.size() - position_});
+    std::copy_n(bytes_.begin() + static_cast<std::ptrdiff_t>(position_), count, buffer.begin());
+    position_ += count;
+    return caors::ok(count);
+  }
+
+  [[nodiscard]] bool eof() const noexcept override { return position_ == bytes_.size(); }
+
+private:
+  std::span<const std::byte> bytes_{};
+  std::size_t chunk_size_ = 0;
+  std::size_t position_ = 0;
+};
+
+class failing_input_stream final : public caors::io::input_stream {
+public:
+  [[nodiscard]] caors::io::size_result read(std::span<std::byte>) override {
+    return caors::fail<std::size_t>({caors::error_domain::io, caors::errc::backend_failure});
+  }
+
+  [[nodiscard]] bool eof() const noexcept override { return false; }
+};
+
+class chunked_output_stream final : public caors::io::output_stream {
+public:
+  explicit chunked_output_stream(
+      std::size_t chunk_size,
+      std::size_t fail_after_writes = std::numeric_limits<std::size_t>::max())
+      : chunk_size_(chunk_size), fail_after_writes_(fail_after_writes) {}
+
+  [[nodiscard]] caors::io::size_result write(std::span<const std::byte> buffer) override {
+    if (write_count_++ >= fail_after_writes_) {
+      return caors::fail<std::size_t>({caors::error_domain::io, caors::errc::backend_failure});
+    }
+    const std::size_t count = std::min(buffer.size(), chunk_size_);
+    bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(count));
+    return caors::ok(count);
+  }
+
+  caors::io::byte_buffer bytes{};
+
+private:
+  std::size_t chunk_size_ = 0;
+  std::size_t fail_after_writes_ = 0;
+  std::size_t write_count_ = 0;
+};
 
 void require_messagepack_schema_actor_metadata() {
   REQUIRE(registration_result_ok(caors::registration::type_<reader_unknown_field_actor>(
@@ -119,6 +173,38 @@ TEST_CASE("serialization - MessagePack DOM round trips nested values",
   CHECK(decoded_values->as_array()[1].as_u64() == 500);
   REQUIRE(decoded_values->as_array()[2].is_string());
   CHECK(decoded_values->as_array()[2].as_string() == "text");
+}
+
+TEST_CASE("serialization - MessagePack streams handle short reads and writes",
+          "[serialization][messagepack][stream]") {
+  const variant source = variant::from(std::string_view{"messagepack-stream"});
+  const caors::io::byte_buffer_result expected = caors::serialization::encode_messagepack(source);
+  REQUIRE(expected.succeeded());
+
+  chunked_output_stream output{2};
+  caors::serialization::messagepack_writer writer{output};
+  REQUIRE(caors::serialization::write_value_to(writer, source).succeeded());
+  CHECK(output.bytes == expected.value);
+
+  chunked_input_stream input{output.bytes, 3};
+  const caors::serialization::variant_result decoded =
+      caors::serialization::parse_messagepack(input);
+  REQUIRE(decoded.succeeded());
+  REQUIRE(decoded.value.is_string());
+  CHECK(decoded.value.as_string() == "messagepack-stream");
+}
+
+TEST_CASE("serialization - MessagePack streams propagate backend failures",
+          "[serialization][messagepack][stream]") {
+  failing_input_stream input;
+  const caors::serialization::variant_result read = caors::serialization::parse_messagepack(input);
+  CHECK(read.status == caors::error{caors::error_domain::io, caors::errc::backend_failure});
+
+  chunked_output_stream output{1, 1};
+  caors::serialization::messagepack_writer writer{output};
+  const caors::error written = writer.write_string("failure");
+  CHECK(written == caors::error{caors::error_domain::io, caors::errc::backend_failure});
+  CHECK(output.bytes.size() == 1);
 }
 
 TEST_CASE("serialization - MessagePack DOM recursively uses the result resource",

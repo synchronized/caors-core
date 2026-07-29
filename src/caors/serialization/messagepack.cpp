@@ -3,10 +3,10 @@
 
 #include "caors/serialization/messagepack.h"
 
+#include "caors/core/string_name.h"
 #include "caors/memory/stack.h"
 
-#include "caors/core/string_name.h"
-
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -467,16 +467,24 @@ public:
   explicit implementation(memory_resource* temporary_resource)
       : temporary_resource_(temporary_resource != nullptr ? temporary_resource
                                                           : &memory::library_temporary_resource()),
-        frames_(vector<frame>::allocator_type{temporary_resource_}), output_(&owned_output_) {
+        output_(&owned_output_), frames_(vector<frame>::allocator_type{temporary_resource_}) {
     begin_temporary_scope();
   }
 
   implementation(io::byte_buffer& output, memory_resource* temporary_resource)
       : temporary_resource_(temporary_resource != nullptr ? temporary_resource
                                                           : &memory::library_temporary_resource()),
-        frames_(vector<frame>::allocator_type{temporary_resource_}), output_(&output) {
+        output_(&output), frames_(vector<frame>::allocator_type{temporary_resource_}) {
     begin_temporary_scope();
     output_->clear();
+  }
+
+  implementation(io::output_stream& output, memory_resource* temporary_resource)
+      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
+                                                          : &memory::library_temporary_resource()),
+        output_(&owned_output_), stream_(&output),
+        frames_(vector<frame>::allocator_type{temporary_resource_}) {
+    begin_temporary_scope();
   }
 
   [[nodiscard]] error begin_container(frame_kind kind, std::size_t expected_size) {
@@ -536,6 +544,11 @@ public:
           encode_messagepack(value, output_->get_allocator().resource());
       if (encoded.failed()) {
         return encoded.status;
+      }
+      if (stream_ != nullptr) {
+        if (const error status = stream_->write_all(encoded.value); status) {
+          return status;
+        }
       }
       *output_ = std::move(encoded.value);
       root_written_ = true;
@@ -598,6 +611,7 @@ public:
   std::optional<memory::stack_scope> temporary_scope_{};
   io::byte_buffer owned_output_{};
   io::byte_buffer* output_ = nullptr;
+  io::output_stream* stream_ = nullptr;
   vector<frame> frames_;
   bool root_written_ = false;
 };
@@ -608,6 +622,10 @@ messagepack_writer::messagepack_writer(memory_resource* temporary_resource)
     : implementation_(std::make_unique<implementation>(temporary_resource)) {}
 
 messagepack_writer::messagepack_writer(io::byte_buffer& output, memory_resource* temporary_resource)
+    : implementation_(std::make_unique<implementation>(output, temporary_resource)) {}
+
+messagepack_writer::messagepack_writer(io::output_stream& output,
+                                       memory_resource* temporary_resource)
     : implementation_(std::make_unique<implementation>(output, temporary_resource)) {}
 
 messagepack_writer::~messagepack_writer() = default;
@@ -836,6 +854,48 @@ variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_o
   if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
     temporary_scope.emplace(*stack);
   }
+  return parser{bytes, options, resource, resolved_temporary}.parse();
+}
+
+variant_result parse_messagepack(io::input_stream& stream, messagepack_options options) {
+  return parse_messagepack(stream, options, nullptr, nullptr);
+}
+
+variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
+                                 memory_resource* resource) {
+  return parse_messagepack(stream, options, resource, nullptr);
+}
+
+variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
+                                 memory_resource* resource, memory_resource* temporary_resource) {
+  memory_resource* resolved_temporary =
+      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> temporary_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
+    temporary_scope.emplace(*stack);
+  }
+
+  io::byte_buffer bytes = io::make_byte_buffer(resolved_temporary);
+  std::array<std::byte, 4096> chunk{};
+  while (true) {
+    io::size_result read = stream.read(chunk);
+    if (read.failed()) {
+      return {read.error(), {}};
+    }
+    if (*read > chunk.size()) {
+      return {{error_domain::io, errc::backend_failure}, {}};
+    }
+    if (*read != 0) {
+      bytes.insert(bytes.end(), chunk.begin(), chunk.begin() + static_cast<std::ptrdiff_t>(*read));
+    }
+    if (stream.eof()) {
+      break;
+    }
+    if (*read == 0) {
+      return {{error_domain::io, errc::backend_failure}, {}};
+    }
+  }
+
   return parser{bytes, options, resource, resolved_temporary}.parse();
 }
 

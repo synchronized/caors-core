@@ -132,8 +132,8 @@ template <typename T>
 
 ### 阶段 3：流与资源控制
 
-- [ ] 接入 `io::input_stream` 和 `io::output_stream`；
-- [ ] 校验短读、短写和流错误传播；
+- [x] 接入 `io::input_stream` 和 `io::output_stream`；
+- [x] 校验短读、短写和流错误传播；
 - [ ] 将 parser DOM 和返回 byte buffer 接入结果资源，并将 parser/writer 暂存结构接入作用域临时资源；
 - [ ] 增加深度、字符串长度和容器长度限制测试。
 

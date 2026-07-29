@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_MESSAGEPACK_H_
 #define CAORS_SERIALIZATION_MESSAGEPACK_H_
 
+#include "caors/io/stream.h"
 #include "caors/io/types.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"
@@ -32,6 +33,9 @@ public:
   /** @brief 使用指定临时资源构造 writer；为空时使用线程局部临时资源。 */
   explicit messagepack_writer(memory_resource* temporary_resource);
   explicit messagepack_writer(io::byte_buffer& output,
+                              memory_resource* temporary_resource = nullptr);
+  /** @brief 将完成的根值写入输出流；短写由 `output_stream::write_all()` 处理。 */
+  explicit messagepack_writer(io::output_stream& output,
                               memory_resource* temporary_resource = nullptr);
   ~messagepack_writer() override;
 
@@ -93,6 +97,21 @@ encode_messagepack(const variant& value, memory_resource* resource = nullptr);
  * `temporary_resource` 为空时使用当前线程的库临时资源。返回 DOM 不引用临时资源。
  */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
+                                                         messagepack_options options,
+                                                         memory_resource* resource,
+                                                         memory_resource* temporary_resource);
+
+/** @brief 从输入流读取到 EOF 后解析一个完整 MessagePack 根值。 */
+[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
+                                                         messagepack_options options = {});
+
+/** @brief 使用指定结果资源从输入流解析一个完整 MessagePack 根值。 */
+[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
+                                                         messagepack_options options,
+                                                         memory_resource* resource);
+
+/** @brief 使用指定结果资源和临时资源从输入流解析一个完整 MessagePack 根值。 */
+[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
                                                          messagepack_options options,
                                                          memory_resource* resource,
                                                          memory_resource* temporary_resource);
