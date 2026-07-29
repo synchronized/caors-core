@@ -112,7 +112,7 @@ template <typename T>
 - [x] 实现 `messagepack_writer` 的 null、bool、整数、float64、字符串、数组、对象和字典编码；
 - [x] 实现 byte span parser，解析为 `meta::variant`；
 - [x] 覆盖最短整数编码、大端字节序、截断输入、非法标记、解析限制和尾随数据测试；
-- [ ] 补齐字符串与容器各级长度标记边界测试。
+- [x] 补齐字符串与容器各级长度标记边界测试。
 
 完成标准：MessagePack 官方兼容编码可以与 `variant` 双向转换，错误输入不产生成功结果。
 

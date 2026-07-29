@@ -248,37 +248,46 @@ TEST_CASE("serialization - MessagePack selects string length markers",
 
 TEST_CASE("serialization - MessagePack selects container length markers",
           "[serialization][messagepack]") {
-  variant::array_type fixed_values;
-  fixed_values.resize(15);
-  const caors::io::byte_buffer_result fixed_array =
-      caors::serialization::encode_messagepack(variant::array(std::move(fixed_values)));
-  REQUIRE(fixed_array.succeeded());
-  CHECK(byte_at(fixed_array.value, 0) == 0x9F);
+  const auto require_array_marker = [](std::size_t size, std::uint8_t marker,
+                                       std::span<const std::uint8_t> encoded_size) {
+    variant::array_type values;
+    values.resize(size);
+    const caors::io::byte_buffer_result encoded =
+        caors::serialization::encode_messagepack(variant::array(std::move(values)));
+    REQUIRE(encoded.succeeded());
+    CHECK(byte_at(encoded.value, 0) == marker);
+    for (std::size_t index = 0; index < encoded_size.size(); ++index) {
+      CHECK(byte_at(encoded.value, index + 1) == encoded_size[index]);
+    }
+  };
 
-  variant::array_type array16_values;
-  array16_values.resize(16);
-  const caors::io::byte_buffer_result array16 =
-      caors::serialization::encode_messagepack(variant::array(std::move(array16_values)));
-  REQUIRE(array16.succeeded());
-  CHECK(byte_at(array16.value, 0) == 0xDC);
-  CHECK(byte_at(array16.value, 1) == 0x00);
-  CHECK(byte_at(array16.value, 2) == 0x10);
+  const auto require_map_marker = [](std::size_t size, std::uint8_t marker,
+                                     std::span<const std::uint8_t> encoded_size) {
+    variant::dictionary_type entries;
+    entries.resize(size);
+    const caors::io::byte_buffer_result encoded =
+        caors::serialization::encode_messagepack(variant::dictionary(std::move(entries)));
+    REQUIRE(encoded.succeeded());
+    CHECK(byte_at(encoded.value, 0) == marker);
+    for (std::size_t index = 0; index < encoded_size.size(); ++index) {
+      CHECK(byte_at(encoded.value, index + 1) == encoded_size[index]);
+    }
+  };
 
-  variant::dictionary_type fixed_entries;
-  fixed_entries.resize(15);
-  const caors::io::byte_buffer_result fixed_map =
-      caors::serialization::encode_messagepack(variant::dictionary(std::move(fixed_entries)));
-  REQUIRE(fixed_map.succeeded());
-  CHECK(byte_at(fixed_map.value, 0) == 0x8F);
+  const std::array<std::uint8_t, 0> fixed_size{};
+  const std::array<std::uint8_t, 2> size_16{{0x00, 0x10}};
+  const std::array<std::uint8_t, 2> maximum_size_16{{0xFF, 0xFF}};
+  const std::array<std::uint8_t, 4> minimum_size_32{{0x00, 0x01, 0x00, 0x00}};
 
-  variant::dictionary_type map16_entries;
-  map16_entries.resize(16);
-  const caors::io::byte_buffer_result map16 =
-      caors::serialization::encode_messagepack(variant::dictionary(std::move(map16_entries)));
-  REQUIRE(map16.succeeded());
-  CHECK(byte_at(map16.value, 0) == 0xDE);
-  CHECK(byte_at(map16.value, 1) == 0x00);
-  CHECK(byte_at(map16.value, 2) == 0x10);
+  require_array_marker(15, 0x9F, fixed_size);
+  require_array_marker(16, 0xDC, size_16);
+  require_array_marker(65535, 0xDC, maximum_size_16);
+  require_array_marker(65536, 0xDD, minimum_size_32);
+
+  require_map_marker(15, 0x8F, fixed_size);
+  require_map_marker(16, 0xDE, size_16);
+  require_map_marker(65535, 0xDE, maximum_size_16);
+  require_map_marker(65536, 0xDF, minimum_size_32);
 }
 
 TEST_CASE("serialization - MessagePack typed APIs round trip reflected objects",
