@@ -11,12 +11,15 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <barrier>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
 
 namespace caors::tests::serialization {
 
@@ -353,6 +356,114 @@ TEST_CASE("serialization - MessagePack enforces parser limits", "[serialization]
   container_options.max_container_size = 2;
   CHECK(caors::serialization::parse_messagepack(array, container_options).succeeded());
   CHECK(caors::serialization::parse_messagepack(map, container_options).succeeded());
+}
+
+TEST_CASE("serialization - MessagePack temporary storage remains isolated across threads",
+          "[serialization][messagepack][memory][stress]") {
+  constexpr std::size_t thread_count = 4;
+  constexpr std::size_t iteration_count = 128;
+  const std::array encoded{std::byte{0x92}, std::byte{0x01}, std::byte{0x02}};
+  std::array<caors::stack_resource*, thread_count> resources{};
+  std::array<std::thread, thread_count> threads;
+  std::barrier ready{static_cast<std::ptrdiff_t>(thread_count)};
+  std::atomic<bool> succeeded{true};
+
+  for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index) {
+    threads[thread_index] = std::thread{[&, thread_index] {
+      resources[thread_index] = &caors::library_temporary_resource();
+      for (std::size_t iteration = 0; iteration < iteration_count; ++iteration) {
+        const caors::serialization::variant_result decoded =
+            caors::serialization::parse_messagepack(encoded);
+        if (decoded.failed() || !decoded.value.is_array() || decoded.value.as_array().size() != 2) {
+          succeeded.store(false, std::memory_order_relaxed);
+          break;
+        }
+      }
+      ready.arrive_and_wait();
+    }};
+  }
+
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
+
+  CHECK(succeeded.load(std::memory_order_relaxed));
+  for (std::size_t left = 0; left < resources.size(); ++left) {
+    REQUIRE(resources[left] != nullptr);
+    for (std::size_t right = left + 1; right < resources.size(); ++right) {
+      CHECK(resources[left] != resources[right]);
+    }
+  }
+}
+
+TEST_CASE("serialization - MessagePack releases deep map staging after success and failure",
+          "[serialization][messagepack][memory][stress]") {
+  constexpr std::size_t depth = 64;
+  caors::io::byte_buffer encoded;
+  encoded.reserve(depth * 3 + 1);
+  for (std::size_t index = 0; index < depth; ++index) {
+    encoded.push_back(std::byte{0x81});
+    encoded.push_back(std::byte{0xA1});
+    encoded.push_back(std::byte{'x'});
+  }
+  encoded.push_back(std::byte{0xC0});
+
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{64, &temporary_tracking};
+  caors::serialization::messagepack_options options;
+  options.max_parse_depth = depth;
+
+  {
+    const caors::serialization::variant_result decoded =
+        caors::serialization::parse_messagepack(encoded, options, &result_tracking, &temporary);
+    REQUIRE(decoded.succeeded());
+    CHECK(temporary.active_scope_count() == 0);
+    CHECK(temporary.statistics().peak_chunk_count > 1);
+  }
+  CHECK(result_tracking.statistics().bytes_in_use == 0);
+
+  encoded.pop_back();
+  {
+    const caors::serialization::variant_result decoded =
+        caors::serialization::parse_messagepack(encoded, options, &result_tracking, &temporary);
+    CHECK(decoded.failed());
+    CHECK(temporary.active_scope_count() == 0);
+  }
+  CHECK(result_tracking.statistics().bytes_in_use == 0);
+
+  temporary.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("serialization - MessagePack releases temporary storage for large arrays",
+          "[serialization][messagepack][memory][stress]") {
+  constexpr std::size_t element_count = 4096;
+  caors::io::byte_buffer encoded;
+  encoded.reserve(element_count + 5);
+  encoded.push_back(std::byte{0xDD});
+  encoded.push_back(std::byte{0x00});
+  encoded.push_back(std::byte{0x00});
+  encoded.push_back(std::byte{0x10});
+  encoded.push_back(std::byte{0x00});
+  encoded.insert(encoded.end(), element_count, std::byte{0x00});
+
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{128, &temporary_tracking};
+
+  {
+    const caors::serialization::variant_result decoded = caors::serialization::parse_messagepack(
+        encoded, caors::serialization::messagepack_options{}, &result_tracking, &temporary);
+    REQUIRE(decoded.succeeded());
+    REQUIRE(decoded.value.is_array());
+    CHECK(decoded.value.as_array().size() == element_count);
+    CHECK(temporary.active_scope_count() == 0);
+  }
+  CHECK(result_tracking.statistics().bytes_in_use == 0);
+
+  temporary.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - MessagePack writer accepts generic writer events",

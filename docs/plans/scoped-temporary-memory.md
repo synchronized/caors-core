@@ -354,10 +354,15 @@ result-resource DOM；若大型 workload 显示明显瓶颈，优先设计直接
 
 ### 阶段 5：验证与文档
 
-- [ ] Windows Clang/MSVC Debug/Release；
+- [x] Windows Clang Shared Debug/Release；
+- [ ] Windows MSVC Debug/Release；
 - [ ] Linux Clang/GCC 和 ASan；
-- [ ] 多线程、递归、深层容器和大输入压力测试；
+- [x] 多线程、递归、深层容器和大输入压力测试；
 - [x] 更新 memory 与 serialization 正式文档。
+
+Windows Clang 压力验证覆盖：4 个线程分别复用线程局部临时资源，64 层嵌套 map 在成功和截断失败时
+完整回滚，以及 4096 元素数组读入后结果资源和临时资源均无残留。Shared Debug/Release 各 83 项测试
+全部通过。
 
 ## 暂缓内容
 
