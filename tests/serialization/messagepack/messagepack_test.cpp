@@ -538,3 +538,27 @@ TEST_CASE("serialization - MessagePack typed APIs preserve external references",
   REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
   CHECK(decoded.target.get() == &target);
 }
+
+TEST_CASE("serialization - MessagePack typed read failures stop at the failing field",
+          "[serialization][messagepack][transaction]") {
+  require_reader_actor_metadata();
+
+  variant root = variant::object({});
+  REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::int64_t{99})));
+  REQUIRE(
+      root.add_member(caors::string_name{"health"}, 0, variant::from(std::string_view{"invalid"})));
+  REQUIRE(root.add_member(caors::string_name{"active"}, 0, variant::from(false)));
+  REQUIRE(
+      root.add_member(caors::string_name{"name"}, 0, variant::from(std::string_view{"changed"})));
+  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  REQUIRE(encoded.succeeded());
+
+  reader_actor target{7, 95.5F, true, "original"};
+  const caors::error status = caors::read_messagepack_from(target, encoded.value);
+  REQUIRE(status.failed());
+  CHECK(status.domain() == caors::error_domain::serialization);
+  CHECK(target.id == 99);
+  CHECK(target.health == 95.5F);
+  CHECK(target.active);
+  CHECK(target.name == "original");
+}

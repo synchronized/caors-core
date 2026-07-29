@@ -41,6 +41,10 @@ MessagePack map 必须在容器头中提前写入成员数量，而现有 `write
 读入端先把一个完整 MessagePack 根值解析为 `meta::variant`，随后复用 `variant_reader`。这样字段旧名、
 未知字段策略、schema migration、多态 envelope 和现有递归调度保持同一语义，不复制一套对象导航逻辑。
 
+typed 读入沿用现有 DOM/JSON 的事务边界：格式解析完成前不修改目标；进入字段写入后按顺序提交，后续字段
+失败不会回滚此前已经写入的字段。非复制类型、引用成员和多态对象的整对象 clone/commit 不属于
+MessagePack 后端职责，需要单独设计通用事务读取能力。
+
 ### 资源与限制
 
 - parser 接受 `std::span<const std::byte>` 和 `io::input_stream`；
@@ -122,7 +126,7 @@ template <typename T>
 - [x] typed API 复用现有 `serialize()`、`variant_reader` 和 context；
 - [x] 覆盖 schema migration 和未知字段策略；
 - [x] 覆盖嵌套对象、容器、tuple/variant、多态 envelope 和 external-ref；
-- [ ] 确认失败时目标值遵守现有事务边界。
+- [x] 确认失败时目标值遵守现有事务边界。
 
 完成标准：现有 JSON/DOM 语义测试能够以 MessagePack 后端复用或建立等价用例。
 
