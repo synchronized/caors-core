@@ -8,6 +8,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +23,42 @@ using namespace caors::tests::serialization;
 
 [[nodiscard]] std::uint8_t byte_at(const caors::io::byte_buffer& bytes, std::size_t index) {
   return std::to_integer<std::uint8_t>(bytes[index]);
+}
+
+void require_messagepack_schema_actor_metadata() {
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_unknown_field_actor>(
+                                     "caors.test.serialization.messagepack_schema_actor")
+                                     .meta()
+                                     .property("id", &reader_unknown_field_actor::id)
+                                     .serialization()
+                                     .field("id")
+                                     .commit()));
+}
+
+[[nodiscard]] caors::error
+migrate_messagepack_schema_actor(const caors::serialization::schema_migration_request& request,
+                                 caors::variant& value, void*) {
+  if (request.source_version != 1 || request.target_version != 2) {
+    return {caors::error_domain::serialization, caors::errc::unsupported};
+  }
+
+  caors::variant::object_type* members = value.try_mutable_object();
+  if (members == nullptr) {
+    return {};
+  }
+
+  const caors::variant* legacy_id = value.find_member_variant(caors::string_name{"legacy_id"});
+  if (legacy_id != nullptr && value.find_member_variant(caors::string_name{"id"}) == nullptr) {
+    members->push_back({caors::string_name{"id"}, 0, *legacy_id});
+  }
+
+  members->erase(std::remove_if(members->begin(), members->end(),
+                                [](const caors::meta::variant_member& member) {
+                                  return member.name == caors::string_name{"legacy_id"} ||
+                                         member.name == caors::string_name{"removed"};
+                                }),
+                 members->end());
+  return {};
 }
 
 } // namespace
@@ -344,4 +381,59 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
 
   temporary_resource.reset();
   CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("serialization - MessagePack typed APIs preserve unknown field policies",
+          "[serialization][messagepack][schema]") {
+  require_messagepack_schema_actor_metadata();
+
+  variant root = variant::object({});
+  REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::int64_t{7})));
+  REQUIRE(root.add_member(caors::string_name{"extra"}, 0, variant::from(std::int64_t{99})));
+  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  REQUIRE(encoded.succeeded());
+
+  reader_unknown_field_actor ignored{};
+  REQUIRE(caors::read_messagepack_from(ignored, encoded.value).succeeded());
+  CHECK(ignored.id == 7);
+
+  caors::serialization::context reject_context;
+  reject_context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+  reader_unknown_field_actor rejected{};
+  CHECK(caors::read_messagepack_from(reject_context, rejected, encoded.value) ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_field});
+
+  caors::variant::object_type preserved_fields;
+  caors::serialization::context preserve_context;
+  preserve_context.config.schema.unknown_fields =
+      caors::serialization::unknown_field_policy::preserve;
+  preserve_context.state.schema.preserved_unknown_fields = &preserved_fields;
+  reader_unknown_field_actor preserved{};
+  REQUIRE(caors::read_messagepack_from(preserve_context, preserved, encoded.value).succeeded());
+  CHECK(preserved.id == 7);
+  REQUIRE(preserved_fields.size() == 1);
+  CHECK(preserved_fields.front().name == caors::string_name{"extra"});
+  CHECK(preserved_fields.front().value.as_u64() == 99);
+}
+
+TEST_CASE("serialization - MessagePack typed APIs migrate DOM before strict validation",
+          "[serialization][messagepack][schema]") {
+  require_messagepack_schema_actor_metadata();
+
+  variant root = variant::object({});
+  REQUIRE(root.add_member(caors::string_name{"legacy_id"}, 0, variant::from(std::int64_t{42})));
+  REQUIRE(root.add_member(caors::string_name{"removed"}, 0, variant::from(std::int64_t{99})));
+  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  REQUIRE(encoded.succeeded());
+
+  caors::serialization::schema_migration_ops migration{&migrate_messagepack_schema_actor};
+  caors::serialization::context context;
+  context.config.fields.schema_version = 2;
+  context.config.schema.source_version = 1;
+  context.config.schema.migration = &migration;
+  context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+
+  reader_unknown_field_actor migrated{};
+  REQUIRE(caors::read_messagepack_from(context, migrated, encoded.value).succeeded());
+  CHECK(migrated.id == 42);
 }
