@@ -249,9 +249,21 @@ messagepack_writer writer{output, temporary_resource};
 
 ### 阶段 0：基线与契约
 
-- [ ] 记录 `monotonic_resource`、MessagePack writer/parser 和事务式容器读入的当前分配基线；
-- [ ] 冻结 marker 有效性、LIFO、线程归属和析构顺序契约；
-- [ ] 确认公开返回值与临时内存的不可逃逸边界。
+- [x] 记录 `monotonic_resource`、MessagePack writer/parser 和事务式容器读入的当前分配基线；
+- [x] 冻结 marker 有效性、LIFO、线程归属和析构顺序契约；
+- [x] 确认公开返回值与临时内存的不可逃逸边界。
+
+当前基线：
+
+- `monotonic_resource` 只支持整池 `reset()`，不提供嵌套 marker；
+- MessagePack writer 的 frame 栈和容器暂存已使用 temporary resource；
+- MessagePack parser 的流输入缓冲和 map 判型暂存使用 temporary resource，返回 DOM 递归使用
+  result resource；
+- typed MessagePack 当前仍先构造完整 DOM，再由 `variant_reader` 写入目标；
+- 通用事务式容器元素和 schema 临时列表尚未迁移，保留为阶段 4 工作。
+
+契约以 `stack_resource` 公共注释和 `docs/memory.md` 为准：marker 属于创建它的资源，只能在同一线程按
+LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标对象和借用 view 不得引用已回滚的临时地址。
 
 ### 阶段 1：`stack_resource`
 
@@ -299,7 +311,7 @@ messagepack_writer writer{output, temporary_resource};
 - [ ] Windows Clang/MSVC Debug/Release；
 - [ ] Linux Clang/GCC 和 ASan；
 - [ ] 多线程、递归、深层容器和大输入压力测试；
-- [ ] 更新 memory 与 serialization 正式文档。
+- [x] 更新 memory 与 serialization 正式文档。
 
 ## 暂缓内容
 

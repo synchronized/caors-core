@@ -42,6 +42,7 @@ meta / serialization / object
 - `caors/memory/debug_tracking.h`：`debug_tracking_resource`、存活分配记录和调试统计。
 - `caors/memory/debug_tools.h`：调试记录收集 helper，例如 `collect_live_allocations()`。
 - `caors/memory/monotonic.h`：线性分配策略资源。
+- `caors/memory/stack.h`：支持嵌套标记和作用域回滚的线程局部临时资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
 - `caors/memory/resource.h`：同时提供裸内存 RAII 句柄 `memory_block` 和
   `allocate_block()` / `try_allocate_block()`。
@@ -294,7 +295,44 @@ caors::vector<caors::memory::memory_debug_record> records =
 当前已实现：
 
 - `monotonic_resource`：线性分配器，适合一批对象一起释放的临时内存。
+- `stack_resource`：支持严格 LIFO 的 mark/rewind，适合同步嵌套调用的临时工作内存。
 - `fixed_block_pool`：固定块池，适合同尺寸对象频繁创建和销毁。
+
+### stack_resource
+
+`stack_resource` 是基于 chunk 的单调栈式资源。单次 `deallocate()` 不回收空间；调用方通过
+`stack_scope` 在进入时创建 marker，并在离开作用域时回滚到原位置：
+
+```cpp
+caors::stack_resource temporary;
+
+{
+  caors::stack_scope outer{temporary};
+  void* outer_data = outer.resource()->allocate(128, 16);
+
+  {
+    caors::stack_scope inner{temporary};
+    void* inner_data = inner.resource()->allocate(256, 16);
+    // inner_data 只在 inner 作用域内有效。
+  }
+
+  // 内层已经回滚，outer_data 仍然有效。
+}
+```
+
+marker 必须由同一个资源创建、在同一线程使用，并严格按后进先出顺序回滚。`reset()` 和 `trim()` 只能在
+没有活动 marker 时调用。Debug 构建会断言跨资源 marker、过期 marker 和乱序回滚。
+
+回滚只回收字节，不调用对象析构函数。使用该资源的容器或非平凡对象必须先析构，随后才能析构
+`stack_scope`。任何返回值、目标对象或借用 view 都不得保存指向已回滚区域的地址。
+
+`library_temporary_resource()` 返回当前线程复用的 `stack_resource`。同步调用不需要每次创建资源，只需
+创建轻量 `stack_scope`；普通 chunk 可以复用，large chunk 会在回滚时释放。该资源不是线程安全的，也不能
+假设不同 DLL/plugin 内的线程局部实例相同。跨模块调用应由 host 显式传入临时资源，使分配和最终释放位于
+同一 runtime 边界。
+
+长期空闲或完成异常大的任务后，可以在没有活动 marker 时调用 `trim()`，释放基础 chunk 之外的缓存；
+`reset()` 则释放全部 chunk。
 
 ### wrapper resource
 
@@ -379,6 +417,7 @@ backend / strategy resource
 - 统计包装：`tracking_resource`
 - 调试包装：`debug_tracking_resource`
 - 线性策略：`monotonic_resource`
+- 作用域临时策略：`stack_resource` / `stack_scope` / `library_temporary_resource()`
 - 固定块策略：`fixed_block_pool`
 - 默认资源入口：`get_default_memory_resource()` / `set_default_memory_resource()`
 - 全局分配入口：`try_allocate()` / `allocate()` / `deallocate()`
@@ -393,6 +432,7 @@ backend / strategy resource
 - [x] `tracking_resource`：统计分配和释放，辅助泄漏检测。
 - [x] `debug_tracking_resource`：记录存活分配、调用点标签和错误释放。
 - [x] `monotonic_resource`：面向临时内存和批量释放。
+- [x] `stack_resource`：面向同步嵌套调用的作用域临时内存。
 - [x] `fixed_block_pool`：面向固定大小对象池。
 - [x] `try_allocate`：提供不抛异常的失败返回路径。
 - [ ] 扩展越界检测、填充值和 guard block 等调试能力。
