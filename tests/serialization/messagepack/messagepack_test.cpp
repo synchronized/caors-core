@@ -18,6 +18,65 @@
 #include <string>
 #include <string_view>
 
+namespace caors::tests::serialization {
+
+struct nested_messagepack_callback_state {
+  std::size_t scope_count_before = 0;
+  std::size_t scope_count_after = 0;
+  bool inner_succeeded = false;
+};
+
+struct nested_messagepack_inner_actor {
+  int value = 0;
+};
+
+struct nested_messagepack_callback_value {
+  int value = 0;
+  nested_messagepack_callback_state* state = nullptr;
+};
+
+struct nested_messagepack_callback_actor {
+  int prefix = 0;
+  nested_messagepack_callback_value nested{};
+  int suffix = 0;
+};
+
+} // namespace caors::tests::serialization
+
+namespace caors::serialization {
+
+template <> struct codec_traits<caors::tests::serialization::nested_messagepack_callback_value> {
+  using value_type = caors::tests::serialization::nested_messagepack_callback_value;
+
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = false;
+  static constexpr bool can_make_value = false;
+
+  [[nodiscard]] static caors::error write(const context& context, writer& writer,
+                                          const value_type& value) {
+    auto* stack = dynamic_cast<caors::stack_resource*>(context.effective_temporary_resource());
+    if (value.state != nullptr && stack != nullptr) {
+      value.state->scope_count_before = stack->active_scope_count();
+    }
+
+    const caors::tests::serialization::nested_messagepack_inner_actor inner_value{value.value};
+    const caors::io::byte_buffer_result inner = to_messagepack(context, inner_value);
+    if (value.state != nullptr) {
+      value.state->inner_succeeded = inner.succeeded();
+      if (stack != nullptr) {
+        value.state->scope_count_after = stack->active_scope_count();
+      }
+    }
+    if (inner.failed()) {
+      return inner.status;
+    }
+
+    return writer.write_i64(value.value);
+  }
+};
+
+} // namespace caors::serialization
+
 namespace {
 
 using caors::meta::variant;
@@ -509,6 +568,65 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
   CHECK(decoded.name == "Mina");
   CHECK(result_tracking.statistics().bytes_in_use == 0);
   CHECK(temporary_resource.active_scope_count() == 0);
+
+  temporary_resource.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("serialization - nested MessagePack codec preserves outer temporary frames",
+          "[serialization][messagepack][memory]") {
+  REQUIRE(registration_result_ok(caors::registration::type_<nested_messagepack_inner_actor>(
+                                     "caors.test.serialization.nested_messagepack_inner_actor")
+                                     .meta()
+                                     .property("value", &nested_messagepack_inner_actor::value)
+                                     .serialization()
+                                     .field("value")
+                                     .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<nested_messagepack_callback_value>(
+                                     "caors.test.serialization.nested_messagepack_callback_value")
+                                     .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<nested_messagepack_callback_actor>(
+                                     "caors.test.serialization.nested_messagepack_callback_actor")
+                                     .meta()
+                                     .property("prefix", &nested_messagepack_callback_actor::prefix)
+                                     .property("nested", &nested_messagepack_callback_actor::nested)
+                                     .property("suffix", &nested_messagepack_callback_actor::suffix)
+                                     .serialization()
+                                     .field("prefix")
+                                     .field("nested")
+                                     .field("suffix")
+                                     .commit()));
+
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary_resource{64, &temporary_tracking};
+  caors::serialization::context context;
+  context.resolvers.memory.temporary_resource = &temporary_resource;
+
+  nested_messagepack_callback_state callback_state{};
+  const nested_messagepack_callback_actor source{
+      11, nested_messagepack_callback_value{22, &callback_state}, 33};
+  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source);
+
+  CAPTURE(encoded.status.domain(), encoded.status.value(), callback_state.inner_succeeded,
+          callback_state.scope_count_before, callback_state.scope_count_after);
+  REQUIRE(encoded.succeeded());
+  CHECK(callback_state.inner_succeeded);
+  CHECK(callback_state.scope_count_before == 1);
+  CHECK(callback_state.scope_count_after == 1);
+  CHECK(temporary_resource.active_scope_count() == 0);
+  CHECK(temporary_resource.statistics().mark_count == 2);
+  CHECK(temporary_resource.statistics().rewind_count == 2);
+
+  const caors::serialization::variant_result decoded =
+      caors::serialization::parse_messagepack(encoded.value);
+  REQUIRE(decoded.succeeded());
+  REQUIRE(decoded.value.is_object());
+  REQUIRE(decoded.value.find_member_variant(caors::string_name{"prefix"}) != nullptr);
+  REQUIRE(decoded.value.find_member_variant(caors::string_name{"nested"}) != nullptr);
+  REQUIRE(decoded.value.find_member_variant(caors::string_name{"suffix"}) != nullptr);
+  CHECK(decoded.value.find_member_variant(caors::string_name{"prefix"})->as_u64() == 11);
+  CHECK(decoded.value.find_member_variant(caors::string_name{"nested"})->as_u64() == 22);
+  CHECK(decoded.value.find_member_variant(caors::string_name{"suffix"})->as_u64() == 33);
 
   temporary_resource.reset();
   CHECK(temporary_tracking.statistics().bytes_in_use == 0);

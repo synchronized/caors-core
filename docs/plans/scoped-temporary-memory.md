@@ -309,7 +309,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - [x] 让流式 writer 在构造时绑定资源，并验证资源生命周期和线程约束；
 - [x] 让 MessagePack parser 接受并绑定临时资源；
 - [x] 保证最终 byte buffer 使用 result resource；
-- [ ] 增加嵌套序列化 callback 测试；
+- [x] 增加嵌套序列化 callback 测试；
 - [ ] 比较接入前后的分配次数、峰值内存和吞吐。
 
 完成标准：连续调用能够复用临时 chunk，返回 buffer 在 scope 回滚后仍然有效。
