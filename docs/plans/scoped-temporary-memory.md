@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：需求与设计已冻结，待实施；
+- 当前状态：实施中；`stack_resource`、`stack_scope` 和线程局部入口已完成；
 - 目标：为同步、嵌套调用提供低成本临时分配，并在作用域结束时回滚到进入前的位置；
 - 首个使用方：serialization 的 MessagePack writer/parser 和事务式容器读入；
 - 非目标：不替代返回值、目标对象、借用存储、异步任务或全局元数据使用的长期内存资源。
@@ -255,20 +255,20 @@ messagepack_writer writer{output, temporary_resource};
 
 ### 阶段 1：`stack_resource`
 
-- [ ] 实现 mark/rewind/reset；
-- [ ] 覆盖对齐、跨 chunk、large chunk 和空回滚；
-- [ ] 增加错误 marker、旧 generation 和非 LIFO Debug 检查；
-- [ ] 验证 rewind 后外层 marker 之前的内容仍然有效。
+- [x] 实现 mark/rewind/reset；
+- [x] 覆盖对齐、跨 chunk、large chunk 和空回滚；
+- [x] 增加错误 marker、旧 generation 和非 LIFO Debug 检查；
+- [x] 验证 rewind 后外层 marker 之前的内容仍然有效。
 
 完成标准：嵌套 scope 可以独立回滚，普通分配路径无锁。
 
 ### 阶段 2：线程局部入口与统计
 
-- [ ] 实现 `stack_scope`；
-- [ ] 实现 `library_temporary_resource()`；
-- [ ] 实现无活动 scope 时可调用的 `trim()`；
-- [ ] 验证多线程实例隔离和同线程递归；
-- [ ] 验证普通 chunk 缓存上限和 large chunk 及时释放；
+- [x] 实现 `stack_scope`；
+- [x] 实现 `library_temporary_resource()`；
+- [x] 实现无活动 scope 时可调用的 `trim()`；
+- [x] 验证多线程实例隔离和同线程递归；
+- [x] 验证普通 chunk 缓存上限和 large chunk 及时释放；
 - [ ] 增加峰值、chunk 和 large allocation Debug 统计。
 
 完成标准：同步调用可以用一行 RAII scope 获得并安全回滚临时资源。
