@@ -286,6 +286,7 @@ messagepack_writer writer{output, temporary_resource};
 
 ### 阶段 4：parser 与通用 serialization 接入
 
+- [x] 让 MessagePack 返回 DOM 的字符串和嵌套容器递归使用 result resource；
 - [ ] parser 控制结构使用 temporary resource；
 - [ ] 评估 typed MessagePack 内部临时 DOM；
 - [ ] 将事务式容器元素和 schema 临时列表迁移到 temporary resource；

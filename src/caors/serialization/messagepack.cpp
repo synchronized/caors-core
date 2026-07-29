@@ -186,8 +186,10 @@ error append_value(io::byte_buffer& output, const variant& value) {
 
 class parser {
 public:
-  parser(std::span<const std::byte> bytes, messagepack_options options) noexcept
-      : bytes_(bytes), options_(options) {}
+  parser(std::span<const std::byte> bytes, messagepack_options options,
+         memory_resource* resource) noexcept
+      : bytes_(bytes), options_(options),
+        resource_(resource != nullptr ? resource : get_default_memory_resource()) {}
 
   [[nodiscard]] variant_result parse() {
     variant_result result = parse_value(0);
@@ -228,7 +230,7 @@ private:
     }
     const char* data = reinterpret_cast<const char*>(bytes_.data() + position_);
     position_ += size;
-    return {{}, variant::from(std::string_view{data, size})};
+    return {{}, variant::from(std::string_view{data, size}, resource_)};
   }
 
   [[nodiscard]] bool valid_container_size(std::size_t size) const noexcept {
@@ -246,7 +248,7 @@ private:
     if (!valid_container_size(size)) {
       return {invalid_messagepack(), {}};
     }
-    variant::array_type values;
+    variant::array_type values{variant::array_type::allocator_type{resource_}};
     values.reserve(size);
     for (std::size_t index = 0; index < size; ++index) {
       variant_result element = parse_value(depth);
@@ -266,7 +268,7 @@ private:
       return {invalid_messagepack(), {}};
     }
 
-    variant::dictionary_type entries;
+    variant::dictionary_type entries{variant::dictionary_type::allocator_type{resource_}};
     entries.reserve(size);
     bool all_string_keys = true;
     for (std::size_t index = 0; index < size; ++index) {
@@ -286,7 +288,7 @@ private:
       return {{}, variant::dictionary(std::move(entries))};
     }
 
-    variant::object_type members;
+    variant::object_type members{variant::object_type::allocator_type{resource_}};
     members.reserve(entries.size());
     for (meta::variant_entry& entry : entries) {
       const string& key = entry.key.as_string();
@@ -303,7 +305,7 @@ private:
     }
 
     if (marker <= 0x7FU) {
-      return {{}, variant::from(static_cast<std::uint64_t>(marker))};
+      return {{}, variant::from(static_cast<std::uint64_t>(marker), resource_)};
     }
     if ((marker & 0xF0U) == 0x80U) {
       return parse_map(marker & 0x0FU, parent_depth + 1U);
@@ -315,7 +317,9 @@ private:
       return parse_string(marker & 0x1FU);
     }
     if (marker >= 0xE0U) {
-      return {{}, variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)))};
+      return {
+          {},
+          variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)), resource_)};
     }
 
     std::uint8_t u8 = 0;
@@ -324,53 +328,59 @@ private:
     std::uint64_t u64 = 0;
     switch (marker) {
     case 0xC0U:
-      return {{}, variant::null()};
+      return {{}, variant::null(resource_)};
     case 0xC2U:
-      return {{}, variant::from(false)};
+      return {{}, variant::from(false, resource_)};
     case 0xC3U:
-      return {{}, variant::from(true)};
+      return {{}, variant::from(true, resource_)};
     case 0xCAU:
       if (!read_big_endian(u32)) {
         return {invalid_messagepack(), {}};
       }
-      return {{}, variant::from(static_cast<double>(std::bit_cast<float>(u32)))};
+      return {{}, variant::from(static_cast<double>(std::bit_cast<float>(u32)), resource_)};
     case 0xCBU:
       if (!read_big_endian(u64)) {
         return {invalid_messagepack(), {}};
       }
-      return {{}, variant::from(std::bit_cast<double>(u64))};
+      return {{}, variant::from(std::bit_cast<double>(u64), resource_)};
     case 0xCCU:
-      return read_big_endian(u8) ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u8))}
-                                 : variant_result{invalid_messagepack(), {}};
+      return read_big_endian(u8)
+                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u8), resource_)}
+                 : variant_result{invalid_messagepack(), {}};
     case 0xCDU:
       return read_big_endian(u16)
-                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u16))}
+                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u16), resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xCEU:
       return read_big_endian(u32)
-                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u32))}
+                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u32), resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xCFU:
-      return read_big_endian(u64) ? variant_result{{}, variant::from(u64)}
+      return read_big_endian(u64) ? variant_result{{}, variant::from(u64, resource_)}
                                   : variant_result{invalid_messagepack(), {}};
     case 0xD0U:
       return read_big_endian(u8) ? variant_result{{},
                                                   variant::from(static_cast<std::int64_t>(
-                                                      static_cast<std::int8_t>(u8)))}
+                                                                    static_cast<std::int8_t>(u8)),
+                                                                resource_)}
                                  : variant_result{invalid_messagepack(), {}};
     case 0xD1U:
-      return read_big_endian(u16) ? variant_result{{},
-                                                   variant::from(static_cast<std::int64_t>(
-                                                       static_cast<std::int16_t>(u16)))}
-                                  : variant_result{invalid_messagepack(), {}};
+      return read_big_endian(u16)
+                 ? variant_result{{},
+                                  variant::from(
+                                      static_cast<std::int64_t>(static_cast<std::int16_t>(u16)),
+                                      resource_)}
+                 : variant_result{invalid_messagepack(), {}};
     case 0xD2U:
-      return read_big_endian(u32) ? variant_result{{},
-                                                   variant::from(static_cast<std::int64_t>(
-                                                       static_cast<std::int32_t>(u32)))}
-                                  : variant_result{invalid_messagepack(), {}};
+      return read_big_endian(u32)
+                 ? variant_result{{},
+                                  variant::from(
+                                      static_cast<std::int64_t>(static_cast<std::int32_t>(u32)),
+                                      resource_)}
+                 : variant_result{invalid_messagepack(), {}};
     case 0xD3U:
       return read_big_endian(u64)
-                 ? variant_result{{}, variant::from(static_cast<std::int64_t>(u64))}
+                 ? variant_result{{}, variant::from(static_cast<std::int64_t>(u64), resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xD9U:
       return read_big_endian(u8) ? parse_string(u8) : variant_result{invalid_messagepack(), {}};
@@ -400,6 +410,7 @@ private:
   std::span<const std::byte> bytes_{};
   messagepack_options options_{};
   std::size_t position_ = 0;
+  memory_resource* resource_ = nullptr;
 };
 
 } // namespace
@@ -428,7 +439,8 @@ public:
         : kind(frame_kind), expected_size(size),
           object(variant::object_type::allocator_type{resource}),
           array(variant::array_type::allocator_type{resource}),
-          dictionary(variant::dictionary_type::allocator_type{resource}) {}
+          dictionary(variant::dictionary_type::allocator_type{resource}), key(resource),
+          value(resource) {}
 
     frame_kind kind = frame_kind::object;
     std::size_t expected_size = 0;
@@ -728,26 +740,28 @@ error messagepack_writer::end_dictionary() {
 }
 
 error messagepack_writer::write_bool(bool value) {
-  return implementation_->accept_value(variant::from(value));
+  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
 }
 
 error messagepack_writer::write_i64(std::int64_t value) {
-  return implementation_->accept_value(variant::from(value));
+  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
 }
 
 error messagepack_writer::write_u64(std::uint64_t value) {
-  return implementation_->accept_value(variant::from(value));
+  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
 }
 
 error messagepack_writer::write_f64(double value) {
-  return implementation_->accept_value(variant::from(value));
+  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
 }
 
 error messagepack_writer::write_string(std::string_view value) {
-  return implementation_->accept_value(variant::from(value));
+  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
 }
 
-error messagepack_writer::write_null() { return implementation_->accept_value(variant::null()); }
+error messagepack_writer::write_null() {
+  return implementation_->accept_value(variant::null(implementation_->temporary_resource_));
+}
 
 error messagepack_writer::end_element() {
   if (implementation_->frames_.empty()) {
@@ -799,7 +813,12 @@ io::byte_buffer_result encode_messagepack(const variant& value, memory_resource*
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options) {
-  return parser{bytes, options}.parse();
+  return parse_messagepack(bytes, options, nullptr);
+}
+
+variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
+                                 memory_resource* resource) {
+  return parser{bytes, options, resource}.parse();
 }
 
 } // namespace caors::serialization

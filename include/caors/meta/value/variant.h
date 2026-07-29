@@ -44,6 +44,8 @@ public:
   using object_type = vector<variant_member>;
 
   variant();
+  /** @brief 使用指定资源初始化字符串和所有容器存储。 */
+  explicit variant(memory_resource* resource);
   ~variant();
 
   variant(const variant& other);
@@ -52,14 +54,25 @@ public:
   variant& operator=(variant&& other) noexcept;
 
   [[nodiscard]] static variant null();
+  [[nodiscard]] static variant null(memory_resource* resource);
   [[nodiscard]] static variant from(bool value);
+  [[nodiscard]] static variant from(bool value, memory_resource* resource);
   [[nodiscard]] static variant from(std::int64_t value);
+  [[nodiscard]] static variant from(std::int64_t value, memory_resource* resource);
   [[nodiscard]] static variant from(std::uint64_t value);
+  [[nodiscard]] static variant from(std::uint64_t value, memory_resource* resource);
   [[nodiscard]] static variant from(double value);
+  [[nodiscard]] static variant from(double value, memory_resource* resource);
   [[nodiscard]] static variant from(std::string_view value);
+  [[nodiscard]] static variant from(std::string_view value, memory_resource* resource);
   [[nodiscard]] static variant array(array_type values);
   [[nodiscard]] static variant dictionary(dictionary_type entries);
   [[nodiscard]] static variant object(object_type members);
+
+  /** @brief 返回当前值内部字符串和容器使用的资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return string_value_.get_allocator().resource();
+  }
 
   [[nodiscard]] variant_kind kind() const noexcept { return kind_; }
   [[nodiscard]] bool is_null() const noexcept { return kind_ == variant_kind::null; }

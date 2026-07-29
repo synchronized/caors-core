@@ -981,7 +981,7 @@ template <typename T>
 [[nodiscard]] error read_messagepack_from(const serialization::context& context, T& object,
                                           std::span<const std::byte> bytes,
                                           messagepack_options options = {}) {
-  variant_result value = parse_messagepack(bytes, options);
+  variant_result value = parse_messagepack(bytes, options, context.effective_memory_resource());
   return value.failed() ? value.status : read_value_from(context, object, value.value);
 }
 

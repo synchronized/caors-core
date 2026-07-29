@@ -9,6 +9,12 @@ namespace caors::meta {
 
 variant::variant() = default;
 
+variant::variant(memory_resource* resource)
+    : string_value_(string::allocator_type{resource}),
+      array_value_(array_type::allocator_type{resource}),
+      dictionary_value_(dictionary_type::allocator_type{resource}),
+      object_value_(object_type::allocator_type{resource}) {}
+
 variant::~variant() = default;
 
 variant::variant(const variant& other) = default;
@@ -21,8 +27,17 @@ variant& variant::operator=(variant&& other) noexcept = default;
 
 variant variant::null() { return {}; }
 
+variant variant::null(memory_resource* resource) { return variant{resource}; }
+
 variant variant::from(bool value) {
   variant result;
+  result.kind_ = variant_kind::boolean;
+  result.bool_value_ = value;
+  return result;
+}
+
+variant variant::from(bool value, memory_resource* resource) {
+  variant result{resource};
   result.kind_ = variant_kind::boolean;
   result.bool_value_ = value;
   return result;
@@ -35,8 +50,22 @@ variant variant::from(std::int64_t value) {
   return result;
 }
 
+variant variant::from(std::int64_t value, memory_resource* resource) {
+  variant result{resource};
+  result.kind_ = variant_kind::signed_integer;
+  result.i64_value_ = value;
+  return result;
+}
+
 variant variant::from(std::uint64_t value) {
   variant result;
+  result.kind_ = variant_kind::unsigned_integer;
+  result.u64_value_ = value;
+  return result;
+}
+
+variant variant::from(std::uint64_t value, memory_resource* resource) {
+  variant result{resource};
   result.kind_ = variant_kind::unsigned_integer;
   result.u64_value_ = value;
   return result;
@@ -49,6 +78,13 @@ variant variant::from(double value) {
   return result;
 }
 
+variant variant::from(double value, memory_resource* resource) {
+  variant result{resource};
+  result.kind_ = variant_kind::floating;
+  result.f64_value_ = value;
+  return result;
+}
+
 variant variant::from(std::string_view value) {
   variant result;
   result.kind_ = variant_kind::string;
@@ -56,22 +92,29 @@ variant variant::from(std::string_view value) {
   return result;
 }
 
+variant variant::from(std::string_view value, memory_resource* resource) {
+  variant result{resource};
+  result.kind_ = variant_kind::string;
+  result.string_value_.assign(value.data(), value.size());
+  return result;
+}
+
 variant variant::array(array_type values) {
-  variant result;
+  variant result{values.get_allocator().resource()};
   result.kind_ = variant_kind::array;
   result.array_value_ = std::move(values);
   return result;
 }
 
 variant variant::dictionary(dictionary_type entries) {
-  variant result;
+  variant result{entries.get_allocator().resource()};
   result.kind_ = variant_kind::dictionary;
   result.dictionary_value_ = std::move(entries);
   return result;
 }
 
 variant variant::object(object_type members) {
-  variant result;
+  variant result{members.get_allocator().resource()};
   result.kind_ = variant_kind::object;
   result.object_value_ = std::move(members);
   return result;

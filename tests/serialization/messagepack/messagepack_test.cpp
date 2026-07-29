@@ -83,6 +83,31 @@ TEST_CASE("serialization - MessagePack DOM round trips nested values",
   CHECK(decoded_values->as_array()[2].as_string() == "text");
 }
 
+TEST_CASE("serialization - MessagePack DOM recursively uses the result resource",
+          "[serialization][messagepack][memory]") {
+  const std::array encoded{std::byte{0x81}, std::byte{0xA4}, std::byte{'n'},  std::byte{'a'},
+                           std::byte{'m'},  std::byte{'e'},  std::byte{0xA5}, std::byte{'A'},
+                           std::byte{'l'},  std::byte{'i'},  std::byte{'c'},  std::byte{'e'}};
+  caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
+
+  {
+    const caors::serialization::variant_result decoded = caors::serialization::parse_messagepack(
+        encoded, caors::serialization::messagepack_options{}, &result_resource);
+    REQUIRE(decoded.succeeded());
+    REQUIRE(decoded.value.is_object());
+    CHECK(decoded.value.resource() == &result_resource);
+
+    const variant* name = decoded.value.find_member_variant(caors::string_name{"name"});
+    REQUIRE(name != nullptr);
+    REQUIRE(name->is_string());
+    CHECK(name->resource() == &result_resource);
+    CHECK(name->as_string() == "Alice");
+    CHECK(result_resource.statistics().bytes_in_use > 0);
+  }
+
+  CHECK(result_resource.statistics().bytes_in_use == 0);
+}
+
 TEST_CASE("serialization - MessagePack rejects truncated unsupported and trailing input",
           "[serialization][messagepack]") {
   const std::array truncated{std::byte{0xDA}, std::byte{0x00}};

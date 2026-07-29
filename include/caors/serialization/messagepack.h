@@ -82,6 +82,11 @@ encode_messagepack(const variant& value, memory_resource* resource = nullptr);
 [[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
                                                          messagepack_options options = {});
 
+/** @brief 使用指定结果资源解析一个完整 MessagePack 根值。 */
+[[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
+                                                         messagepack_options options,
+                                                         memory_resource* resource);
+
 } // namespace caors::serialization
 
 #endif
