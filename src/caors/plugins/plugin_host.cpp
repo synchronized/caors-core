@@ -213,10 +213,10 @@ plugin_host::plugin_host() : data_(new (std::nothrow) impl{}) {
   if (data_ == nullptr) {
     return;
   }
-  data_->runtime = {sizeof(caors_plugin_runtime_extension), CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION,
-                    static_cast<std::uint32_t>(k_version.major),
-                    static_cast<std::uint32_t>(k_version.minor),
-                    static_cast<std::uint32_t>(k_version.patch)};
+  data_->runtime = {
+      sizeof(caors_plugin_runtime_extension),      CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION,
+      static_cast<std::uint32_t>(k_version.major), static_cast<std::uint32_t>(k_version.minor),
+      static_cast<std::uint32_t>(k_version.patch), CAORS_PLUGIN_BUILD_ENVIRONMENT_INITIALIZER};
   data_->services = {sizeof(caors_plugin_services_extension),
                      CAORS_PLUGIN_SERVICES_EXTENSION_VERSION,
                      data_,

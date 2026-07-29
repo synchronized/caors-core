@@ -19,6 +19,8 @@ constexpr std::size_t minimum_descriptor_size =
     offsetof(caors_plugin_descriptor, version) + sizeof(caors_plugin_version);
 constexpr std::size_t minimum_entry_size =
     offsetof(caors_plugin_entry, shutdown) + sizeof(caors_plugin_lifecycle_fn);
+constexpr caors_plugin_build_environment host_build_environment =
+    CAORS_PLUGIN_BUILD_ENVIRONMENT_INITIALIZER;
 
 [[nodiscard]] std::string copy_string(caors_plugin_string_view source) {
   return source.data != nullptr ? std::string{source.data, source.size} : std::string{};
@@ -32,6 +34,17 @@ constexpr std::size_t minimum_entry_size =
 
 [[nodiscard]] error lifecycle_result(std::int32_t status) noexcept {
   return status == 0 ? error{} : error{error_domain::plugins, errc::backend_failure};
+}
+
+[[nodiscard]] bool
+compatible_build_environment(const caors_plugin_build_environment& plugin) noexcept {
+  return plugin.compiler_family == host_build_environment.compiler_family &&
+         plugin.compiler_version == host_build_environment.compiler_version &&
+         plugin.compiler_abi_version == host_build_environment.compiler_abi_version &&
+         plugin.crt_mode == host_build_environment.crt_mode &&
+         plugin.iterator_debug_level == host_build_environment.iterator_debug_level &&
+         plugin.pointer_size == host_build_environment.pointer_size &&
+         plugin.architecture == host_build_environment.architecture;
 }
 
 } // namespace
@@ -106,6 +119,18 @@ result<plugin_binary> plugin_binary::load(const std::filesystem::path& path,
 
   const caors_plugin_descriptor& source = *entry->descriptor;
   if (source.struct_size < minimum_descriptor_size) {
+    return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
+  }
+
+  if (entry->get_extension == nullptr) {
+    return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
+  }
+  const auto* build = static_cast<const caors_plugin_build_extension*>(entry->get_extension(
+      entry->plugin_data, CAORS_PLUGIN_BUILD_EXTENSION_ID,
+      sizeof(CAORS_PLUGIN_BUILD_EXTENSION_ID) - 1, CAORS_PLUGIN_BUILD_EXTENSION_VERSION));
+  if (build == nullptr || build->struct_size < sizeof(caors_plugin_build_extension) ||
+      build->version != CAORS_PLUGIN_BUILD_EXTENSION_VERSION ||
+      !compatible_build_environment(build->environment)) {
     return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
   }
 

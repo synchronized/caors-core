@@ -25,7 +25,9 @@ extern "C" {
 #define CAORS_PLUGIN_ABI_VERSION 1u
 #define CAORS_PLUGIN_ENTRY_SYMBOL "caors_query_plugin"
 #define CAORS_PLUGIN_RUNTIME_EXTENSION_ID "caors.host.runtime"
-#define CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION 1u
+#define CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION 2u
+#define CAORS_PLUGIN_BUILD_EXTENSION_ID "caors.plugin.build"
+#define CAORS_PLUGIN_BUILD_EXTENSION_VERSION 1u
 #define CAORS_PLUGIN_SERVICES_EXTENSION_ID "caors.host.services"
 #define CAORS_PLUGIN_SERVICES_EXTENSION_VERSION 1u
 #define CAORS_PLUGIN_META_REGISTRATION_EXTENSION_ID "caors.host.meta-registration"
@@ -52,6 +54,108 @@ typedef struct caors_plugin_version {
   uint32_t minor;
   uint32_t patch;
 } caors_plugin_version;
+
+typedef enum caors_plugin_compiler_family {
+  CAORS_PLUGIN_COMPILER_UNKNOWN = 0,
+  CAORS_PLUGIN_COMPILER_MSVC = 1,
+  CAORS_PLUGIN_COMPILER_CLANG_CL = 2,
+  CAORS_PLUGIN_COMPILER_CLANG = 3,
+  CAORS_PLUGIN_COMPILER_GCC = 4
+} caors_plugin_compiler_family;
+
+typedef enum caors_plugin_crt_mode {
+  CAORS_PLUGIN_CRT_UNKNOWN = 0,
+  CAORS_PLUGIN_CRT_DYNAMIC_RELEASE = 1,
+  CAORS_PLUGIN_CRT_DYNAMIC_DEBUG = 2,
+  CAORS_PLUGIN_CRT_STATIC_RELEASE = 3,
+  CAORS_PLUGIN_CRT_STATIC_DEBUG = 4
+} caors_plugin_crt_mode;
+
+typedef enum caors_plugin_architecture {
+  CAORS_PLUGIN_ARCHITECTURE_UNKNOWN = 0,
+  CAORS_PLUGIN_ARCHITECTURE_X86 = 1,
+  CAORS_PLUGIN_ARCHITECTURE_X64 = 2,
+  CAORS_PLUGIN_ARCHITECTURE_ARM32 = 3,
+  CAORS_PLUGIN_ARCHITECTURE_ARM64 = 4
+} caors_plugin_architecture;
+
+#if defined(__clang__) && defined(_MSC_VER)
+#define CAORS_PLUGIN_CURRENT_COMPILER CAORS_PLUGIN_COMPILER_CLANG_CL
+#define CAORS_PLUGIN_CURRENT_COMPILER_VERSION                                                      \
+  (((uint32_t)__clang_major__ << 16u) | ((uint32_t)__clang_minor__ << 8u) |                        \
+   (uint32_t)__clang_patchlevel__)
+#define CAORS_PLUGIN_CURRENT_ABI_VERSION ((uint32_t)_MSC_VER)
+#elif defined(_MSC_VER)
+#define CAORS_PLUGIN_CURRENT_COMPILER CAORS_PLUGIN_COMPILER_MSVC
+#define CAORS_PLUGIN_CURRENT_COMPILER_VERSION ((uint32_t)_MSC_FULL_VER)
+#define CAORS_PLUGIN_CURRENT_ABI_VERSION ((uint32_t)_MSC_VER)
+#elif defined(__clang__)
+#define CAORS_PLUGIN_CURRENT_COMPILER CAORS_PLUGIN_COMPILER_CLANG
+#define CAORS_PLUGIN_CURRENT_COMPILER_VERSION                                                      \
+  (((uint32_t)__clang_major__ << 16u) | ((uint32_t)__clang_minor__ << 8u) |                        \
+   (uint32_t)__clang_patchlevel__)
+#define CAORS_PLUGIN_CURRENT_ABI_VERSION 0u
+#elif defined(__GNUC__)
+#define CAORS_PLUGIN_CURRENT_COMPILER CAORS_PLUGIN_COMPILER_GCC
+#define CAORS_PLUGIN_CURRENT_COMPILER_VERSION                                                      \
+  (((uint32_t)__GNUC__ << 16u) | ((uint32_t)__GNUC_MINOR__ << 8u) | (uint32_t)__GNUC_PATCHLEVEL__)
+#define CAORS_PLUGIN_CURRENT_ABI_VERSION 0u
+#else
+#define CAORS_PLUGIN_CURRENT_COMPILER CAORS_PLUGIN_COMPILER_UNKNOWN
+#define CAORS_PLUGIN_CURRENT_COMPILER_VERSION 0u
+#define CAORS_PLUGIN_CURRENT_ABI_VERSION 0u
+#endif
+
+#if defined(_WIN32) && defined(_DLL) && defined(_DEBUG)
+#define CAORS_PLUGIN_CURRENT_CRT_MODE CAORS_PLUGIN_CRT_DYNAMIC_DEBUG
+#elif defined(_WIN32) && defined(_DLL)
+#define CAORS_PLUGIN_CURRENT_CRT_MODE CAORS_PLUGIN_CRT_DYNAMIC_RELEASE
+#elif defined(_WIN32) && defined(_DEBUG)
+#define CAORS_PLUGIN_CURRENT_CRT_MODE CAORS_PLUGIN_CRT_STATIC_DEBUG
+#elif defined(_WIN32)
+#define CAORS_PLUGIN_CURRENT_CRT_MODE CAORS_PLUGIN_CRT_STATIC_RELEASE
+#else
+#define CAORS_PLUGIN_CURRENT_CRT_MODE CAORS_PLUGIN_CRT_UNKNOWN
+#endif
+
+#if defined(_ITERATOR_DEBUG_LEVEL)
+#define CAORS_PLUGIN_CURRENT_ITERATOR_DEBUG_LEVEL ((uint32_t)_ITERATOR_DEBUG_LEVEL)
+#elif defined(_MSC_VER) && defined(_DEBUG)
+#define CAORS_PLUGIN_CURRENT_ITERATOR_DEBUG_LEVEL 2u
+#else
+#define CAORS_PLUGIN_CURRENT_ITERATOR_DEBUG_LEVEL 0u
+#endif
+
+#if defined(_M_X64) || defined(__x86_64__)
+#define CAORS_PLUGIN_CURRENT_ARCHITECTURE CAORS_PLUGIN_ARCHITECTURE_X64
+#elif defined(_M_IX86) || defined(__i386__)
+#define CAORS_PLUGIN_CURRENT_ARCHITECTURE CAORS_PLUGIN_ARCHITECTURE_X86
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#define CAORS_PLUGIN_CURRENT_ARCHITECTURE CAORS_PLUGIN_ARCHITECTURE_ARM64
+#elif defined(_M_ARM) || defined(__arm__)
+#define CAORS_PLUGIN_CURRENT_ARCHITECTURE CAORS_PLUGIN_ARCHITECTURE_ARM32
+#else
+#define CAORS_PLUGIN_CURRENT_ARCHITECTURE CAORS_PLUGIN_ARCHITECTURE_UNKNOWN
+#endif
+
+typedef struct caors_plugin_build_environment {
+  uint32_t compiler_family;
+  uint32_t compiler_version;
+  uint32_t compiler_abi_version;
+  uint32_t crt_mode;
+  uint32_t iterator_debug_level;
+  uint32_t pointer_size;
+  uint32_t architecture;
+} caors_plugin_build_environment;
+
+#define CAORS_PLUGIN_BUILD_ENVIRONMENT_INITIALIZER                                                 \
+  {CAORS_PLUGIN_CURRENT_COMPILER,                                                                  \
+   CAORS_PLUGIN_CURRENT_COMPILER_VERSION,                                                          \
+   CAORS_PLUGIN_CURRENT_ABI_VERSION,                                                               \
+   CAORS_PLUGIN_CURRENT_CRT_MODE,                                                                  \
+   CAORS_PLUGIN_CURRENT_ITERATOR_DEBUG_LEVEL,                                                      \
+   (uint32_t)sizeof(void*),                                                                        \
+   CAORS_PLUGIN_CURRENT_ARCHITECTURE}
 
 typedef struct caors_plugin_descriptor {
   uint32_t struct_size;
@@ -81,7 +185,14 @@ typedef struct caors_plugin_runtime_extension {
   uint32_t runtime_major;
   uint32_t runtime_minor;
   uint32_t runtime_patch;
+  caors_plugin_build_environment environment;
 } caors_plugin_runtime_extension;
+
+typedef struct caors_plugin_build_extension {
+  uint32_t struct_size;
+  uint32_t version;
+  caors_plugin_build_environment environment;
+} caors_plugin_build_extension;
 
 typedef int32_t(CAORS_PLUGIN_CALL* caors_plugin_publish_service_fn)(
     void* context, const caors_plugin_guid* id, uint32_t version, const void* service, void* owner);

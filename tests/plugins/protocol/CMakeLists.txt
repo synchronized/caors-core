@@ -12,12 +12,14 @@ set(
   caors_plugin_protocol_bad_abi
   caors_plugin_protocol_missing_entry
   caors_plugin_protocol_failure
+  caors_plugin_protocol_incompatible_build
 )
 
 add_library(caors_plugin_protocol_good SHARED good_plugin.cpp)
 add_library(caors_plugin_protocol_bad_abi SHARED bad_abi_plugin.cpp)
 add_library(caors_plugin_protocol_missing_entry SHARED missing_entry_plugin.c)
 add_library(caors_plugin_protocol_failure SHARED failure_plugin.cpp)
+add_library(caors_plugin_protocol_incompatible_build SHARED incompatible_build_plugin.cpp)
 
 foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
   target_compile_features(${PLUGIN_TARGET} PRIVATE cxx_std_20)
@@ -26,10 +28,27 @@ foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
   set_target_properties(${PLUGIN_TARGET} PROPERTIES FOLDER "Tests/Plugins")
 endforeach()
 
+if(MSVC)
+  foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
+    set_property(
+      TARGET ${PLUGIN_TARGET}
+      PROPERTY MSVC_RUNTIME_LIBRARY
+               "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+    )
+  endforeach()
+endif()
+
 add_executable(caors_plugins_protocol_test plugin_binary_test.cpp)
 target_compile_features(caors_plugins_protocol_test PRIVATE cxx_std_20)
 target_compile_warnings(caors_plugins_protocol_test)
 target_link_libraries(caors_plugins_protocol_test PRIVATE caors::caors)
+if(MSVC)
+  set_property(
+    TARGET caors_plugins_protocol_test
+    PROPERTY MSVC_RUNTIME_LIBRARY
+             "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+  )
+endif()
 add_dependencies(caors_plugins_protocol_test ${PLUGIN_TARGETS})
 set_target_properties(caors_plugins_protocol_test PROPERTIES FOLDER "Tests")
 
@@ -50,4 +69,5 @@ add_test(
     $<TARGET_FILE:caors_plugin_protocol_bad_abi>
     $<TARGET_FILE:caors_plugin_protocol_missing_entry>
     $<TARGET_FILE:caors_plugin_protocol_failure>
+    $<TARGET_FILE:caors_plugin_protocol_incompatible_build>
 )

@@ -206,6 +206,14 @@ int32_t CAORS_PLUGIN_CALL shutdown(void* data) {
 
 const void* CAORS_PLUGIN_CALL get_extension(void*, const char* id, size_t id_size,
                                             uint32_t version) {
+  static const caors_plugin_build_extension build{sizeof(caors_plugin_build_extension),
+                                                  CAORS_PLUGIN_BUILD_EXTENSION_VERSION,
+                                                  CAORS_PLUGIN_BUILD_ENVIRONMENT_INITIALIZER};
+  if (version == CAORS_PLUGIN_BUILD_EXTENSION_VERSION &&
+      id_size == sizeof(CAORS_PLUGIN_BUILD_EXTENSION_ID) - 1 &&
+      std::memcmp(id, CAORS_PLUGIN_BUILD_EXTENSION_ID, id_size) == 0) {
+    return &build;
+  }
   constexpr char extension_id[] = "caors.test.answer";
   if (version == 1 && id_size == sizeof(extension_id) - 1 &&
       std::memcmp(id, extension_id, id_size) == 0) {
@@ -256,7 +264,8 @@ caors_query_plugin(const caors_plugin_host* host, uint32_t host_abi_version) {
       sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1, CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION));
   if (runtime == nullptr || runtime->struct_size < sizeof(caors_plugin_runtime_extension) ||
       host->get_extension(host->context, CAORS_PLUGIN_RUNTIME_EXTENSION_ID,
-                          sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1, 2) != nullptr) {
+                          sizeof(CAORS_PLUGIN_RUNTIME_EXTENSION_ID) - 1,
+                          CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION + 1) != nullptr) {
     return nullptr;
   }
   if (host->log != nullptr) {

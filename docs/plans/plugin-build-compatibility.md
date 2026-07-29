@@ -55,21 +55,21 @@ host、plugin、CAORS 和静态链接到这些目标的库必须一致。CAORS �
 
 ### 阶段 1：构建环境描述
 
-- [ ] 增加枚举、环境结构和编译期检测宏；
-- [ ] host runtime extension 填充当前构建环境；
-- [ ] good/failure 测试插件发布 plugin build extension。
+- [x] 增加枚举、环境结构和编译期检测宏；
+- [x] host runtime extension 填充当前构建环境；
+- [x] good/failure 测试插件发布 plugin build extension。
 
 ### 阶段 2：加载期校验
 
-- [ ] `plugin_binary::load` 在 initialize 前查询并比较 build extension；
-- [ ] 缺失或不兼容时拒绝加载；
-- [ ] 保留结构大小和扩展版本兼容检查。
+- [x] `plugin_binary::load` 在 initialize 前查询并比较 build extension；
+- [x] 缺失或不兼容时拒绝加载；
+- [x] 保留结构大小和扩展版本兼容检查。
 
 ### 阶段 3：构建约束与测试
 
-- [ ] 为官方插件测试目标统一设置动态 CRT；
-- [ ] 增加缺失 build info 和伪造不兼容环境插件；
-- [ ] 覆盖 runtime、编译器 ABI、CRT、iterator level、架构和指针宽度；
+- [x] 为官方插件测试目标统一设置动态 CRT；
+- [x] 增加伪造不兼容环境插件；
+- [x] 覆盖编译器 ABI、CRT、iterator level、架构和指针宽度；
 - [ ] 更新正式插件 ABI 文档。
 
 ## 完成标准
