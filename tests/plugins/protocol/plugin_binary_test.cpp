@@ -49,8 +49,8 @@ void CAORS_PLUGIN_CALL capture_log(void* context, std::uint32_t, const char* mes
 } // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 6) {
-    return fail("插件协议测试需要五个动态库路径");
+  if (argc != 7) {
+    return fail("插件协议测试需要六个动态库路径");
   }
 
   caors::plugins::plugin_host host{};
@@ -126,11 +126,27 @@ int main(int argc, char** argv) {
     return fail("插件生命周期失败没有进入 failed 状态");
   }
 
-  const auto incompatible_build = caors::plugins::plugin_binary::load(argv[5]);
+  caors::plugins::plugin_build_compatibility_diagnostic incompatible_diagnostic{};
+  const auto incompatible_build =
+      caors::plugins::plugin_binary::load(argv[5], nullptr, &incompatible_diagnostic);
   if (incompatible_build ||
       incompatible_build.error() !=
-          caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type}) {
+          caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type} ||
+      !caors::plugins::has_mismatch(incompatible_diagnostic.mismatches,
+                                    caors::plugins::plugin_build_mismatch::crt_mode) ||
+      incompatible_diagnostic.host.crt_mode == incompatible_diagnostic.plugin.crt_mode) {
     return fail("构建环境不兼容插件没有被拒绝");
+  }
+
+  caors::plugins::plugin_build_compatibility_diagnostic missing_build_diagnostic{};
+  const auto missing_build =
+      caors::plugins::plugin_binary::load(argv[6], nullptr, &missing_build_diagnostic);
+  if (missing_build ||
+      missing_build.error() !=
+          caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type} ||
+      missing_build_diagnostic.mismatches !=
+          caors::plugins::plugin_build_mismatch::missing_build_extension) {
+    return fail("缺失 build extension 的插件没有被拒绝或诊断不正确");
   }
 
   caors::plugins::plugin_manager manager{registry};

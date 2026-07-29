@@ -38,8 +38,8 @@ host runtime extension 由 `plugin_host` 创建；plugin build extension 由插�
   → 兼容后才允许返回 loaded 状态和 initialize
 ```
 
-缺失 build extension 或任一强约束不一致时返回 plugins/inconsistent_type。具体差异后续通过诊断结构或日志
-暴露，不让异常跨越 C ABI。
+缺失 build extension 或任一强约束不一致时返回 `plugins/inconsistent_type`。调用方可通过
+`plugin_build_compatibility_diagnostic` 获得差异位集及 host/plugin 环境快照，不让异常跨越 C ABI。
 
 ## Windows CRT 策略
 
@@ -64,13 +64,15 @@ host、plugin、CAORS 和静态链接到这些目标的库必须一致。CAORS �
 - [x] `plugin_binary::load` 在 initialize 前查询并比较 build extension；
 - [x] 缺失或不兼容时拒绝加载；
 - [x] 保留结构大小和扩展版本兼容检查。
+- [x] 提供逐字段差异位集及双方构建环境快照。
 
 ### 阶段 3：构建约束与测试
 
 - [x] 为官方插件测试目标统一设置动态 CRT；
 - [x] 增加伪造不兼容环境插件；
+- [x] 增加缺失 build extension 插件；
 - [x] 覆盖编译器 ABI、CRT、iterator level、架构和指针宽度；
-- [ ] 更新正式插件 ABI 文档。
+- [x] 更新正式插件 ABI 文档。
 
 ## 完成标准
 

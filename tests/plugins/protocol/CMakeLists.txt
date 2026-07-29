@@ -13,6 +13,7 @@ set(
   caors_plugin_protocol_missing_entry
   caors_plugin_protocol_failure
   caors_plugin_protocol_incompatible_build
+  caors_plugin_protocol_missing_build_extension
 )
 
 add_library(caors_plugin_protocol_good SHARED good_plugin.cpp)
@@ -20,6 +21,8 @@ add_library(caors_plugin_protocol_bad_abi SHARED bad_abi_plugin.cpp)
 add_library(caors_plugin_protocol_missing_entry SHARED missing_entry_plugin.c)
 add_library(caors_plugin_protocol_failure SHARED failure_plugin.cpp)
 add_library(caors_plugin_protocol_incompatible_build SHARED incompatible_build_plugin.cpp)
+add_library(caors_plugin_protocol_missing_build_extension SHARED
+            missing_build_extension_plugin.cpp)
 
 foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
   target_compile_features(${PLUGIN_TARGET} PRIVATE cxx_std_20)
@@ -70,4 +73,5 @@ add_test(
     $<TARGET_FILE:caors_plugin_protocol_missing_entry>
     $<TARGET_FILE:caors_plugin_protocol_failure>
     $<TARGET_FILE:caors_plugin_protocol_incompatible_build>
+    $<TARGET_FILE:caors_plugin_protocol_missing_build_extension>
 )

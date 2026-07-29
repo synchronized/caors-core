@@ -28,6 +28,48 @@ enum class plugin_state {
   failed,
 };
 
+/** @brief host 与 plugin 构建环境不兼容字段。 */
+enum class plugin_build_mismatch : std::uint32_t {
+  none = 0,
+  missing_build_extension = 1U << 0U,
+  compiler_family = 1U << 1U,
+  compiler_version = 1U << 2U,
+  compiler_abi_version = 1U << 3U,
+  crt_mode = 1U << 4U,
+  iterator_debug_level = 1U << 5U,
+  pointer_size = 1U << 6U,
+  architecture = 1U << 7U,
+};
+
+[[nodiscard]] constexpr plugin_build_mismatch operator|(plugin_build_mismatch lhs,
+                                                        plugin_build_mismatch rhs) noexcept {
+  return static_cast<plugin_build_mismatch>(static_cast<std::uint32_t>(lhs) |
+                                            static_cast<std::uint32_t>(rhs));
+}
+
+constexpr plugin_build_mismatch& operator|=(plugin_build_mismatch& lhs,
+                                            plugin_build_mismatch rhs) noexcept {
+  lhs = lhs | rhs;
+  return lhs;
+}
+
+/** @brief 判断诊断是否包含指定不兼容字段。 */
+[[nodiscard]] constexpr bool has_mismatch(plugin_build_mismatch value,
+                                          plugin_build_mismatch field) noexcept {
+  return (static_cast<std::uint32_t>(value) & static_cast<std::uint32_t>(field)) != 0;
+}
+
+/** @brief 插件构建兼容性诊断和双方环境快照。 */
+struct plugin_build_compatibility_diagnostic {
+  plugin_build_mismatch mismatches = plugin_build_mismatch::none;
+  caors_plugin_build_environment host{};
+  caors_plugin_build_environment plugin{};
+
+  [[nodiscard]] constexpr bool compatible() const noexcept {
+    return mismatches == plugin_build_mismatch::none;
+  }
+};
+
 /** @brief 由宿主拥有的插件描述信息。 */
 struct plugin_descriptor {
   guid id{};
@@ -56,6 +98,10 @@ public:
   /** @brief 加载插件并校验入口、ABI 和描述信息。 */
   [[nodiscard]] static result<plugin_binary> load(const std::filesystem::path& path,
                                                   const caors_plugin_host* host = nullptr);
+  /** @brief 加载插件并通过可选输出参数返回构建环境兼容性诊断。 */
+  [[nodiscard]] static result<plugin_binary>
+  load(const std::filesystem::path& path, const caors_plugin_host* host,
+       plugin_build_compatibility_diagnostic* diagnostic);
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }

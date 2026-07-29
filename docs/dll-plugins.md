@@ -39,6 +39,49 @@ capability key 或插件 host extension 服务表相同。
 不是 stable C ABI。需要跨编译器、跨 CRT、可长期兼容或脚本/外部工具可消费的插件协议时，应使用
 `caors/plugins/abi.h` 这类纯 C ABI 和显式版本化 descriptor，不直接暴露这些 C++ view 或 ops。
 
+### Windows CRT 与构建环境校验
+
+启用动态插件时，Windows 官方支持的配置是：
+
+- Debug：host、plugin、CAORS 和相关静态库统一使用 `/MDd`；
+- Release、RelWithDebInfo、MinSizeRel：统一使用 `/MD`；
+- 同一进程不支持 `/MD`、`/MDd`、`/MT`、`/MTd` 混用；
+- 不使用动态插件的单体静态程序仍可选择 `/MT` 或 `/MTd`。
+
+需要调试 Release host 中的插件时，应继续使用 `/MD`，通过 `/Zi` 和 PDB 提供调试信息，不应改用
+`/MDd`。官方插件 CMake 目标通过 `MSVC_RUNTIME_LIBRARY` 固定上述规则。
+
+host 通过 `caors.host.runtime` 发布自身 `caors_plugin_build_environment`。每个插件必须通过
+`caors.plugin.build` 返回 `caors_plugin_build_extension`，建议直接使用：
+
+```cpp
+static const caors_plugin_build_extension build{
+    sizeof(caors_plugin_build_extension),
+    CAORS_PLUGIN_BUILD_EXTENSION_VERSION,
+    CAORS_PLUGIN_BUILD_ENVIRONMENT_INITIALIZER,
+};
+```
+
+`plugin_binary::load()` 在插件进入 `loaded` 和 `initialize` 前比较编译器、编译器版本、C++ ABI
+工具集、CRT 模式、`_ITERATOR_DEBUG_LEVEL`、指针宽度和处理器架构。缺少 build extension 或任一字段
+不一致都会返回 `plugins/inconsistent_type`。
+
+调用方需要定位具体差异时，可以使用诊断重载：
+
+```cpp
+caors::plugins::plugin_build_compatibility_diagnostic diagnostic;
+auto loaded = caors::plugins::plugin_binary::load(path, &host.abi(), &diagnostic);
+if (!loaded &&
+    caors::plugins::has_mismatch(
+        diagnostic.mismatches,
+        caors::plugins::plugin_build_mismatch::crt_mode)) {
+  // diagnostic.host 和 diagnostic.plugin 保存双方环境快照。
+}
+```
+
+构建环境一致只能证明已知 ABI 前置条件满足，不能允许 STL 拥有型对象、异常或隐式内存所有权穿过稳定
+C ABI。跨边界数据仍应使用固定布局结构、借用视图、opaque handle 和明确的创建/销毁函数。
+
 ## 类型身份
 
 - `type_id` 是同一 runtime 内的临时身份，由 canonical C++ 类型名称驻留后顺序分配；

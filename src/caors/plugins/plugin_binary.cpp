@@ -36,15 +36,22 @@ constexpr caors_plugin_build_environment host_build_environment =
   return status == 0 ? error{} : error{error_domain::plugins, errc::backend_failure};
 }
 
-[[nodiscard]] bool
-compatible_build_environment(const caors_plugin_build_environment& plugin) noexcept {
-  return plugin.compiler_family == host_build_environment.compiler_family &&
-         plugin.compiler_version == host_build_environment.compiler_version &&
-         plugin.compiler_abi_version == host_build_environment.compiler_abi_version &&
-         plugin.crt_mode == host_build_environment.crt_mode &&
-         plugin.iterator_debug_level == host_build_environment.iterator_debug_level &&
-         plugin.pointer_size == host_build_environment.pointer_size &&
-         plugin.architecture == host_build_environment.architecture;
+[[nodiscard]] plugin_build_mismatch
+compare_build_environment(const caors_plugin_build_environment& plugin) noexcept {
+  plugin_build_mismatch result = plugin_build_mismatch::none;
+#define CAORS_COMPARE_BUILD_FIELD(field)                                                           \
+  if (plugin.field != host_build_environment.field) {                                              \
+    result |= plugin_build_mismatch::field;                                                        \
+  }
+  CAORS_COMPARE_BUILD_FIELD(compiler_family)
+  CAORS_COMPARE_BUILD_FIELD(compiler_version)
+  CAORS_COMPARE_BUILD_FIELD(compiler_abi_version)
+  CAORS_COMPARE_BUILD_FIELD(crt_mode)
+  CAORS_COMPARE_BUILD_FIELD(iterator_debug_level)
+  CAORS_COMPARE_BUILD_FIELD(pointer_size)
+  CAORS_COMPARE_BUILD_FIELD(architecture)
+#undef CAORS_COMPARE_BUILD_FIELD
+  return result;
 }
 
 } // namespace
@@ -78,6 +85,16 @@ plugin_binary::~plugin_binary() { delete data_; }
 
 result<plugin_binary> plugin_binary::load(const std::filesystem::path& path,
                                           const caors_plugin_host* host) {
+  return load(path, host, nullptr);
+}
+
+result<plugin_binary> plugin_binary::load(const std::filesystem::path& path,
+                                          const caors_plugin_host* host,
+                                          plugin_build_compatibility_diagnostic* diagnostic) {
+  if (diagnostic != nullptr) {
+    *diagnostic = {};
+    diagnostic->host = host_build_environment;
+  }
   auto library_result = platform::shared_library::open(path);
   if (!library_result) {
     return fail<plugin_binary>(rethrow_as(library_result.error(), error_domain::plugins));
@@ -123,14 +140,27 @@ result<plugin_binary> plugin_binary::load(const std::filesystem::path& path,
   }
 
   if (entry->get_extension == nullptr) {
+    if (diagnostic != nullptr) {
+      diagnostic->mismatches = plugin_build_mismatch::missing_build_extension;
+    }
     return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
   }
   const auto* build = static_cast<const caors_plugin_build_extension*>(entry->get_extension(
       entry->plugin_data, CAORS_PLUGIN_BUILD_EXTENSION_ID,
       sizeof(CAORS_PLUGIN_BUILD_EXTENSION_ID) - 1, CAORS_PLUGIN_BUILD_EXTENSION_VERSION));
   if (build == nullptr || build->struct_size < sizeof(caors_plugin_build_extension) ||
-      build->version != CAORS_PLUGIN_BUILD_EXTENSION_VERSION ||
-      !compatible_build_environment(build->environment)) {
+      build->version != CAORS_PLUGIN_BUILD_EXTENSION_VERSION) {
+    if (diagnostic != nullptr) {
+      diagnostic->mismatches = plugin_build_mismatch::missing_build_extension;
+    }
+    return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
+  }
+  const plugin_build_mismatch mismatches = compare_build_environment(build->environment);
+  if (diagnostic != nullptr) {
+    diagnostic->plugin = build->environment;
+    diagnostic->mismatches = mismatches;
+  }
+  if (mismatches != plugin_build_mismatch::none) {
     return fail<plugin_binary>({error_domain::plugins, errc::inconsistent_type});
   }
 
