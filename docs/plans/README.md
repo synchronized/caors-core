@@ -8,6 +8,8 @@
 
 ## Runtime 与插件
 
+- [plugin-build-compatibility.md](plugin-build-compatibility.md)：host/plugin 编译器、CRT、
+  STL ABI、架构和指针宽度的加载期兼容性校验计划。
 - [library-plugin-system.md](library-plugin-system.md)：跨平台动态库封装、稳定插件 ABI、
   manifest、依赖、生命周期、registration scope 与安全卸载计划。
 - [registry-query-fast-path.md](registry-query-fast-path.md)：基于不可变 snapshot/layer 的
