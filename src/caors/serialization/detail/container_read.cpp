@@ -4,6 +4,7 @@
 #include "helpers.h"
 
 #include "construction.h"
+#include "caors/serialization/detail/temporary_memory.h"
 
 #include <optional>
 
@@ -36,7 +37,8 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  vector<any> staged;
+  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  vector<any> staged{allocator<any>{temporary_scope.resource()}};
   staged.reserve(size);
   for (std::size_t index = 0; index < size; ++index) {
     any_ref target = view.element_ref(index);

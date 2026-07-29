@@ -12,6 +12,7 @@
 #include "caors/object.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
+#include "caors/serialization/detail/temporary_memory.h"
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/json_reader.h"
 #include "caors/serialization/json_writer.h"
@@ -338,7 +339,9 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 [[nodiscard]] inline error apply_unknown_field_policy(const serialization::context& context,
                                                       const meta::type& type,
                                                       const variant& value) {
-  return apply_unknown_field_policy_tree(context, type, value, schema_path{});
+  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
+  return apply_unknown_field_policy_tree(context, type, value, root);
 }
 
 [[nodiscard]] inline error apply_unknown_field_policy_tree(const serialization::context& context,
@@ -381,8 +384,13 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
         context.state.schema.preserved_unknown_fields->push_back(member);
       }
       if (context.state.schema.preserved_unknown_field_entries != nullptr) {
+        schema_path preserved_path{
+            path.begin(),
+            path.end(),
+            allocator<schema_path_segment>{context.effective_memory_resource()},
+        };
         context.state.schema.preserved_unknown_field_entries->push_back(preserved_unknown_field{
-            path,
+            std::move(preserved_path),
             type,
             member,
         });
@@ -398,7 +406,9 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 
 [[nodiscard]] inline error apply_schema_migration(const serialization::context& context,
                                                   const meta::type& type, variant& value) {
-  return apply_schema_migration_tree(context, type, value, schema_path{});
+  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
+  return apply_schema_migration_tree(context, type, value, root);
 }
 
 [[nodiscard]] inline error apply_schema_migration_tree(const serialization::context& context,

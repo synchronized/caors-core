@@ -170,7 +170,7 @@ struct preserved_unknown_field {
 struct schema_migration_request {
   /** @brief 目标 C++ 类型。 */
   meta::type type{};
-  /** @brief 当前正在迁移的 DOM 对象路径；根对象为空。 */
+  /** @brief 当前正在迁移的 DOM 对象路径；根对象为空，仅在本次回调期间有效。 */
   const schema_path* path = nullptr;
   /** @brief 输入数据声明的 schema version；0 表示调用方未声明。 */
   std::uint32_t source_version = 0;

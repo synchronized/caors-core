@@ -773,6 +773,10 @@ TEST_CASE("serialization - schema unknown field preservation records nested path
           "[serialization]") {
   require_schema_policy_parent_metadata();
 
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{64, &temporary_tracking};
+
   caors::variant::object_type child_members;
   child_members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
@@ -821,6 +825,8 @@ TEST_CASE("serialization - schema unknown field preservation records nested path
   caors::vector<caors::serialization::preserved_unknown_field> preserved_entries;
   caors::serialization::context context{};
   context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::preserve;
+  context.resolvers.memory.resource = &result_tracking;
+  context.resolvers.memory.temporary_resource = &temporary;
   context.state.schema.preserved_unknown_field_entries = &preserved_entries;
 
   REQUIRE(caors::read_value_from(context, actor, caors::variant::object(std::move(members)))
@@ -844,6 +850,16 @@ TEST_CASE("serialization - schema unknown field preservation records nested path
         caors::serialization::schema_path_segment_kind::element);
   CHECK(preserved_entries[1].path[1].index == 0U);
   CHECK(preserved_entries[1].member.name == caors::string_name{"extra_array"});
+
+  CHECK(temporary.active_scope_count() == 0);
+  CHECK(temporary.statistics().mark_count > 0);
+  CHECK(temporary.statistics().mark_count == temporary.statistics().rewind_count);
+  temporary.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
+
+  // 保留路径必须使用结果资源，临时资源回滚后仍然有效。
+  CHECK(preserved_entries[0].path[0].name == caors::string_name{"child"});
+  CHECK(preserved_entries[1].path[0].name == caors::string_name{"children"});
 }
 
 TEST_CASE("serialization - schema unknown field rejection checks nested objects",

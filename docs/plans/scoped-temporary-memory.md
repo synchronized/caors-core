@@ -260,7 +260,8 @@ messagepack_writer writer{output, temporary_resource};
 - MessagePack parser 的流输入缓冲和 map 判型暂存使用 temporary resource，返回 DOM 递归使用
   result resource；
 - typed MessagePack 当前仍先构造完整 DOM，再由 `variant_reader` 写入目标；
-- 通用事务式容器元素和 schema 临时列表尚未迁移，保留为阶段 4 工作。
+- 事务式 caller-buffer 容器的暂存数组和 schema 遍历路径已使用 temporary resource；暂存元素及需要
+  保存的未知字段路径仍使用 result resource。
 
 契约以 `stack_resource` 公共注释和 `docs/memory.md` 为准：marker 属于创建它的资源，只能在同一线程按
 LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标对象和借用 view 不得引用已回滚的临时地址。
@@ -310,7 +311,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - [x] 让 MessagePack parser 接受并绑定临时资源；
 - [x] 保证最终 byte buffer 使用 result resource；
 - [x] 增加嵌套序列化 callback 测试；
-- [ ] 比较接入前后的分配次数、峰值内存和吞吐。
+- [x] 比较接入前后的分配次数、峰值内存和吞吐。
 
 完成标准：连续调用能够复用临时 chunk，返回 buffer 在 scope 回滚后仍然有效。
 
@@ -319,7 +320,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - [x] 让 MessagePack 返回 DOM 的字符串和嵌套容器递归使用 result resource；
 - [x] MessagePack map 判型所需的中间 entry 容器使用 temporary resource；
 - [x] 评估 typed MessagePack 内部临时 DOM；
-- [ ] 将事务式容器元素和 schema 临时列表迁移到 temporary resource；
+- [x] 将事务式容器暂存数组和 schema 遍历路径迁移到 temporary resource；
 - [x] 审计 unknown fields、string storage、resolver 和构造结果，防止临时地址逃逸。
 
 审计结论：
@@ -330,6 +331,9 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - external-ref resolver 返回调用方管理的外部对象，context 只在同步调用期间借用 resolver ops；
 - 自定义构造结果由目标接管，必须使用 `effective_memory_resource()` 或其他长期资源；公共注释已明确禁止
   返回 temporary resource 中的对象；
+- caller-buffer 事务中的 `any` 元素最终写入目标，因此元素自身继续使用 result resource；只有
+  `vector<any>` 的暂存数组使用 temporary resource；
+- schema 迁移回调借用的路径仅在回调期间有效；需要保存的未知字段路径会显式深拷贝到 result resource；
 - 如果调用方主动把同一个 `stack_resource` 同时作为 result resource 和 temporary resource，或主动让
   callback 保存临时地址，仍属于违反资源生命周期契约的用法。
 

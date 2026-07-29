@@ -5,6 +5,9 @@
 
 #include "serialization_test_support.h"
 
+#include "caors/memory/stack.h"
+#include "caors/memory/tracking.h"
+
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes list fields from arrays", "[serialization]") {
@@ -148,6 +151,29 @@ TEST_CASE("serialization - writes std span caller buffers only when explicitly e
   REQUIRE(context.satisfies(caors::serialization::decode_requirement::caller_buffer));
   REQUIRE(caors::read_json_from(context, actor, R"({"scores":[5,6,7]})").succeeded());
   CHECK(storage == std::array<int, 3>{5, 6, 7});
+}
+
+TEST_CASE("serialization - releases std span transaction storage after decoding",
+          "[serialization][memory]") {
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
+
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{64, &temporary_tracking};
+  std::array<int, 3> storage{1, 2, 3};
+  span_actor actor{std::span<int>{storage}};
+  caors::serialization::context context;
+  context.config.borrowed_views.allow_caller_buffer_write = true;
+  context.resolvers.memory.temporary_resource = &temporary;
+
+  REQUIRE(caors::read_json_from(context, actor, R"({"scores":[5,6,7]})").succeeded());
+  CHECK(storage == std::array<int, 3>{5, 6, 7});
+  CHECK(temporary.active_scope_count() == 0);
+  CHECK(temporary.statistics().mark_count > 0);
+  CHECK(temporary.statistics().mark_count == temporary.statistics().rewind_count);
+
+  temporary.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - validates std span caller buffer length before writing",
