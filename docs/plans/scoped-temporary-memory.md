@@ -281,7 +281,18 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 - [x] 实现无活动 scope 时可调用的 `trim()`；
 - [x] 验证多线程实例隔离和同线程递归；
 - [x] 验证普通 chunk 缓存上限和 large chunk 及时释放；
-- [ ] 增加峰值、chunk 和 large allocation Debug 统计。
+- [x] 增加峰值、chunk 和 large allocation 统计。
+
+策略资源统一采用“独立快照结构 + `statistics()` + `reset_statistics()`”风格，不引入共同统计基类：
+
+- `stack_resource_statistics`：当前/峰值占用字节、当前/峰值 chunk 数、large allocation、
+  mark、rewind、trim 和 reset 次数；
+- `monotonic_resource_statistics`：当前/峰值占用字节、当前/峰值 chunk 数、独立大块分配和 reset 次数；
+- `fixed_block_pool_statistics`：当前/峰值使用块数、总块数、空闲块数、池命中、扩容和拒绝请求次数。
+
+三种资源统计分别实施。统计结构在 Debug/Release 均可用，计数使用普通整数，不增加原子操作；这些策略资源
+本身不是线程安全资源。`reset_statistics()` 只重置累计计数，并把峰值重置为当前水位，不改变资源内容。
+首批先完成 `stack_resource`，其余两种资源在独立批次接入。
 
 完成标准：同步调用可以用一行 RAII scope 获得并安全回滚临时资源。
 

@@ -123,3 +123,75 @@ TEST_CASE("memory - library temporary resource is isolated per thread", "[memory
   REQUIRE(second != nullptr);
   CHECK(first != second);
 }
+
+TEST_CASE("memory - stack resource reports scoped allocation statistics", "[memory][stack]") {
+  caors::stack_resource stack{64};
+
+  CHECK(stack.statistics().bytes_in_use == 0);
+  CHECK(stack.statistics().chunk_count == 0);
+
+  {
+    caors::stack_scope outer{stack};
+    REQUIRE(outer.resource()->allocate(16, 8) != nullptr);
+
+    const auto outer_statistics = stack.statistics();
+    CHECK(outer_statistics.bytes_in_use >= 16);
+    CHECK(outer_statistics.peak_bytes_in_use == outer_statistics.bytes_in_use);
+    CHECK(outer_statistics.chunk_count == 1);
+    CHECK(outer_statistics.peak_chunk_count == 1);
+    CHECK(outer_statistics.mark_count == 1);
+
+    {
+      caors::stack_scope inner{stack};
+      REQUIRE(inner.resource()->allocate(4096, 16) != nullptr);
+
+      const auto inner_statistics = stack.statistics();
+      CHECK(inner_statistics.bytes_in_use > outer_statistics.bytes_in_use);
+      CHECK(inner_statistics.peak_bytes_in_use == inner_statistics.bytes_in_use);
+      CHECK(inner_statistics.chunk_count == 2);
+      CHECK(inner_statistics.peak_chunk_count == 2);
+      CHECK(inner_statistics.large_allocation_count == 1);
+      CHECK(inner_statistics.mark_count == 2);
+    }
+
+    const auto rewound_statistics = stack.statistics();
+    CHECK(rewound_statistics.bytes_in_use == outer_statistics.bytes_in_use);
+    CHECK(rewound_statistics.chunk_count == 1);
+    CHECK(rewound_statistics.peak_chunk_count == 2);
+    CHECK(rewound_statistics.rewind_count == 1);
+  }
+
+  const auto completed_statistics = stack.statistics();
+  CHECK(completed_statistics.bytes_in_use == 0);
+  CHECK(completed_statistics.chunk_count == 1);
+  CHECK(completed_statistics.rewind_count == 2);
+
+  stack.trim();
+  CHECK(stack.statistics().trim_count == 1);
+  CHECK(stack.statistics().chunk_count == 1);
+
+  stack.reset();
+  CHECK(stack.statistics().reset_count == 1);
+  CHECK(stack.statistics().chunk_count == 0);
+}
+
+TEST_CASE("memory - stack resource resets counters without changing current watermarks",
+          "[memory][stack]") {
+  caors::stack_resource stack{64};
+  caors::stack_scope scope{stack};
+  REQUIRE(scope.resource()->allocate(24, 8) != nullptr);
+
+  const auto before_reset = stack.statistics();
+  stack.reset_statistics();
+  const auto after_reset = stack.statistics();
+
+  CHECK(after_reset.bytes_in_use == before_reset.bytes_in_use);
+  CHECK(after_reset.peak_bytes_in_use == before_reset.bytes_in_use);
+  CHECK(after_reset.chunk_count == before_reset.chunk_count);
+  CHECK(after_reset.peak_chunk_count == before_reset.chunk_count);
+  CHECK(after_reset.large_allocation_count == 0);
+  CHECK(after_reset.mark_count == 0);
+  CHECK(after_reset.rewind_count == 0);
+  CHECK(after_reset.trim_count == 0);
+  CHECK(after_reset.reset_count == 0);
+}

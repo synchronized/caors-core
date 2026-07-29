@@ -42,14 +42,20 @@ std::size_t stack_resource::initial_capacity() const noexcept { return initial_c
 
 stack_resource::marker stack_resource::mark() noexcept {
   ++active_depth_;
+  ++statistics_.mark_count;
   const std::uint64_t parent_id = active_marker_id_;
   ++marker_sequence_;
   if (marker_sequence_ == 0) {
     ++marker_sequence_;
   }
   active_marker_id_ = marker_sequence_;
-  return marker{this,          current_,    current_ != nullptr ? current_->offset : 0,
-                active_depth_, generation_, active_marker_id_,
+  return marker{this,
+                current_,
+                current_ != nullptr ? current_->offset : 0,
+                statistics_.bytes_in_use,
+                active_depth_,
+                generation_,
+                active_marker_id_,
                 parent_id};
 }
 
@@ -79,6 +85,8 @@ void stack_resource::rewind(marker position) noexcept {
   }
 
   current_ = marked_chunk;
+  statistics_.bytes_in_use = position.bytes_in_use_;
+  ++statistics_.rewind_count;
   active_marker_id_ = position.parent_id_;
   --active_depth_;
 }
@@ -94,6 +102,7 @@ void stack_resource::reset() noexcept {
   next_capacity_ = initial_capacity_;
   active_marker_id_ = 0;
   ++generation_;
+  ++statistics_.reset_count;
 }
 
 void stack_resource::trim() noexcept {
@@ -108,6 +117,7 @@ void stack_resource::trim() noexcept {
     next_capacity_ = initial_capacity_;
     active_marker_id_ = 0;
     ++generation_;
+    ++statistics_.trim_count;
     return;
   }
 
@@ -127,10 +137,24 @@ void stack_resource::trim() noexcept {
   current_ = nullptr;
   next_capacity_ = initial_capacity_;
   active_marker_id_ = 0;
+  statistics_.bytes_in_use = 0;
   ++generation_;
+  ++statistics_.trim_count;
 }
 
 std::size_t stack_resource::active_scope_count() const noexcept { return active_depth_; }
+
+stack_resource_statistics stack_resource::statistics() const noexcept { return statistics_; }
+
+void stack_resource::reset_statistics() noexcept {
+  const std::size_t bytes_in_use = statistics_.bytes_in_use;
+  const std::size_t chunk_count = statistics_.chunk_count;
+  statistics_ = {};
+  statistics_.bytes_in_use = bytes_in_use;
+  statistics_.peak_bytes_in_use = bytes_in_use;
+  statistics_.chunk_count = chunk_count;
+  statistics_.peak_chunk_count = chunk_count;
+}
 
 void* stack_resource::do_try_allocate(std::size_t size, std::size_t alignment) noexcept {
   chunk* candidate = current_ != nullptr ? current_ : chunks_;
@@ -152,6 +176,9 @@ void* stack_resource::do_try_allocate(std::size_t size, std::size_t alignment) n
     return nullptr;
   }
 
+  if (large) {
+    ++statistics_.large_allocation_count;
+  }
   current_ = tail_;
   return try_allocate_from(*current_, size, alignment);
 }
@@ -185,6 +212,8 @@ bool stack_resource::try_add_chunk(std::size_t capacity, bool large) noexcept {
     chunks_ = added;
   }
   tail_ = added;
+  ++statistics_.chunk_count;
+  statistics_.peak_chunk_count = std::max(statistics_.peak_chunk_count, statistics_.chunk_count);
 
   if (!large) {
     if (next_capacity_ <= std::numeric_limits<std::size_t>::max() / 2) {
@@ -217,7 +246,10 @@ void* stack_resource::try_allocate_from(chunk& target, std::size_t size,
     return nullptr;
   }
 
+  const std::size_t previous_offset = target.offset;
   target.offset = next_offset;
+  statistics_.bytes_in_use += next_offset - previous_offset;
+  statistics_.peak_bytes_in_use = std::max(statistics_.peak_bytes_in_use, statistics_.bytes_in_use);
   return reinterpret_cast<void*>(aligned);
 }
 
@@ -235,6 +267,7 @@ void stack_resource::release_chunk(chunk* target) noexcept {
 
   upstream_->deallocate(target->memory, target->capacity, default_memory_alignment);
   upstream_->deallocate(target, sizeof(chunk), alignof(chunk));
+  --statistics_.chunk_count;
 }
 
 void stack_resource::release_all() noexcept {
@@ -249,6 +282,8 @@ void stack_resource::release_all() noexcept {
   chunks_ = nullptr;
   tail_ = nullptr;
   current_ = nullptr;
+  statistics_.bytes_in_use = 0;
+  statistics_.chunk_count = 0;
 }
 
 stack_scope::stack_scope(stack_resource& resource) noexcept
