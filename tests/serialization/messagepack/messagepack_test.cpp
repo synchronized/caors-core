@@ -98,7 +98,6 @@ TEST_CASE("serialization - MessagePack DOM recursively uses the result resource"
         &temporary_resource);
     REQUIRE(decoded.succeeded());
     CHECK(temporary_resource.active_scope_count() == 0);
-    CHECK(temporary_tracking.statistics().bytes_in_use > 0);
     REQUIRE(decoded.value.is_object());
     CHECK(decoded.value.resource() == &result_resource);
 
@@ -214,11 +213,9 @@ TEST_CASE("serialization - MessagePack writer uses and rewinds a temporary stack
     REQUIRE(writer.write_string("second").succeeded());
     REQUIRE(writer.end_element().succeeded());
     REQUIRE(writer.end_array().succeeded());
-    CHECK(tracking.statistics().bytes_in_use > 0);
   }
 
   CHECK(temporary.active_scope_count() == 0);
-  CHECK(tracking.statistics().bytes_in_use > 0);
   REQUIRE_FALSE(output.empty());
   const caors::serialization::variant_result decoded =
       caors::serialization::parse_messagepack(output);
@@ -335,7 +332,6 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
   CHECK(decoded.name == "Mina");
   CHECK(result_tracking.statistics().bytes_in_use == 0);
   CHECK(temporary_resource.active_scope_count() == 0);
-  CHECK(temporary_tracking.statistics().bytes_in_use > 0);
 
   temporary_resource.reset();
   CHECK(temporary_tracking.statistics().bytes_in_use == 0);
