@@ -292,7 +292,13 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 
 三种资源统计分别实施。统计结构在 Debug/Release 均可用，计数使用普通整数，不增加原子操作；这些策略资源
 本身不是线程安全资源。`reset_statistics()` 只重置累计计数，并把峰值重置为当前水位，不改变资源内容。
-首批先完成 `stack_resource`，其余两种资源在独立批次接入。
+三种资源按独立批次接入和验证。
+
+实施状态：
+
+- [x] `stack_resource_statistics`；
+- [x] `monotonic_resource_statistics`；
+- [ ] `fixed_block_pool_statistics`。
 
 完成标准：同步调用可以用一行 RAII scope 获得并安全回滚临时资源。
 

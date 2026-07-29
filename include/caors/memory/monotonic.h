@@ -10,6 +10,16 @@
 
 namespace caors::memory {
 
+/** @brief monotonic_resource 的运行状态快照。 */
+struct monotonic_resource_statistics {
+  std::size_t bytes_in_use = 0;
+  std::size_t peak_bytes_in_use = 0;
+  std::size_t chunk_count = 0;
+  std::size_t peak_chunk_count = 0;
+  std::size_t large_allocation_count = 0;
+  std::size_t reset_count = 0;
+};
+
 class CAORS_API monotonic_resource final : public memory_resource {
 public:
   explicit monotonic_resource(std::size_t initial_capacity = 4096,
@@ -21,6 +31,10 @@ public:
 
   [[nodiscard]] memory_resource* upstream_resource() const noexcept;
   [[nodiscard]] std::size_t initial_capacity() const noexcept;
+  /** @brief 返回当前资源统计快照。 */
+  [[nodiscard]] monotonic_resource_statistics statistics() const noexcept;
+  /** @brief 重置累计统计；当前水位和资源内容保持不变。 */
+  void reset_statistics() noexcept;
   void reset() noexcept;
 
 private:
@@ -36,6 +50,7 @@ private:
   chunk* chunks_ = nullptr;
   std::size_t initial_capacity_ = 0;
   std::size_t next_capacity_ = 0;
+  monotonic_resource_statistics statistics_{};
 };
 
 } // namespace caors::memory
@@ -43,6 +58,7 @@ private:
 namespace caors {
 
 using memory::monotonic_resource;
+using memory::monotonic_resource_statistics;
 
 } // namespace caors
 

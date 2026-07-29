@@ -29,6 +29,20 @@ memory_resource* monotonic_resource::upstream_resource() const noexcept { return
 
 std::size_t monotonic_resource::initial_capacity() const noexcept { return initial_capacity_; }
 
+monotonic_resource_statistics monotonic_resource::statistics() const noexcept {
+  return statistics_;
+}
+
+void monotonic_resource::reset_statistics() noexcept {
+  const std::size_t bytes_in_use = statistics_.bytes_in_use;
+  const std::size_t chunk_count = statistics_.chunk_count;
+  statistics_ = {};
+  statistics_.bytes_in_use = bytes_in_use;
+  statistics_.peak_bytes_in_use = bytes_in_use;
+  statistics_.chunk_count = chunk_count;
+  statistics_.peak_chunk_count = chunk_count;
+}
+
 void monotonic_resource::reset() noexcept {
   chunk* current = chunks_;
   while (current != nullptr) {
@@ -40,6 +54,9 @@ void monotonic_resource::reset() noexcept {
 
   chunks_ = nullptr;
   next_capacity_ = initial_capacity_;
+  statistics_.bytes_in_use = 0;
+  statistics_.chunk_count = 0;
+  ++statistics_.reset_count;
 }
 
 void* monotonic_resource::do_try_allocate(std::size_t size, std::size_t alignment) noexcept {
@@ -63,7 +80,11 @@ void* monotonic_resource::do_try_allocate(std::size_t size, std::size_t alignmen
       }
 
       if (next_offset <= current->capacity) {
+        const std::size_t previous_offset = current->offset;
         current->offset = next_offset;
+        statistics_.bytes_in_use += next_offset - previous_offset;
+        statistics_.peak_bytes_in_use =
+            std::max(statistics_.peak_bytes_in_use, statistics_.bytes_in_use);
         return reinterpret_cast<void*>(aligned);
       }
     }
@@ -81,10 +102,14 @@ void* monotonic_resource::do_try_allocate(std::size_t size, std::size_t alignmen
   }
 
   const std::size_t preferred_capacity = std::max(required, next_capacity_);
+  const bool large = required > next_capacity_;
   if (!try_add_chunk(preferred_capacity)) {
     if (preferred_capacity == required || !try_add_chunk(required)) {
       return nullptr;
     }
+  }
+  if (large) {
+    ++statistics_.large_allocation_count;
   }
 
   return allocate_from_chunks();
@@ -111,6 +136,8 @@ bool monotonic_resource::try_add_chunk(std::size_t capacity) noexcept {
   new_chunk->offset = 0;
   new_chunk->next = chunks_;
   chunks_ = new_chunk;
+  ++statistics_.chunk_count;
+  statistics_.peak_chunk_count = std::max(statistics_.peak_chunk_count, statistics_.chunk_count);
 
   if (next_capacity_ <= std::numeric_limits<std::size_t>::max() / 2) {
     next_capacity_ = std::max(next_capacity_ * 2, capacity);
