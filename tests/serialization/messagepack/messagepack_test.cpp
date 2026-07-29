@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/memory.h"
 #include "caors/serialization/messagepack.h"
 #include "caors/serialization/operations.h"
 #include "serialization_test_support.h"
@@ -163,6 +164,38 @@ TEST_CASE("serialization - MessagePack writer accepts generic writer events",
   REQUIRE(writer.write_null().succeeded());
   REQUIRE(writer.bytes().size() == 1);
   CHECK(byte_at(writer.bytes(), 0) == 0xC0);
+}
+
+TEST_CASE("serialization - MessagePack writer uses and rewinds a temporary stack resource",
+          "[serialization][messagepack][memory]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{64, &tracking};
+  caors::io::byte_buffer output;
+
+  {
+    caors::serialization::messagepack_writer writer{output, &temporary};
+    REQUIRE(writer.begin_array(2).succeeded());
+    REQUIRE(writer.begin_element(0).succeeded());
+    REQUIRE(writer.write_string("first").succeeded());
+    REQUIRE(writer.end_element().succeeded());
+    REQUIRE(writer.begin_element(1).succeeded());
+    REQUIRE(writer.write_string("second").succeeded());
+    REQUIRE(writer.end_element().succeeded());
+    REQUIRE(writer.end_array().succeeded());
+    CHECK(tracking.statistics().bytes_in_use > 0);
+  }
+
+  CHECK(temporary.active_scope_count() == 0);
+  CHECK(tracking.statistics().bytes_in_use > 0);
+  REQUIRE_FALSE(output.empty());
+  const caors::serialization::variant_result decoded =
+      caors::serialization::parse_messagepack(output);
+  REQUIRE(decoded.succeeded());
+  REQUIRE(decoded.value.is_array());
+  CHECK(decoded.value.as_array().size() == 2);
+
+  temporary.reset();
+  CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - MessagePack selects string length markers",

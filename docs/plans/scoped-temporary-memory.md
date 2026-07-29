@@ -275,9 +275,10 @@ messagepack_writer writer{output, temporary_resource};
 
 ### 阶段 3：MessagePack writer 接入
 
-- [ ] 让 frame 栈和容器暂存使用 temporary resource；
-- [ ] 让流式 writer/parser 在构造时绑定资源，并验证资源生命周期和线程约束；
-- [ ] 保证最终 byte buffer 使用 result resource；
+- [x] 让 writer frame 栈和 frame 容器暂存使用 temporary resource；
+- [x] 让流式 writer 在构造时绑定资源，并验证资源生命周期和线程约束；
+- [ ] 让流式 parser 在构造时绑定资源；
+- [x] 保证最终 byte buffer 使用 result resource；
 - [ ] 增加嵌套序列化 callback 测试；
 - [ ] 比较接入前后的分配次数、峰值内存和吞吐。
 

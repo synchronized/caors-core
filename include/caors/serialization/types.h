@@ -263,7 +263,10 @@ struct limit_options {
 
 /** @brief 运行期构造和销毁相关的序列化语义选项。 */
 struct memory_options {
+  /** @brief 目标对象和返回值使用的资源。 */
   memory::memory_resource* resource = nullptr;
+  /** @brief 单次调用的临时工作内存；为空时使用线程局部临时资源。 */
+  memory::memory_resource* temporary_resource = nullptr;
 };
 
 /** @brief 借用视图反序列化相关的外部存储选项。 */
@@ -389,6 +392,10 @@ struct context {
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
     return resolvers.memory.resource;
+  }
+
+  [[nodiscard]] memory::memory_resource* effective_temporary_resource() const noexcept {
+    return resolvers.memory.temporary_resource;
   }
 
   [[nodiscard]] const serialization::construction_options&

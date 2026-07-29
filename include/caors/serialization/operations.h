@@ -963,7 +963,7 @@ template <typename T>
 [[nodiscard]] io::byte_buffer_result to_messagepack(const serialization::context& context,
                                                     const T& object) {
   io::byte_buffer output = io::make_byte_buffer(context.effective_memory_resource());
-  messagepack_writer writer{output};
+  messagepack_writer writer{output, context.effective_temporary_resource()};
   const error status = serialize(context, object, writer);
   return {status, std::move(output)};
 }

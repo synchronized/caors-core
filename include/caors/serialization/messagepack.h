@@ -29,7 +29,10 @@ struct messagepack_options {
 class CAORS_API messagepack_writer final : public writer {
 public:
   messagepack_writer();
-  explicit messagepack_writer(io::byte_buffer& output);
+  /** @brief 使用指定临时资源构造 writer；为空时使用线程局部临时资源。 */
+  explicit messagepack_writer(memory_resource* temporary_resource);
+  explicit messagepack_writer(io::byte_buffer& output,
+                              memory_resource* temporary_resource = nullptr);
   ~messagepack_writer() override;
 
   [[nodiscard]] format_features features() const noexcept override;

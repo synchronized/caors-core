@@ -3,6 +3,8 @@
 
 #include "caors/serialization/messagepack.h"
 
+#include "caors/memory/stack.h"
+
 #include "caors/core/string_name.h"
 
 #include <bit>
@@ -10,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -421,6 +424,12 @@ public:
   };
 
   struct frame {
+    explicit frame(frame_kind frame_kind, std::size_t size, memory_resource* resource)
+        : kind(frame_kind), expected_size(size),
+          object(variant::object_type::allocator_type{resource}),
+          array(variant::array_type::allocator_type{resource}),
+          dictionary(variant::dictionary_type::allocator_type{resource}) {}
+
     frame_kind kind = frame_kind::object;
     std::size_t expected_size = 0;
     variant::object_type object{};
@@ -434,14 +443,28 @@ public:
     variant value{};
   };
 
-  implementation() : output_(&owned_output_) {}
-  explicit implementation(io::byte_buffer& output) : output_(&output) { output_->clear(); }
+  implementation() : implementation(nullptr) {}
+
+  explicit implementation(memory_resource* temporary_resource)
+      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
+                                                          : &memory::library_temporary_resource()),
+        frames_(vector<frame>::allocator_type{temporary_resource_}), output_(&owned_output_) {
+    begin_temporary_scope();
+  }
+
+  implementation(io::byte_buffer& output, memory_resource* temporary_resource)
+      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
+                                                          : &memory::library_temporary_resource()),
+        frames_(vector<frame>::allocator_type{temporary_resource_}), output_(&output) {
+    begin_temporary_scope();
+    output_->clear();
+  }
 
   [[nodiscard]] error begin_container(frame_kind kind, std::size_t expected_size) {
     if (!can_accept_value()) {
       return invalid_messagepack();
     }
-    frames_.push_back(frame{kind, expected_size});
+    frames_.emplace_back(kind, expected_size, temporary_resource_);
     return {};
   }
 
@@ -545,16 +568,28 @@ public:
     root_written_ = false;
   }
 
+  void begin_temporary_scope() {
+    if (auto* stack = dynamic_cast<memory::stack_resource*>(temporary_resource_);
+        stack != nullptr) {
+      temporary_scope_.emplace(*stack);
+    }
+  }
+
+  memory_resource* temporary_resource_ = nullptr;
+  std::optional<memory::stack_scope> temporary_scope_{};
   io::byte_buffer owned_output_{};
   io::byte_buffer* output_ = nullptr;
-  vector<frame> frames_{};
+  vector<frame> frames_;
   bool root_written_ = false;
 };
 
 messagepack_writer::messagepack_writer() : implementation_(std::make_unique<implementation>()) {}
 
-messagepack_writer::messagepack_writer(io::byte_buffer& output)
-    : implementation_(std::make_unique<implementation>(output)) {}
+messagepack_writer::messagepack_writer(memory_resource* temporary_resource)
+    : implementation_(std::make_unique<implementation>(temporary_resource)) {}
+
+messagepack_writer::messagepack_writer(io::byte_buffer& output, memory_resource* temporary_resource)
+    : implementation_(std::make_unique<implementation>(output, temporary_resource)) {}
 
 messagepack_writer::~messagepack_writer() = default;
 
