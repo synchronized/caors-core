@@ -277,7 +277,7 @@ messagepack_writer writer{output, temporary_resource};
 
 - [x] 让 writer frame 栈和 frame 容器暂存使用 temporary resource；
 - [x] 让流式 writer 在构造时绑定资源，并验证资源生命周期和线程约束；
-- [ ] 让流式 parser 在构造时绑定资源；
+- [x] 让 MessagePack parser 接受并绑定临时资源；
 - [x] 保证最终 byte buffer 使用 result resource；
 - [ ] 增加嵌套序列化 callback 测试；
 - [ ] 比较接入前后的分配次数、峰值内存和吞吐。
@@ -287,7 +287,7 @@ messagepack_writer writer{output, temporary_resource};
 ### 阶段 4：parser 与通用 serialization 接入
 
 - [x] 让 MessagePack 返回 DOM 的字符串和嵌套容器递归使用 result resource；
-- [ ] parser 控制结构使用 temporary resource；
+- [x] MessagePack map 判型所需的中间 entry 容器使用 temporary resource；
 - [ ] 评估 typed MessagePack 内部临时 DOM；
 - [ ] 将事务式容器元素和 schema 临时列表迁移到 temporary resource；
 - [ ] 审计 unknown fields、string storage、resolver 和构造结果，防止临时地址逃逸。

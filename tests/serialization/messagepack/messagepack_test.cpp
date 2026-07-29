@@ -89,11 +89,16 @@ TEST_CASE("serialization - MessagePack DOM recursively uses the result resource"
                            std::byte{'m'},  std::byte{'e'},  std::byte{0xA5}, std::byte{'A'},
                            std::byte{'l'},  std::byte{'i'},  std::byte{'c'},  std::byte{'e'}};
   caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary_resource{64, &temporary_tracking};
 
   {
     const caors::serialization::variant_result decoded = caors::serialization::parse_messagepack(
-        encoded, caors::serialization::messagepack_options{}, &result_resource);
+        encoded, caors::serialization::messagepack_options{}, &result_resource,
+        &temporary_resource);
     REQUIRE(decoded.succeeded());
+    CHECK(temporary_resource.active_scope_count() == 0);
+    CHECK(temporary_tracking.statistics().bytes_in_use > 0);
     REQUIRE(decoded.value.is_object());
     CHECK(decoded.value.resource() == &result_resource);
 
@@ -106,6 +111,8 @@ TEST_CASE("serialization - MessagePack DOM recursively uses the result resource"
   }
 
   CHECK(result_resource.statistics().bytes_in_use == 0);
+  temporary_resource.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - MessagePack rejects truncated unsupported and trailing input",
@@ -316,9 +323,20 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
   CHECK(caors::read_messagepack_from(rejected, encoded.value).value() == caors::errc::unsupported);
 
   caors::serialization::string_storage storage;
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary_resource{64, &temporary_tracking};
   caors::serialization::context context;
   context.state.storage.string_view_storage = &storage;
+  context.resolvers.memory.resource = &result_tracking;
+  context.resolvers.memory.temporary_resource = &temporary_resource;
   codec_string_view_actor decoded{};
   REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
   CHECK(decoded.name == "Mina");
+  CHECK(result_tracking.statistics().bytes_in_use == 0);
+  CHECK(temporary_resource.active_scope_count() == 0);
+  CHECK(temporary_tracking.statistics().bytes_in_use > 0);
+
+  temporary_resource.reset();
+  CHECK(temporary_tracking.statistics().bytes_in_use == 0);
 }

@@ -87,6 +87,16 @@ encode_messagepack(const variant& value, memory_resource* resource = nullptr);
                                                          messagepack_options options,
                                                          memory_resource* resource);
 
+/**
+ * @brief 使用指定结果资源和临时资源解析一个完整 MessagePack 根值。
+ *
+ * `temporary_resource` 为空时使用当前线程的库临时资源。返回 DOM 不引用临时资源。
+ */
+[[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
+                                                         messagepack_options options,
+                                                         memory_resource* resource,
+                                                         memory_resource* temporary_resource);
+
 } // namespace caors::serialization
 
 #endif

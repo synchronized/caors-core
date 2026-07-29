@@ -186,10 +186,11 @@ error append_value(io::byte_buffer& output, const variant& value) {
 
 class parser {
 public:
-  parser(std::span<const std::byte> bytes, messagepack_options options,
-         memory_resource* resource) noexcept
+  parser(std::span<const std::byte> bytes, messagepack_options options, memory_resource* resource,
+         memory_resource* temporary_resource) noexcept
       : bytes_(bytes), options_(options),
-        resource_(resource != nullptr ? resource : get_default_memory_resource()) {}
+        resource_(resource != nullptr ? resource : get_default_memory_resource()),
+        temporary_resource_(temporary_resource) {}
 
   [[nodiscard]] variant_result parse() {
     variant_result result = parse_value(0);
@@ -268,7 +269,7 @@ private:
       return {invalid_messagepack(), {}};
     }
 
-    variant::dictionary_type entries{variant::dictionary_type::allocator_type{resource_}};
+    variant::dictionary_type entries{variant::dictionary_type::allocator_type{temporary_resource_}};
     entries.reserve(size);
     bool all_string_keys = true;
     for (std::size_t index = 0; index < size; ++index) {
@@ -285,7 +286,12 @@ private:
     }
 
     if (!all_string_keys) {
-      return {{}, variant::dictionary(std::move(entries))};
+      variant::dictionary_type result_entries{variant::dictionary_type::allocator_type{resource_}};
+      result_entries.reserve(entries.size());
+      for (meta::variant_entry& entry : entries) {
+        result_entries.push_back({std::move(entry.key), std::move(entry.value)});
+      }
+      return {{}, variant::dictionary(std::move(result_entries))};
     }
 
     variant::object_type members{variant::object_type::allocator_type{resource_}};
@@ -411,6 +417,7 @@ private:
   messagepack_options options_{};
   std::size_t position_ = 0;
   memory_resource* resource_ = nullptr;
+  memory_resource* temporary_resource_ = nullptr;
 };
 
 } // namespace
@@ -813,12 +820,23 @@ io::byte_buffer_result encode_messagepack(const variant& value, memory_resource*
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options) {
-  return parse_messagepack(bytes, options, nullptr);
+  return parse_messagepack(bytes, options, nullptr, nullptr);
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
                                  memory_resource* resource) {
-  return parser{bytes, options, resource}.parse();
+  return parse_messagepack(bytes, options, resource, nullptr);
+}
+
+variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
+                                 memory_resource* resource, memory_resource* temporary_resource) {
+  memory_resource* resolved_temporary =
+      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> temporary_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
+    temporary_scope.emplace(*stack);
+  }
+  return parser{bytes, options, resource, resolved_temporary}.parse();
 }
 
 } // namespace caors::serialization
