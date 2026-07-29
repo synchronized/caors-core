@@ -11,6 +11,11 @@ namespace caors::benchmarks {
 void print_allocation_samples() {
   constexpr std::size_t iterations = 1'000;
   const benchmark_actor actor{7, 95.5F, true, "Ada"};
+  const caors::io::byte_buffer_result encoded_actor_messagepack = caors::to_messagepack(actor);
+  if (encoded_actor_messagepack.failed()) {
+    std::cerr << "准备 MessagePack 分配统计输入失败\n";
+    std::exit(EXIT_FAILURE);
+  }
 
   std::cout << "\nAllocation samples (iterations: " << iterations << ")\n";
 
@@ -63,6 +68,38 @@ void print_allocation_samples() {
     }
     (void)caors::set_default_memory_resource(previous);
     print_memory_statistics("serialization.parse_json", tracking.statistics(), iterations);
+  }
+
+  {
+    caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+    caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
+    caors::stack_resource temporary{64 * 1024, &temporary_tracking};
+    caors::serialization::context context{};
+    context.resolvers.memory.resource = &result_tracking;
+    context.resolvers.memory.temporary_resource = &temporary;
+
+    for (std::size_t index = 0; index < iterations; ++index) {
+      benchmark_actor target{};
+      const caors::error status =
+          caors::read_messagepack_from(context, target, encoded_actor_messagepack.value);
+      if (status.failed()) {
+        std::cerr << "统计 read_messagepack_from 分配失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(target.id));
+    }
+
+    const caors::stack_resource_statistics temporary_statistics = temporary.statistics();
+    temporary.reset();
+    print_memory_statistics("serialization.read_messagepack_from.result",
+                            result_tracking.statistics(), iterations);
+    print_memory_statistics("serialization.read_messagepack_from.temporary_upstream",
+                            temporary_tracking.statistics(), iterations);
+    std::cout << "serialization.read_messagepack_from.temporary_logical"
+              << ": peak_bytes=" << temporary_statistics.peak_bytes_in_use
+              << ", peak_chunks=" << temporary_statistics.peak_chunk_count
+              << ", marks=" << temporary_statistics.mark_count
+              << ", rewinds=" << temporary_statistics.rewind_count << '\n';
   }
 
   {

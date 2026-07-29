@@ -35,6 +35,17 @@ void benchmark_serialization(std::size_t iterations) {
     std::cerr << "解析 benchmark JSON 输入失败\n";
     std::exit(EXIT_FAILURE);
   }
+  const caors::io::byte_buffer_result encoded_actor_messagepack = caors::to_messagepack(actor);
+  if (encoded_actor_messagepack.failed()) {
+    std::cerr << "编码 benchmark MessagePack 输入失败\n";
+    std::exit(EXIT_FAILURE);
+  }
+  const caors::serialization::variant_result parsed_actor_messagepack =
+      caors::serialization::parse_messagepack(encoded_actor_messagepack.value);
+  if (parsed_actor_messagepack.failed()) {
+    std::cerr << "解析 benchmark MessagePack 输入失败\n";
+    std::exit(EXIT_FAILURE);
+  }
 
   {
     CTRACK_NAME("serialization.to_value");
@@ -211,6 +222,46 @@ void benchmark_serialization(std::size_t iterations) {
       const caors::error status = caors::read_value_from(target, parsed_actor_json.value);
       if (status.failed()) {
         std::cerr << "DOM 反序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(target.id));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.parse_messagepack");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::serialization::variant_result result =
+          caors::serialization::parse_messagepack(encoded_actor_messagepack.value);
+      if (result.failed()) {
+        std::cerr << "MessagePack parse benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(result.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.deserialize_from_messagepack_variant");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      benchmark_actor target{};
+      const caors::error status = caors::read_value_from(target, parsed_actor_messagepack.value);
+      if (status.failed()) {
+        std::cerr << "MessagePack DOM 反序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(target.id));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.read_messagepack_from");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      benchmark_actor target{};
+      const caors::error status =
+          caors::read_messagepack_from(target, encoded_actor_messagepack.value);
+      if (status.failed()) {
+        std::cerr << "MessagePack typed benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
       }
       consume(static_cast<std::uintptr_t>(target.id));

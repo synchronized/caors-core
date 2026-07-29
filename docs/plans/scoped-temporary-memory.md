@@ -318,7 +318,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
 
 - [x] 让 MessagePack 返回 DOM 的字符串和嵌套容器递归使用 result resource；
 - [x] MessagePack map 判型所需的中间 entry 容器使用 temporary resource；
-- [ ] 评估 typed MessagePack 内部临时 DOM；
+- [x] 评估 typed MessagePack 内部临时 DOM；
 - [ ] 将事务式容器元素和 schema 临时列表迁移到 temporary resource；
 - [x] 审计 unknown fields、string storage、resolver 和构造结果，防止临时地址逃逸。
 
@@ -332,6 +332,19 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
   返回 temporary resource 中的对象；
 - 如果调用方主动把同一个 `stack_resource` 同时作为 result resource 和 temporary resource，或主动让
   callback 保存临时地址，仍属于违反资源生命周期契约的用法。
+
+typed MessagePack DOM 基线（2026-07-29，`windows-clang-benchmark`，Release）：
+
+- 1000 次读取中，result resource 每次 1 次分配、736 字节，峰值 736 字节，退出后 live 为 0；
+- temporary resource 逻辑峰值 1344 字节、1 个 chunk；1000 次调用只向 upstream 分配 2 次，
+  mark/rewind 各 1000 次；
+- 100000 次连续三轮：`parse_messagepack` 为 66.03–70.25 ms，预解析 DOM→typed 为
+  215.67–247.98 ms，完整 `read_messagepack_from` 为 291.28–327.82 ms。
+
+结论：当前小对象 DOM 的 result resource 成本只有一次分配。直接把整棵 DOM 改到 temporary resource
+会使 preserved unknown fields 等逃逸结果必须额外深拷贝，收益不足以覆盖语义复杂度。现阶段保留
+result-resource DOM；若大型 workload 显示明显瓶颈，优先设计直接驱动 typed reader 的增量解析路径，而
+不是让现有 DOM 临时化。
 
 完成标准：失败路径和成功路径都不遗留临时分配，目标/返回值生命周期不受 rewind 影响。
 

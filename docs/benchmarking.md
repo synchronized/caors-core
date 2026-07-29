@@ -72,6 +72,8 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
+- MessagePack：`parse_messagepack`、`deserialize_from_messagepack_variant` 和
+  `read_messagepack_from` 分别测 DOM 解析、预解析 DOM 读回 typed 对象及完整 typed 读取。
 - 序列化拆分项：`schema_view_find` 测默认 registry 上的序列化 schema 视图查询，
   `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`properties_get_ref` 测属性引用读取，
   `field_refs_to_variant` 测字段引用转 DOM，`manual_variant_object_direct` 测不经过反射的手动 DOM 构造，
@@ -94,6 +96,9 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `serialization.write_json_to_reused_buffer`：复用输出 buffer 后是否仍有内部容器分配。
 - `serialization.parse_json`：JSON parser 当前需要通过默认 resource 观察分配；这也提示后续 parser
   应继续收敛到显式 `memory_resource`。
+- `serialization.read_messagepack_from.result`：typed 读取内部 DOM 和最终结果资源分配。
+- `serialization.read_messagepack_from.temporary_upstream` / `temporary_logical`：线程临时
+  `stack_resource` 的上游 chunk 分配及逻辑峰值、marker/rewind 次数。
 - `resources.load_handle_into.json_uncached`：provider -> JSON loader -> cache 路径的总分配情况。
 
 分配统计不是耗时 benchmark。它用于发现分配热点和泄漏风险，正式性能对比仍以 Release benchmark
