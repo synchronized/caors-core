@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "../polymorphic/serialization_polymorphic_object_test_support.h"
 #include "caors/memory.h"
 #include "caors/serialization/messagepack.h"
 #include "caors/serialization/operations.h"
@@ -436,4 +437,104 @@ TEST_CASE("serialization - MessagePack typed APIs migrate DOM before strict vali
   reader_unknown_field_actor migrated{};
   REQUIRE(caors::read_messagepack_from(context, migrated, encoded.value).succeeded());
   CHECK(migrated.id == 42);
+}
+
+TEST_CASE("serialization - MessagePack typed APIs round trip nested and standard containers",
+          "[serialization][messagepack][typed]") {
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<nested_stats>("caors.test.serialization.nested_stats")
+          .meta()
+          .property("level", &nested_stats::level)
+          .property("score", &nested_stats::score)
+          .serialization()
+          .commit()));
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<nested_actor>("caors.test.serialization.nested_actor")
+          .meta()
+          .property("id", &nested_actor::id)
+          .property("stats", &nested_actor::stats)
+          .serialization()
+          .commit()));
+  require_serializable_property_type<vector_actor>("caors.test.serialization.vector_actor",
+                                                   "scores", &vector_actor::scores);
+  require_serializable_property_type<tuple_actor>("caors.test.serialization.tuple_actor", "entry",
+                                                  &tuple_actor::entry);
+  require_serializable_property_type<variant_actor>("caors.test.serialization.variant_actor",
+                                                    "entry", &variant_actor::entry);
+
+  const nested_actor nested_source{7, nested_stats{3, 12.5F}};
+  const caors::io::byte_buffer_result nested_bytes = caors::to_messagepack(nested_source);
+  REQUIRE(nested_bytes.succeeded());
+  nested_actor nested_decoded{};
+  REQUIRE(caors::read_messagepack_from(nested_decoded, nested_bytes.value).succeeded());
+  CHECK(nested_decoded.id == 7);
+  CHECK(nested_decoded.stats.level == 3);
+  CHECK(nested_decoded.stats.score == 12.5F);
+
+  const vector_actor vector_source{{1, 2, 3}};
+  const caors::io::byte_buffer_result vector_bytes = caors::to_messagepack(vector_source);
+  REQUIRE(vector_bytes.succeeded());
+  vector_actor vector_decoded{};
+  REQUIRE(caors::read_messagepack_from(vector_decoded, vector_bytes.value).succeeded());
+  CHECK(vector_decoded.scores == caors::vector<int>{1, 2, 3});
+
+  const tuple_actor tuple_source{{9, caors::string{"nine"}, 2.5F}};
+  const caors::io::byte_buffer_result tuple_bytes = caors::to_messagepack(tuple_source);
+  REQUIRE(tuple_bytes.succeeded());
+  tuple_actor tuple_decoded{};
+  REQUIRE(caors::read_messagepack_from(tuple_decoded, tuple_bytes.value).succeeded());
+  CHECK(std::get<0>(tuple_decoded.entry) == 9);
+  CHECK(std::get<1>(tuple_decoded.entry) == "nine");
+  CHECK(std::get<2>(tuple_decoded.entry) == 2.5F);
+
+  variant_actor variant_source{};
+  variant_source.entry = caors::string{"selected"};
+  const caors::io::byte_buffer_result variant_bytes = caors::to_messagepack(variant_source);
+  REQUIRE(variant_bytes.succeeded());
+  variant_actor variant_decoded{};
+  REQUIRE(caors::read_messagepack_from(variant_decoded, variant_bytes.value).succeeded());
+  REQUIRE(std::holds_alternative<caors::string>(variant_decoded.entry));
+  CHECK(std::get<caors::string>(variant_decoded.entry) == "selected");
+}
+
+TEST_CASE("serialization - MessagePack typed APIs preserve polymorphic envelopes",
+          "[serialization][messagepack][polymorphic]") {
+  using namespace caors::tests::serialization::polymorphic_object;
+  require_metadata();
+
+  player source{};
+  source.level = 17;
+  source.name = "Mina";
+  const actor& source_base = source;
+
+  caors::serialization::context context;
+  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source_base);
+  REQUIRE(encoded.succeeded());
+
+  player decoded{};
+  actor& decoded_base = decoded;
+  REQUIRE(caors::read_messagepack_from(context, decoded_base, encoded.value).succeeded());
+  CHECK(decoded.type_id() == player::static_type_id());
+  CHECK(decoded.level == 17);
+  CHECK(decoded.name == "Mina");
+}
+
+TEST_CASE("serialization - MessagePack typed APIs preserve external references",
+          "[serialization][messagepack][external-ref]") {
+  require_serializable_property_type<object_ptr_actor>("caors.test.serialization.object_ptr_actor",
+                                                       "target", &object_ptr_actor::target);
+
+  object_ptr_target target;
+  object_ptr_resolver_data resolver_data{caors::object_id{77}, &target};
+  const caors::objects::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
+  caors::serialization::context context;
+  context.resolvers.external_refs.resolver = &resolver;
+
+  const object_ptr_actor source{caors::object_ptr<object_ptr_target>{&target}};
+  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source);
+  REQUIRE(encoded.succeeded());
+
+  object_ptr_actor decoded{};
+  REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
+  CHECK(decoded.target.get() == &target);
 }

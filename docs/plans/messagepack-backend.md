@@ -121,7 +121,7 @@ template <typename T>
 - [x] 增加 `to_messagepack()` 与 `read_messagepack_from()`；
 - [x] typed API 复用现有 `serialize()`、`variant_reader` 和 context；
 - [x] 覆盖 schema migration 和未知字段策略；
-- [ ] 覆盖嵌套对象、容器、tuple/variant、多态 envelope 和 external-ref；
+- [x] 覆盖嵌套对象、容器、tuple/variant、多态 envelope 和 external-ref；
 - [ ] 确认失败时目标值遵守现有事务边界。
 
 完成标准：现有 JSON/DOM 语义测试能够以 MessagePack 后端复用或建立等价用例。
