@@ -110,12 +110,36 @@ thread_local stack_resource temporary;
 
 这样普通同步序列化不需要锁或原子计数，嵌套调用通过 marker 保留外层分配。
 
+默认同步 API 不在每次调用时重新构造 `stack_resource`。每个线程只创建并复用一个资源，每次调用只创建
+轻量的 `stack_scope`：
+
+```cpp
+auto& temporary = library_temporary_resource();
+stack_scope scope{temporary};
+```
+
+因此常规调用只承担保存 marker 和析构时 rewind 的成本。首次或扩容时申请的普通 chunk 可以被同一线程
+后续调用复用。
+
 限制：
 
 - 从哪个线程创建的 scope，必须在哪个线程析构；
 - 临时指针不能传给异步任务或其他线程；
 - DLL/插件边界不承诺各模块的 thread-local 实例地址一致；
 - 跨 runtime 边界时应由 host 显式传入 temporary resource，不能依赖模块本地默认入口。
+
+### 资源选择优先级
+
+serialization 按以下顺序选择临时资源：
+
+1. 调用方显式传入的 `temporary_resource`；
+2. 当前线程的 `library_temporary_resource()`。
+
+不为每次 convenience API 调用创建独立 `stack_resource`。只有测试、低频隔离任务或调用方提供固定初始
+缓冲区的场景，才适合由调用方按调用创建资源。
+
+跨 DLL/plugin 调用时由 host 显式传入资源，确保分配、回滚和最终释放发生在同一 runtime 边界。插件不得
+假设自身模块中的线程局部默认资源与 host 是同一实例。
 
 ### chunk 与超大分配策略
 
@@ -128,7 +152,17 @@ thread_local stack_resource temporary;
 - 普通 chunk 允许保留少量高水位缓存，避免每次调用重新向 upstream 分配；
 - 提供 Debug 统计：当前占用、峰值、chunk 数、large allocation 次数和回滚次数。
 
-具体缓存上限在 benchmark 后确定，不作为第一版公开配置。
+资源提供：
+
+```cpp
+void trim() noexcept;
+```
+
+`trim()` 只允许在不存在活动 scope 时调用，用于释放基础 chunk 之外的缓存。worker 线程长期空闲、完成一批
+超大任务或测试结束时可以主动调用。普通 rewind 不应永久保留 large chunk。
+
+普通 chunk 的默认缓存上限在 benchmark 后确定，第一版不公开复杂调参 API，但必须设置内部上限，避免一次
+异常大输入让线程局部资源永久保持峰值容量。
 
 ## Serialization 双资源边界
 
@@ -166,6 +200,19 @@ struct memory_options {
 ```
 
 它属于跨格式运行期资源，不放入 `json_options` 或 `messagepack_options`。
+
+### 流式对象
+
+`messagepack_writer`、流式 parser 等跨多次成员函数调用保存状态的对象，应在构造时绑定临时资源，而不是
+每次 `begin_*`、`write_*` 或 `read_*` 时重新查询线程局部入口：
+
+```cpp
+messagepack_writer writer{output, temporary_resource};
+```
+
+临时资源必须比 writer/parser 活得更久。每个完整文档开始时记录 marker，在文档成功、失败或显式 reset 后
+回滚；不能在仍有未完成 frame 时 trim 或销毁资源。未显式传入时，构造函数绑定当前线程的默认临时资源，
+对象随后不得跨线程使用。
 
 ### MessagePack writer
 
@@ -219,7 +266,9 @@ struct memory_options {
 
 - [ ] 实现 `stack_scope`；
 - [ ] 实现 `library_temporary_resource()`；
+- [ ] 实现无活动 scope 时可调用的 `trim()`；
 - [ ] 验证多线程实例隔离和同线程递归；
+- [ ] 验证普通 chunk 缓存上限和 large chunk 及时释放；
 - [ ] 增加峰值、chunk 和 large allocation Debug 统计。
 
 完成标准：同步调用可以用一行 RAII scope 获得并安全回滚临时资源。
@@ -227,6 +276,7 @@ struct memory_options {
 ### 阶段 3：MessagePack writer 接入
 
 - [ ] 让 frame 栈和容器暂存使用 temporary resource；
+- [ ] 让流式 writer/parser 在构造时绑定资源，并验证资源生命周期和线程约束；
 - [ ] 保证最终 byte buffer 使用 result resource；
 - [ ] 增加嵌套序列化 callback 测试；
 - [ ] 比较接入前后的分配次数、峰值内存和吞吐。
