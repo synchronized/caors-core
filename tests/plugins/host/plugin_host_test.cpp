@@ -33,7 +33,8 @@ TEST_CASE("插件宿主提供运行时扩展并支持精确版本降级") {
   REQUIRE(runtime != nullptr);
   CHECK(runtime->runtime_major == static_cast<std::uint32_t>(caors::k_version.major));
   CHECK(abi.get_extension(abi.context, CAORS_PLUGIN_RUNTIME_EXTENSION_ID,
-                          std::strlen(CAORS_PLUGIN_RUNTIME_EXTENSION_ID), 2) == nullptr);
+                          std::strlen(CAORS_PLUGIN_RUNTIME_EXTENSION_ID),
+                          CAORS_PLUGIN_RUNTIME_EXTENSION_VERSION + 1) == nullptr);
   CHECK(abi.get_extension(abi.context, "caors.unknown", 13, 1) == nullptr);
 }
 
