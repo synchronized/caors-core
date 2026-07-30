@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：已完成（MSVC 待 Developer PowerShell 环境复验）；
+- 当前状态：已完成；
 - 实施范围：`any_ref` API、object factory 注册、adapter 可见性规范和模型一致性诊断。
 
 ## 目标结构
@@ -168,11 +168,11 @@ registry 遇到同一 `type_id` 的模型不一致时返回 `errc::inconsistent_
 
 完成标准：注册或专项测试遇到不同模型时明确失败，而不是由链接器静默任选一份。
 
-### 阶段 4：清理与验证（MSVC 待环境复验）
+### 阶段 4：清理与验证（已完成）
 
 - 确认 `type_record` 仍是值操作和 capability 的单一事实源；
 - 运行 meta、value、object、property、view 和 serialization 测试；
-- Windows Clang Debug 使用单线程构建；MSVC 在 Developer PowerShell 中使用相同策略复验。
+- Windows Clang Debug 和 MSVC Debug/Release 均使用单线程构建验证。
 
 完成标准：边界改造通过相关构建和测试。
 
@@ -181,7 +181,8 @@ registry 遇到同一 `type_id` 的模型不一致时返回 `errc::inconsistent_
 - Windows Clang Debug 单线程完成 cross-module、property、registry、static type record、
   value、object type 和 serialization core 构建；
 - 上述 7 组测试全部通过；
-- 当前 PowerShell 未加载 Visual Studio 开发环境，`cl.exe` 不在 `PATH`，MSVC 本轮未复验。
+- Windows MSVC 静态 Debug/Release 在 Visual Studio 开发环境中完成全量构建，各 81 项测试全部
+  通过。
 
 ## 验证计划
 

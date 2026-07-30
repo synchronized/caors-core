@@ -401,8 +401,8 @@ template <typename T> struct wrapper_access<std::optional<T>> {
     if constexpr (std::uses_allocator_v<wrapped_type, caors::memory::allocator<wrapped_type>>) {
 #if CAORS_HAS_EXCEPTIONS
       try {
-        auto args = std::uses_allocator_construction_args<wrapped_type>(
-            caors::memory::allocator<wrapped_type>{resource});
+        caors::memory::allocator<wrapped_type> allocator{resource};
+        auto args = std::uses_allocator_construction_args<wrapped_type>(allocator);
         std::apply(
             [&source](auto&&... construction_args) {
               source.emplace(std::forward<decltype(construction_args)>(construction_args)...);

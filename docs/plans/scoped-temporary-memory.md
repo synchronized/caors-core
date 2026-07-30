@@ -355,7 +355,7 @@ result-resource DOM；若大型 workload 显示明显瓶颈，优先设计直接
 ### 阶段 5：验证与文档
 
 - [x] Windows Clang Shared Debug/Release；
-- [ ] Windows MSVC Debug/Release；
+- [x] Windows MSVC Debug/Release；
 - [ ] Linux Clang/GCC 和 ASan；
 - [x] 多线程、递归、深层容器和大输入压力测试；
 - [x] 更新 memory 与 serialization 正式文档。
@@ -363,6 +363,10 @@ result-resource DOM；若大型 workload 显示明显瓶颈，优先设计直接
 Windows Clang 压力验证覆盖：4 个线程分别复用线程局部临时资源，64 层嵌套 map 在成功和截断失败时
 完整回滚，以及 4096 元素数组读入后结果资源和临时资源均无残留。Shared Debug/Release 各 83 项测试
 全部通过。
+
+Windows MSVC 静态 Debug/Release 使用 `/EHsc` 和单线程构建完成验证，各 81 项测试全部通过；静态
+构建按设计跳过两组仅适用于共享库的插件测试。Release 验证同时修复了
+`uses_allocator_construction_args` 参数元组引用临时 allocator 所产生的悬空引用。
 
 ## 暂缓内容
 
