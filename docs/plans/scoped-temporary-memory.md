@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：实施中；`stack_resource`、`stack_scope` 和线程局部入口已完成；
+- 当前状态：实现与 Windows 验证已完成，仅剩 Linux Clang/GCC 与 ASan 验证；
 - 目标：为同步、嵌套调用提供低成本临时分配，并在作用域结束时回滚到进入前的位置；
 - 首个使用方：serialization 的 MessagePack writer/parser 和事务式容器读入；
 - 非目标：不替代返回值、目标对象、借用存储、异步任务或全局元数据使用的长期内存资源。
