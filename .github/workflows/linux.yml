@@ -109,4 +109,3 @@ jobs:
           name: linux-clang-shared-asan-test-log
           path: build/linux-clang-shared-asan/Testing/Temporary/LastTest.log
           if-no-files-found: warn
-
