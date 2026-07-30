@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 已完成，阶段 1 进行中；
+- 当前状态：阶段 0 至阶段 3 已完成；阶段 4 仅剩 Linux 跨平台验证；
 - 目标：在不引入第三方库的前提下，为现有 serialization reader/writer 增加标准 MessagePack 后端；
 - 非目标：不设计 CAORS 私有二进制协议，不在首批实现 MessagePack Extension 类型或对象图格式。
 
@@ -143,8 +143,11 @@ template <typename T>
 
 - [x] 更新正式序列化文档和公开头文件自包含测试；
 - [x] Windows Clang Shared Debug/Release 全量构建与测试；
-- [ ] Windows MSVC 环境可用后补充 Debug/Release 验证；
+- [x] Windows MSVC Debug/Release 全量构建与测试；
 - [ ] Linux 环境可用后补充 Clang/GCC 与大小端编码测试向量验证。
+
+Windows Clang Shared Debug/Release 各 83 项测试全部通过；Windows MSVC 静态 Debug/Release
+使用单线程完成干净构建，各 81 项测试全部通过。静态构建按设计跳过两组仅适用于共享库的插件测试。
 
 ## 暂缓内容
 
