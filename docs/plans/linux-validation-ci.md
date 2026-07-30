@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：计划已整理，等待 Linux 环境实施；
+- 当前状态：preset、ASan 接入、执行清单和 CI 已实现，等待 Linux runner 完成实跑验证；
 - 目标：建立可重复的 Linux Clang/GCC、Static/Shared、Debug/Release 与 ASan 验证矩阵；
 - 首批平台：GitHub Actions Ubuntu x86_64 和开发者本地 Linux；
 - 非目标：首批不引入交叉编译、真实大端硬件、性能回归门禁或自动发布。
@@ -108,49 +108,49 @@ docs/checklists/linux-validation.md
 
 ### 阶段 1：补齐 Linux Shared preset
 
-- [ ] 增加 `linux-clang-shared-debug`；
-- [ ] 增加 `linux-clang-shared-release`；
-- [ ] 增加对应 build/test preset；
-- [ ] 确认 Shared preset 启用 `BUILD_SHARED_LIBS=ON`；
-- [ ] 确认 plugin protocol 与 meta plugin identity 测试被纳入；
-- [ ] 保持平台 condition 和现有 preset 命名层次一致。
+- [x] 增加 `linux-clang-shared-debug`；
+- [x] 增加 `linux-clang-shared-release`；
+- [x] 增加对应 build/test preset；
+- [x] 确认 Shared preset 启用 `BUILD_SHARED_LIBS=ON`；
+- [x] 从 CMake 目标关系确认 plugin protocol 与 meta plugin identity 测试被纳入；
+- [x] 保持平台 condition 和现有 preset 命名层次一致。
 
 完成标准：Linux Clang Shared Debug/Release 可配置、构建并发现完整插件测试。
 
 ### 阶段 2：接入 ASan
 
-- [ ] 增加 `CAORS_ENABLE_ASAN`；
-- [ ] 使用 target 级编译和链接选项；
-- [ ] 增加 `linux-clang-shared-asan` configure/build/test preset；
+- [x] 增加 `CAORS_ENABLE_ASAN`；
+- [x] 使用 target 级编译和链接选项；
+- [x] 增加 `linux-clang-shared-asan` configure/build/test preset；
 - [ ] 验证主库、测试 executable 和测试 plugin 都带有 ASan；
-- [ ] 明确不支持的编译器或平台诊断；
-- [ ] 在正式构建文档中说明用法和限制。
+- [x] 明确不支持的编译器或平台诊断；
+- [x] 在正式构建文档中说明用法和限制。
 
 完成标准：ASan 能检测测试进程和动态插件中的内存错误，运行期不存在 sanitizer ABI 混用。
 
 ### 阶段 3：编写人工执行清单
 
-- [ ] 新增 `docs/checklists/linux-validation.md`；
-- [ ] 记录环境检查命令；
-- [ ] 列出 Static、Shared 和 ASan 的配置、构建、测试命令；
-- [ ] 提供提交号、测试总数、失败项、ASan 结果和已知限制模板；
-- [ ] 增加 MessagePack 固定字节向量专项；
-- [ ] 增加插件 detach/unload 和 lease 生命周期专项；
-- [ ] 增加临时内存成功/失败回滚专项。
+- [x] 新增 `docs/checklists/linux-validation.md`；
+- [x] 记录环境检查命令；
+- [x] 列出 Static、Shared 和 ASan 的配置、构建、测试命令；
+- [x] 提供提交号、测试总数、失败项、ASan 结果和已知限制模板；
+- [x] 增加 MessagePack 固定字节向量专项；
+- [x] 增加插件 detach/unload 和 lease 生命周期专项；
+- [x] 增加临时内存成功/失败回滚专项。
 
 完成标准：开发者不依赖对话上下文即可在新 Linux 环境完整复验。
 
 ### 阶段 4：建立 GitHub Actions
 
-- [ ] 新增 `.github/workflows/linux.yml`；
-- [ ] 支持 `pull_request`、`push` 到 `main` 和手动触发；
-- [ ] `linux-static` 使用 Clang/GCC × Debug/Release 矩阵；
-- [ ] `linux-shared` 使用 Clang Shared Debug/Release 矩阵；
-- [ ] `linux-asan` 独立运行 Clang Shared Debug；
-- [ ] 矩阵设置 `fail-fast: false`；
-- [ ] 设置合理的 job 超时；
-- [ ] 失败时上传 `Testing/Temporary/LastTest.log`；
-- [ ] 初版不引入 ccache，先建立稳定基线。
+- [x] 新增 `.github/workflows/linux.yml`；
+- [x] 支持 `pull_request`、`push` 到 `main` 和手动触发；
+- [x] `linux-static` 使用 Clang/GCC × Debug/Release 矩阵；
+- [x] `linux-shared` 使用 Clang Shared Debug/Release 矩阵；
+- [x] `linux-asan` 独立运行 Clang Shared Debug；
+- [x] 矩阵设置 `fail-fast: false`；
+- [x] 设置合理的 job 超时；
+- [x] 失败时上传 `Testing/Temporary/LastTest.log`；
+- [x] 初版不引入 ccache，先建立稳定基线。
 
 完成标准：普通构建、插件边界和 sanitizer 失败可以在不同 job 中独立定位。
 

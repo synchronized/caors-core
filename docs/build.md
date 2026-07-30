@@ -69,6 +69,9 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 | `windows-clang-debug` | Clang Debug 构建 |
 | `linux-clang-debug` | Clang Debug 构建 |
 | `linux-gcc-debug` | GCC Debug 构建 |
+| `linux-clang-shared-debug` | Clang Shared Debug 与插件测试 |
+| `linux-clang-shared-release` | Clang Shared Release 与插件测试 |
+| `linux-clang-shared-asan` | Clang Shared Debug 与 AddressSanitizer |
 
 每个 configure preset 使用独立构建目录 `build/<preset-name>/`，不同编译器和配置不会复用同一份
 CMake 缓存。
@@ -116,6 +119,7 @@ ctest --preset linux-gcc-debug
 | `CAORS_BUILD_TESTING` | `ON` | 是否构建测试目标 |
 | `CAORS_BUILD_EXAMPLES` | 顶层项目为 `ON` | 是否构建示例目标 |
 | `CAORS_BUILD_BENCHMARKS` | `OFF` | 是否构建 benchmark 目标 |
+| `CAORS_ENABLE_ASAN` | `OFF` | 是否为 CAORS 及其链接目标启用 AddressSanitizer；当前支持 Clang/GCC |
 | `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
 | `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
 | `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |
@@ -141,6 +145,26 @@ cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
 cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
 cmake --build --preset windows-clang-debug --target caors_benchmarks
 ```
+
+Linux 下验证共享库与插件：
+
+```sh
+cmake --preset linux-clang-shared-debug
+cmake --build --preset linux-clang-shared-debug
+ctest --preset linux-clang-shared-debug
+```
+
+Linux 下启用 AddressSanitizer：
+
+```sh
+cmake --preset linux-clang-shared-asan
+cmake --build --preset linux-clang-shared-asan
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-shared-asan
+```
+
+`CAORS_ENABLE_ASAN` 使用目标级编译和链接选项，并通过 `caors::caors` 传播到测试及插件目标，避免
+共享边界两侧混用 sanitizer ABI。当前只接受 Clang 或 GCC；其他编译器会在配置阶段报错。完整的
+人工验证步骤见 [Linux 验证执行清单](checklists/linux-validation.md)。
 
 ## 示例
 

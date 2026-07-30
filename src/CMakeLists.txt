@@ -50,6 +50,14 @@ target_compile_options(
     "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/utf-8>"
     "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/utf-8>"
     "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/EHsc>"
+    "$<$<AND:$<BOOL:${CAORS_ENABLE_ASAN}>,$<COMPILE_LANG_AND_ID:CXX,Clang,GNU>>:-fsanitize=address>"
+    "$<$<AND:$<BOOL:${CAORS_ENABLE_ASAN}>,$<COMPILE_LANG_AND_ID:CXX,Clang,GNU>>:-fno-omit-frame-pointer>"
+)
+
+target_link_options(
+  ${TARGET_NAME}
+  PUBLIC
+    "$<$<AND:$<BOOL:${CAORS_ENABLE_ASAN}>,$<LINK_LANG_AND_ID:CXX,Clang,GNU>>:-fsanitize=address>"
 )
 
 target_include_directories(

@@ -46,6 +46,13 @@
       }
     },
     {
+      "name": "sanitizer-asan",
+      "hidden": true,
+      "cacheVariables": {
+        "CAORS_ENABLE_ASAN": true
+      }
+    },
+    {
       "name": "toolchain-clang",
       "hidden": true,
       "inherits": "base-ninja",
@@ -246,6 +253,37 @@
       ]
     },
     {
+      "name": "linux-clang-shared-debug",
+      "displayName": "Linux Clang Shared Debug",
+      "inherits": [
+        "platform-linux",
+        "toolchain-clang",
+        "config-debug",
+        "linkage-shared"
+      ]
+    },
+    {
+      "name": "linux-clang-shared-release",
+      "displayName": "Linux Clang Shared Release",
+      "inherits": [
+        "platform-linux",
+        "toolchain-clang",
+        "config-release",
+        "linkage-shared"
+      ]
+    },
+    {
+      "name": "linux-clang-shared-asan",
+      "displayName": "Linux Clang Shared ASan",
+      "inherits": [
+        "platform-linux",
+        "toolchain-clang",
+        "config-debug",
+        "linkage-shared",
+        "sanitizer-asan"
+      ]
+    },
+    {
       "name": "linux-clang-benchmark",
       "displayName": "Linux Clang Benchmark",
       "inherits": [
@@ -363,6 +401,21 @@
       "configurePreset": "linux-clang-release"
     },
     {
+      "name": "linux-clang-shared-debug",
+      "inherits": "build-linux",
+      "configurePreset": "linux-clang-shared-debug"
+    },
+    {
+      "name": "linux-clang-shared-release",
+      "inherits": "build-linux",
+      "configurePreset": "linux-clang-shared-release"
+    },
+    {
+      "name": "linux-clang-shared-asan",
+      "inherits": "build-linux",
+      "configurePreset": "linux-clang-shared-asan"
+    },
+    {
       "name": "linux-clang-benchmark",
       "inherits": "build-linux",
       "configurePreset": "linux-clang-benchmark"
@@ -470,6 +523,21 @@
     {
       "name": "linux-clang-release",
       "configurePreset": "linux-clang-release",
+      "inherits": "test-linux"
+    },
+    {
+      "name": "linux-clang-shared-debug",
+      "configurePreset": "linux-clang-shared-debug",
+      "inherits": "test-linux"
+    },
+    {
+      "name": "linux-clang-shared-release",
+      "configurePreset": "linux-clang-shared-release",
+      "inherits": "test-linux"
+    },
+    {
+      "name": "linux-clang-shared-asan",
+      "configurePreset": "linux-clang-shared-asan",
       "inherits": "test-linux"
     },
     {
