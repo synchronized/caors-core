@@ -87,6 +87,45 @@ clang-tidy src/caors/version.cpp -p build
 
 `include/caors/version.h.in` 包含 CMake 占位符，不直接使用 `clang-format` 格式化；需要检查时以生成后的 `version.h` 为准。
 
+## 分支与 Pull Request
+
+CAORS 使用短期功能分支和 Pull Request，不维护长期 `develop` 分支。`main` 表示已经完成评审和
+验证的集成状态，不作为日常开发分支。
+
+分支命名：
+
+| 前缀 | 用途 | 示例 |
+| --- | --- | --- |
+| `feature/` | 新功能或较大重构 | `feature/meta-redesign` |
+| `fix/` | 缺陷和可移植性修复 | `fix/linux-asan` |
+| `docs/` | 只修改文档 | `docs/plugin-abi` |
+| `chore/` | 构建、CI 和仓库维护 | `chore/development-workflow` |
+
+推荐流程：
+
+1. 拉取最新 `main`，创建聚焦的短期分支；
+2. 在分支上完成一组相关提交，并运行与改动匹配的本地验证；
+3. 功能达到可评审状态后，创建面向 `main` 的 Pull Request；
+4. 等待 Linux CI 完成，修复失败项后再合并；
+5. 合并后删除短期分支。
+
+大型功能可以创建一个有明确范围的 `feature/<topic>` 临时集成分支，再把若干子分支合入该分支。
+只有整体达到可评审状态时才向 `main` 创建 Pull Request。该集成分支随功能结束而删除，不演变为
+长期 `develop`。
+
+纯文档、许可证等变更不会触发 Linux 全量构建。需要提前验证时，可以从 GitHub Actions 页面手动
+运行 Linux workflow。同一分支连续推送时，旧的未完成运行会被自动取消，只保留最新提交。
+
+当前私有仓库套餐不支持 GitHub 分支保护。仓库暂时保留 `main` push 的 CI 兜底，并依靠本规范避免
+直接开发和推送 `main`。仓库具备分支保护能力后，应依次启用：
+
+- 禁止直接 push 到 `main`；
+- 必须通过 Pull Request 合并；
+- 要求 Linux 检查通过；
+- 合并前要求分支基于最新 `main`。
+
+完成上述保护后，可以删除 Linux workflow 的 `push main` 触发，避免 Pull Request 合并后重复构建。
+
 ## 测试目录规则
 
 `tests/` 采用“叶子目录生成测试可执行文件”的组织方式：
