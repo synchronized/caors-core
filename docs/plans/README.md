@@ -15,6 +15,11 @@
 - [registry-query-fast-path.md](registry-query-fast-path.md)：基于不可变 snapshot/layer 的
   registry 查询无锁快路径和插件 layer 调用 guard 收敛计划。
 
+## 构建与验证
+
+- [linux-validation-ci.md](linux-validation-ci.md)：Linux Clang/GCC、Static/Shared、
+  Debug/Release、ASan、POSIX 插件卸载与 GitHub Actions 验证计划。
+
 ## Memory
 
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
