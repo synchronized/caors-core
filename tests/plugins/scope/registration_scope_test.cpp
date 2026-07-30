@@ -33,7 +33,8 @@ TEST_CASE("插件 registration scope 清理服务和事件") {
 
   caors::events::signal<void()> changed{};
   int calls = 0;
-  REQUIRE_FALSE(scope.track(changed.connect([&] { ++calls; })));
+  auto increment_calls = [&] { ++calls; };
+  REQUIRE_FALSE(scope.track(changed.connect(increment_calls)));
   changed.emit();
   CHECK(calls == 1);
 

@@ -17,6 +17,12 @@ struct receiver {
   int base = 10;
 };
 
+template <typename Target>
+concept accepts_temporary_callable = requires(Target& target) { target.connect([] {}); };
+
+static_assert(!accepts_temporary_callable<caors::events::delegate<void()>>);
+static_assert(!accepts_temporary_callable<caors::events::signal<void()>>);
+
 } // namespace
 
 TEST_CASE("events - delegate invokes free functions", "[events]") {

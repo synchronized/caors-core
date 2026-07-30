@@ -88,6 +88,11 @@ public:
     return add(std::move(callback));
   }
 
+  /** @brief 禁止绑定临时函数对象，避免非拥有 signal 保存悬空地址。 */
+  template <typename Callable>
+    requires(!std::is_lvalue_reference_v<Callable>)
+  [[nodiscard]] connection connect(Callable&&) = delete;
+
   /** @brief 断开指定连接。 */
   bool disconnect(connection& current) noexcept { return current.disconnect(); }
 

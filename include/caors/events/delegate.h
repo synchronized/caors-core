@@ -120,6 +120,11 @@ public:
     };
   }
 
+  /** @brief 禁止绑定临时函数对象，避免非拥有 delegate 保存悬空地址。 */
+  template <typename Callable>
+    requires(!std::is_lvalue_reference_v<Callable>)
+  void connect(Callable&&) = delete;
+
   /** @brief 调用已绑定目标。未绑定时属于调用方错误，调试构建会触发断言。 */
   Result operator()(Args... args) const {
     assert(ops_.valid());
