@@ -62,7 +62,7 @@ public:
   constexpr typed_handle() noexcept = default;
   constexpr typed_handle(std::nullptr_t) noexcept {}
   constexpr typed_handle(object_id id, type_id type) noexcept : value_(id, type) {}
-  explicit constexpr typed_handle(handle value) noexcept : value_(value) {}
+  explicit constexpr typed_handle(objects::handle value) noexcept : value_(value) {}
   explicit typed_handle(const T& instance) noexcept : value_(instance.id(), instance.type_id()) {}
 
   [[nodiscard]] static constexpr typed_handle invalid() noexcept { return {}; }

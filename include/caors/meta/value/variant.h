@@ -160,8 +160,8 @@ private:
   double f64_value_ = 0.0;
   string string_value_{};
   array_type array_value_{};
-  dictionary_type dictionary_value_{};
-  object_type object_value_{};
+  dictionary_type dictionary_value_;
+  object_type object_value_;
 };
 
 /** @brief 字典条目，key 和 value 都保存为 DOM 值。 */
