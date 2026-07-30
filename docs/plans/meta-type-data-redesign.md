@@ -5,10 +5,10 @@
 
 ## 文档状态
 
-- 状态：阶段 0～3 已完成，阶段 4 核心行为已完成，阶段 5 进行中
-- 当前阶段：遗留命名清理、性能基准和多编译器矩阵验证
+- 状态：阶段 0～5 的实现、清理、性能基准和 Windows 验证已完成
+- 当前阶段：仅剩 Linux Clang/GCC 的 Debug/Release 验证
 - 当前结论：静态与注册路径已统一为 `type_record + type_details`，旧 `type_descriptor` 已删除
-- 尚未完成：模板特化顺序的编译期诊断、性能 benchmark、Clang/GCC 与 Release 完整验证
+- 尚未完成：Linux Clang/GCC 完整测试矩阵
 
 ## 重构前背景
 
@@ -434,7 +434,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：注册前后类型身份一致，不同 registry 的注册节点彼此独立。
 
-### 阶段 4：Static capability 可见性收敛（核心行为已完成）
+### 阶段 4：Static capability 可见性收敛（已完成）
 
 - 保留 serialization、object 和用户扩展 static capability；
 - 统一 CAORS 内部类型及其 adapter 头文件边界；
@@ -450,10 +450,11 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 共同可见，不同翻译单元使用一致的 adapter 边界。跨翻译单元测试同时校验静态节点、sequence ops
 和 serialization codec ops 的地址一致性。
 
-尚未实现“特化晚于首次实例化”的通用编译期诊断 helper。C++ 模板显式特化本身会覆盖一部分错误顺序，
-其余场景当前通过公共 adapter 头、文档约束和跨翻译单元测试保证。
+“特化晚于首次实例化”的通用编译期诊断在 C++20 下无法完整可靠实现，不作为本计划的完成门禁。
+C++ 模板显式特化本身会覆盖一部分错误顺序，其余场景通过公共 adapter 头、文档约束、静态模型
+一致性检查和跨翻译单元测试保证。
 
-### 阶段 5：清理和性能验证（进行中）
+### 阶段 5：清理和性能验证（Windows 已完成）
 
 - 删除旧 `type_descriptor`、`descriptor_` 回退和不再使用的 helper；
 - 更新 meta、registration、serialization、object 和 traits 文档；
@@ -469,7 +470,9 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 `benchmarks/results/2026-07-23-windows-clang-benchmark-a83c174.md` 和
 `benchmarks/results/2026-07-23-windows-clang-benchmark-f4f2bba.md`。
 同日 `windows-clang-debug` 与 `windows-vs2022-debug` 均已完成单线程全量构建，分别有 75 项测试
-全部通过；GCC、MSVC/Clang Release 全量测试矩阵仍待补齐。
+全部通过。后续当前版本又完成 Windows Clang Shared Debug/Release 全量构建与各 83 项测试，以及
+Windows MSVC 静态 Debug/Release 干净构建与各 81 项测试。阶段 5 仅剩 Linux Clang/GCC
+Debug/Release 测试矩阵。
 
 ## 测试计划
 
