@@ -70,7 +70,8 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 | `linux-clang-debug` | Clang Debug 构建 |
 | `linux-gcc-debug` | GCC Debug 构建 |
 
-每个 preset 使用独立构建目录 `build/<preset-name>/`，不同编译器和生成器不会复用同一份 CMake 缓存。
+每个 configure preset 使用独立构建目录 `build/<preset-name>/`，不同编译器和配置不会复用同一份
+CMake 缓存。
 
 包装脚本默认依次配置、构建和测试 `windows-msvc-debug`。也可以只执行一个阶段或指定其他 Ninja + MSVC preset：
 
@@ -78,6 +79,25 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 .\scripts\msvc.ps1 -Action configure
 .\scripts\msvc.ps1 -Preset windows-msvc-release
 ```
+
+## 构建并行度与内存
+
+默认建议不指定 `-j` 或 `--parallel`，让 Ninja、Visual Studio 等底层构建工具采用自身默认并行度：
+
+```sh
+cmake --build --preset windows-msvc-debug
+```
+
+如果模板密集目标并行编译时发生内存不足，应根据可用内存主动降低并行度。最稳妥的诊断和低内存
+构建方式是单任务：
+
+```sh
+cmake --build --preset windows-msvc-debug -j 1
+```
+
+需要兼顾速度时，可从逻辑 CPU 数量的一半或更低值开始尝试，例如 `-j 4`，再根据峰值内存调整；
+CPU 数量不是硬性依据，内存容量和单个编译任务的占用更重要。也可以通过
+`CMAKE_BUILD_PARALLEL_LEVEL` 为当前开发环境设置默认并行度，而不把机器相关数值写入项目 preset。
 
 ## 测试
 
