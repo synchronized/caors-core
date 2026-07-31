@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 CAORS contributors
 
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.23)
 
 project(caors_installed_consumer LANGUAGES CXX)
 
@@ -25,3 +25,23 @@ target_link_libraries(caors_installed_consumer PRIVATE caors::caors)
 
 enable_testing()
 add_test(NAME caors.installed_consumer COMMAND caors_installed_consumer)
+
+if(CAORS_INSTALLED_SHARED)
+  if(NOT CAORS_INSTALLED_RUNTIME_DIR)
+    message(FATAL_ERROR "Shared consumer 缺少 CAORS_INSTALLED_RUNTIME_DIR")
+  endif()
+
+  if(WIN32)
+    set(CAORS_INSTALLED_RUNTIME_VARIABLE PATH)
+  elseif(APPLE)
+    set(CAORS_INSTALLED_RUNTIME_VARIABLE DYLD_LIBRARY_PATH)
+  else()
+    set(CAORS_INSTALLED_RUNTIME_VARIABLE LD_LIBRARY_PATH)
+  endif()
+
+  set_property(
+    TEST caors.installed_consumer
+    PROPERTY ENVIRONMENT_MODIFICATION
+             "${CAORS_INSTALLED_RUNTIME_VARIABLE}=path_list_prepend:${CAORS_INSTALLED_RUNTIME_DIR}"
+  )
+endif()
