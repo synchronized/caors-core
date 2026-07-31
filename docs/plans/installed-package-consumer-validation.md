@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0、阶段 1 已完成，等待阶段 2 本地安装验证；
+- 当前状态：阶段 0 至阶段 2 已完成，等待阶段 3 Linux CI；
 - 目标：验证安装后的 CAORS 能被独立 CMake 项目查找、链接、运行并随安装前缀移动；
 - 首批范围：Windows Clang 与 Linux Clang 的 Static/Shared Release；
 - 非目标：不在本计划中引入 CPack、系统包管理器、FetchContent 封装或新的公共 API。
@@ -163,10 +163,15 @@ Windows Clang Static Release 安装前缀完成一次人工 configure/build/run 
 
 ### 阶段 2：本地安装验证
 
-- [ ] 增加参数明确的验证脚本；
-- [ ] 完成 Windows Clang Static Release；
-- [ ] 完成 Windows Clang Shared Release；
-- [ ] 完成安装前缀移动后的重新消费验证。
+- [x] 增加参数明确的验证脚本；
+- [x] 完成 Windows Clang Static Release；
+- [x] 完成 Windows Clang Shared Release；
+- [x] 完成安装前缀移动后的重新消费验证。
+
+`cmake/VerifyInstalledPackage.cmake` 从 producer cache 复用生成器与编译器，并校验配置和
+`BUILD_SHARED_LIBS`。脚本只清理工作区 `build/` 下显式传入、彼此不嵌套的输出目录；Static/Shared
+均已完成原前缀与迁移前缀两轮全新 consumer configure/build/run。Shared 测试的 DLL 搜索路径只对
+CTest 子进程生效。
 
 ### 阶段 3：Linux CI
 
