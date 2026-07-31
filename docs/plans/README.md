@@ -6,6 +6,33 @@
 本目录集中存放尚在讨论、实施或已经完成但需要保留设计依据的重构与迁移计划。
 面向使用者的稳定主题说明继续放在 `docs/` 根目录。
 
+## 状态索引
+
+### 进行中
+
+当前没有正在实施的计划。新增较大需求应先建立独立计划，再进入代码修改。
+
+### 延期复验
+
+- [meta-wrapper-performance-validation.md](meta-wrapper-performance-validation.md)：Windows 评估与
+  阶段性结论已完成；Linux 正式性能复验等待固定环境。
+- [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：核心迁移与 Windows 性能复验
+  已完成；固定 Linux 环境部署后补充跨平台性能数据。
+
+### 已完成
+
+- Runtime 与插件：`plugin-build-compatibility`、`library-plugin-system`、
+  `registry-overlay-safe-unload`、`registry-query-fast-path`。
+- 构建与内存：`linux-validation-ci`、`scoped-temporary-memory`。
+- Meta：`detail-api-boundary-redesign`、`meta-type-data-redesign`、
+  `meta-record-naming-migration`、`meta-wrapper-model-redesign`、`value-boundary-redesign`、
+  `enum-view-migration`、`identity-id-unification`、`type-identity-state-redesign`。
+- Object：`object-type-identity-migration`。
+- Serialization：`codec-view-migration`、`non-owning-serialization`、`messagepack-backend`。
+
+已完成计划继续保留，用作设计决策、迁移范围和验证依据；其中明确列出的未来方向不自动视为新的
+进行中任务。
+
 ## Runtime 与插件
 
 - [plugin-build-compatibility.md](plugin-build-compatibility.md)：host/plugin 编译器、CRT、

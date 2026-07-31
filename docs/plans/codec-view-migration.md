@@ -3,6 +3,11 @@
 
 # Serialization codec 绑定视图迁移计划
 
+## 文档状态
+
+- 当前状态：已完成；
+- 实施范围：codec capability/view 职责收敛与相关测试。
+
 ## 背景
 
 当前 `codec` 与 `codec_capability` 都表达类型级 codec 查询，职责重复；同时

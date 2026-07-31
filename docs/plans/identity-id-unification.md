@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：type 与 capability 已落地，早期 type extension ID 已删除，identity 调试查询已提供；
+- 当前状态：已完成；type 与 capability 已落地，早期 type extension ID 已删除，identity 调试查询已提供；
 - 目标：统一 type、capability 等进程内 ID 的底层发号逻辑；
 - 非目标：不把所有公开 API 改成同一个万能 ID，不把 identity state 变成 registry。
 

@@ -3,6 +3,11 @@
 
 # Enum 绑定视图迁移计划
 
+## 文档状态
+
+- 当前状态：已完成；
+- 实施范围：enum capability 与实例 view 职责收敛及相关测试。
+
 ## 背景
 
 sequence、set、associative、pair、tuple、variant 和 indirect capability 均通过

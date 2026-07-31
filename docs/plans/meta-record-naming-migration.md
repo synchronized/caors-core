@@ -3,6 +3,11 @@
 
 # Meta 运行时记录命名迁移计划
 
+## 文档状态
+
+- 当前状态：已完成；
+- 实施范围：meta 运行时记录、内部文件和架构术语统一命名。
+
 ## 背景
 
 `type_data`、`property_data` 和 `method_data` 不只是被动数据结构：它们保存 registry 元数据、
