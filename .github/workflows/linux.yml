@@ -8,17 +8,13 @@ on:
       - "docs/**"
       - "**/*.md"
       - "LICENSE"
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "LICENSE"
   workflow_dispatch:
+  schedule:
+    # 每周一北京时间 02:00 执行完整矩阵。
+    - cron: "0 18 * * 0"
 
 concurrency:
-  group: linux-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: linux-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
