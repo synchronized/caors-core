@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 2 已完成，阶段 3 已完成 Windows Clang 正式执行；
+- 当前状态：Windows 评估与阶段性结论已完成；Linux 正式性能复验等待固定环境；
 - 上游计划：[meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)；
 - 目标：量化 property/method wrapper 迁移后的布局、注册分配和运行时调用成本，并据此决定是否优化；
 - 非目标：不为追求形式统一迁移 constructor、type model 或 builtin ops，不把单次微基准直接解释为真实
@@ -189,19 +189,27 @@ property 用例现已区分直接成员访问、缓存 property、compiled acces
 - [x] Windows Clang Release 至少运行三次；
 - [ ] Linux Clang Release 至少运行三次；
 - [ ] Linux GCC 完成构建与冒烟；
-- [ ] 保存原始环境信息和人工结果摘要。
+- [x] 保存已执行平台的原始环境信息和人工结果摘要。
 
 Windows Clang 结果见
 [`2026-07-31-windows-clang-meta-wrapper-22497cb.md`](../../benchmarks/results/2026-07-31-windows-clang-meta-wrapper-22497cb.md)。
 三轮原始输出仅保存在本机构建目录，仓库提交环境信息、中位数和人工摘要；完成 Linux Clang 后再勾选
-本阶段的统一结果归档项。
+对应执行项。GitHub 托管 runner 只用于 Linux 构建、测试和短程冒烟，不将其波动较大的绝对耗时作为
+性能门禁。Linux 三轮正式结果等待固定机器部署后补充，不阻塞 Windows 阶段性结论。
 
 ### 阶段 4：结论与收尾
 
-- [ ] 判断是否达到优化触发条件；
-- [ ] 若无需优化，记录保留当前结构的依据；
-- [ ] 若需要优化，另立聚焦计划并明确预期收益；
-- [ ] 回写 `meta-erased-wrapper-redesign.md` 和正式 benchmarking 文档。
+- [x] 判断是否达到优化触发条件；
+- [x] 记录保留当前结构的依据；
+- [x] 确认当前无需另立结构优化计划；
+- [x] 回写 `meta-erased-wrapper-redesign.md` 和正式 benchmarking 文档。
+
+Windows 三轮结果没有提供立即调整 wrapper 结构的证据。compiled member accessor 为热点成员属性
+提供了明显快于通用 typed property 的路径；readonly getter、引用 accessor、重载匹配、默认参数和
+安全数值转换的成本也能由各自语义解释。当前没有同机迁移前数据证明出现稳定超过 10% 的回归，因此
+保留 opaque wrapper、request dispatch 和现有所有权边界，不引入小对象优化、无状态 model 新入口或
+callable 存储重构。未来只有固定环境的跨提交数据或真实 profiler 再次触发本计划中的条件时，才另立
+聚焦优化计划。
 
 完成标准：能够分别解释布局、注册分配、查找、转换、wrapper dispatch 和装箱成本，并以可复现数据决定
 是否继续优化。

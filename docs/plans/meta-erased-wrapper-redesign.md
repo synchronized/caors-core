@@ -5,9 +5,10 @@
 
 ## 文档状态
 
-- 当前状态：property、method record 边界迁移与边界复审已完成；性能复验待补充；
+- 当前状态：property、method record 边界迁移、边界复审与 Windows 性能复验已完成；
 - 已完成范围：property、method 注册模型与运行时记录边界；
-- 后续范围：补充尺寸、分配与访问 benchmark；constructor 与 type model 仅在出现实际需求时再评估；
+- 后续范围：固定 Linux 环境部署后补充跨平台性能复验；constructor 与 type model 仅在出现实际需求时
+  再评估；
 - 性能复验：[meta-wrapper-performance-validation.md](meta-wrapper-performance-validation.md)；
 - 设计取代：本计划取代
   [meta-wrapper-model-redesign.md](meta-wrapper-model-redesign.md)
@@ -434,7 +435,9 @@ constructor 暂不随 property 第一阶段迁移。property 和 method 完成�
 - Windows Clang Debug 使用单线程完成 cross-module、property、registry、registry-view、
   value 和 serialization-core 构建；
 - 上述 6 项测试及公共头文件自包含测试全部通过；
-- property 尺寸与分配 benchmark 尚未补充，作为后续性能复验项保留。
+- property/method 尺寸、注册分配和运行时拆分 benchmark 已补充。Windows Clang Release 三轮结果
+  显示 compiled member accessor 能提供明确热点快路径，当前没有证据支持继续调整 wrapper 结构；
+  Linux 正式性能结果等待固定环境部署后补充。
 
 ### 阶段 4：Method wrapper
 
