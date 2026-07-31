@@ -8,6 +8,7 @@
 - 当前状态：property、method record 边界迁移与边界复审已完成；性能复验待补充；
 - 已完成范围：property、method 注册模型与运行时记录边界；
 - 后续范围：补充尺寸、分配与访问 benchmark；constructor 与 type model 仅在出现实际需求时再评估；
+- 性能复验：[meta-wrapper-performance-validation.md](meta-wrapper-performance-validation.md)；
 - 设计取代：本计划取代
   [meta-wrapper-model-redesign.md](meta-wrapper-model-redesign.md)
   中“继续将模板状态和固定 ops table 内联在 record 内”的后续演进方向；旧文档仍保留为已完成重构的历史依据。
