@@ -37,10 +37,22 @@ struct benchmark_actor {
   float health = 0.0F;
   bool active = false;
   caors::string name{};
+  mutable int referenced_value = 0;
 
   [[nodiscard]] int health_int() const noexcept { return static_cast<int>(health); }
   void set_health_int(int value) noexcept { health = static_cast<float>(value); }
+  [[nodiscard]] int& referenced_value_ref() const noexcept { return referenced_value; }
+  void set_referenced_value(int value) noexcept { referenced_value = value; }
+  [[nodiscard]] int readonly_id() const noexcept { return id; }
   [[nodiscard]] int sum(int left, int right) const noexcept { return id + left + right; }
+  [[nodiscard]] int assign(int value) noexcept {
+    id = value;
+    return id;
+  }
+  [[nodiscard]] int select(int value) noexcept { return value + 1; }
+  [[nodiscard]] int select(double value) const noexcept { return static_cast<int>(value) + 2; }
+  [[nodiscard]] int add_default(int left, int right) const noexcept { return left + right; }
+  [[nodiscard]] int take_i64(std::int64_t value) const noexcept { return static_cast<int>(value); }
 };
 
 inline constexpr caors::resource_guid benchmark_texture_guid{caors::guid::from_bytes(

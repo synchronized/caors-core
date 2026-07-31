@@ -69,10 +69,12 @@ build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
   `layer_find_type_id`、`frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`
   以及 `locked/frozen/layer_schema_lookup`，用于对比默认加锁 primary、冻结 primary 和已发布
   layer 的只读查询成本。
-- `meta::property` / `meta::instance`：成员属性和 getter/setter 属性的 typed、`value` 和 `any`
-  读写路径。
-- `meta::method` / `meta::instance::call()`：直接 C++ 调用、`invoke_result_of()`、
-  `invoke()`、`call()` 和 `call_any()` 的对比。
+- `meta::property` / `meta::instance`：成员属性、readonly 属性和 getter/setter 属性的 typed、
+  `value`、`any`、compiled accessor 与直接成员访问路径。返回值 getter 使用装箱路径，返回引用的
+  accessor 才参与 typed 原地读写。
+- `meta::method` / `meta::instance::call()`：直接 C++ 调用、const/non-const member、
+  `invoke_result_of()`、`invoke()`、`call()`、`call_any()`、精确重载、默认参数和安全数值转换的
+  对比。
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - Meta wrapper 样本：输出 property/method wrapper、record 和公共句柄的尺寸与对齐；诊断构建还会
