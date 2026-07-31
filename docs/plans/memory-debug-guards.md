@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计完成，等待实施；
+- 当前状态：核心实施完成；Linux Clang/GCC/ASan 因 GitHub Actions Billing/额度问题延期复验；
 - 目标：扩展 `debug_tracking_resource`，检测用户分配前后越界、释放参数不匹配、重复或非法释放，
   并通过可配置字节模式辅助发现未初始化读取和释放后使用；
 - 首批范围：guard block、分配/释放填充、违规统计、可选诊断回调、对齐和溢出安全；
@@ -213,28 +213,40 @@ header。首批不把内部 metadata 放在用户块里，避免越界同时破�
 
 ### 阶段 1：布局与填充
 
-- [ ] 增加 `memory_debug_options`；
-- [ ] 实现溢出安全的 raw block 大小和对齐计算；
-- [ ] 实现前后 guard 和分配/释放填充；
-- [ ] 保持公开 live allocation 记录语义不变。
+- [x] 增加 `memory_debug_options`；
+- [x] 实现溢出安全的 raw block 大小和对齐计算；
+- [x] 实现前后 guard 和分配/释放填充；
+- [x] 保持公开 live allocation 记录语义不变。
 
 ### 阶段 2：违规报告
 
-- [ ] 增加 guard 损坏统计；
-- [ ] 增加非拥有、`noexcept` 诊断回调；
-- [ ] 确保回调始终在内部锁外执行；
-- [ ] 文档化 invalid、mismatch 与 guard corruption 的独立含义。
+- [x] 增加 guard 损坏统计；
+- [x] 增加非拥有、`noexcept` 诊断回调；
+- [x] 确保回调始终在内部锁外执行；
+- [x] 文档化 invalid、mismatch 与 guard corruption 的独立含义。
 
 ### 阶段 3：测试与文档
 
-- [ ] 覆盖前越界和后越界；
-- [ ] 覆盖 allocation/deallocation fill；
-- [ ] 覆盖零尺寸、扩展对齐、布局溢出和上游失败；
-- [ ] 覆盖回调顺序、空回调和锁外重入；
-- [ ] 覆盖 guard 关闭但填充开启；
-- [ ] 运行 Windows Static 全量和 Shared 专项测试；
-- [ ] 更新 `docs/memory.md`、roadmap 和计划状态；
-- [ ] 在重要功能节点而非每个小提交触发 Linux Clang/GCC/ASan 完整验证。
+- [x] 覆盖前越界和后越界；
+- [x] 覆盖 allocation/deallocation fill；
+- [x] 覆盖零尺寸、扩展对齐、布局溢出和上游失败；
+- [x] 覆盖回调顺序、空回调和锁外重入；
+- [x] 覆盖 guard 关闭的直接布局及独立填充；
+- [x] 运行 Windows Static 全量和 Shared 专项测试；
+- [x] 更新 `docs/memory.md`、roadmap 和计划状态；
+- [ ] GitHub Actions Billing/额度恢复后执行 Linux Clang/GCC/ASan 完整验证。
+
+实施结果：
+
+- `debug_tracking_resource` 默认使用 16 字节前后 guard，并支持独立关闭 guard 和两类填充；
+- 内部 `debug_allocation_record` 保存用户记录及上游 raw pointer/size/alignment，guard 损坏不影响安全
+  释放；
+- 前越界、后越界、释放参数不匹配和非法释放分别统计，并可通过锁外 `noexcept` 回调报告；
+- `guard_size == 0` 直接向上游转发用户布局，不保留 guard 或 alignment padding；
+- `windows-clang-debug` 完整构建成功，82 项 CTest 全部通过；
+- `windows-clang-shared-debug` 成功构建 CAORS DLL 和 debug tracking 测试目标，专项测试通过；
+- Linux workflow 暂未执行：GitHub 已明确返回账户付款失败或 spending limit 不足，待外部状态恢复后
+  复验，不属于当前代码阻塞。
 
 ## 风险
 

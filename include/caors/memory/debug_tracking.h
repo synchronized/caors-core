@@ -35,6 +35,35 @@ struct memory_debug_statistics {
   std::size_t live_allocation_count = 0;
   std::size_t invalid_deallocation_count = 0;
   std::size_t mismatched_deallocation_count = 0;
+  std::size_t front_guard_corruption_count = 0;
+  std::size_t back_guard_corruption_count = 0;
+};
+
+/** @brief 调试资源的 guard 与内存填充选项。 */
+struct memory_debug_options {
+  std::size_t guard_size = 16;
+  std::byte front_guard_pattern{0xF1};
+  std::byte back_guard_pattern{0xF2};
+  std::byte allocation_fill_pattern{0xCD};
+  std::byte deallocation_fill_pattern{0xDD};
+  bool fill_on_allocate = true;
+  bool fill_on_deallocate = true;
+};
+
+/** @brief 调试资源检测到的违规类型。 */
+enum class memory_debug_violation_kind {
+  invalid_deallocation,
+  mismatched_deallocation,
+  front_guard_corruption,
+  back_guard_corruption,
+};
+
+/** @brief 单次内存违规的诊断快照。 */
+struct memory_debug_violation {
+  memory_debug_violation_kind kind = memory_debug_violation_kind::invalid_deallocation;
+  memory_debug_record allocation;
+  std::size_t supplied_size = 0;
+  std::size_t supplied_alignment = 0;
 };
 
 struct debug_tracking_state;
@@ -47,8 +76,10 @@ struct debug_tracking_state;
 class CAORS_API debug_tracking_resource final : public memory_resource {
 public:
   using record_fn = void (*)(const memory_debug_record& record, void* user_data);
+  using violation_fn = void (*)(const memory_debug_violation& violation, void* user_data) noexcept;
 
   explicit debug_tracking_resource(memory_resource* upstream = nullptr);
+  debug_tracking_resource(memory_resource* upstream, memory_debug_options options);
   ~debug_tracking_resource() override;
 
   debug_tracking_resource(const debug_tracking_resource&) = delete;
@@ -59,6 +90,14 @@ public:
   [[nodiscard]] std::size_t live_allocation_count() const noexcept;
   [[nodiscard]] std::size_t live_bytes() const noexcept;
   [[nodiscard]] bool has_leaks() const noexcept;
+  [[nodiscard]] memory_debug_options options() const noexcept;
+
+  /**
+   * @brief 设置非拥有违规诊断回调。
+   *
+   * 回调在内部记录锁外执行。调用方必须保证 `user_data` 在可能发生的回调期间有效。
+   */
+  void set_violation_callback(violation_fn callback, void* user_data = nullptr) noexcept;
 
   /**
    * @brief 遍历当前存活分配记录。

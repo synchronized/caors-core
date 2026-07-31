@@ -10,8 +10,7 @@
 
 ### 进行中
 
-- [memory-debug-guards.md](memory-debug-guards.md)：`debug_tracking_resource` 的 guard block、
-  填充值、违规统计和诊断回调扩展计划。
+当前没有正在实施的计划。新增较大需求应先建立独立计划，再进入代码修改。
 
 ### 延期复验
 
@@ -19,6 +18,8 @@
   阶段性结论已完成；Linux 正式性能复验等待固定环境。
 - [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：核心迁移与 Windows 性能复验
   已完成；固定 Linux 环境部署后补充跨平台性能数据。
+- [memory-debug-guards.md](memory-debug-guards.md)：guard、填充、违规统计、Windows Static/Shared
+  验证已完成；Linux Clang/GCC/ASan 等待 GitHub Actions Billing/额度恢复。
 
 ### 已完成
 

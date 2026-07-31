@@ -292,6 +292,49 @@ struct scene {
 `memory_resource` 构造出的对象安全交给默认 deleter。需要资源托管时，应显式使用
 `caors::memory::unique_ptr<T>`。
 
+### Guard 与填充调试
+
+`debug_tracking_resource` 默认在每个用户分配前后放置 16 字节 guard，并在释放时检查是否被修改。
+它还会使用固定字节模式填充分配和释放的用户区域，帮助定位未初始化读取和释放后使用：
+
+```cpp
+caors::memory::memory_debug_options options;
+options.guard_size = 32;
+options.allocation_fill_pattern = std::byte{0xCD};
+options.deallocation_fill_pattern = std::byte{0xDD};
+
+caors::memory::debug_tracking_resource debug(
+    &caors::get_system_memory_resource(), options);
+```
+
+可以通过统计分别观察前越界和后越界：
+
+```cpp
+const auto stats = debug.debug_statistics();
+std::size_t front_errors = stats.front_guard_corruption_count;
+std::size_t back_errors = stats.back_guard_corruption_count;
+```
+
+需要接入日志或断点系统时，可以设置非拥有诊断回调。回调在内部记录锁之外执行，并且必须
+`noexcept`：
+
+```cpp
+debug.set_violation_callback(
+    [](const caors::memory::memory_debug_violation& violation, void*) noexcept {
+      // 根据 violation.kind、allocation 和调用方释放参数记录诊断。
+    });
+```
+
+重要边界：
+
+- guard 损坏、释放参数不匹配和非法释放分别统计；
+- 即使 guard 损坏，上游仍使用内部保存的原始指针、大小和对齐安全释放；
+- `guard_size == 0` 会关闭 guard 和对齐 padding，但分配/释放填充仍可独立启用；
+- 关闭 `fill_on_allocate` 或 `fill_on_deallocate` 可以避免对应的完整 payload 扫描；
+- 该资源只适合显式开发和测试路径，普通 resource 与未使用该资源的 Release 路径没有新增开销；
+- guard 只能在释放时发现边界损坏，不能替代 ASan，也不能保证检测越过整个 guard 的大范围写入；
+- 诊断回调和 options 不拥有其中的外部对象，调用方必须保证相关生命周期。
+
 ### 容器依赖边界
 
 `caors/core/containers.h` 的底层只依赖 `caors/memory/resource.h`，不会反向包含完整 `memory.h`。需要遍历
@@ -474,7 +517,7 @@ backend / strategy resource
 - 系统后端：`system_memory_resource`
 - 回调后端：`callback_memory_resource`
 - 统计包装：`tracking_resource`
-- 调试包装：`debug_tracking_resource`
+- 调试包装：`debug_tracking_resource`，支持存活记录、guard、分配/释放填充和违规回调
 - 线性策略：`monotonic_resource`
 - 作用域临时策略：`stack_resource` / `stack_scope` / `library_temporary_resource()`
 - 固定块策略：`fixed_block_pool`
@@ -494,7 +537,7 @@ backend / strategy resource
 - [x] `stack_resource`：面向同步嵌套调用的作用域临时内存。
 - [x] `fixed_block_pool`：面向固定大小对象池。
 - [x] `try_allocate`：提供不抛异常的失败返回路径。
-- [ ] 扩展越界检测、填充值和 guard block 等调试能力。
+- [x] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
 - [ ] 可选第三方后端：jemalloc、mimalloc、rpmalloc。
 
