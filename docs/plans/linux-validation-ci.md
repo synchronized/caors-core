@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：Linux 基础矩阵已通过；等待独立重复卸载与 ASan 压力验证；
+- 当前状态：Linux 基础矩阵与独立重复卸载、ASan 压力验证均已通过；
 - 目标：建立可重复的 Linux Clang/GCC、Static/Shared、Debug/Release 与 ASan 验证矩阵；
 - 首批平台：GitHub Actions Ubuntu x86_64 和开发者本地 Linux；
 - 非目标：首批不引入交叉编译、真实大端硬件、性能回归门禁或自动发布。
@@ -100,7 +100,7 @@ docs/checklists/linux-validation.md
 ### 阶段 0：环境与基线确认
 
 - [x] 记录 Linux 发行版、内核、架构和容器/虚拟机环境；
-- [ ] 记录 CMake、Ninja、Clang、GCC、glibc、libstdc++ 和 linker 版本；
+- [x] 记录 CMake、Ninja、Clang、GCC、glibc、libstdc++ 工具链路径和 linker 版本；
 - [x] 通过 Shared 插件测试确认 `dlopen`、`dlsym`、`dlclose` 可用于真实插件测试；
 - [x] 运行 Linux 静态 preset，并通过首轮 CI 失败日志保存可移植性基线。
 
@@ -122,7 +122,7 @@ docs/checklists/linux-validation.md
 - [x] 增加 `CAORS_ENABLE_ASAN`；
 - [x] 使用 target 级编译和链接选项；
 - [x] 增加 `linux-clang-shared-asan` configure/build/test preset；
-- [ ] 验证主库、测试 executable 和测试 plugin 都带有 ASan；
+- [x] 验证主库、测试 executable 和测试 plugin 都带有 ASan；
 - [x] 明确不支持的编译器或平台诊断；
 - [x] 在正式构建文档中说明用法和限制。
 
@@ -160,8 +160,8 @@ docs/checklists/linux-validation.md
 - [x] Linux GCC Static Debug/Release 全量通过；
 - [x] Linux Clang Shared Debug/Release 全量通过；
 - [x] Linux Clang Shared ASan 全量通过；
-- [ ] plugin detach/unload 专项连续运行，未发现 use-after-unload；
-- [ ] 临时内存与 MessagePack 压力测试在 ASan 下通过；
+- [x] plugin detach/unload 专项连续运行，未发现 use-after-unload；
+- [x] 临时内存与 MessagePack 压力测试在 ASan 下通过；
 - [x] 将编译器、测试数量和提交号写入执行清单；
 - [x] 回写并关闭关联计划中的 Linux/POSIX 基础矩阵待验证项。
 
@@ -172,9 +172,9 @@ docs/checklists/linux-validation.md
 - [x] 新增仅支持手动触发的 `Linux Stress` workflow；
 - [x] 增加 CAORS、测试程序和 C++ 测试插件的 ASan 编译/链接覆盖校验；
 - [x] 增加 linker 与 libstdc++ 路径记录；
-- [ ] plugin scope、protocol 与 meta plugin identity 在 ASan 下连续通过 20 次；
-- [ ] memory 全组与 MessagePack 在 ASan 下连续通过 10 次；
-- [ ] 将 stress 运行号、环境和结果写入执行清单。
+- [x] plugin scope、protocol 与 meta plugin identity 在 ASan 下连续通过 20 次；
+- [x] memory 全组与 MessagePack 在 ASan 下连续通过 10 次；
+- [x] 将 stress 运行号、环境和结果写入执行清单。
 
 完成标准：独立压力 workflow 通过，并将可复现证据写入执行记录；该 workflow 不作为普通 Pull
 Request 的必需检查。
