@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 2 已完成，等待阶段 3 Linux CI；
+- 当前状态：阶段 0 至阶段 3 已完成，等待阶段 4 文档收尾；
 - 目标：验证安装后的 CAORS 能被独立 CMake 项目查找、链接、运行并随安装前缀移动；
 - 首批范围：Windows Clang 与 Linux Clang 的 Static/Shared Release；
 - 非目标：不在本计划中引入 CPack、系统包管理器、FetchContent 封装或新的公共 API。
@@ -177,10 +177,11 @@ CTest 子进程生效。
 
 - [x] 接入现有 Static Clang Release job；
 - [x] 接入现有 Shared Clang Release job；
-- [ ] 完成一次手动完整 CI。
+- [x] 完成一次手动完整 CI。
 
 安装验证作为既有矩阵 job 的条件步骤运行：Static 只在 `linux-clang-release` 执行，Shared 只在
-`linux-clang-shared-release` 执行。其他 Debug、GCC 和 ASan 项不重复安装消费流程。
+`linux-clang-shared-release` 执行。其他 Debug、GCC 和 ASan 项不重复安装消费流程。手动 Linux
+workflow `30609769822` 的 7 个 job 全部通过，其中 Static/Shared Release 的安装验证步骤分别成功。
 
 ### 阶段 4：文档收尾
 
