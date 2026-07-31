@@ -18,7 +18,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `io::path_view` / `io::path`，明确虚拟路径和宿主文件系统路径的边界。
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
 - [x] 为 `io::file_system` 增加 `open_read()` / `open_write()` 流入口；第一版 `open_read()` 可通过
-  `read_all()` 适配已有后端，`open_write()` 默认返回 `unsupported`，等待显式 close/flush 语义收敛。
+  `read_all()` 适配已有后端，`open_write()` 的提交语义已在后续 `flush()` / `close()` 工作中收敛。
 - [x] 为可写输出流补充 `write_all()`、`flush()`、`close()` 和提交失败语义；默认
   `open_write()` 使用内存缓冲并在显式 `close()` 时调用 `write_all()` 提交，具体后端后续可覆盖为真正分块写入。
 - [x] 将 `io::native_file_system::open_read()` / `open_write()` 覆盖为宿主文件流，避免本地大文件路径先完整读入或写入内存缓冲。
@@ -184,10 +184,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `allocator<T>`、`make<T>()` 和 `destroy<T>()` 基础入口。
 - [x] 实现 `tracking_resource`、`monotonic_resource` 和 `fixed_block_pool`。
 - [x] 实现 `debug_tracking_resource`，支持存活分配、调用点标签和错误释放统计。
-- [ ] 扩展栈式分配器、分级 size class 池等上层策略。
+- [x] 实现 `stack_resource`、`stack_scope` 和线程局部临时资源，覆盖嵌套回滚、统计与序列化暂存。
+- [ ] 扩展分级 size class 池等上层策略。
 - [ ] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估与 `std::pmr` 的可选适配方式。
-- [ ] 增加跨平台压力测试和边界用例测试。
+- [x] 增加 Windows 边界用例以及 Linux Clang/GCC、ASan 重复压力测试。
 
 ## 3. 对象系统
 
@@ -363,7 +364,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `std::weak_ptr<T>` 对象图语义继续保留为后续工作。
 - [x] 增加标准 MessagePack 二进制后端，支持 DOM/typed 编解码、流入口、资源控制和解析限制。
 - [x] 增加版本兼容、缺失字段和未知字段基础测试。
-- [ ] 增加跨平台字节序测试。
+- [x] 增加 MessagePack 固定协议字节向量，并在 Windows、Linux Clang/GCC 与 ASan 矩阵验证。
 
 ## 6. 资源系统
 

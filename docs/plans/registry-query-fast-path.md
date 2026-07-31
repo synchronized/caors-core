@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 1 至阶段 7 已完成；剩余工作是持续补充跨平台复验；
+- 当前状态：阶段 1 至阶段 7 及 Windows、Linux 跨平台复验已完成；
 - 上游背景：`registry-overlay-safe-unload.md` 已引入 registry snapshot、插件 layer 和 library lease；
 - 目标：在保持插件安全卸载边界的前提下，把普通 meta 查询收敛为低成本只读路径；
 - 非目标：不改变插件 C ABI，不引入跨 runtime 共享 `meta::type`，不让插件卸载绕过 layer lease。
@@ -260,11 +260,14 @@ detachable layer 调用 guard。
 - [x] 增加 registry find/property/method/schema 查询 micro benchmark；
 - [x] 对比加锁查询与 frozen fast path 的 benchmark 用例；
 - [x] 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
+- [x] 使用 Linux Clang/GCC Static、Clang Shared 与 ASan 覆盖 registry 和插件卸载回归；
 - [x] 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
 
 当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
 `frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`、
 `locked_schema_lookup`、`frozen_schema_lookup` 和 `layer_schema_lookup`。
+Linux 基础矩阵与独立 ASan 插件压力验证结果记录在
+[linux-validation.md](../checklists/linux-validation.md)。
 
 完成标准：查询快路径有可测收益，插件 detach/unload 安全测试继续通过。
 

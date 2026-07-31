@@ -369,8 +369,8 @@ Windows MSVC 静态 Debug/Release 使用 `/EHsc` 和单线程构建完成验证�
 `uses_allocator_construction_args` 参数元组引用临时 allocator 所产生的悬空引用。
 
 Linux Clang/GCC Static Debug/Release 各 81 项测试、Clang Shared Debug/Release 与 ASan 各 83 项
-测试均在提交 `2624675` 通过。独立的多轮临时内存与 MessagePack ASan 压力 job 仍由
-`linux-validation-ci.md` 跟踪，不阻塞本计划的一次性跨平台矩阵验收。
+测试均在提交 `2624675` 通过。独立的 Linux ASan 压力运行 `30597404673` 中，memory 全组与
+MessagePack 各连续通过 10 次，未报告 AddressSanitizer 或 LeakSanitizer 错误。
 
 ## 暂缓内容
 
