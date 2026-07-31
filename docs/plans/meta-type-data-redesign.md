@@ -5,10 +5,9 @@
 
 ## 文档状态
 
-- 状态：阶段 0～5 的实现、清理、性能基准和 Windows 验证已完成
-- 当前阶段：仅剩 Linux Clang/GCC 的 Debug/Release 验证
+- 状态：阶段 0～5 的实现、清理、性能基准和跨平台验证已完成
+- 当前阶段：计划完成
 - 当前结论：静态与注册路径已统一为 `type_record + type_details`，旧 `type_descriptor` 已删除
-- 尚未完成：Linux Clang/GCC 完整测试矩阵
 
 ## 重构前背景
 
@@ -471,8 +470,9 @@ C++ 模板显式特化本身会覆盖一部分错误顺序，其余场景通过�
 `benchmarks/results/2026-07-23-windows-clang-benchmark-f4f2bba.md`。
 同日 `windows-clang-debug` 与 `windows-vs2022-debug` 均已完成单线程全量构建，分别有 75 项测试
 全部通过。后续当前版本又完成 Windows Clang Shared Debug/Release 全量构建与各 83 项测试，以及
-Windows MSVC 静态 Debug/Release 干净构建与各 81 项测试。阶段 5 仅剩 Linux Clang/GCC
-Debug/Release 测试矩阵。
+Windows MSVC 静态 Debug/Release 干净构建与各 81 项测试。Linux Clang/GCC Static
+Debug/Release 各 81 项测试、Clang Shared Debug/Release 与 ASan 各 83 项测试随后在提交
+`2624675` 通过，阶段 5 验证完成。
 
 ## 测试计划
 

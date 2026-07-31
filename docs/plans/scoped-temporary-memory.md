@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：实现与 Windows 验证已完成，仅剩 Linux Clang/GCC 与 ASan 验证；
+- 当前状态：实现与 Windows、Linux Clang/GCC、ASan 验证已完成；
 - 目标：为同步、嵌套调用提供低成本临时分配，并在作用域结束时回滚到进入前的位置；
 - 首个使用方：serialization 的 MessagePack writer/parser 和事务式容器读入；
 - 非目标：不替代返回值、目标对象、借用存储、异步任务或全局元数据使用的长期内存资源。
@@ -356,7 +356,7 @@ result-resource DOM；若大型 workload 显示明显瓶颈，优先设计直接
 
 - [x] Windows Clang Shared Debug/Release；
 - [x] Windows MSVC Debug/Release；
-- [ ] Linux Clang/GCC 和 ASan；
+- [x] Linux Clang/GCC 和 ASan；
 - [x] 多线程、递归、深层容器和大输入压力测试；
 - [x] 更新 memory 与 serialization 正式文档。
 
@@ -367,6 +367,10 @@ Windows Clang 压力验证覆盖：4 个线程分别复用线程局部临时资�
 Windows MSVC 静态 Debug/Release 使用 `/EHsc` 和单线程构建完成验证，各 81 项测试全部通过；静态
 构建按设计跳过两组仅适用于共享库的插件测试。Release 验证同时修复了
 `uses_allocator_construction_args` 参数元组引用临时 allocator 所产生的悬空引用。
+
+Linux Clang/GCC Static Debug/Release 各 81 项测试、Clang Shared Debug/Release 与 ASan 各 83 项
+测试均在提交 `2624675` 通过。独立的多轮临时内存与 MessagePack ASan 压力 job 仍由
+`linux-validation-ci.md` 跟踪，不阻塞本计划的一次性跨平台矩阵验收。
 
 ## 暂缓内容
 

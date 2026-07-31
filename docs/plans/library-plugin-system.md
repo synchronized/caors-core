@@ -5,8 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 5、阶段 6A 至 6E 已完成；阶段 6F 仅剩 POSIX
-  Debug/Release 与 ASan 验证；
+- 当前状态：阶段 0 至阶段 6F 已完成；
 - 第一阶段范围：跨平台动态库封装、稳定插件 C ABI、描述信息、加载与生命周期；
 - 已实施范围：依赖图、服务扩展、registration scope、registry layer/snapshot 和安全卸载；
 - 非目标：第一版热重载、跨编译器 C++ ABI、进程外插件和脚本插件。
@@ -488,7 +487,11 @@ primary 写权限。插件生命周期调用者必须先 `stop/shutdown`，再�
 - [x] 完成异步任务、事件和擦除值清理；
 - [x] 满足卸载前置条件后启用真正 `unload`；
 - [x] 覆盖反复加载、卸载、错误回滚和并发查询；
-- [ ] 完成 POSIX Debug/Release 与 ASan use-after-unload 验证。
+- [x] 完成 POSIX Debug/Release 与 ASan use-after-unload 验证。
+
+Linux Clang Shared Debug/Release 与 ASan 各 83 项测试已在提交 `2624675` 通过，覆盖真实
+`dlopen`/`dlsym`/`dlclose`、plugin protocol、meta plugin identity 和现有安全卸载用例。独立的
+多轮卸载压力 job 继续由 `linux-validation-ci.md` 跟踪。
 
 ### 阶段 7：热重载
 

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计冻结，6A 至 6E 已完成；6F 仅剩 POSIX Debug/Release 与 ASan 验证；
+- 当前状态：设计冻结，6A 至 6F 已完成；
 - 上游计划：`library-plugin-system.md` 阶段 6；
 - 目标：插件注册可从新查询中原子移除，旧句柄和值不会调用已卸载 DLL 中的代码；
 - 非目标：本阶段不实现热重载数据迁移，也不保证任意第三方线程可以被宿主强制终止。
@@ -293,7 +293,7 @@ stop/shutdown/cleanup/detach、pinned/detachable lifetime 选项、最近一次�
 - [x] 验证最后 lease 释放后 DLL 关闭；
 - [x] 覆盖重复加载、新 generation、并发查询和 in-flight method；
 - [x] Windows Clang Shared Debug/Release 完整构建与测试；
-- [ ] POSIX Debug/Release 与 ASan use-after-unload 检查（等待 Linux 环境）。
+- [x] POSIX Debug/Release 与 ASan use-after-unload 检查。
 
 真实 failure plugin 会先通过 host extension 向 draft 注册类型，再让 initialize 返回失败；测试确认
 draft 被销毁且主 registry 不可见该类型。并发查询测试持续解析插件类型，同时执行 detach/unload，
@@ -318,7 +318,9 @@ type lease，schema 内部 runtime cache 则使用无 lease 的 property/accesso
 facade 与 value view 均可跨 DLL 调用插件实现，并在 detach 后同时失效。至此 Windows Clang
 Shared Debug 的旧 layer 公共视图矩阵已覆盖完成；同一协议测试也已在 Windows Clang Shared
 Release 下连续通过 10 次。Windows Clang Shared Debug/Release 的完整 81 项测试均已通过；
-6F 仍需在 Linux 环境完成 POSIX Debug/Release 与可用的 ASan 验证。
+Linux Clang Shared Debug/Release 与 ASan 各 83 项测试已在提交 `2624675` 通过，POSIX
+`dlopen`/`dlsym`/`dlclose`、plugin protocol 和安全卸载用例均已进入基础矩阵。独立的多轮卸载
+压力 job 继续由 `linux-validation-ci.md` 跟踪。
 
 ## 每批验收门禁
 

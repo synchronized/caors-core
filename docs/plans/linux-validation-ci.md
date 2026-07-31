@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：preset、ASan 接入、执行清单和 CI 已实现，等待 Linux runner 完成实跑验证；
+- 当前状态：Linux 基础矩阵已通过；等待独立重复卸载与 ASan 压力验证；
 - 目标：建立可重复的 Linux Clang/GCC、Static/Shared、Debug/Release 与 ASan 验证矩阵；
 - 首批平台：GitHub Actions Ubuntu x86_64 和开发者本地 Linux；
 - 非目标：首批不引入交叉编译、真实大端硬件、性能回归门禁或自动发布。
@@ -99,10 +99,10 @@ docs/checklists/linux-validation.md
 
 ### 阶段 0：环境与基线确认
 
-- [ ] 记录 Linux 发行版、内核、架构和容器/虚拟机环境；
+- [x] 记录 Linux 发行版、内核、架构和容器/虚拟机环境；
 - [ ] 记录 CMake、Ninja、Clang、GCC、glibc、libstdc++ 和 linker 版本；
-- [ ] 确认 `dlopen`、`dlsym`、`dlclose` 可用于真实插件测试；
-- [ ] 在未修改代码前运行现有 Linux 静态 preset，保存首次失败基线。
+- [x] 通过 Shared 插件测试确认 `dlopen`、`dlsym`、`dlclose` 可用于真实插件测试；
+- [x] 运行 Linux 静态 preset，并通过首轮 CI 失败日志保存可移植性基线。
 
 完成标准：能够区分环境缺失、构建配置问题和代码问题。
 
@@ -156,14 +156,14 @@ docs/checklists/linux-validation.md
 
 ### 阶段 5：全量验证与计划回写
 
-- [ ] Linux Clang Static Debug/Release 全量通过；
-- [ ] Linux GCC Static Debug/Release 全量通过；
-- [ ] Linux Clang Shared Debug/Release 全量通过；
-- [ ] Linux Clang Shared ASan 全量通过；
+- [x] Linux Clang Static Debug/Release 全量通过；
+- [x] Linux GCC Static Debug/Release 全量通过；
+- [x] Linux Clang Shared Debug/Release 全量通过；
+- [x] Linux Clang Shared ASan 全量通过；
 - [ ] plugin detach/unload 专项连续运行，未发现 use-after-unload；
 - [ ] 临时内存与 MessagePack 压力测试在 ASan 下通过；
-- [ ] 将编译器、测试数量和提交号写入执行清单；
-- [ ] 回写并关闭关联计划中的 Linux/POSIX 待验证项。
+- [x] 将编译器、测试数量和提交号写入执行清单；
+- [x] 回写并关闭关联计划中的 Linux/POSIX 基础矩阵待验证项。
 
 完成标准：CI 和本地清单均能复现相同结果，关联计划不再保留未验证声明。
 
