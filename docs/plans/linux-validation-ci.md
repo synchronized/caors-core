@@ -167,6 +167,18 @@ docs/checklists/linux-validation.md
 
 完成标准：CI 和本地清单均能复现相同结果，关联计划不再保留未验证声明。
 
+### 阶段 6：独立压力验证
+
+- [x] 新增仅支持手动触发的 `Linux Stress` workflow；
+- [x] 增加 CAORS、测试程序和 C++ 测试插件的 ASan 编译/链接覆盖校验；
+- [x] 增加 linker 与 libstdc++ 路径记录；
+- [ ] plugin scope、protocol 与 meta plugin identity 在 ASan 下连续通过 20 次；
+- [ ] memory 全组与 MessagePack 在 ASan 下连续通过 10 次；
+- [ ] 将 stress 运行号、环境和结果写入执行清单。
+
+完成标准：独立压力 workflow 通过，并将可复现证据写入执行记录；该 workflow 不作为普通 Pull
+Request 的必需检查。
+
 ## CI 验收门禁
 
 - 配置、构建或测试任一阶段失败时 job 必须失败；

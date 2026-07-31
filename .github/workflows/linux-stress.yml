@@ -1,0 +1,62 @@
+name: Linux Stress
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: linux-stress-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: "2"
+  ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+
+jobs:
+  linux-stress:
+    name: Shared · Clang ASan Stress
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装构建工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build clang
+      - name: 记录环境
+        run: |
+          uname -a
+          cmake --version
+          ninja --version
+          clang --version
+          gcc --version
+          ld --version
+          ldd --version
+          g++ -print-file-name=libstdc++.so
+      - name: 配置
+        run: cmake --preset linux-clang-shared-asan
+      - name: 验证 ASan 覆盖
+        run: python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
+      - name: 构建
+        run: cmake --build --preset linux-clang-shared-asan
+      - name: 插件卸载压力测试
+        run: >-
+          ctest --test-dir build/linux-clang-shared-asan
+          --output-on-failure
+          --repeat until-fail:20
+          -R '^(caors\.plugins\.(scope|protocol)|caors\.meta\.plugin_identity)$'
+      - name: 临时内存与 MessagePack 压力测试
+        run: >-
+          ctest --test-dir build/linux-clang-shared-asan
+          --output-on-failure
+          --repeat until-fail:10
+          -R '^(caors\.memory\.|caors\.serialization\.messagepack$)'
+      - name: 上传失败日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-clang-shared-asan-stress-test-log
+          path: build/linux-clang-shared-asan/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
