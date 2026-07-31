@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 3 已完成，等待阶段 4 文档收尾；
+- 当前状态：已完成；
 - 目标：验证安装后的 CAORS 能被独立 CMake 项目查找、链接、运行并随安装前缀移动；
 - 首批范围：Windows Clang 与 Linux Clang 的 Static/Shared Release；
 - 非目标：不在本计划中引入 CPack、系统包管理器、FetchContent 封装或新的公共 API。
@@ -185,9 +185,9 @@ workflow `30609769822` 的 7 个 job 全部通过，其中 Static/Shared Release
 
 ### 阶段 4：文档收尾
 
-- [ ] 回写 `docs/build.md` 的验证保证与故障排查；
-- [ ] 记录 Static/Shared、运行时库查找和可重定位边界；
-- [ ] 将计划状态改为完成。
+- [x] 回写 `docs/build.md` 的验证保证与故障排查；
+- [x] 记录 Static/Shared、运行时库查找和可重定位边界；
+- [x] 将计划状态改为完成。
 
 ## 完成标准
 
