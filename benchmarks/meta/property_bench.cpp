@@ -3,6 +3,8 @@
 
 #include "support/benchmark_support.h"
 
+#include "caors/meta/property_accessor.h"
+
 #include <ctrack.hpp>
 
 #include <cstdlib>
@@ -17,9 +19,22 @@ void benchmark_properties(std::size_t iterations) {
   const caors::meta::type type = caors::meta::find<benchmark_actor>();
   const caors::meta::property id_property = type.find_property("id");
   const caors::meta::property health_property = type.find_property("health_int");
-  if (!id_property || !health_property) {
+  const caors::meta::property referenced_property = type.find_property("referenced_value");
+  const caors::meta::property readonly_property = type.find_property("readonly_id");
+  const caors::meta::property_accessor id_accessor =
+      caors::meta::compile_property_accessor(id_property);
+  if (!id_property || !health_property || !referenced_property || !readonly_property ||
+      !id_accessor) {
     std::cerr << "benchmark 属性未注册\n";
     std::exit(EXIT_FAILURE);
+  }
+
+  {
+    CTRACK_NAME("meta.property.member_get_set_direct");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      actor.id = static_cast<int>(index);
+      consume(static_cast<std::uintptr_t>(actor.id));
+    }
   }
 
   {
@@ -31,6 +46,41 @@ void benchmark_properties(std::size_t iterations) {
         std::exit(EXIT_FAILURE);
       }
       const std::optional<int> current = id_property.try_get<int>(instance);
+      consume(static_cast<std::uintptr_t>(current.value_or(0)));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.property.member_get_set_compiled");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const int value = static_cast<int>(index);
+      caors::any_ref ref = id_accessor.get_ref(&actor);
+      if (!ref.try_set(value)) {
+        std::cerr << "写入 compiled member 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const int* current = ref.try_get<int>();
+      consume(static_cast<std::uintptr_t>(current == nullptr ? 0 : *current));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.property.readonly_get_typed");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const std::optional<int> current = readonly_property.try_get<int>(instance);
+      consume(static_cast<std::uintptr_t>(current.value_or(0)));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.property.reference_accessor_get_set_typed");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const int value = static_cast<int>(index % 100);
+      if (!referenced_property.try_set(instance, value)) {
+        std::cerr << "写入 reference getter/setter typed 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const std::optional<int> current = referenced_property.try_get<int>(instance);
       consume(static_cast<std::uintptr_t>(current.value_or(0)));
     }
   }

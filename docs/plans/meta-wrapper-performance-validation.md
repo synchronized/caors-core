@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0、阶段 1 已完成，等待阶段 2 运行时拆分用例；
+- 当前状态：阶段 0 至阶段 2 已完成，等待阶段 3 跨平台正式执行；
 - 上游计划：[meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)；
 - 目标：量化 property/method wrapper 迁移后的布局、注册分配和运行时调用成本，并据此决定是否优化；
 - 非目标：不为追求形式统一迁移 constructor、type model 或 builtin ops，不把单次微基准直接解释为真实
@@ -153,10 +153,10 @@ request dispatch、参数准备、重载匹配和返回值装箱必须能通过�
 时记录的当前提交为准。Windows/Linux 均使用对应 Clang Release benchmark preset、100000 次迭代、
 至少三轮并取中位数；布局和分配样本不使用迭代耗时。
 
-现有用例已覆盖 member/accessor property 的 typed、`value`、`any`，以及缓存 method、
-`argument`、`value`、按名和直接调用。阶段 2 仍需补 compiled accessor、readonly/global
-property、const member、重载匹配、默认参数和转换拆分；当前公开 builder 不提供 global property
-注册入口，实施时应记录为不可达边界，不为 benchmark 新增 API。
+现有用例覆盖 member/accessor property 的 typed、`value`、`any`，以及缓存 method、
+`argument`、`value`、按名和直接调用。阶段 2 又补充 compiled accessor、readonly property、
+const/non-const member、重载匹配、默认参数和安全数值转换拆分。当前公开 builder 不提供 global
+property 注册入口，因此将其记录为不可达边界，不为 benchmark 新增 API。
 
 ### 阶段 1：布局与分配样本
 
@@ -173,10 +173,16 @@ property/method 注册分配；输出扣除空 registry 基线，并要求 regis
 
 ### 阶段 2：运行时拆分用例
 
-- [ ] 补齐 direct、cached、compiled 和 named property 对照；
-- [ ] 补齐 member、accessor、global property 对照；
-- [ ] 补齐 method dispatch、参数准备、重载匹配和返回装箱对照；
-- [ ] 保持现有 benchmark 名称稳定，新增用例使用明确层次命名。
+- [x] 补齐 direct、cached、compiled 和 named property 对照；
+- [x] 补齐 member、accessor property 对照，并记录 global property 的公开 API 边界；
+- [x] 补齐 method dispatch、参数准备、重载匹配和返回装箱对照；
+- [x] 保持现有 benchmark 名称稳定，新增用例使用明确层次命名。
+
+property 用例现已区分直接成员访问、缓存 property、compiled accessor、readonly getter 和按名查询。
+返回值 getter 继续通过 `value` / `any` 路径测量；只有返回引用的 accessor 才支持 typed 原地读写，
+避免将临时返回值误当成可写引用。method 用例现已区分 const/non-const 调用、精确重载匹配、默认参数
+补齐和安全数值转换。1000 次迭代的 Windows Clang Release 冒烟已通过，正式耗时结论仍由阶段 3 的
+100000 次、至少三轮结果产生。
 
 ### 阶段 3：跨平台执行
 

@@ -192,7 +192,18 @@ void ensure_benchmark_types_registered() {
           .property("active", &benchmark_actor::active)
           .property("name", &benchmark_actor::name)
           .property("health_int", &benchmark_actor::health_int, &benchmark_actor::set_health_int)
+          .property("referenced_value", &benchmark_actor::referenced_value_ref,
+                    &benchmark_actor::set_referenced_value)
+          .property_readonly("readonly_id", &benchmark_actor::readonly_id)
           .method("sum", &benchmark_actor::sum)
+          .method("assign", &benchmark_actor::assign)
+          .method("select",
+                  static_cast<int (benchmark_actor::*)(int) noexcept>(&benchmark_actor::select))
+          .method("select", static_cast<int (benchmark_actor::*)(double) const noexcept>(
+                                &benchmark_actor::select))
+          .method("add_default", &benchmark_actor::add_default,
+                  caors::meta::registration::default_argument(8))
+          .method("take_i64", &benchmark_actor::take_i64)
           .serialization()
           .field("id")
           .field("health")
