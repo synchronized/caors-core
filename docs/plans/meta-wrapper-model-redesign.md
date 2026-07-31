@@ -3,6 +3,12 @@
 
 # Meta wrapper/model 行为内聚计划
 
+## 文档状态
+
+- 当前状态：阶段 1 至阶段 4 已完成；
+- 后续演进：opaque wrapper 方向由
+  [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md) 取代。
+
 ## 背景
 
 当前 `property_record`、`method_record` 已采用“运行时节点 + ops table + 模板 model”的类型擦除结构，
