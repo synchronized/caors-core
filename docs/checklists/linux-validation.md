@@ -107,6 +107,25 @@ ldd build/linux-clang-shared-asan/tests/caors_tests
 
 若修改协议编码器，应在 Clang、GCC 和 ASan 三类矩阵中重新执行相关测试。
 
+## 已完成记录
+
+### 2026-07-30 GitHub Actions
+
+- 提交：`26246758a249ad241586af5602a410c67a03580c`；
+- 运行：[Linux #30535633441](https://github.com/synchronized/caors/actions/runs/30535633441)；
+- 环境：GitHub-hosted Ubuntu 24.04 LTS x86_64 虚拟机，Linux
+  `6.17.0-1020-azure`；
+- 工具：CMake 3.31.6、Ninja 1.13.2、Clang 18.1.3、GCC 13.3.0、glibc 2.39；
+- Static Clang Debug/Release：各 81 项测试全部通过；
+- Static GCC Debug/Release：各 81 项测试全部通过；
+- Shared Clang Debug/Release：各 83 项测试全部通过；
+- Shared Clang ASan：83 项测试全部通过；
+- ASan 环境：`detect_leaks=1:halt_on_error=1`，未报告 AddressSanitizer 或
+  LeakSanitizer 错误；
+- OOM：未发生，CI 使用 `CMAKE_BUILD_PARALLEL_LEVEL=2`；
+- 已知限制：本次日志未单独记录 libstdc++ 与 linker 版本；尚未执行独立的多轮插件卸载和临时内存/
+  MessagePack ASan 压力 job。
+
 ## 结果记录模板
 
 ```text
