@@ -42,6 +42,8 @@ meta / serialization / object
 - `caors/memory/debug_tracking.h`：`debug_tracking_resource`、存活分配记录和调试统计。
 - `caors/memory/debug_tools.h`：调试记录收集 helper，例如 `collect_live_allocations()`。
 - `caors/memory/monotonic.h`：线性分配策略资源。
+- `caors/memory/pmr.h`：CAORS `memory_resource` 与标准 `std::pmr::memory_resource` 的双向
+  非拥有适配。
 - `caors/memory/stack.h`：支持嵌套标记和作用域回滚的线程局部临时资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
 - `caors/memory/resource.h`：同时提供裸内存 RAII 句柄 `memory_block` 和
@@ -224,6 +226,50 @@ allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`�
 allocator-aware 类型可以继续向内传播资源。
 
 CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进程级全局状态。
+
+### 标准 PMR 适配
+
+`caors/memory/pmr.h` 提供两个可选的非拥有 view：
+
+- `pmr_resource_view`：把 CAORS `memory_resource` 暴露为 `std::pmr::memory_resource`；
+- `caors_resource_view`：把外部 `std::pmr::memory_resource` 暴露为 CAORS
+  `memory_resource`。
+
+标准 PMR 容器可以复用 CAORS tracking、monotonic、stack 等资源：
+
+```cpp
+caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+caors::pmr_resource_view pmr_view{tracking};
+
+std::pmr::vector<int> values{&pmr_view};
+values.push_back(42);
+```
+
+反方向也可以让 CAORS allocator 使用标准 PMR 资源：
+
+```cpp
+std::pmr::unsynchronized_pool_resource pool;
+caors::caors_resource_view caors_view{pool};
+
+caors::vector<int> values{caors::allocator<int>{&caors_view}};
+values.push_back(42);
+```
+
+两个 view 都不拥有底层资源。销毁顺序必须是：
+
+```text
+使用资源的容器和分配结果
+  -> 资源 view
+  -> 底层 memory_resource
+```
+
+适配器不增加同步，线程安全性继承底层资源。PMR 分配只有抛出式入口；开启异常时，
+`caors_resource_view::try_allocate()` 会捕获底层 PMR 分配异常并返回 `nullptr`。
+
+CAORS 默认资源与 `std::pmr` 默认资源保持独立，适配器不会调用
+`set_default_memory_resource()` 或 `std::pmr::set_default_resource()`。PMR 类型属于原生 C++ ABI，
+不得通过 CAORS 稳定插件 C ABI 传递；插件卸载前必须销毁所有引用插件资源的 view、allocator、容器和
+分配结果。
 
 ### memory::unique_ptr
 
