@@ -120,6 +120,7 @@ ctest --preset linux-gcc-debug
 | `CAORS_BUILD_EXAMPLES` | 顶层项目为 `ON` | 是否构建示例目标 |
 | `CAORS_BUILD_BENCHMARKS` | `OFF` | 是否构建 benchmark 目标 |
 | `CAORS_ENABLE_ASAN` | `OFF` | 是否为 CAORS 及其链接目标启用 AddressSanitizer；当前支持 Clang/GCC |
+| `CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE` | `OFF` | 是否让库内部分配跟随默认资源；仅用于诊断和分配 benchmark |
 | `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
 | `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
 | `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |

@@ -15,6 +15,11 @@ option(CAORS_BUILD_EXAMPLES "构建 CAORS 示例" ${PROJECT_IS_TOP_LEVEL})
 option(CAORS_BUILD_EXAMPLE_TESTING "测试构建中同时构建 CAORS 示例" ON)
 option(CAORS_BUILD_BENCHMARKS "构建 CAORS benchmark 程序" OFF)
 option(CAORS_ENABLE_ASAN "启用 AddressSanitizer" OFF)
+option(
+  CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE
+  "让 CAORS 内部分配跟随默认资源，仅用于诊断与 benchmark"
+  OFF
+)
 option(BUILD_SHARED_LIBS "构建共享库" OFF)
 option(USE_DEBUG_OUTPUT "启用调试输出" OFF)
 option(USE_LOG "启用日志" OFF)

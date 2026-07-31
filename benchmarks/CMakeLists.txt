@@ -11,6 +11,7 @@ target_sources(
           meta/type_bench.cpp
           meta/property_bench.cpp
           meta/method_bench.cpp
+          meta/wrapper_samples.cpp
           meta/value_bench.cpp
           math/math_bench.cpp
           serialization/serialization_bench.cpp

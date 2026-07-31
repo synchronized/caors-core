@@ -46,6 +46,19 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 当前 registry 查询快路径的 release 摘要见
 `benchmarks/results/2026-07-27-windows-clang-benchmark-7015a59.md`。
 
+Meta wrapper 的布局样本会随普通 benchmark 输出。注册分配统计需要让
+`memory::library_resource()` 临时跟随默认资源，必须使用独立构建目录，不能复用正式耗时构建：
+
+```sh
+cmake --preset windows-clang-benchmark \
+  -B build/windows-clang-benchmark-allocations \
+  -DCAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=ON
+cmake --build build/windows-clang-benchmark-allocations --target caors_benchmarks
+build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
+```
+
+该构建只用于统计分配次数、字节数和退出后的存活内存，不用于耗时对比。
+
 ## 当前用例
 
 当前 `caors_benchmarks` 覆盖以下稳定热路径：
@@ -62,6 +75,8 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
   `invoke()`、`call()` 和 `call_any()` 的对比。
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
+- Meta wrapper 样本：输出 property/method wrapper、record 和公共句柄的尺寸与对齐；诊断构建还会
+  输出 32 个混合 property 或 method 类型注册时的净分配次数、字节数和销毁后存活内存。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
 - `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造、
   透视投影矩阵构造、frustum 粗略裁剪和 project/unproject。
