@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 2 已完成，等待阶段 3 跨平台正式执行；
+- 当前状态：阶段 0 至阶段 2 已完成，阶段 3 已完成 Windows Clang 正式执行；
 - 上游计划：[meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)；
 - 目标：量化 property/method wrapper 迁移后的布局、注册分配和运行时调用成本，并据此决定是否优化；
 - 非目标：不为追求形式统一迁移 constructor、type model 或 builtin ops，不把单次微基准直接解释为真实
@@ -186,10 +186,15 @@ property 用例现已区分直接成员访问、缓存 property、compiled acces
 
 ### 阶段 3：跨平台执行
 
-- [ ] Windows Clang Release 至少运行三次；
+- [x] Windows Clang Release 至少运行三次；
 - [ ] Linux Clang Release 至少运行三次；
 - [ ] Linux GCC 完成构建与冒烟；
 - [ ] 保存原始环境信息和人工结果摘要。
+
+Windows Clang 结果见
+[`2026-07-31-windows-clang-meta-wrapper-22497cb.md`](../../benchmarks/results/2026-07-31-windows-clang-meta-wrapper-22497cb.md)。
+三轮原始输出仅保存在本机构建目录，仓库提交环境信息、中位数和人工摘要；完成 Linux Clang 后再勾选
+本阶段的统一结果归档项。
 
 ### 阶段 4：结论与收尾
 
