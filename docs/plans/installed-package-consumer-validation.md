@@ -175,9 +175,12 @@ CTest 子进程生效。
 
 ### 阶段 3：Linux CI
 
-- [ ] 接入现有 Static Clang Release job；
-- [ ] 接入现有 Shared Clang Release job；
+- [x] 接入现有 Static Clang Release job；
+- [x] 接入现有 Shared Clang Release job；
 - [ ] 完成一次手动完整 CI。
+
+安装验证作为既有矩阵 job 的条件步骤运行：Static 只在 `linux-clang-release` 执行，Shared 只在
+`linux-clang-shared-release` 执行。其他 Debug、GCC 和 ASan 项不重复安装消费流程。
 
 ### 阶段 4：文档收尾
 
