@@ -187,7 +187,7 @@ cmake --install build/<preset-name> --prefix <install-prefix>
 
 当前安装内容包括：
 
-- 静态库文件。
+- Static 或 Shared 库文件；Windows Shared 安装同时包含 import library 和 DLL。
 - `include/caors/` 公共头文件，其中 `version.h` 由 `version.h.in` 生成。
 - `lib/cmake/caors/caorsConfig.cmake` 包配置文件。
 - `lib/cmake/caors/caorsConfigVersion.cmake` 版本匹配文件。
@@ -200,3 +200,54 @@ cmake --install build/<preset-name> --prefix <install-prefix>
 find_package(caors CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE caors::caors)
 ```
+
+外部工程应将安装前缀加入 `CMAKE_PREFIX_PATH`，不应直接引用 CAORS 源码目录或 producer 构建目录：
+
+```sh
+cmake -S <consumer-source> -B <consumer-build> \
+  -DCMAKE_PREFIX_PATH=<install-prefix>
+cmake --build <consumer-build>
+```
+
+`caors::caors` 会传递 C++20、头文件目录和 Static/Shared 所需编译定义。当前安装契约已通过独立
+consumer 验证版本 API、meta 注册与属性查询、JSON round trip，以及安装前缀移动后的重新配置。
+Windows Clang 和 Linux Clang 的 Static/Shared Release 均已覆盖。
+
+### Shared 运行时库
+
+链接 Shared 安装包后，运行进程还必须能找到动态库：
+
+- Windows：将 `<install-prefix>/bin` 加入该进程的 `PATH`；
+- Linux：使用部署 RPATH，或只为目标进程设置指向 `<install-prefix>/lib` 的
+  `LD_LIBRARY_PATH`；
+- macOS：使用应用的部署规则或目标进程的动态库搜索路径。
+
+不要把 CAORS DLL/SO 随意复制回源码树，也不要永久修改开发机器的全局搜索路径。host、plugin 和
+其他跨边界模块仍需遵守相同编译器、标准库、架构和运行时兼容性要求。
+
+### 安装验证脚本
+
+维护者可以在 producer 已配置并构建后运行完整验证：
+
+```sh
+cmake \
+  -DCAORS_PRODUCER_BUILD_DIR=build/<producer> \
+  -DCAORS_INSTALL_PREFIX=build/installed-package/<mode>-prefix \
+  -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/<mode>-consumer \
+  -DCAORS_RELOCATION_PREFIX=build/installed-package/<mode>-relocated-prefix \
+  -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/<mode>-relocated-consumer \
+  -DCAORS_BUILD_CONFIG=Release \
+  -DCAORS_SHARED=<ON-or-OFF> \
+  -P cmake/VerifyInstalledPackage.cmake
+```
+
+脚本会重新创建四个显式输出目录，执行 install、两轮独立 consumer configure/build/run，并检查
+迁移后的配置不引用旧前缀。为避免误删，所有输出目录必须是当前仓库 `build/` 下彼此不嵌套的具体
+子目录。
+
+常见问题：
+
+- `find_package` 找不到 CAORS：确认传入的是安装前缀，而不是 producer 构建目录；
+- 找到错误版本：清理 consumer cache，并检查 `caors_DIR` 是否位于预期前缀；
+- Shared consumer 启动失败：检查目标进程的动态库搜索路径，不要用另一个构建目录中的 DLL/SO；
+- 移动安装树后仍引用旧路径：必须使用全新的 consumer 构建目录重新配置。

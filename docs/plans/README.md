@@ -10,8 +10,7 @@
 
 ### 进行中
 
-- [installed-package-consumer-validation.md](installed-package-consumer-validation.md)：验证安装后的
-  Static/Shared CAORS 能被独立 CMake consumer 查找、链接、运行并随安装前缀移动。
+当前没有正在实施的计划。新增较大需求应先建立独立计划，再进入代码修改。
 
 ### 延期复验
 
@@ -24,7 +23,8 @@
 
 - Runtime 与插件：`plugin-build-compatibility`、`library-plugin-system`、
   `registry-overlay-safe-unload`、`registry-query-fast-path`。
-- 构建与内存：`linux-validation-ci`、`scoped-temporary-memory`。
+- 构建与内存：`linux-validation-ci`、`installed-package-consumer-validation`、
+  `scoped-temporary-memory`。
 - Meta：`detail-api-boundary-redesign`、`meta-type-data-redesign`、
   `meta-record-naming-migration`、`meta-wrapper-model-redesign`、`value-boundary-redesign`、
   `enum-view-migration`、`identity-id-unification`、`type-identity-state-redesign`。
