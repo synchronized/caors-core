@@ -53,7 +53,9 @@ jobs:
           ninja --version
           clang --version
           gcc --version
+          ld --version
           ldd --version
+          g++ -print-file-name=libstdc++.so
       - name: 配置
         run: cmake --preset "${{ matrix.preset }}"
       - name: 构建
@@ -112,6 +114,8 @@ jobs:
           sudo apt-get install --yes ninja-build clang
       - name: 配置
         run: cmake --preset linux-clang-shared-asan
+      - name: 验证 ASan 覆盖
+        run: python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
       - name: 构建
         run: cmake --build --preset linux-clang-shared-asan
       - name: 测试

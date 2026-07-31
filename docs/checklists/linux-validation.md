@@ -93,6 +93,35 @@ ldd build/linux-clang-shared-asan/tests/caors_tests
 
 实际测试可执行文件路径以当前构建目录为准。
 
+配置完成后可在构建前验证编译和链接规则是否完整传播 ASan：
+
+```sh
+python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
+```
+
+## 独立压力验证
+
+`Linux Stress` workflow 只支持从 GitHub Actions 页面手动触发，不随普通 push 或 Pull Request
+运行。它使用 Clang Shared ASan，并执行：
+
+- plugin scope、plugin protocol 和 meta plugin identity 各连续通过 20 次；
+- memory 全组与 MessagePack 各连续通过 10 次；
+- 任一轮失败立即停止并上传 `LastTest.log`。
+
+本地可以使用等价命令：
+
+```sh
+ctest --test-dir build/linux-clang-shared-asan \
+  --output-on-failure \
+  --repeat until-fail:20 \
+  -R '^(caors\.plugins\.(scope|protocol)|caors\.meta\.plugin_identity)$'
+
+ctest --test-dir build/linux-clang-shared-asan \
+  --output-on-failure \
+  --repeat until-fail:10 \
+  -R '^(caors\.memory\.|caors\.serialization\.messagepack$)'
+```
+
 ## MessagePack 固定字节专项
 
 确认现有 MessagePack 测试覆盖并通过：
