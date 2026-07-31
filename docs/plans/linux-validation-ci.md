@@ -21,8 +21,8 @@
 - `registry-overlay-safe-unload.md`：POSIX Shared 与 ASan；
 - `meta-type-data-redesign.md`：Linux Clang/GCC Debug/Release。
 
-现有 `CMakePresets.json` 已提供 Linux Clang/GCC 静态 Debug/Release，但尚无 Linux Shared 和
-ASan preset；仓库也尚未建立 `.github/workflows`。
+计划实施前，`CMakePresets.json` 只提供 Linux Clang/GCC 静态 Debug/Release，尚无 Linux
+Shared、ASan preset 和 `.github/workflows`；这些缺口现已按本计划补齐。
 
 ## 设计结论
 

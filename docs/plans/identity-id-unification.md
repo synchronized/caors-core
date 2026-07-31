@@ -159,10 +159,14 @@ template <typename T>
 
 - [x] 为 identity store 增加按 domain/name/id 的调试查询；
 - [x] 为 capability 预留 name、GUID、version 元信息挂接点；
-- [ ] 评估新增 `schema_id`、`event_id` 或 `resource_type_id` 是否复用同一发号器；
+- [x] 评估新增 `schema_id`、`event_id` 或 `resource_type_id` 是否复用同一发号器；
 - [x] 更新跨 DLL 文档，说明进程内 ID 与稳定 GUID 的边界。
 
 完成标准：identity 机制可以作为后续模块 ID 的统一底座。
+
+评估结论：仅当新 ID 表达“进程内、按 canonical name 唯一”的身份时复用 identity state，并继续
+使用独立强类型封装；持久化或跨进程身份仍使用 GUID 或外部协议 token。当前不为尚未出现的
+`schema_id`、`event_id` 或 `resource_type_id` 预先分配公开类型。
 
 ## 风险
 
