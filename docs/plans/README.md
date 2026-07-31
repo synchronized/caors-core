@@ -37,6 +37,8 @@
   和模板 model 的行为内聚计划。
 - [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：将 property、method 的
   模板状态从固定 record/ops 中抽离为 opaque wrapper 的后续迁移计划。
+- [meta-wrapper-performance-validation.md](meta-wrapper-performance-validation.md)：量化
+  property/method wrapper 的布局、注册分配和运行时调用成本，并据此决定是否优化。
 - [value-boundary-redesign.md](value-boundary-redesign.md)：保留 `type_record` 单一事实源，
   收敛 `any_ref`、object factory 和 adapter/ODR 边界的开发计划。
 - [enum-view-migration.md](enum-view-migration.md)：enum capability 与实例 view 的迁移计划。
