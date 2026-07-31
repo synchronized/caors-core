@@ -80,6 +80,12 @@ build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
 - Meta wrapper 样本：输出 property/method wrapper、record 和公共句柄的尺寸与对齐；诊断构建还会
   输出 32 个混合 property 或 method 类型注册时的净分配次数、字节数和销毁后存活内存。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
+
+对于属性热点循环，先缓存 `meta::property`，需要进一步降低通用类型校验与 request dispatch 成本时，
+使用 `compile_property_accessor()`。compiled accessor 的有效期不得超过所属 registry record 和注册
+模块；它是热点优化入口，不替代具备完整动态语义的通用 property API。2026-07-31 的 Windows Clang
+三轮结果中，compiled member accessor 明显快于 cached typed property，因此当前保留两级 API，不调整
+wrapper 的所有权与擦除结构。
 - `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造、
   透视投影矩阵构造、frustum 粗略裁剪和 project/unproject。
 - math 动态路径：`math.meta.property_vec3_typed/value/any`、`math.meta.property_mat4_typed`、
