@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计完成，等待实施；
+- 当前状态：阶段 0、阶段 1 已完成，等待阶段 2 本地安装验证；
 - 目标：验证安装后的 CAORS 能被独立 CMake 项目查找、链接、运行并随安装前缀移动；
 - 首批范围：Windows Clang 与 Linux Clang 的 Static/Shared Release；
 - 非目标：不在本计划中引入 CPack、系统包管理器、FetchContent 封装或新的公共 API。
@@ -152,9 +152,14 @@ target_link_libraries(caors_installed_consumer PRIVATE caors::caors)
 
 ### 阶段 1：独立 consumer
 
-- [ ] 增加最小外部 CMake 工程；
-- [ ] 覆盖版本、基础 API、meta 和 JSON round trip；
-- [ ] 确认工程不依赖源码树。
+- [x] 增加最小外部 CMake 工程；
+- [x] 覆盖版本、基础 API、meta 和 JSON round trip；
+- [x] 确认工程不依赖源码树。
+
+独立工程位于 `tests/installed_package/consumer/`。普通测试树不会递归构建该目录；consumer 禁用
+CMake user/system package registry，并只链接安装包导出的 `caors::caors`。阶段 1 实施后已使用隔离
+Windows Clang Static Release 安装前缀完成一次人工 configure/build/run 冒烟，正式阶段 2 仍以统一
+验证脚本和可重定位复验为完成依据。
 
 ### 阶段 2：本地安装验证
 
