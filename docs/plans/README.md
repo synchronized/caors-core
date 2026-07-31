@@ -24,7 +24,7 @@
 - Runtime 与插件：`plugin-build-compatibility`、`library-plugin-system`、
   `registry-overlay-safe-unload`、`registry-query-fast-path`。
 - 构建与内存：`linux-validation-ci`、`installed-package-consumer-validation`、
-  `scoped-temporary-memory`。
+  `scoped-temporary-memory`、`pmr-resource-adapters`。
 - Meta：`detail-api-boundary-redesign`、`meta-type-data-redesign`、
   `meta-record-naming-migration`、`meta-wrapper-model-redesign`、`value-boundary-redesign`、
   `enum-view-migration`、`identity-id-unification`、`type-identity-state-redesign`。
@@ -54,6 +54,8 @@
 
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
   线程局部临时资源，以及 serialization 双资源接入计划。
+- [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
+  非拥有适配、失败语义和生命周期边界计划。
 
 ## Meta
 
