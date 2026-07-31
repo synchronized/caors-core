@@ -10,7 +10,8 @@
 
 ### 进行中
 
-当前没有正在实施的计划。新增较大需求应先建立独立计划，再进入代码修改。
+- [installed-package-consumer-validation.md](installed-package-consumer-validation.md)：验证安装后的
+  Static/Shared CAORS 能被独立 CMake consumer 查找、链接、运行并随安装前缀移动。
 
 ### 延期复验
 
@@ -46,6 +47,8 @@
 
 - [linux-validation-ci.md](linux-validation-ci.md)：Linux Clang/GCC、Static/Shared、
   Debug/Release、ASan、POSIX 插件卸载与 GitHub Actions 验证计划。
+- [installed-package-consumer-validation.md](installed-package-consumer-validation.md)：安装包导出、
+  独立 `find_package` consumer、Static/Shared 运行与可重定位验证计划。
 
 ## Memory
 
