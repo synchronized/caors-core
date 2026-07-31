@@ -13,6 +13,8 @@ int main(int argc, char** argv) {
   caors::benchmarks::ensure_benchmark_types_registered();
 
   std::cout << "CAORS benchmark iterations: " << iterations << '\n';
+  caors::benchmarks::print_meta_wrapper_layout_samples();
+  caors::benchmarks::print_meta_wrapper_registration_samples();
 
   caors::benchmarks::benchmark_string_name(iterations);
   caors::benchmarks::benchmark_meta_lookup(iterations);

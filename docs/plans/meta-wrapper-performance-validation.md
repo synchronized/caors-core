@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：计划已冻结，等待实施；
+- 当前状态：阶段 0、阶段 1 已完成，等待阶段 2 运行时拆分用例；
 - 上游计划：[meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)；
 - 目标：量化 property/method wrapper 迁移后的布局、注册分配和运行时调用成本，并据此决定是否优化；
 - 非目标：不为追求形式统一迁移 constructor、type model 或 builtin ops，不把单次微基准直接解释为真实
@@ -143,18 +143,33 @@ request dispatch、参数准备、重载匹配和返回值装箱必须能通过�
 
 ### 阶段 0：基线冻结
 
-- [ ] 确认 wrapper 迁移前后用于对比的提交；
-- [ ] 固定 Windows/Linux benchmark 环境与迭代次数；
-- [ ] 记录当前已有 property/method 用例和缺口；
-- [ ] 为结果摘要增加统一模板。
+- [x] 确认 wrapper 迁移前后用于对比的提交；
+- [x] 固定 Windows/Linux benchmark preset、迭代次数和重复规则；
+- [x] 记录当前已有 property/method 用例和缺口；
+- [x] 为结果摘要复用 `benchmarks/results/README.md` 的统一规则。
+
+迁移前代码基线为 `162f74c`，property wrapper 迁移提交为 `43b9116`，method wrapper 迁移提交为
+`ecb702d`，method 直接 request dispatch 收敛提交为 `654cc75`。正式迁移后结果以执行 benchmark
+时记录的当前提交为准。Windows/Linux 均使用对应 Clang Release benchmark preset、100000 次迭代、
+至少三轮并取中位数；布局和分配样本不使用迭代耗时。
+
+现有用例已覆盖 member/accessor property 的 typed、`value`、`any`，以及缓存 method、
+`argument`、`value`、按名和直接调用。阶段 2 仍需补 compiled accessor、readonly/global
+property、const member、重载匹配、默认参数和转换拆分；当前公开 builder 不提供 global property
+注册入口，实施时应记录为不可达边界，不为 benchmark 新增 API。
 
 ### 阶段 1：布局与分配样本
 
-- [ ] 增加 layout samples；
-- [ ] 增加 benchmark-only 内部分配跟踪构建方式；
-- [ ] 增加 property 注册分配样本；
-- [ ] 增加 method 注册分配样本；
-- [ ] 验证 registry 销毁后无 live allocation。
+- [x] 增加 layout samples；
+- [x] 增加 benchmark-only 内部分配跟踪构建方式；
+- [x] 增加 property 注册分配样本；
+- [x] 增加 method 注册分配样本；
+- [x] 验证 registry 销毁后无 live allocation。
+
+普通 benchmark 始终输出 wrapper、record 与公共句柄布局。只有独立构建显式启用
+`CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=ON` 时，才统计 32 个类型、每类 3 个节点的混合
+property/method 注册分配；输出扣除空 registry 基线，并要求 registry 销毁后 live bytes 为 0。
+该构建不用于耗时结论。
 
 ### 阶段 2：运行时拆分用例
 
