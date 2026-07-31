@@ -10,7 +10,8 @@
 
 ### 进行中
 
-当前没有正在实施的计划。新增较大需求应先建立独立计划，再进入代码修改。
+- [memory-debug-guards.md](memory-debug-guards.md)：`debug_tracking_resource` 的 guard block、
+  填充值、违规统计和诊断回调扩展计划。
 
 ### 延期复验
 
@@ -56,6 +57,8 @@
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
   非拥有适配、失败语义和生命周期边界计划。
+- [memory-debug-guards.md](memory-debug-guards.md)：显式调试资源的前后越界检测、分配/释放填充和
+  违规报告计划。
 
 ## Meta
 
