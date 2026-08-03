@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：核心实现与 Windows Clang 定向验证进行中；
+- 当前状态：核心实现、Windows Clang/MSVC 全矩阵验证和代表性基准已完成；
 - 目标：为中小型、频繁分配提供一个按尺寸等级复用内存块的通用 `memory_resource`；
 - 首批范围：非线程安全资源、确定性尺寸路由、大块请求回退、统计、边界测试和基准；
 - 非目标：首批不提供跨线程无锁池、不替换系统默认资源、不自动回收仍含存活分配的 chunk、
@@ -201,7 +201,7 @@ size_class_pool_resource
 
 ### 阶段 4：跨平台验证与文档收尾
 
-- [ ] Windows Clang/MSVC Debug、Release、Static/Shared；
+- [x] Windows Clang/MSVC Debug、Release、Static/Shared；
 - [ ] Linux Clang/GCC Debug、Release；
 - [ ] Linux ASan/UBSan 压力验证；
 - [ ] 更新 `docs/memory.md`、`docs/roadmap.md` 和计划状态索引。
@@ -243,6 +243,12 @@ size_class_pool_resource
 - 2026-08-03：`windows-msvc-debug` Static 全量构建通过，83/83 测试通过；新增
   `windows-msvc-shared-debug/release` preset，并完成 Shared Debug 全量构建与 85/85 测试，包含
   插件协议和跨模块类型身份测试；
+- 2026-08-03：`windows-clang-release` Static 全量构建通过，83/83 测试通过；
+- 2026-08-03：`windows-clang-shared-release` Shared 全量构建通过，85/85 测试通过，包含插件协议和
+  跨模块类型身份测试；
+- 2026-08-03：`windows-msvc-release` Static 全量构建通过，83/83 测试通过；
+- 2026-08-03：`windows-msvc-shared-release` Shared 全量构建通过，85/85 测试通过，包含插件协议和
+  跨模块类型身份测试；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
-- Windows Release、真实业务 workload 和 Linux 验证仍未执行。
+- 真实业务 workload 和 Linux 验证仍未执行。
