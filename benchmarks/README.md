@@ -31,5 +31,7 @@ math 向量/矩阵/四元数/投影纯计算路径、序列化到 `variant` / JS
 直接 JSON writer、JSON parse / DOM 读回，以及资源 cache / provider / JSON loader 主路径。方法调用会同时测
 直接 C++ 调用、`method::invoke_result_of()`、`method::invoke()`、
 `instance::call()` 和 `instance::call_any()`；属性读写会同时测 typed、`meta::value` 和 `any`
-路径。程序末尾会额外输出若干分配统计样本，用于判断是否存在明显的临时对象或 buffer 分配热点。
+路径。内存基准比较系统资源、手工 fixed pools、CAORS size class pool 和标准 PMR pool 的混合尺寸批次，
+并输出 size class 内部碎片、保留容量和回退次数。程序末尾还会输出若干分配统计样本，用于判断是否存在
+明显的临时对象或 buffer 分配热点。
 异步请求、磁盘文件系统和网络相关能力更适合后续单独拆专项用例，避免与基础运行期 API 的耗时混在一起。

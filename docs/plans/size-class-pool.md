@@ -188,12 +188,12 @@ size_class_pool_resource
 - [x] 覆盖块复用、多个 chunk、上游失败和算术溢出；
 - [x] 覆盖统计、reset、release 和资源析构；
 - [x] 通过外层 `debug_tracking_resource` 验证错误释放诊断组合；
-- [x] 验证 Static/Shared 定向构建；公共头自包含等待完整构建统一验证。
+- [x] 验证 Static/Shared 定向构建和公共头自包含。
 
 ### 阶段 3：性能与碎片率验证
 
 - [ ] 增加固定尺寸、混合尺寸、突发峰值和低复用 workload；
-- [ ] 对比 system resource、多个手工 fixed block pool、`std::pmr::unsynchronized_pool_resource`；
+- [x] 对比 system resource、多个手工 fixed block pool、`std::pmr::unsynchronized_pool_resource`；
 - [ ] 记录吞吐、P50/P95 延迟、上游调用次数、峰值保留容量和内部碎片率；
 - [ ] 只有在真实 workload 获得稳定收益后，才在其他 CAORS 组件中采用。
 
@@ -216,6 +216,13 @@ size_class_pool_resource
 
 - 2026-08-03：`windows-clang-debug` 定向构建与 `caors.memory.size_class_pool` 通过；
 - 2026-08-03：`windows-clang-shared-debug` 定向构建与 `caors.memory.size_class_pool` 通过；
+- 2026-08-03：`windows-clang-debug` 全量构建与 83/83 测试通过，包含公共头自包含；
+- 2026-08-03：`windows-clang-benchmark` Release 构建通过；10 万混合批次重复三次，size class pool
+  中位耗时 15.51 ms，system resource 44.26 ms，PMR pool 14.38 ms，手工 fixed pools
+  11.19 ms；详细记录见
+  `benchmarks/results/2026-08-03-windows-clang-size-class-pool-49d94a1.md`；
+- 阶段性基准发现固定每 class 64 块会在稀疏 workload 中保留 97,280 字节，下一阶段需要优化
+  chunk 增长策略后复测；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
-- Windows 完整构建、头文件自包含、Release、MSVC、性能基准和 Linux 验证仍未执行。
+- Windows Shared 全量、MSVC、更多 workload、正式延迟分布和 Linux 验证仍未执行。
