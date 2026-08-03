@@ -392,8 +392,8 @@ caors::vector<caors::memory::memory_debug_record> records =
 ### size_class_pool_resource
 
 `size_class_pool_resource` 把中小型请求向上取整到二次幂尺寸等级，并在各等级内复用 chunk 中的空闲块。
-默认池化 16–4096 字节，每个 chunk 包含 64 个块。超过最大尺寸或超过池对齐能力的请求会直接回退到
-上游资源，不会被拒绝：
+默认池化 16–4096 字节，每个 chunk 最多包含 64 个块，并以 4 KiB 为目标容量按 class 尺寸缩放。
+超过最大尺寸或超过池对齐能力的请求会直接回退到上游资源，不会被拒绝：
 
 ```cpp
 caors::size_class_pool_options options{};

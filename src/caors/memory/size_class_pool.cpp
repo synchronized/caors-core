@@ -37,7 +37,7 @@ constexpr std::size_t max_class_count = std::numeric_limits<std::size_t>::digits
          detail::is_power_of_two(options.largest_block_size) &&
          options.smallest_block_size <= options.largest_block_size &&
          options.smallest_block_size >= sizeof(free_block) && options.blocks_per_chunk != 0 &&
-         detail::is_power_of_two(options.pooled_alignment) &&
+         options.target_chunk_size != 0 && detail::is_power_of_two(options.pooled_alignment) &&
          options.pooled_alignment >= alignof(free_block);
 }
 
@@ -161,8 +161,11 @@ void* size_class_pool_resource::do_try_allocate(std::size_t size, std::size_t al
   pool_class& target = state_->classes[class_index];
 
   if (target.free_blocks == nullptr) {
+    const std::size_t target_block_count =
+        std::max<std::size_t>(1, state_->options.target_chunk_size / target.block_size);
+    const std::size_t block_count = std::min(state_->options.blocks_per_chunk, target_block_count);
     std::size_t bytes = 0;
-    if (!detail::try_checked_multiply(target.block_size, state_->options.blocks_per_chunk, bytes)) {
+    if (!detail::try_checked_multiply(target.block_size, block_count, bytes)) {
       ++state_->statistics.allocation_failure_count;
       return nullptr;
     }
@@ -186,7 +189,7 @@ void* size_class_pool_resource::do_try_allocate(std::size_t size, std::size_t al
     chunk->bytes = bytes;
     target.chunks = chunk;
     auto* cursor = static_cast<unsigned char*>(memory);
-    for (std::size_t block = 0; block < state_->options.blocks_per_chunk; ++block) {
+    for (std::size_t block = 0; block < block_count; ++block) {
       auto* item = reinterpret_cast<free_block*>(cursor + block * target.block_size);
       item->next = target.free_blocks;
       target.free_blocks = item;

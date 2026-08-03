@@ -31,6 +31,7 @@ struct size_class_pool_options {
   std::size_t smallest_block_size = 16;
   std::size_t largest_block_size = 4096;
   std::size_t blocks_per_chunk = 64;
+  std::size_t target_chunk_size = 4096;
   std::size_t pooled_alignment = default_memory_alignment;
 };
 
@@ -75,6 +76,7 @@ public:
 - `smallest_block_size` 和 `largest_block_size` 均为非零二次幂；
 - 最小值不大于最大值；
 - `blocks_per_chunk` 非零；
+- `target_chunk_size` 非零；实际 chunk 块数不超过 `blocks_per_chunk`，并按 class 尺寸缩放；
 - `pooled_alignment` 为合法二次幂；
 - 每个块至少能保存内部空闲链表节点。
 
@@ -221,8 +223,9 @@ size_class_pool_resource
   中位耗时 15.51 ms，system resource 44.26 ms，PMR pool 14.38 ms，手工 fixed pools
   11.19 ms；详细记录见
   `benchmarks/results/2026-08-03-windows-clang-size-class-pool-49d94a1.md`；
-- 阶段性基准发现固定每 class 64 块会在稀疏 workload 中保留 97,280 字节，下一阶段需要优化
-  chunk 增长策略后复测；
+- 2026-08-03：默认 chunk 改为以 4096 字节为目标、64 块为上限的自适应容量；相同 workload
+  的保留容量由 97,280 降至 19,456 字节，减少 80%，三轮中位耗时为 16.25 ms；详细记录见
+  `benchmarks/results/2026-08-03-windows-clang-size-class-pool-adaptive.md`；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
 - Windows Shared 全量、MSVC、更多 workload、正式延迟分布和 Linux 验证仍未执行。

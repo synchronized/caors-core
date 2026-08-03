@@ -14,7 +14,10 @@ namespace caors::memory {
 struct size_class_pool_options {
   std::size_t smallest_block_size = 16;
   std::size_t largest_block_size = 4096;
+  /** @brief 单个 chunk 的最大块数。 */
   std::size_t blocks_per_chunk = 64;
+  /** @brief 单个 size class 的目标 chunk 字节数；实际 chunk 至少包含一个块。 */
+  std::size_t target_chunk_size = 4096;
   std::size_t pooled_alignment = default_memory_alignment;
 };
 

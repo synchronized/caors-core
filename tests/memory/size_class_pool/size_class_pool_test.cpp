@@ -5,6 +5,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <array>
 #include <bit>
 #include <cstdint>
 #include <limits>
@@ -140,6 +141,27 @@ TEST_CASE("memory - size class pool grows multiple chunks", "[memory][size_class
   pool.deallocate(third, 24, 8);
 }
 
+TEST_CASE("memory - size class pool limits large class chunk capacity", "[memory][size_class]") {
+  caors::size_class_pool_options options{};
+  options.blocks_per_chunk = 64;
+  options.target_chunk_size = 4096;
+  caors::size_class_pool_resource pool{options};
+
+  std::array<void*, 5> pointers{};
+  for (void*& ptr : pointers) {
+    ptr = pool.allocate(1024, 8);
+    REQUIRE(ptr != nullptr);
+  }
+
+  CHECK(pool.statistics().chunk_count == 2);
+  CHECK(pool.statistics().chunk_allocation_count == 2);
+  CHECK(pool.statistics().reserved_bytes == 8192);
+
+  for (void* ptr : pointers) {
+    pool.deallocate(ptr, 1024, 8);
+  }
+}
+
 TEST_CASE("memory - debug tracking preserves pool route after mismatched deallocation",
           "[memory][size_class]") {
   struct violation_state {
@@ -168,12 +190,14 @@ TEST_CASE("memory - size class pool exposes configured options", "[memory][size_
   options.smallest_block_size = 32;
   options.largest_block_size = 256;
   options.blocks_per_chunk = 7;
+  options.target_chunk_size = 2048;
   options.pooled_alignment = 32;
   caors::size_class_pool_resource pool{options};
 
   CHECK(pool.options().smallest_block_size == 32);
   CHECK(pool.options().largest_block_size == 256);
   CHECK(pool.options().blocks_per_chunk == 7);
+  CHECK(pool.options().target_chunk_size == 2048);
   CHECK(pool.options().pooled_alignment == 32);
   CHECK(pool.upstream_resource() == &caors::get_system_memory_resource());
 }
@@ -190,7 +214,8 @@ TEST_CASE("memory - size class pool normalizes zero-sized allocation", "[memory]
   CHECK(pool.statistics().pooled_requested_bytes_in_use == 0);
 }
 
-TEST_CASE("memory - size class pool rejects overflowing chunk size", "[memory][size_class]") {
+TEST_CASE("memory - size class pool handles maximum class without arithmetic overflow",
+          "[memory][size_class]") {
   const std::size_t largest_power = std::bit_floor(std::numeric_limits<std::size_t>::max());
   caors::size_class_pool_options options{};
   options.smallest_block_size = largest_power;
