@@ -9,6 +9,7 @@
 #include <bit>
 #include <cstdint>
 #include <limits>
+#include <vector>
 
 TEST_CASE("memory - size class pool routes and reuses pooled blocks", "[memory][size_class]") {
   caors::tracking_resource upstream{&caors::get_system_memory_resource()};
@@ -160,6 +161,48 @@ TEST_CASE("memory - size class pool limits large class chunk capacity", "[memory
   for (void* ptr : pointers) {
     pool.deallocate(ptr, 1024, 8);
   }
+}
+
+TEST_CASE("memory - size class pool capacity follows historical concurrent peak",
+          "[memory][size_class]") {
+  constexpr std::array<std::size_t, 7> sizes{8, 24, 40, 72, 128, 256, 1024};
+  caors::size_class_pool_resource pool;
+  const auto run_wave = [&](std::size_t width) {
+    std::vector<void*> pointers(width);
+    for (std::size_t index = 0; index < width; ++index) {
+      pointers[index] = pool.allocate(sizes[index % sizes.size()]);
+      REQUIRE(pointers[index] != nullptr);
+    }
+    for (std::size_t index = width; index != 0; --index) {
+      pool.deallocate(pointers[index - 1], sizes[(index - 1) % sizes.size()]);
+    }
+  };
+
+  run_wave(32);
+  const auto low_peak = pool.statistics();
+  for (std::size_t wave = 0; wave < 100; ++wave) {
+    run_wave(32);
+  }
+  const auto repeated_low = pool.statistics();
+  CHECK(repeated_low.reserved_bytes == low_peak.reserved_bytes);
+  CHECK(repeated_low.chunk_count == low_peak.chunk_count);
+
+  run_wave(256);
+  const auto high_peak = pool.statistics();
+  CHECK(high_peak.reserved_bytes > low_peak.reserved_bytes);
+  CHECK(high_peak.chunk_count > low_peak.chunk_count);
+  for (std::size_t wave = 0; wave < 100; ++wave) {
+    run_wave(128);
+  }
+  const auto settled = pool.statistics();
+  CHECK(settled.reserved_bytes == high_peak.reserved_bytes);
+  CHECK(settled.chunk_count == high_peak.chunk_count);
+  CHECK(settled.pooled_requested_bytes_in_use == 0);
+  CHECK(settled.pooled_capacity_bytes_in_use == 0);
+
+  pool.release();
+  CHECK(pool.statistics().reserved_bytes == 0);
+  CHECK(pool.statistics().chunk_count == 0);
 }
 
 TEST_CASE("memory - debug tracking preserves pool route after mismatched deallocation",

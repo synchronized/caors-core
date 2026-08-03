@@ -21,9 +21,11 @@ namespace caors::benchmarks {
 namespace {
 
 constexpr std::array<std::size_t, 8> mixed_sizes{8, 24, 40, 72, 128, 256, 1024, 5000};
+constexpr std::array<std::size_t, 7> pooled_sizes{8, 24, 40, 72, 128, 256, 1024};
 constexpr std::size_t pooled_requested_bytes = 1552;
 constexpr std::size_t fixed_size = 64;
 constexpr std::size_t burst_width = 128;
+constexpr std::size_t maximum_growth_width = 256;
 constexpr std::size_t latency_batch_width = 16;
 
 struct latency_summary {
@@ -105,6 +107,22 @@ void run_pmr_burst(std::pmr::memory_resource& resource, std::size_t burst_count)
     }
     for (std::size_t index = pointers.size(); index != 0; --index) {
       const std::size_t size = mixed_sizes[(index - 1) % mixed_sizes.size()];
+      resource.deallocate(pointers[index - 1], size);
+    }
+  }
+}
+
+void run_caors_variable_burst(caors::memory_resource& resource, std::size_t width,
+                              std::size_t burst_count) {
+  std::array<void*, maximum_growth_width> pointers{};
+  for (std::size_t burst = 0; burst < burst_count; ++burst) {
+    for (std::size_t index = 0; index < width; ++index) {
+      const std::size_t size = pooled_sizes[index % pooled_sizes.size()];
+      pointers[index] = resource.allocate(size);
+      consume_address(pointers[index]);
+    }
+    for (std::size_t index = width; index != 0; --index) {
+      const std::size_t size = pooled_sizes[(index - 1) % pooled_sizes.size()];
       resource.deallocate(pointers[index - 1], size);
     }
   }
@@ -378,6 +396,22 @@ void benchmark_memory_pools(std::size_t iterations) {
   print_latency("pmr_unsynchronized",
                 sample_pmr_allocation_latency(latency_pmr_pool, latency_allocation_count),
                 latency_allocation_count);
+
+  caors::size_class_pool_resource growth_pool{{}, &system};
+  run_caors_variable_burst(growth_pool, 32, 1);
+  const caors::size_class_pool_statistics low_peak = growth_pool.statistics();
+  run_caors_variable_burst(growth_pool, 32, std::max<std::size_t>(1, iterations / 100));
+  const caors::size_class_pool_statistics repeated_low = growth_pool.statistics();
+  run_caors_variable_burst(growth_pool, maximum_growth_width, 1);
+  const caors::size_class_pool_statistics high_peak = growth_pool.statistics();
+  run_caors_variable_burst(growth_pool, 128, std::max<std::size_t>(1, iterations / 100));
+  const caors::size_class_pool_statistics settled = growth_pool.statistics();
+  std::cout << "memory.size_class_pool.capacity_growth low_peak_reserved="
+            << low_peak.reserved_bytes << " repeated_low_reserved=" << repeated_low.reserved_bytes
+            << " high_peak_reserved=" << high_peak.reserved_bytes
+            << " settled_reserved=" << settled.reserved_bytes
+            << " high_peak_chunks=" << high_peak.chunk_count
+            << " settled_chunks=" << settled.chunk_count << '\n';
 }
 
 } // namespace caors::benchmarks
