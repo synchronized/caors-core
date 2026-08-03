@@ -11,7 +11,7 @@
 ### 进行中
 
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
-  性能验证计划；当前完成设计，等待实施。
+  性能验证计划；核心实现和 Windows Clang Static/Shared 定向验证已完成，等待完整构建与基准。
 
 ### 延期复验
 

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：设计完成，等待实施；
+- 当前状态：核心实现与 Windows Clang 定向验证进行中；
 - 目标：为中小型、频繁分配提供一个按尺寸等级复用内存块的通用 `memory_resource`；
 - 首批范围：非线程安全资源、确定性尺寸路由、大块请求回退、统计、边界测试和基准；
 - 非目标：首批不提供跨线程无锁池、不替换系统默认资源、不自动回收仍含存活分配的 chunk、
@@ -37,8 +37,9 @@ struct size_class_pool_options {
 struct size_class_pool_statistics {
   std::size_t pooled_allocation_count = 0;
   std::size_t pooled_deallocation_count = 0;
-  std::size_t upstream_allocation_count = 0;
-  std::size_t upstream_deallocation_count = 0;
+  std::size_t fallback_allocation_count = 0;
+  std::size_t fallback_deallocation_count = 0;
+  std::size_t chunk_allocation_count = 0;
   std::size_t allocation_failure_count = 0;
   std::size_t chunk_count = 0;
   std::size_t pooled_bytes_in_use = 0;
@@ -170,24 +171,24 @@ size_class_pool_resource
 - [x] 确认二次幂 size class 和确定性释放路由；
 - [x] 确认大块及过度对齐请求回退上游；
 - [x] 确认不保存逐分配 header；
-- [ ] 实施前复核默认最大尺寸和默认每 chunk 块数。
+- [x] 实施前复核默认最大尺寸和默认每 chunk 块数。
 
 ### 阶段 1：核心实现
 
-- [ ] 新增公共 options、statistics 和 `size_class_pool_resource`；
-- [ ] 新增 opaque state、class table、chunk 与空闲链表；
-- [ ] 实现配置校验、尺寸路由、溢出安全和失败回滚；
-- [ ] 实现上游回退、统计重置和 `release()`；
-- [ ] 接入 `caors/memory.h` 与 CMake 源文件。
+- [x] 新增公共 options、statistics 和 `size_class_pool_resource`；
+- [x] 新增 opaque state、class table、chunk 与空闲链表；
+- [x] 实现配置校验、尺寸路由、溢出安全和失败回滚；
+- [x] 实现上游回退、统计重置和 `release()`；
+- [x] 接入 `caors/memory.h` 与 CMake 源文件。
 
 ### 阶段 2：正确性测试
 
-- [ ] 覆盖各等级边界、零大小和默认对齐；
-- [ ] 覆盖大块、过度对齐回退及释放配对；
-- [ ] 覆盖块复用、多个 chunk、上游失败和算术溢出；
-- [ ] 覆盖统计、reset、release 和资源析构；
-- [ ] 通过外层 `debug_tracking_resource` 验证错误释放诊断组合；
-- [ ] 验证 Static/Shared 构建和公共头自包含。
+- [x] 覆盖各等级边界、零大小和默认对齐；
+- [x] 覆盖大块、过度对齐回退及释放配对；
+- [x] 覆盖块复用、多个 chunk、上游失败和算术溢出；
+- [x] 覆盖统计、reset、release 和资源析构；
+- [x] 通过外层 `debug_tracking_resource` 验证错误释放诊断组合；
+- [x] 验证 Static/Shared 定向构建；公共头自包含等待完整构建统一验证。
 
 ### 阶段 3：性能与碎片率验证
 
@@ -210,3 +211,11 @@ size_class_pool_resource
 - 池化与上游回退统计可解释、可复现；
 - Static/Shared 和跨平台验证通过；
 - 基准证明至少一个真实或代表性 workload 中优于直接系统分配，且碎片率处于可接受范围。
+
+## 当前验证记录
+
+- 2026-08-03：`windows-clang-debug` 定向构建与 `caors.memory.size_class_pool` 通过；
+- 2026-08-03：`windows-clang-shared-debug` 定向构建与 `caors.memory.size_class_pool` 通过；
+- 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
+  源码或测试失败；
+- Windows 完整构建、头文件自包含、Release、MSVC、性能基准和 Linux 验证仍未执行。
