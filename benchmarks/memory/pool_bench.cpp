@@ -10,9 +10,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <memory_resource>
+#include <vector>
 
 namespace caors::benchmarks {
 namespace {
@@ -21,6 +24,19 @@ constexpr std::array<std::size_t, 8> mixed_sizes{8, 24, 40, 72, 128, 256, 1024, 
 constexpr std::size_t pooled_requested_bytes = 1552;
 constexpr std::size_t fixed_size = 64;
 constexpr std::size_t burst_width = 128;
+constexpr std::size_t latency_batch_width = 16;
+
+struct latency_summary {
+  std::uint64_t p50_nanoseconds = 0;
+  std::uint64_t p95_nanoseconds = 0;
+  std::uint64_t maximum_nanoseconds = 0;
+};
+
+[[nodiscard]] latency_summary summarize_latency(std::vector<std::uint64_t> samples) {
+  std::ranges::sort(samples);
+  const std::size_t last = samples.size() - 1;
+  return latency_summary{samples[last * 50 / 100], samples[last * 95 / 100], samples[last]};
+}
 
 void run_caors_batch(caors::memory_resource& resource, std::size_t iterations) {
   std::array<void*, mixed_sizes.size()> pointers{};
@@ -92,6 +108,71 @@ void run_pmr_burst(std::pmr::memory_resource& resource, std::size_t burst_count)
       resource.deallocate(pointers[index - 1], size);
     }
   }
+}
+
+[[nodiscard]] latency_summary sample_caors_allocation_latency(caors::memory_resource& resource,
+                                                              std::size_t allocation_count) {
+  std::vector<void*> pointers(allocation_count);
+  std::vector<std::size_t> sizes(allocation_count);
+  std::vector<std::uint64_t> samples(allocation_count / latency_batch_width);
+
+  for (std::size_t batch = 0; batch < samples.size(); ++batch) {
+    const std::size_t begin_index = batch * latency_batch_width;
+    const auto begin = std::chrono::steady_clock::now();
+    for (std::size_t offset = 0; offset < latency_batch_width; ++offset) {
+      const std::size_t index = begin_index + offset;
+      sizes[index] = mixed_sizes[index % mixed_sizes.size()];
+      pointers[index] = resource.allocate(sizes[index]);
+    }
+    const auto end = std::chrono::steady_clock::now();
+    samples[batch] =
+        static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()) /
+        latency_batch_width;
+    consume_address(pointers[begin_index + latency_batch_width - 1]);
+  }
+
+  for (std::size_t index = allocation_count; index != 0; --index) {
+    resource.deallocate(pointers[index - 1], sizes[index - 1]);
+  }
+  return summarize_latency(std::move(samples));
+}
+
+[[nodiscard]] latency_summary sample_pmr_allocation_latency(std::pmr::memory_resource& resource,
+                                                            std::size_t allocation_count) {
+  std::vector<void*> pointers(allocation_count);
+  std::vector<std::size_t> sizes(allocation_count);
+  std::vector<std::uint64_t> samples(allocation_count / latency_batch_width);
+
+  for (std::size_t batch = 0; batch < samples.size(); ++batch) {
+    const std::size_t begin_index = batch * latency_batch_width;
+    const auto begin = std::chrono::steady_clock::now();
+    for (std::size_t offset = 0; offset < latency_batch_width; ++offset) {
+      const std::size_t index = begin_index + offset;
+      sizes[index] = mixed_sizes[index % mixed_sizes.size()];
+      pointers[index] = resource.allocate(sizes[index]);
+    }
+    const auto end = std::chrono::steady_clock::now();
+    samples[batch] =
+        static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()) /
+        latency_batch_width;
+    consume_address(pointers[begin_index + latency_batch_width - 1]);
+  }
+
+  for (std::size_t index = allocation_count; index != 0; --index) {
+    resource.deallocate(pointers[index - 1], sizes[index - 1]);
+  }
+  return summarize_latency(std::move(samples));
+}
+
+void print_latency(std::string_view name, const latency_summary& summary,
+                   std::size_t allocation_count) {
+  std::cout << "memory.pool.latency name=" << name
+            << " sample_batches=" << allocation_count / latency_batch_width
+            << " batch_width=" << latency_batch_width << " allocations=" << allocation_count
+            << " p50_ns=" << summary.p50_nanoseconds << " p95_ns=" << summary.p95_nanoseconds
+            << " max_ns=" << summary.maximum_nanoseconds << '\n';
 }
 
 class manual_fixed_pools {
@@ -279,6 +360,24 @@ void benchmark_memory_pools(std::size_t iterations) {
       run_pmr_batch(transient_pool, 1);
     }
   }
+
+  const std::size_t latency_allocation_count =
+      std::clamp<std::size_t>(iterations, 256, 8192) / latency_batch_width * latency_batch_width;
+  print_latency("system", sample_caors_allocation_latency(system, latency_allocation_count),
+                latency_allocation_count);
+
+  caors::size_class_pool_resource latency_pool{{}, &system};
+  print_latency("size_class",
+                sample_caors_allocation_latency(latency_pool, latency_allocation_count),
+                latency_allocation_count);
+
+  std::pmr::pool_options latency_pmr_options{};
+  latency_pmr_options.max_blocks_per_chunk = 64;
+  latency_pmr_options.largest_required_pool_block = 4096;
+  std::pmr::unsynchronized_pool_resource latency_pmr_pool{latency_pmr_options};
+  print_latency("pmr_unsynchronized",
+                sample_pmr_allocation_latency(latency_pmr_pool, latency_allocation_count),
+                latency_allocation_count);
 }
 
 } // namespace caors::benchmarks

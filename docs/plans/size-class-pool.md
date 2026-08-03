@@ -196,7 +196,7 @@ size_class_pool_resource
 
 - [x] 增加固定尺寸、混合尺寸、突发峰值和低复用 workload；
 - [x] 对比 system resource、多个手工 fixed block pool、`std::pmr::unsynchronized_pool_resource`；
-- [ ] 记录吞吐、P50/P95 延迟、上游调用次数、峰值保留容量和内部碎片率；
+- [x] 记录吞吐、P50/P95 延迟、上游调用次数、峰值保留容量和内部碎片率；
 - [ ] 只有在真实 workload 获得稳定收益后，才在其他 CAORS 组件中采用。
 
 ### 阶段 4：跨平台验证与文档收尾
@@ -230,6 +230,9 @@ size_class_pool_resource
   在固定尺寸和突发场景分别约为系统资源耗时的 23.3% 和 32.8%；低复用场景约为系统资源的
   3.17 倍，因此短生命周期、无重复利用的任务不应使用池；详细记录见
   `benchmarks/results/2026-08-03-windows-clang-size-class-pool-workloads.md`；
+- 2026-08-03：增加 16 次分配批次折算的延迟采样。size class pool 三轮中位 P50 为 18 ns、
+  P95 为 2168 ns；PMR 分别为 87 ns 和 981 ns。当前策略常规路径快，但冷启动扩容的尾延迟仍有
+  优化空间；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
 - Windows Shared 全量、MSVC、更多 workload、正式延迟分布和 Linux 验证仍未执行。
