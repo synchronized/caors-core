@@ -148,6 +148,26 @@
       ]
     },
     {
+      "name": "windows-msvc-shared-debug",
+      "displayName": "Windows x64 MSVC Shared Debug",
+      "inherits": [
+        "platform-windows",
+        "toolchain-msvc",
+        "config-debug",
+        "linkage-shared"
+      ]
+    },
+    {
+      "name": "windows-msvc-shared-release",
+      "displayName": "Windows x64 MSVC Shared Release",
+      "inherits": [
+        "platform-windows",
+        "toolchain-msvc",
+        "config-release",
+        "linkage-shared"
+      ]
+    },
+    {
       "name": "windows-vs2022-debug",
       "displayName": "Windows x64 Visual Studio 2022 Debug",
       "inherits": "generator-vs2022",
@@ -356,6 +376,16 @@
       "configurePreset": "windows-msvc-release"
     },
     {
+      "name": "windows-msvc-shared-debug",
+      "inherits": "build-windows",
+      "configurePreset": "windows-msvc-shared-debug"
+    },
+    {
+      "name": "windows-msvc-shared-release",
+      "inherits": "build-windows",
+      "configurePreset": "windows-msvc-shared-release"
+    },
+    {
       "name": "windows-clang-cl-debug",
       "inherits": "build-windows",
       "configurePreset": "windows-clang-cl-debug"
@@ -483,6 +513,16 @@
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
+      "inherits": "test-windows"
+    },
+    {
+      "name": "windows-msvc-shared-debug",
+      "configurePreset": "windows-msvc-shared-debug",
+      "inherits": "test-windows"
+    },
+    {
+      "name": "windows-msvc-shared-release",
+      "configurePreset": "windows-msvc-shared-release",
       "inherits": "test-windows"
     },
     {

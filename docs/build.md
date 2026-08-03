@@ -65,6 +65,8 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 | `windows-vs2022-release` | Visual Studio 2022 generator，Release 构建 |
 | `windows-msvc-debug` | Ninja + MSVC Debug，要求已初始化 MSVC 环境 |
 | `windows-msvc-release` | Ninja + MSVC Release，要求已初始化 MSVC 环境 |
+| `windows-msvc-shared-debug` | Ninja + MSVC Shared Debug 与插件测试，要求已初始化 MSVC 环境 |
+| `windows-msvc-shared-release` | Ninja + MSVC Shared Release 与插件测试，要求已初始化 MSVC 环境 |
 | `windows-clang-cl-debug` | Windows clang-cl Debug 构建 |
 | `windows-clang-debug` | Clang Debug 构建 |
 | `linux-clang-debug` | Clang Debug 构建 |
@@ -81,6 +83,7 @@ CMake 缓存。
 ```powershell
 .\scripts\msvc.ps1 -Action configure
 .\scripts\msvc.ps1 -Preset windows-msvc-release
+.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
 ```
 
 ## 构建并行度与内存

@@ -240,6 +240,9 @@ size_class_pool_resource
   证明容量跟随历史并发高水位，而不会随运行时间无界增长；
 - 2026-08-03：`windows-clang-shared-debug` 全量构建通过，85/85 测试通过，包含公共头自包含、
   插件协议和跨模块类型身份测试；
+- 2026-08-03：`windows-msvc-debug` Static 全量构建通过，83/83 测试通过；新增
+  `windows-msvc-shared-debug/release` preset，并完成 Shared Debug 全量构建与 85/85 测试，包含
+  插件协议和跨模块类型身份测试；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
-- Windows MSVC、真实业务 workload 和 Linux 验证仍未执行。
+- Windows Release、真实业务 workload 和 Linux 验证仍未执行。
