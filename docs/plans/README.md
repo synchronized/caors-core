@@ -18,6 +18,8 @@
   阶段性结论已完成；Linux 正式性能复验等待固定环境。
 - [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：核心迁移与 Windows 性能复验
   已完成；固定 Linux 环境部署后补充跨平台性能数据。
+- [memory-debug-guards.md](memory-debug-guards.md)：guard、填充、违规统计、Windows Static/Shared
+  验证已完成；Linux Clang/GCC/ASan 等待 GitHub Actions Billing/额度恢复。
 
 ### 已完成
 
@@ -56,6 +58,8 @@
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
   非拥有适配、失败语义和生命周期边界计划。
+- [memory-debug-guards.md](memory-debug-guards.md)：显式调试资源的前后越界检测、分配/释放填充和
+  违规报告计划。
 
 ## Meta
 
