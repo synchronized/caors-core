@@ -194,7 +194,7 @@ size_class_pool_resource
 
 ### 阶段 3：性能与碎片率验证
 
-- [ ] 增加固定尺寸、混合尺寸、突发峰值和低复用 workload；
+- [x] 增加固定尺寸、混合尺寸、突发峰值和低复用 workload；
 - [x] 对比 system resource、多个手工 fixed block pool、`std::pmr::unsynchronized_pool_resource`；
 - [ ] 记录吞吐、P50/P95 延迟、上游调用次数、峰值保留容量和内部碎片率；
 - [ ] 只有在真实 workload 获得稳定收益后，才在其他 CAORS 组件中采用。
@@ -226,6 +226,10 @@ size_class_pool_resource
 - 2026-08-03：默认 chunk 改为以 4096 字节为目标、64 块为上限的自适应容量；相同 workload
   的保留容量由 97,280 降至 19,456 字节，减少 80%，三轮中位耗时为 16.25 ms；详细记录见
   `benchmarks/results/2026-08-03-windows-clang-size-class-pool-adaptive.md`；
+- 2026-08-03：补齐固定尺寸、突发峰值和低复用 workload。三轮中位结果显示，size class pool
+  在固定尺寸和突发场景分别约为系统资源耗时的 23.3% 和 32.8%；低复用场景约为系统资源的
+  3.17 倍，因此短生命周期、无重复利用的任务不应使用池；详细记录见
+  `benchmarks/results/2026-08-03-windows-clang-size-class-pool-workloads.md`；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
 - Windows Shared 全量、MSVC、更多 workload、正式延迟分布和 Linux 验证仍未执行。
