@@ -65,7 +65,7 @@ class CAORS_API type_record {
 public:
   type_record() = default;
   type_record(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
-              type_id parent_id = type_id::invalid());
+              type_id parent_id = type_id::invalid(), memory::memory_resource* resource = nullptr);
   type_record(type_id id, string_name name, type_guid guid, value_storage_ops value,
               type_semantics semantics, builtin_ops builtin,
               const capability_entry* static_capabilities, std::size_t static_capability_count,
@@ -87,6 +87,7 @@ public:
 
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
   [[nodiscard]] constexpr bool registered() const noexcept { return valid() && registered_; }
+  [[nodiscard]] constexpr memory::memory_resource* resource() const noexcept { return resource_; }
   [[nodiscard]] bool static_model_matches(const type_record& other) const noexcept;
 
   /** @brief 将记录拥有的动态存储迁移到指定注册表资源。 */

@@ -33,8 +33,10 @@ struct type_details {
   vector<capability_data> capabilities{};
 };
 
-type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id)
+type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id,
+                         memory::memory_resource* resource)
     : id_(id), name_(name), guid_(guid), registered_(true),
+      resource_(resource != nullptr ? resource : &memory::library_resource()),
       details_(memory::make<type_details>(resource_, resource_)) {
   details_->parent_id = parent_id;
 }
@@ -359,7 +361,7 @@ std::optional<std::size_t> type_record::add_method(method_record method) {
     return existing->add_overload(std::move(method));
   }
 
-  method_set_record method_set{method.name()};
+  method_set_record method_set{method.name(), resource_};
   std::optional<std::size_t> overload_index = method_set.add_overload(std::move(method));
   if (!overload_index.has_value()) {
     return std::nullopt;
@@ -505,6 +507,7 @@ const enum_value_record* type_record::find_enum_value_ptr(std::uint64_t value) c
 }
 
 void type_record::add_enum_value(enum_value_record value) {
+  value.rebind_resource(resource_);
   ensure_details().enum_values.push_back(std::move(value));
 }
 

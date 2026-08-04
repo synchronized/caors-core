@@ -20,7 +20,8 @@ namespace caors::meta::detail {
 class pending_type_record final {
 public:
   pending_type_record() = default;
-  pending_type_record(type_id id, string_name name) : data_(id, name) {}
+  pending_type_record(type_id id, string_name name, memory::memory_resource* resource = nullptr)
+      : data_(id, name, type_guid::nil(), type_id::invalid(), resource) {}
 
   pending_type_record(const pending_type_record&) = delete;
   pending_type_record& operator=(const pending_type_record&) = delete;
@@ -28,6 +29,9 @@ public:
   pending_type_record& operator=(pending_type_record&&) noexcept = default;
 
   [[nodiscard]] constexpr type_id id() const noexcept { return data_.id(); }
+  [[nodiscard]] constexpr memory::memory_resource* resource() const noexcept {
+    return data_.resource();
+  }
   [[nodiscard]] type_id parent_id() const noexcept { return data_.parent_id(); }
 
   constexpr void set_guid(type_guid guid) noexcept { data_.set_guid(guid); }

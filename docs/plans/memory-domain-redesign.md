@@ -271,11 +271,11 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 1：Registry 资源完整传播
 
-- [ ] `type_record` 保存所属 layer resource；
-- [ ] `type_details`、property、method、enum、metadata、nested type 与 dynamic capability 继承该资源；
-- [ ] 消除可卸载 record 路径中的直接 `library_resource()`；
-- [ ] 测试 primary 与 plugin layer 使用不同 tracking resource；
-- [ ] 验证 layer 销毁后其 tracking resource 无存活分配。
+- [x] `type_record` 保存所属 layer resource；
+- [x] `type_details`、property、method、enum、metadata、nested type 与 dynamic capability 继承该资源；
+- [x] 消除可卸载 record 路径中的直接 `library_resource()`；
+- [x] 测试 primary 与 plugin layer 使用不同 tracking resource；
+- [x] 验证 layer 销毁后其 tracking resource 无存活分配。
 
 ### 阶段 2：Process domain 收敛
 

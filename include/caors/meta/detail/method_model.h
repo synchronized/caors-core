@@ -370,11 +370,13 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                               Return (Class::*member)(Arguments...)) {
+                                               Return (Class::*member)(Arguments...),
+                                               memory::memory_resource* resource = nullptr) {
   method_record method{
       string_name{name},
       member_method_dispatch<Class, Return, Arguments...>(),
       false,
+      resource,
   };
   method.store_member_pointer(member);
   return method;
@@ -382,11 +384,13 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                               Return (Class::*member)(Arguments...) const) {
+                                               Return (Class::*member)(Arguments...) const,
+                                               memory::memory_resource* resource = nullptr) {
   method_record method{
       string_name{name},
       const_member_method_dispatch<Class, Return, Arguments...>(),
       true,
+      resource,
   };
   method.store_member_pointer(member);
   return method;

@@ -83,6 +83,13 @@ enum class registry_layer_lifetime {
   detachable,
 };
 
+/** @brief registry layer 创建选项。 */
+struct registry_layer_options {
+  registry_layer_lifetime lifetime = registry_layer_lifetime::detachable;
+  /** @brief layer 完整注册数据使用的资源；为空时继承宿主 registry 资源。 */
+  memory::memory_resource* internal_resource = nullptr;
+};
+
 /**
  * @brief 类型元数据注册表。
  *
@@ -130,6 +137,8 @@ public:
   /** @brief 按指定生命周期创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
   [[nodiscard]] std::unique_ptr<registry_layer>
   create_layer(registry_layer_lifetime lifetime) const;
+  /** @brief 使用独立生命周期和内存资源创建隔离 layer draft。 */
+  [[nodiscard]] std::unique_ptr<registry_layer> create_layer(registry_layer_options options) const;
   /** @brief 校验、冻结并原子发布 layer；失败时当前 registry 保持不变。 */
   [[nodiscard]] error publish_layer(registry_layer& layer);
   /** @brief 从新 snapshot 原子移除已发布 layer，并使旧句柄失效。 */

@@ -89,8 +89,14 @@ std::unique_ptr<registry_layer> registry::create_layer() const {
 }
 
 std::unique_ptr<registry_layer> registry::create_layer(registry_layer_lifetime lifetime) const {
+  return create_layer(registry_layer_options{.lifetime = lifetime});
+}
+
+std::unique_ptr<registry_layer> registry::create_layer(registry_layer_options options) const {
+  memory::memory_resource* resource =
+      options.internal_resource != nullptr ? options.internal_resource : state_resource_;
   return std::unique_ptr<registry_layer>{
-      new registry_layer{capture_snapshot(), lifetime, state_resource_}};
+      new registry_layer{capture_snapshot(), options.lifetime, resource}};
 }
 
 std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const noexcept {

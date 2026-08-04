@@ -173,8 +173,8 @@ public:
   using destroy_fn = void (*)(void*, memory::memory_resource*) noexcept;
 
   method_wrapper() noexcept = default;
-  explicit method_wrapper(invoke_fn invoke)
-      : resource_(&memory::library_resource()),
+  explicit method_wrapper(invoke_fn invoke, memory::memory_resource* resource = nullptr)
+      : resource_(resource != nullptr ? resource : &memory::library_resource()),
         state_(memory::make<method_wrapper_state>(resource_, resource_)), invoke_(invoke),
         destroy_(&destroy) {}
 
@@ -230,7 +230,8 @@ public:
   template <typename Callable> void store_callable(Callable&& callable) {
     using value_type = std::decay_t<Callable>;
     static_cast<method_wrapper_state*>(state_)->callable =
-        std::make_shared<method_callable_storage_model<value_type>>(
+        std::allocate_shared<method_callable_storage_model<value_type>>(
+            memory::allocator<method_callable_storage_model<value_type>>{resource_},
             std::forward<Callable>(callable));
   }
 
@@ -271,8 +272,15 @@ class method_record final {
 public:
   method_record() noexcept = default;
 
-  method_record(string_name method_name, method_wrapper::invoke_fn invoke, bool is_const_method)
-      : name_(method_name), const_method_(is_const_method), wrapper_(invoke) {}
+  method_record(string_name method_name, method_wrapper::invoke_fn invoke, bool is_const_method,
+                memory::memory_resource* resource = nullptr)
+      : name_(method_name), const_method_(is_const_method),
+        default_arguments_(
+            memory::allocator<any>{resource != nullptr ? resource : &memory::library_resource()}),
+        parameter_names_(memory::allocator<string_name>{
+            resource != nullptr ? resource : &memory::library_resource()}),
+        resource_(resource != nullptr ? resource : &memory::library_resource()),
+        wrapper_(invoke, resource_) {}
 
   method_record(const method_record&) = delete;
   method_record& operator=(const method_record&) = delete;
@@ -294,8 +302,8 @@ public:
 
   void set_metadata(meta::metadata_key key, meta::metadata_value value) {
     if (metadata_ == nullptr) {
-      metadata_ = memory::make_unique<meta::metadata_map>(
-          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(resource_, meta::make_metadata_map(resource_));
     }
     meta::set_metadata(*metadata_, key, std::move(value));
   }
@@ -746,6 +754,7 @@ private:
   vector<any> default_arguments_{};
   vector<string_name> parameter_names_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
+  memory::memory_resource* resource_ = &memory::library_resource();
   method_wrapper wrapper_{};
 };
 
@@ -753,7 +762,10 @@ private:
 class method_set_record final {
 public:
   method_set_record() noexcept = default;
-  explicit method_set_record(string_name method_name) noexcept : name_(method_name) {}
+  explicit method_set_record(string_name method_name,
+                             memory::memory_resource* resource = nullptr) noexcept
+      : name_(method_name), overloads_(memory::allocator<method_record>{
+                                resource != nullptr ? resource : &memory::library_resource()}) {}
 
   [[nodiscard]] bool valid() const noexcept {
     if (!name_ || overloads_.empty()) {

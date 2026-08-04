@@ -446,6 +446,36 @@ TEST_CASE("meta registry 内部资源可注入并在销毁时释放外层状态"
   CHECK(released.bytes_in_use == 0);
 }
 
+TEST_CASE("meta registry layer 可使用独立资源并在卸载后完整释放") {
+  caors::tracking_resource primary_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource layer_tracking{&caors::get_system_memory_resource()};
+  caors::meta::registry registry{caors::meta::registry_options{
+      .internal_resource = &primary_tracking,
+  }};
+
+  auto layer = registry.create_layer(caors::meta::registry_layer_options{
+      .internal_resource = &layer_tracking,
+  });
+  caors::meta::context layer_context{layer->get_registry()};
+  REQUIRE_FALSE(caors::registration::type_<overlay_reflected_type>(
+                    layer_context, "caors.test.meta.memory_domain_layer")
+                    .meta()
+                    .property("value", &overlay_reflected_type::value)
+                    .method("get_value", &overlay_reflected_type::get_value)
+                    .metadata("domain", "layer")
+                    .commit());
+
+  CHECK(layer_tracking.statistics().bytes_in_use > 0);
+  REQUIRE_FALSE(registry.publish_layer(*layer));
+  REQUIRE_FALSE(registry.detach_layer(*layer));
+  layer.reset();
+
+  const caors::memory_statistics released = layer_tracking.statistics();
+  CHECK(released.allocation_count > 0);
+  CHECK(released.deallocation_count == released.allocation_count);
+  CHECK(released.bytes_in_use == 0);
+}
+
 TEST_CASE("meta registry frozen_read_optimized 在 init 后冻结 primary layer") {
   caors::meta::registry registry{caors::meta::registry_options{
       caors::meta::registry_management_policy::frozen_read_optimized}};
