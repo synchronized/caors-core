@@ -29,7 +29,7 @@ using metadata_map = core::hash_map<metadata_key, metadata_value>;
 /** @brief 创建 metadata 表。 */
 [[nodiscard]] inline metadata_map make_metadata_map(memory_resource* resource = nullptr) {
   return core::make_hash_map<metadata_key, metadata_value>(
-      resource != nullptr ? resource : &memory::library_resource());
+      resource != nullptr ? resource : &memory::process_resource());
 }
 
 /** @brief 查询 metadata 值。 */
@@ -103,7 +103,7 @@ template <typename T>
 make_metadata_string_array(std::initializer_list<std::string_view> values,
                            memory_resource* resource = nullptr) {
   metadata_value::array_type array{typename metadata_value::array_type::allocator_type{
-      resource != nullptr ? resource : &memory::library_resource()}};
+      resource != nullptr ? resource : &memory::process_resource()}};
   array.reserve(values.size());
   for (std::string_view value : values) {
     array.push_back(metadata_value::from(value));

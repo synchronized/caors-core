@@ -12,7 +12,7 @@ registry::registry() : registry(registry_options{}) {}
 
 registry::registry(registry_options options)
     : state_resource_(options.internal_resource != nullptr ? options.internal_resource
-                                                           : &memory::library_resource()),
+                                                           : &memory::process_resource()),
       options_(options), primary_layer_(std::make_shared<detail::registry_layer_state>(
                              state_resource_, registry_layer_lifetime::pinned_process)),
       snapshot_(std::make_shared<detail::registry_snapshot>(primary_layer_)),
@@ -22,7 +22,7 @@ registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
                    registry_layer_lifetime layer_lifetime,
                    memory::memory_resource* internal_resource)
     : state_resource_(internal_resource != nullptr ? internal_resource
-                                                   : &memory::library_resource()),
+                                                   : &memory::process_resource()),
       primary_layer_(
           std::make_shared<detail::registry_layer_state>(state_resource_, layer_lifetime)),
       state_(&primary_layer_->state()) {

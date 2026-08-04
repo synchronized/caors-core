@@ -24,7 +24,7 @@ namespace caors::meta::detail {
 class registry_state {
 public:
   explicit registry_state(memory::memory_resource* internal_resource = nullptr)
-      : resource(internal_resource != nullptr ? internal_resource : &memory::library_resource()),
+      : resource(internal_resource != nullptr ? internal_resource : &memory::process_resource()),
         registrations(core::vector<registration_fn>::allocator_type{resource}),
         types(core::hash_map<std::uint64_t, memory::unique_ptr<type_record>>::allocator_type{
             resource}),

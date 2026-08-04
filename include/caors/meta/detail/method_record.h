@@ -142,7 +142,7 @@ struct method_wrapper_state {
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
   explicit method_wrapper_state(memory::memory_resource* resource) noexcept
-      : member_resource(resource != nullptr ? resource : &memory::library_resource()) {}
+      : member_resource(resource != nullptr ? resource : &memory::process_resource()) {}
   ~method_wrapper_state() { reset_member_storage(); }
 
   method_wrapper_state(const method_wrapper_state&) = delete;
@@ -174,7 +174,7 @@ public:
 
   method_wrapper() noexcept = default;
   explicit method_wrapper(invoke_fn invoke, memory::memory_resource* resource = nullptr)
-      : resource_(resource != nullptr ? resource : &memory::library_resource()),
+      : resource_(resource != nullptr ? resource : &memory::process_resource()),
         state_(memory::make<method_wrapper_state>(resource_, resource_)), invoke_(invoke),
         destroy_(&destroy) {}
 
@@ -276,10 +276,10 @@ public:
                 memory::memory_resource* resource = nullptr)
       : name_(method_name), const_method_(is_const_method),
         default_arguments_(
-            memory::allocator<any>{resource != nullptr ? resource : &memory::library_resource()}),
+            memory::allocator<any>{resource != nullptr ? resource : &memory::process_resource()}),
         parameter_names_(memory::allocator<string_name>{
-            resource != nullptr ? resource : &memory::library_resource()}),
-        resource_(resource != nullptr ? resource : &memory::library_resource()),
+            resource != nullptr ? resource : &memory::process_resource()}),
+        resource_(resource != nullptr ? resource : &memory::process_resource()),
         wrapper_(invoke, resource_) {}
 
   method_record(const method_record&) = delete;
@@ -591,7 +591,7 @@ private:
 
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
@@ -754,7 +754,7 @@ private:
   vector<any> default_arguments_{};
   vector<string_name> parameter_names_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
-  memory::memory_resource* resource_ = &memory::library_resource();
+  memory::memory_resource* resource_ = &memory::process_resource();
   method_wrapper wrapper_{};
 };
 
@@ -765,7 +765,7 @@ public:
   explicit method_set_record(string_name method_name,
                              memory::memory_resource* resource = nullptr) noexcept
       : name_(method_name), overloads_(memory::allocator<method_record>{
-                                resource != nullptr ? resource : &memory::library_resource()}) {}
+                                resource != nullptr ? resource : &memory::process_resource()}) {}
 
   [[nodiscard]] bool valid() const noexcept {
     if (!name_ || overloads_.empty()) {

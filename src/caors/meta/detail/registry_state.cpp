@@ -16,7 +16,7 @@ std::atomic<std::uint64_t> next_layer_generation{1};
 
 registry_layer_state::registry_layer_state(memory::memory_resource* resource,
                                            registry_layer_lifetime lifetime)
-    : resource_(resource != nullptr ? resource : &memory::library_resource()),
+    : resource_(resource != nullptr ? resource : &memory::process_resource()),
       state_(memory::make<registry_state>(resource_, resource_)), lifetime_(lifetime),
       generation_(next_layer_generation.fetch_add(1, std::memory_order_relaxed)) {}
 

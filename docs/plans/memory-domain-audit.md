@@ -149,6 +149,10 @@
 - registry 析构后 allocation/deallocation 数量相等、分配/释放字节相等且存活字节归零；
 - 不固定编译器和 STL 相关的精确分配次数、字节数或峰值。
 
-静态审计同时确认，当前 `type_details`、property/method metadata 等深层分配仍直接使用
-`library_resource()`，尚未计入 layer tracking。阶段 1 的目标是让完整 record 对象图都由该注入资源覆盖，
-并继续保持 layer 销毁后零存活分配。
+阶段 1 已让 `type_details`、property/method/enum metadata、wrapper 状态和 owned capability 继承
+所属 layer resource，并验证独立 layer detach/销毁后 tracking resource 零存活分配。
+
+阶段 2 新增 `process_resource()` 并迁移 `string_name`、type/capability identity、全局 module 索引和
+静态空 metadata。源码与公共头中的 `library_resource()` 文本出现已从阶段 0 的 54 处收敛至 23 处；
+剩余调用集中在方法返回值、容器迭代器、registration batch、registry snapshot 和 memory
+基础设施内部存储，需要分别在 result/scratch、runtime owner 或基础设施 owner 阶段处理，不能机械替换。

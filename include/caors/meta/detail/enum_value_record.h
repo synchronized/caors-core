@@ -20,7 +20,7 @@ public:
   enum_value_record(string_name enum_name, std::int64_t signed_value, std::uint64_t unsigned_value,
                     memory::memory_resource* resource = nullptr) noexcept
       : name_(enum_name), signed_value_(signed_value), unsigned_value_(unsigned_value),
-        resource_(resource != nullptr ? resource : &memory::library_resource()) {}
+        resource_(resource != nullptr ? resource : &memory::process_resource()) {}
 
   enum_value_record(const enum_value_record& other)
       : name_(other.name_), signed_value_(other.signed_value_),
@@ -66,7 +66,7 @@ public:
 
   void rebind_resource(memory::memory_resource* resource) {
     memory::memory_resource* resolved =
-        resource != nullptr ? resource : &memory::library_resource();
+        resource != nullptr ? resource : &memory::process_resource();
     if (resolved == resource_) {
       return;
     }
@@ -91,7 +91,7 @@ public:
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
@@ -99,7 +99,7 @@ private:
   std::int64_t signed_value_ = 0;
   std::uint64_t unsigned_value_ = 0;
   memory::unique_ptr<meta::metadata_map> metadata_{};
-  memory::memory_resource* resource_ = &memory::library_resource();
+  memory::memory_resource* resource_ = &memory::process_resource();
 };
 
 } // namespace caors::meta::detail

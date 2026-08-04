@@ -139,7 +139,7 @@ private:
 template <typename Model, typename... Args>
 [[nodiscard]] property_wrapper
 make_property_wrapper_with_resource(memory::memory_resource* resource, Args&&... args) {
-  resource = resource != nullptr ? resource : &memory::library_resource();
+  resource = resource != nullptr ? resource : &memory::process_resource();
   Model* state = memory::make<Model>(resource, std::forward<Args>(args)...);
   return property_wrapper{
       state,
@@ -162,7 +162,7 @@ public:
   property_record() noexcept = default;
   property_record(string_name name, property_wrapper wrapper,
                   memory::memory_resource* resource = nullptr) noexcept
-      : name_(name), resource_(resource != nullptr ? resource : &memory::library_resource()),
+      : name_(name), resource_(resource != nullptr ? resource : &memory::process_resource()),
         wrapper_(std::move(wrapper)) {}
 
   property_record(const property_record&) = delete;
@@ -276,14 +276,14 @@ public:
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
   string_name name_{};
   meta::property_schema schema_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
-  memory::memory_resource* resource_ = &memory::library_resource();
+  memory::memory_resource* resource_ = &memory::process_resource();
   property_wrapper wrapper_{};
 };
 

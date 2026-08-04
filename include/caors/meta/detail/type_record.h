@@ -146,7 +146,7 @@ private:
   const capability_entry* static_capabilities_ = nullptr;
   std::size_t static_capability_count_ = 0;
   bool registered_ = false;
-  memory::memory_resource* resource_ = &memory::library_resource();
+  memory::memory_resource* resource_ = &memory::process_resource();
   type_details* details_ = nullptr;
 };
 

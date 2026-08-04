@@ -36,7 +36,7 @@ struct type_details {
 type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id,
                          memory::memory_resource* resource)
     : id_(id), name_(name), guid_(guid), registered_(true),
-      resource_(resource != nullptr ? resource : &memory::library_resource()),
+      resource_(resource != nullptr ? resource : &memory::process_resource()),
       details_(memory::make<type_details>(resource_, resource_)) {
   details_->parent_id = parent_id;
 }
@@ -83,7 +83,7 @@ type_record::~type_record() {
 }
 
 void type_record::rebind_resource(memory::memory_resource* resource) {
-  memory::memory_resource* resolved = resource != nullptr ? resource : &memory::library_resource();
+  memory::memory_resource* resolved = resource != nullptr ? resource : &memory::process_resource();
   if (resolved == resource_) {
     return;
   }
@@ -242,7 +242,7 @@ bool type_record::members_valid() const noexcept {
 
 const meta::metadata_map& type_record::metadata() const noexcept {
   static const meta::metadata_map empty{
-      typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+      typename meta::metadata_map::allocator_type{&memory::process_resource()}};
 
   const type_details* value = details();
   return value != nullptr && value->metadata != nullptr ? *value->metadata : empty;
