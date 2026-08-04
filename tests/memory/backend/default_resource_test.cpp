@@ -19,3 +19,7 @@ TEST_CASE("memory - default resource can be replaced", "[memory]") {
   CHECK(state.allocate_count == 1);
   CHECK(state.deallocate_count == 1);
 }
+
+TEST_CASE("memory - library resource remains a process resource compatibility alias", "[memory]") {
+  CHECK(&caors::library_resource() == &caors::process_resource());
+}

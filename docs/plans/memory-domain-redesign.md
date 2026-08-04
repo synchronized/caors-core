@@ -279,7 +279,7 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 2：Process domain 收敛
 
-- [ ] 识别真正永久的 string/type/capability identity 数据；
+- [x] 识别真正永久的 string/type/capability identity 数据；
 - [ ] 引入明确的 process resource/runtime owner；
 - [ ] 将 `library_resource()` 限制为兼容入口并阻止新滥用；
 - [ ] 支持测试创建隔离 runtime/context，避免所有测试依赖进程单例。

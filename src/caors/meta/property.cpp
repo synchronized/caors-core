@@ -24,7 +24,7 @@ namespace {
 
 [[nodiscard]] const meta::metadata_map& empty_metadata_map() noexcept {
   static const meta::metadata_map empty{
-      typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+      typename meta::metadata_map::allocator_type{&memory::process_resource()}};
   return empty;
 }
 

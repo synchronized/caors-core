@@ -539,6 +539,16 @@ backend / strategy resource
   各自声明并保证自己的线程安全边界
 ```
 
+## 生命周期资源入口
+
+`process_resource()` 专门用于进程生命周期内不会卸载的永久数据，例如 `string_name` 驻留表、
+type/capability identity 和全局 module 索引。它默认固定使用 system resource；只有构建时启用
+`CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=1` 才会跟随默认资源。
+
+`library_resource()` 保留为兼容入口，当前与 `process_resource()` 返回同一资源。新代码不应把它当作
+通用内部分配器：registry/type 数据应使用所属 layer 注入资源，单次操作使用 scratch，返回对象使用
+调用方提供的 result resource。
+
 ## 当前已实现能力
 
 - 统一抽象：`memory_resource`
@@ -554,6 +564,7 @@ backend / strategy resource
 - 固定块策略：`fixed_block_pool`
 - 分级块策略：`size_class_pool_resource`
 - 默认资源入口：`get_default_memory_resource()` / `set_default_memory_resource()`
+- 进程永久数据入口：`process_resource()`；`library_resource()` 仅作为兼容别名
 - 全局分配入口：`try_allocate()` / `allocate()` / `deallocate()`
 - 基础对齐分配
 - 基础配置常量：`caors::config::default_new_alignment` / `caors::config::has_exceptions`

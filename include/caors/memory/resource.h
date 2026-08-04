@@ -124,11 +124,17 @@ private:
 [[nodiscard]] CAORS_API memory_resource* get_default_memory_resource() noexcept;
 CAORS_API memory_resource* set_default_memory_resource(memory_resource* resource) noexcept;
 /**
- * @brief CAORS 库内部全局元数据使用的内存资源。
+ * @brief CAORS 进程级永久数据使用的内存资源。
  *
  * 默认固定使用 system resource，避免静态初始化阶段尚未设置默认资源时，类型注册、
  * `string_name` 等全局表捕获到不可预期资源。需要调试内部元数据分配时，可以在编译期定义
  * `CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=1`，让内部表跟随当前默认资源。
+ */
+[[nodiscard]] CAORS_API memory_resource& process_resource() noexcept;
+/**
+ * @brief 兼容旧代码的库内部资源入口。
+ *
+ * 新代码应按生命周期选择 `process_resource()`、registry 注入资源、scratch 或 result resource。
  */
 [[nodiscard]] CAORS_API memory_resource& library_resource() noexcept;
 
@@ -261,6 +267,7 @@ using memory::library_resource;
 using memory::make;
 using memory::memory_block;
 using memory::memory_resource;
+using memory::process_resource;
 using memory::operator!=;
 using memory::operator==;
 using memory::allocate;

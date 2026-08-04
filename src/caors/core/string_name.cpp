@@ -28,7 +28,7 @@ namespace {
 class string_name_table {
 public:
   string_name_table()
-      : resource_(&memory::library_resource()),
+      : resource_(&memory::process_resource()),
         entries_by_text_(
             hash_map<string, memory::unique_ptr<detail::string_name_entry>>::allocator_type{
                 resource_}) {}
