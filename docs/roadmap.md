@@ -41,7 +41,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
   序列化模块已先行收敛到 `serialize` / `deserialize` / `to_value` / `to_string`，资源模块低层
   source/provider/loader/request/config/helper 别名已收敛回 `caors::resources` 命名空间。
-- [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
+- [ ] 按 `docs/plans/small-vector.md` 实现 resource 感知的 `small_vector`，再根据真实地址稳定需求
+  单独规划 `stable_vector`。
 
 ## 0.5. Math 基础数学类型
 
