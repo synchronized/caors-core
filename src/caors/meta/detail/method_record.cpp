@@ -30,8 +30,9 @@ namespace {
   }
 }
 
-[[nodiscard]] vector<argument> make_arguments(std::span<const meta::value> values) {
-  vector<argument> arguments{};
+[[nodiscard]] vector<argument> make_arguments(std::span<const meta::value> values,
+                                              memory::memory_resource* resource) {
+  vector<argument> arguments{memory::allocator<argument>{resource}};
   arguments.reserve(values.size());
   for (const meta::value& value : values) {
     argument converted = value.to_argument();
@@ -48,11 +49,13 @@ namespace {
 invoke_value_result method_record::invoke_runtime_value(const void* object, bool mutable_object,
                                                         std::span<const meta::value> arguments,
                                                         argument_match_options options) const {
+  temporary_memory_scope scratch{options.scratch_resource};
+  options.scratch_resource = scratch.resource();
   if (matches_arguments(arguments, options)) {
     return invoke_value_result_of(object, mutable_object, arguments, options);
   }
 
-  vector<argument> converted = make_arguments(arguments);
+  vector<argument> converted = make_arguments(arguments, options.scratch_resource);
   if (converted.empty() && !arguments.empty()) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
   }
@@ -62,6 +65,8 @@ invoke_value_result method_record::invoke_runtime_value(const void* object, bool
 invoke_value_result method_set_record::invoke_runtime_value(const void* object, bool mutable_object,
                                                             std::span<const meta::value> arguments,
                                                             argument_match_options options) const {
+  temporary_memory_scope scratch{options.scratch_resource};
+  options.scratch_resource = scratch.resource();
   const method_invocation_resolution value_match =
       match_invocable(arguments, options, object, mutable_object);
   if (value_match.kind == method_match_kind::ambiguous) {
@@ -74,7 +79,7 @@ invoke_value_result method_set_record::invoke_runtime_value(const void* object, 
     return invoke_value_result::failed(value_match.failure_reason);
   }
 
-  vector<argument> converted = make_arguments(arguments);
+  vector<argument> converted = make_arguments(arguments, options.scratch_resource);
   if (converted.empty() && !arguments.empty()) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
   }

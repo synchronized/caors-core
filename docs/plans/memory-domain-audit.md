@@ -74,7 +74,7 @@
 | `meta/detail/method_record.*` | 参数补全、规范化、转换和 overload 准备（已接入） | 单次 invoke |
 | `meta/detail/argument_access.h` | 内建参数转换结果（已接入） | 单次 invoke |
 | JSON reader/writer 与 DOM reader context stack | 解析、写出栈与成员暂存（已接入） | 单次 parse/read/write |
-| registry 查询局部 layer/snapshot vector | 查询调用 | 单次 query |
+| registry 普通查询 | 当前逐 layer 无分配查询；捕获的 snapshot 是长期共享状态，不属于 scratch | 单次 query |
 
 现有 8 处 `library_temporary_resource()` 主要集中在 serialization。阶段 3 不追求增加全局 TLS 访问点，
 而是让核心实现接收显式 scratch scope，由同步 convenience API 在入口解析 TLS 默认值。

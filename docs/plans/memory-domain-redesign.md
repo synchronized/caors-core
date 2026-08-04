@@ -288,7 +288,7 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 - [x] meta 方法参数准备、默认参数补全和转换接入 scratch scope；
 - [x] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
-- [ ] registry 查询临时集合接入 scratch；
+- [x] 审查 registry 查询路径；当前普通查询无临时集合，长期 snapshot 保持 registry resource；
 - [ ] 保证非平凡临时对象在 rewind 前析构；
 - [ ] 增加嵌套调用、异常、提前返回和无异常构建测试。
 
