@@ -71,8 +71,8 @@
 |---|---|---|
 | `serialization/detail/temporary_memory.h` | typed serialization 临时 scope | 单次同步调用 |
 | `serialization/messagepack.cpp` | parser/writer frame 与事务暂存 | 单次 encode/decode 或 writer operation |
-| `meta/detail/method_record.*` | 参数补全、规范化、转换和 overload 准备 | 单次 invoke |
-| `meta/detail/argument_access.h` | 参数转换结果 | 单次 invoke |
+| `meta/detail/method_record.*` | 参数补全、规范化、转换和 overload 准备（已接入） | 单次 invoke |
+| `meta/detail/argument_access.h` | 内建参数转换结果（已接入） | 单次 invoke |
 | JSON/DOM reader context stack | 解析栈与成员暂存 | 单次 parse/read |
 | registry 查询局部 layer/snapshot vector | 查询调用 | 单次 query |
 

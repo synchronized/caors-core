@@ -213,6 +213,14 @@ public:
     return copy_from_raw(meta::resolve<type>(), &source);
   }
 
+  /** @brief 使用指定资源复制 C++ 值；结果会用同一资源销毁。 */
+  template <typename T>
+  [[nodiscard]] static any from(const T& source, memory::memory_resource* resource) {
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+    static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
+    return copy_from_raw(meta::resolve<type>(), &source, resource);
+  }
+
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any from(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -255,6 +263,10 @@ public:
    * `any`。
    */
   [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
+
+  /** @brief 使用指定资源从原始地址复制构造运行期值。 */
+  [[nodiscard]] static any copy_from_raw(meta::type type, const void* source,
+                                         memory::memory_resource* resource);
 
   /** @brief 接管一个 `owned_value` 持有的对象。转移成功后 `owned_value` 变为空。 */
   [[nodiscard]] static any take_ownership(owned_value&& value);

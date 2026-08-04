@@ -9,6 +9,7 @@
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/detail/request_payload.h"
+#include "caors/meta/detail/temporary_memory.h"
 #include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
@@ -355,6 +356,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const argument> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
@@ -371,6 +374,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const meta::value> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
@@ -387,6 +392,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     vector<argument> completed = normalize_named_arguments(arguments, options);
     return !completed.empty() ? rank_model_arguments(completed, options)
                               : argument_match_rank::none;
@@ -412,6 +419,8 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const argument> arguments,
                                                argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_result::failed(invoke_failure_reason::invalid_object);
@@ -437,6 +446,8 @@ public:
   invoke_value_result_of(const void* object, bool mutable_object,
                          std::span<const meta::value> arguments,
                          argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_value_result::failed(invoke_failure_reason::invalid_object);
@@ -465,6 +476,8 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_result::failed(invoke_failure_reason::invalid_object);
@@ -569,7 +582,9 @@ private:
 
   [[nodiscard]] vector<argument> prepare_model_arguments(std::span<const argument> arguments,
                                                          argument_match_options options) const {
-    method_prepare_arguments_request request{this, arguments, options};
+    method_prepare_arguments_request request{
+        this, arguments, options,
+        vector<argument>{memory::allocator<argument>{options.scratch_resource}}};
     (void)wrapper_.invoke(method_request_kind::prepare_arguments, request_payload{request});
     return std::move(request.result);
   }
@@ -617,7 +632,7 @@ private:
       return {};
     }
 
-    vector<argument> completed{};
+    vector<argument> completed{memory::allocator<argument>{options.scratch_resource}};
     completed.reserve(parameter_count());
     for (const argument& value : arguments) {
       completed.push_back(value);
@@ -643,7 +658,7 @@ private:
       return {};
     }
 
-    vector<meta::value> completed{};
+    vector<meta::value> completed{memory::allocator<meta::value>{options.scratch_resource}};
     completed.reserve(parameter_count());
     for (const meta::value& value : arguments) {
       completed.push_back(value);
@@ -666,7 +681,9 @@ private:
                                                             argument_match_options options) const {
     if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact ||
         rank_model_value_arguments(arguments, options) != argument_match_rank::none) {
-      return vector<meta::value>{arguments.begin(), arguments.end()};
+      vector<meta::value> result{memory::allocator<meta::value>{options.scratch_resource}};
+      result.assign(arguments.begin(), arguments.end());
+      return result;
     }
 
     return complete_value_arguments(arguments, options);
@@ -676,7 +693,9 @@ private:
   prepare_positional_arguments(std::span<const argument> arguments,
                                argument_match_options options) const {
     if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
-      return prepare_model_arguments(arguments, {});
+      argument_match_options exact_options{};
+      exact_options.scratch_resource = options.scratch_resource;
+      return prepare_model_arguments(arguments, exact_options);
     }
 
     vector<argument> prepared = prepare_model_arguments(arguments, options);
@@ -700,9 +719,10 @@ private:
       return {};
     }
 
-    vector<argument> completed{};
+    vector<argument> completed{memory::allocator<argument>{options.scratch_resource}};
     completed.reserve(parameter_count());
-    vector<bool> assigned(parameter_count(), false);
+    vector<bool> assigned(parameter_count(), false,
+                          memory::allocator<bool>{options.scratch_resource});
     for (std::size_t index = 0; index < parameter_count(); ++index) {
       completed.push_back({});
     }

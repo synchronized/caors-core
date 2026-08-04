@@ -196,6 +196,9 @@ caors::registration::type_<actor>("game.actor")
 - `argument_match_options::allow_custom_conversions` 默认关闭。开启后，匹配会查询来源类型注册的
   `meta::argument_conversion_ops` capability；该能力只负责把来源参数转换成目标参数类型，转换结果仍必须精确匹配目标类型。
 - 转换产生的临时值由内部 `argument` 持有，生命周期覆盖本次 `invoke_result_of()` 调用。
+  `argument_match_options::scratch_resource` 可显式指定参数补全、重排和内建转换使用的临时资源；
+  为空时使用当前线程临时资源。传入 `stack_resource` 时，调用入口会建立嵌套作用域，并在临时对象
+  完成析构后统一回滚；返回的 `invoke_result` 不引用该临时资源。
 - 暂不支持泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
 
 ```cpp

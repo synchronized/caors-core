@@ -272,6 +272,39 @@ any any::copy_from_raw(meta::type type, const void* source) {
   return result;
 }
 
+any any::copy_from_raw(meta::type type, const void* source, memory::memory_resource* resource) {
+  if (resource == nullptr) {
+    return copy_from_raw(type, source);
+  }
+
+  const auto guard = call_guard_for(type);
+  if (!guard) {
+    return {};
+  }
+  const meta::value_storage_ops* value_ops = type.get_raw_ops<meta::value_storage_ops>();
+  if (!type || value_ops == nullptr || source == nullptr ||
+      value_ops->ops.resource_clone == nullptr || value_ops->ops.resource_destroy == nullptr) {
+    return {};
+  }
+
+  if (can_store_inline(*value_ops)) {
+    return copy_from_raw(type, source);
+  }
+
+  void* copy = value_ops->ops.resource_clone(resource, source);
+  if (copy == nullptr) {
+    return {};
+  }
+
+  any result;
+  result.type_ = type;
+  result.data_ = copy;
+  result.resource_ = resource;
+  result.resource_destroy_ = value_ops->ops.resource_destroy;
+  result.mode_ = storage_mode::resource_value;
+  return result;
+}
+
 any any::take_ownership(owned_value&& value) {
   if (!value.valid()) {
     return {};

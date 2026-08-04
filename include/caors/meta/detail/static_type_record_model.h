@@ -84,6 +84,7 @@ template <typename T> [[nodiscard]] type_record make_static_type_record() {
       meta::value_ops{
           default_construct_fn_of<type>(),
           value_clone_fn_of<type>(),
+          value_resource_clone_fn_of<type>(),
           value_destroy_fn_of<type>(),
           value_assign_fn_of<type>(),
           resource_default_construct_fn_of<type>(),
