@@ -287,7 +287,7 @@ decode_result decode(input_stream& input, operation_memory memory);
 ### 阶段 3：Scratch 接入
 
 - [x] meta 方法参数准备、默认参数补全和转换接入 scratch scope；
-- [ ] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
+- [x] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
 - [ ] registry 查询临时集合接入 scratch；
 - [ ] 保证非平凡临时对象在 rewind 前析构；
 - [ ] 增加嵌套调用、异常、提前返回和无异常构建测试。

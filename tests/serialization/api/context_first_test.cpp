@@ -158,6 +158,41 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   CHECK(decoded_from_dom.value.value == 15);
 }
 
+TEST_CASE("serialization - JSON and DOM backend frames use context temporary resource",
+          "[serialization][memory]") {
+  using namespace caors::tests::serialization::api;
+
+  require_context_codec_metadata();
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource temporary{64, &tracking};
+  caors::serialization::context context{};
+  context.config.fields.schema_version = 5;
+  context.resolvers.memory.temporary_resource = &temporary;
+
+  const context_codec_actor source{{7}};
+  caors::string json;
+  REQUIRE(caors::serialization::write_json_to(context, source, json).succeeded());
+  CHECK(json == R"({"value":507})");
+
+  context_codec_actor from_json{};
+  REQUIRE(caors::read_json_from(context, from_json, json).succeeded());
+  CHECK(from_json.value.value == 7);
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{caors::string_name{"value"}, 0,
+                                                caors::variant::from(std::int64_t{509})});
+  context_codec_actor from_dom{};
+  REQUIRE(caors::read_value_from(context, from_dom, caors::variant::object(std::move(members)))
+              .succeeded());
+  CHECK(from_dom.value.value == 9);
+
+  CHECK(temporary.active_scope_count() == 0);
+  CHECK(temporary.statistics().mark_count >= 3);
+  CHECK(temporary.statistics().mark_count == temporary.statistics().rewind_count);
+  temporary.reset();
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
 TEST_CASE("serialization - context can use an explicit type context", "[serialization]") {
   using namespace caors::tests::serialization::api;
 

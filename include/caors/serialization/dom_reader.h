@@ -11,7 +11,8 @@ namespace caors::serialization {
 /** @brief 从序列化 DOM 中间对象读取数据的后端。 */
 class CAORS_API variant_reader final : public reader {
 public:
-  explicit variant_reader(const variant& value) noexcept;
+  explicit variant_reader(const variant& value,
+                          memory::memory_resource* temporary_resource = nullptr) noexcept;
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
@@ -56,13 +57,13 @@ private:
   };
 
   const variant* root_ = nullptr;
-  vector<const variant*> object_stack_{};
-  vector<const meta::variant_member*> current_members_{};
-  vector<const variant*> array_stack_{};
-  vector<const variant*> current_elements_{};
-  vector<dictionary_context> dictionary_stack_{};
-  vector<const variant*> polymorphic_values_{};
-  vector<std::size_t> polymorphic_object_depths_{};
+  vector<const variant*> object_stack_;
+  vector<const meta::variant_member*> current_members_;
+  vector<const variant*> array_stack_;
+  vector<const variant*> current_elements_;
+  vector<dictionary_context> dictionary_stack_;
+  vector<const variant*> polymorphic_values_;
+  vector<std::size_t> polymorphic_object_depths_;
 };
 
 } // namespace caors::serialization

@@ -8,6 +8,7 @@
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value.h"
+#include "caors/serialization/detail/temporary_memory.h"
 
 #include <limits>
 #include <new>
@@ -265,7 +266,8 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
       return {error_domain::serialization, errc::not_found};
     }
 
-    variant_reader value_reader{*stored_value};
+    temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+    variant_reader value_reader{*stored_value, temporary_scope.resource()};
     status = deserialize(context, reflected_dynamic_type, instance.data(), value_reader);
     if (status) {
       return status;

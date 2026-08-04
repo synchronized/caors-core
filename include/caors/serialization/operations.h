@@ -490,7 +490,8 @@ template <typename T>
     }
   }
 
-  serialization::variant_reader reader{value};
+  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::variant_reader reader{value, temporary_scope.resource()};
   return detail::deserialize(context, meta_type, &object, reader);
 }
 
@@ -543,7 +544,8 @@ template <typename T>
     return {error_domain::serialization, errc::missing_type};
   }
 
-  serialization::json_reader reader{text, options};
+  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::json_reader reader{text, options, temporary_scope.resource()};
   if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (reader.is_polymorphic_envelope(context)) {
       return deserialize_polymorphic_object_into(context, type.id(), object, reader);
@@ -881,7 +883,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output) {
-  serialization::json_writer writer{output};
+  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::json_writer writer{output, {}, temporary_scope.resource()};
   return serialize(context, object, writer);
 }
 
@@ -889,7 +892,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output) {
-  serialization::json_writer writer{output};
+  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::json_writer writer{output, {}, temporary_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }
@@ -898,7 +902,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output, json_options options) {
-  serialization::json_writer writer{output, options};
+  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::json_writer writer{output, options, temporary_scope.resource()};
   return serialize(context, object, writer);
 }
 
@@ -906,7 +911,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output, json_options options) {
-  serialization::json_writer writer{output, options};
+  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  serialization::json_writer writer{output, options, temporary_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }

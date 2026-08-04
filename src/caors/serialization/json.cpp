@@ -27,15 +27,25 @@ namespace {
 
 } // namespace
 
-serialization::json_writer::json_writer() noexcept : text_(&owned_text_) {}
+serialization::json_writer::json_writer() noexcept
+    : text_(&owned_text_), contexts_(memory::allocator<context>{nullptr}) {}
 
 serialization::json_writer::json_writer(json_options options) noexcept
-    : options_(options), text_(&owned_text_) {}
+    : json_writer(options, nullptr) {}
+
+serialization::json_writer::json_writer(json_options options,
+                                        memory::memory_resource* temporary_resource) noexcept
+    : options_(options), text_(&owned_text_),
+      contexts_(memory::allocator<context>{temporary_resource}) {}
 
 serialization::json_writer::json_writer(string& output) : json_writer(output, json_options{}) {}
 
 serialization::json_writer::json_writer(string& output, json_options options)
-    : options_(options), text_(&output) {
+    : json_writer(output, options, nullptr) {}
+
+serialization::json_writer::json_writer(string& output, json_options options,
+                                        memory::memory_resource* temporary_resource)
+    : options_(options), text_(&output), contexts_(memory::allocator<context>{temporary_resource}) {
   reset();
 }
 
@@ -43,7 +53,12 @@ serialization::json_writer::json_writer(io::output_stream& output) noexcept
     : json_writer(output, json_options{}) {}
 
 serialization::json_writer::json_writer(io::output_stream& output, json_options options) noexcept
-    : options_(options), text_(&owned_text_), stream_(&output) {
+    : json_writer(output, options, nullptr) {}
+
+serialization::json_writer::json_writer(io::output_stream& output, json_options options,
+                                        memory::memory_resource* temporary_resource) noexcept
+    : options_(options), text_(&owned_text_), stream_(&output),
+      contexts_(memory::allocator<context>{temporary_resource}) {
   reset();
 }
 
