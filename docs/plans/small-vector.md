@@ -225,7 +225,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 
 - [x] 增加代表性 benchmark 并记录 Windows 结果；
 - [x] 完成 Windows Clang/MSVC Debug、Release、Static/Shared；
-- [ ] 使用 GitHub Actions 完成 Linux Clang/GCC 与 ASan；
+- [x] 使用 GitHub Actions 完成 Linux Clang/GCC 与 ASan；
 - [ ] 固定 Linux 环境完成正式性能复验后再选择首批实际接入点。
 
 ## 完成标准
@@ -257,5 +257,8 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 - 2026-08-04：Windows Clang、MSVC Shared Debug、Release 全量构建及 85 项测试全部通过，包含
   `caors.meta.plugin_identity` 与 `caors.plugins.protocol`；Windows Clang/MSVC × Debug/Release ×
   Static/Shared 验证矩阵完成；
+- 2026-08-04：GitHub Actions Linux 工作流 `30882960581` 全部通过；覆盖 Clang/GCC Static
+  Debug、Release，Clang Shared Debug、Release，Clang Shared ASan，以及 Static/Shared Release
+  安装包与重定位验证；
 - `windows-clang-debug` 下 `caors.core.containers`、`caors.meta.sequence` 和
   `caors.serialization.container` 定向测试通过。
