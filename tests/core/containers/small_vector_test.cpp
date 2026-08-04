@@ -6,6 +6,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <array>
 #include <concepts>
 #include <cstdint>
 #include <memory>
@@ -73,6 +74,32 @@ struct throwing_copy_value {
   throwing_copy_value(throwing_copy_value&& other) noexcept(false) : value(other.value) {
     other.value = -1;
   }
+};
+
+struct throwing_move_assignment_value {
+  inline static int alive = 0;
+  inline static bool throw_on_move_assignment = false;
+
+  int value = 0;
+
+  explicit throwing_move_assignment_value(int source) : value(source) { ++alive; }
+  throwing_move_assignment_value(const throwing_move_assignment_value& other) : value(other.value) {
+    ++alive;
+  }
+  throwing_move_assignment_value(throwing_move_assignment_value&& other) noexcept
+      : value(other.value) {
+    other.value = -1;
+    ++alive;
+  }
+  throwing_move_assignment_value& operator=(throwing_move_assignment_value&& other) {
+    if (throw_on_move_assignment) {
+      throw std::runtime_error{"移动赋值失败"};
+    }
+    value = other.value;
+    other.value = -1;
+    return *this;
+  }
+  ~throwing_move_assignment_value() { --alive; }
 };
 #endif
 
@@ -373,6 +400,103 @@ TEST_CASE("core small vector - shrink to fit returns to inline storage or exact 
   CHECK(std::ranges::equal(values, std::initializer_list<int>{8, 8}));
 }
 
+TEST_CASE("core small vector - initializer list and range construction preserve order",
+          "[core][small_vector]") {
+  caors::small_vector<int, 3> initialized{1, 2, 3, 4};
+  const std::array source{5, 6, 7};
+  caors::small_vector<int, 3> ranged{source.begin(), source.end()};
+
+  CHECK(std::ranges::equal(initialized, std::initializer_list<int>{1, 2, 3, 4}));
+  CHECK(std::ranges::equal(ranged, source));
+}
+
+TEST_CASE("core small vector - insert supports values ranges and self ranges",
+          "[core][small_vector]") {
+  caors::small_vector<int, 3> values{1, 4};
+  auto inserted = values.insert(values.begin() + 1, 2);
+  CHECK(inserted == values.begin() + 1);
+  inserted = values.insert(values.begin() + 2, 1, 3);
+  CHECK(inserted == values.begin() + 2);
+  const std::array tail{5, 6};
+  inserted = values.insert(values.end(), tail.begin(), tail.end());
+  CHECK(inserted == values.begin() + 4);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{1, 2, 3, 4, 5, 6}));
+
+  const auto original_size = values.size();
+  inserted = values.insert(values.end(), values.begin(), values.begin() + 2);
+  CHECK(inserted == values.begin() + original_size);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{1, 2, 3, 4, 5, 6, 1, 2}));
+}
+
+TEST_CASE("core small vector - erase returns the following element", "[core][small_vector]") {
+  caors::small_vector<int, 2> values{1, 2, 3, 4, 5};
+
+  auto next = values.erase(values.begin() + 1);
+  REQUIRE(next != values.end());
+  CHECK(*next == 3);
+  next = values.erase(values.begin() + 1, values.begin() + 3);
+
+  REQUIRE(next != values.end());
+  CHECK(*next == 5);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{1, 5}));
+}
+
+TEST_CASE("core small vector - insert and erase support move-only elements",
+          "[core][small_vector]") {
+  caors::small_vector<std::unique_ptr<int>, 1> values;
+  values.emplace_back(std::make_unique<int>(2));
+  values.emplace(values.begin(), std::make_unique<int>(1));
+
+  REQUIRE(values.size() == 2);
+  CHECK(*values[0] == 1);
+  CHECK(*values[1] == 2);
+  values.erase(values.begin());
+  REQUIRE(values.size() == 1);
+  CHECK(*values.front() == 2);
+}
+
+TEST_CASE("core small vector - assign stages aliased ranges before replacement",
+          "[core][small_vector]") {
+  caors::small_vector<int, 2> values{1, 2, 3, 4};
+  values.assign(values.begin() + 1, values.end());
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{2, 3, 4}));
+
+  values.assign(3, 9);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{9, 9, 9}));
+  values.assign({7, 8});
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{7, 8}));
+}
+
+TEST_CASE("core small vector - swap exchanges inline heap values and resources",
+          "[core][small_vector]") {
+  caors::tracking_resource first_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource second_resource{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 2> first{{1, 2, 3}, &first_resource};
+  caors::small_vector<int, 2> second{{8}, &second_resource};
+
+  using std::swap;
+  swap(first, second);
+
+  CHECK(first.resource() == &second_resource);
+  CHECK(second.resource() == &first_resource);
+  CHECK(std::ranges::equal(first, std::initializer_list<int>{8}));
+  CHECK(std::ranges::equal(second, std::initializer_list<int>{1, 2, 3}));
+  first.swap(first);
+  CHECK(std::ranges::equal(first, std::initializer_list<int>{8}));
+}
+
+TEST_CASE("core small vector - comparisons ignore capacity and resource", "[core][small_vector]") {
+  caors::tracking_resource first_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource second_resource{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 2> first{{1, 2}, &first_resource};
+  caors::small_vector<int, 2> equal{{1, 2}, &second_resource};
+  caors::small_vector<int, 2> greater{{1, 3}, &second_resource};
+  equal.reserve(8);
+
+  CHECK(first == equal);
+  CHECK(first < greater);
+}
+
 #if CAORS_HAS_EXCEPTIONS
 TEST_CASE("core small vector - at reports an empty range", "[core][small_vector]") {
   const caors::core::small_vector<int, 2> values;
@@ -416,5 +540,24 @@ TEST_CASE("core small vector - failed copy assignment preserves the target",
   CHECK(target.front().value == 9);
   REQUIRE(source.size() == 1);
   CHECK(source.front().value == 3);
+}
+
+TEST_CASE("core small vector - failed insertion keeps valid lifetime state",
+          "[core][small_vector]") {
+  throwing_move_assignment_value::alive = 0;
+  {
+    caors::small_vector<throwing_move_assignment_value, 4> values;
+    values.emplace_back(1);
+    values.emplace_back(2);
+    values.emplace_back(3);
+
+    throwing_move_assignment_value::throw_on_move_assignment = true;
+    CHECK_THROWS_AS(values.emplace(values.begin() + 1, 9), std::runtime_error);
+    throwing_move_assignment_value::throw_on_move_assignment = false;
+
+    CHECK(values.size() == 3);
+    CHECK(throwing_move_assignment_value::alive == 3);
+  }
+  CHECK(throwing_move_assignment_value::alive == 0);
 }
 #endif

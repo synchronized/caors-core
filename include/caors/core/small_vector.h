@@ -7,8 +7,11 @@
 #include "caors/memory/resource.h"
 
 #include <algorithm>
+#include <compare>
+#include <concepts>
 #include <cstddef>
 #include <cstdlib>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -56,6 +59,29 @@ public:
    */
   explicit small_vector(memory::memory_resource* resource) noexcept
       : data_(inline_data()), resource_(resolve_resource(resource)) {}
+
+  /** @brief 从初始化列表复制构造。 */
+  small_vector(std::initializer_list<value_type> values,
+               memory::memory_resource* resource = nullptr)
+      : small_vector(values.begin(), values.end(), resource) {}
+
+  /** @brief 从输入区间构造。 */
+  template <std::input_iterator Iterator, std::sentinel_for<Iterator> Sentinel>
+  small_vector(Iterator first, Sentinel last, memory::memory_resource* resource = nullptr)
+      : small_vector(resource) {
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      for (; first != last; ++first) {
+        emplace_back(*first);
+      }
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      release_storage();
+      throw;
+    }
+#endif
+  }
 
   /** @brief 使用源容器资源复制构造。 */
   small_vector(const small_vector& other) : small_vector(other, other.resource_) {}
@@ -355,6 +381,112 @@ public:
     });
   }
 
+  /** @brief 用指定数量的同值元素替换当前内容。 */
+  void assign(size_type count, const value_type& value) {
+    small_vector replacement{resource_};
+    replacement.resize(count, value);
+    *this = std::move(replacement);
+  }
+
+  /** @brief 用输入区间替换当前内容；允许区间来自当前容器。 */
+  template <std::input_iterator Iterator, std::sentinel_for<Iterator> Sentinel>
+  void assign(Iterator first, Sentinel last) {
+    small_vector replacement{first, last, resource_};
+    *this = std::move(replacement);
+  }
+
+  /** @brief 用初始化列表替换当前内容。 */
+  void assign(std::initializer_list<value_type> values) { assign(values.begin(), values.end()); }
+
+  /** @brief 在指定位置原位构造单个元素。 */
+  template <typename... Args> iterator emplace(const_iterator position, Args&&... args) {
+    const size_type index = position_index(position);
+    small_vector<value_type, 1> staged{resource_};
+    staged.emplace_back(std::forward<Args>(args)...);
+    return insert_staged(index, std::move(staged.front()));
+  }
+
+  /** @brief 在指定位置复制插入单个元素。 */
+  iterator insert(const_iterator position, const value_type& value) {
+    return emplace(position, value);
+  }
+
+  /** @brief 在指定位置移动插入单个元素。 */
+  iterator insert(const_iterator position, value_type&& value) {
+    return emplace(position, std::move(value));
+  }
+
+  /** @brief 在指定位置插入指定数量的同值元素。 */
+  iterator insert(const_iterator position, size_type count, const value_type& value) {
+    const size_type index = position_index(position);
+    small_vector staged{resource_};
+    staged.resize(count, value);
+    return insert_staged_range(index, staged);
+  }
+
+  /** @brief 在指定位置插入输入区间；允许区间来自当前容器。 */
+  template <std::input_iterator Iterator, std::sentinel_for<Iterator> Sentinel>
+  iterator insert(const_iterator position, Iterator first, Sentinel last) {
+    const size_type index = position_index(position);
+    small_vector staged{first, last, resource_};
+    return insert_staged_range(index, staged);
+  }
+
+  /** @brief 在指定位置插入初始化列表。 */
+  iterator insert(const_iterator position, std::initializer_list<value_type> values) {
+    return insert(position, values.begin(), values.end());
+  }
+
+  /** @brief 擦除指定位置的元素。 */
+  iterator erase(const_iterator position) { return erase(position, position + 1); }
+
+  /** @brief 擦除半开区间 `[first, last)`。 */
+  iterator erase(const_iterator first, const_iterator last) {
+    const size_type first_index = position_index(first);
+    const size_type last_index = position_index(last);
+    if (last_index < first_index) {
+#if CAORS_HAS_EXCEPTIONS
+      throw std::out_of_range{"caors::small_vector 擦除区间无效"};
+#else
+      std::abort();
+#endif
+    }
+    const size_type erased_count = last_index - first_index;
+    if (erased_count == 0) {
+      return data_ + first_index;
+    }
+    std::move(data_ + last_index, data_ + size_, data_ + first_index);
+    destroy_tail(size_ - erased_count);
+    return data_ + first_index;
+  }
+
+  /** @brief 交换内容、资源和存储所有权。 */
+  void swap(small_vector& other) {
+    if (this == &other) {
+      return;
+    }
+    small_vector temporary{std::move(*this)};
+    *this = std::move(other);
+    other = std::move(temporary);
+  }
+
+  friend void swap(small_vector& lhs, small_vector& rhs) { lhs.swap(rhs); }
+
+  /** @brief 按元素比较内容是否相等；资源和容量不参与比较。 */
+  friend bool operator==(const small_vector& lhs, const small_vector& rhs)
+    requires std::equality_comparable<value_type>
+  {
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+  }
+
+  /** @brief 按字典序比较元素；资源和容量不参与比较。 */
+  friend auto operator<=>(const small_vector& lhs, const small_vector& rhs)
+    requires std::three_way_comparable<value_type>
+  {
+    return std::lexicographical_compare_three_way(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+                                                  std::compare_three_way{});
+  }
+
 private:
   static constexpr size_type inline_storage_size =
       InlineCapacity == 0 ? size_type{1} : sizeof(value_type) * InlineCapacity;
@@ -488,6 +620,51 @@ private:
   void destroy_tail(size_type new_size) noexcept {
     std::destroy(data_ + new_size, data_ + size_);
     size_ = new_size;
+  }
+
+  [[nodiscard]] size_type position_index(const_iterator position) const {
+    return static_cast<size_type>(position - cbegin());
+  }
+
+  iterator insert_staged(size_type index, value_type&& value) {
+    if (index == size_) {
+      emplace_back(std::move(value));
+      return data_ + index;
+    }
+    if (size_ == capacity_) {
+      reserve(recommend_capacity(size_ + 1));
+    }
+
+    allocator_type allocator{resource_};
+    allocator.construct(data_ + size_, std::move_if_noexcept(data_[size_ - 1]));
+    ++size_;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      std::move_backward(data_ + index, data_ + size_ - 2, data_ + size_ - 1);
+      data_[index] = std::move(value);
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      allocator.destroy(data_ + size_ - 1);
+      --size_;
+      throw;
+    }
+#endif
+    return data_ + index;
+  }
+
+  iterator insert_staged_range(size_type index, small_vector& staged) {
+    if (staged.empty()) {
+      return data_ + index;
+    }
+    if (staged.size_ > max_size() - size_) {
+      check_capacity(max_size() + 1);
+    }
+    reserve(size_ + staged.size_);
+    for (auto& value : staged) {
+      insert_staged(index++, std::move(value));
+    }
+    return data_ + index - staged.size_;
   }
 
   [[nodiscard]] bool can_adopt_storage_from(const small_vector& other) const noexcept {
