@@ -7,6 +7,7 @@
 #include "caors/meta/detail/call_guard.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/property_accessor.h"
+#include "caors/runtime.h"
 #include "meta_type_registry_test_support.h"
 
 #include <future>
@@ -444,6 +445,31 @@ TEST_CASE("meta registry 内部资源可注入并在销毁时释放外层状态"
   CHECK(released.deallocation_count == released.allocation_count);
   CHECK(released.bytes_deallocated == released.bytes_allocated);
   CHECK(released.bytes_in_use == 0);
+}
+
+TEST_CASE("runtime 可隔离 registry 和 context") {
+  CHECK(&caors::runtime::instance().get_meta_registry() == &caors::meta::registry::instance());
+  CHECK(&caors::runtime::instance().get_meta_context() == &caors::meta::default_context());
+
+  caors::tracking_resource first_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource second_tracking{&caors::get_system_memory_resource()};
+  {
+    caors::runtime first{caors::runtime_options{
+        .meta_registry = caors::meta::registry_options{.internal_resource = &first_tracking},
+    }};
+    caors::runtime second{caors::runtime_options{
+        .meta_registry = caors::meta::registry_options{.internal_resource = &second_tracking},
+    }};
+
+    REQUIRE_FALSE(caors::registration::type_<overlay_reflected_type>(
+                      first.get_meta_context(), "caors.test.meta.isolated_runtime")
+                      .commit());
+    CHECK(first.get_meta_registry().find_type<overlay_reflected_type>());
+    CHECK_FALSE(second.get_meta_registry().find_type<overlay_reflected_type>());
+  }
+
+  CHECK(first_tracking.statistics().bytes_in_use == 0);
+  CHECK(second_tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("meta registry layer 可使用独立资源并在卸载后完整释放") {

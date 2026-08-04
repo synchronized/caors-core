@@ -94,9 +94,9 @@ template <typename Return, typename Result>
     if constexpr (std::is_copy_constructible_v<value_type>) {
       return invoke_result::value(any::from(result));
     } else if constexpr (std::is_move_constructible_v<value_type>) {
-      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      auto* value = memory::make<value_type>(&memory::process_resource(), std::move(result));
       return invoke_result::value(any::take_ownership(
-          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+          make_owned_value(meta::resolve<value_type>(), value, &memory::process_resource(),
                            [](memory::memory_resource* resource, void* instance) noexcept {
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            })));
@@ -121,9 +121,9 @@ template <typename Return, typename Result>
     } else if constexpr (std::is_copy_constructible_v<value_type>) {
       return invoke_value_result::from_value(meta::value::from_any(any::from(result)));
     } else if constexpr (std::is_move_constructible_v<value_type>) {
-      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      auto* value = memory::make<value_type>(&memory::process_resource(), std::move(result));
       return invoke_value_result::from_value(meta::value::from_any(any::take_ownership(
-          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+          make_owned_value(meta::resolve<value_type>(), value, &memory::process_resource(),
                            [](memory::memory_resource* resource, void* instance) noexcept {
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            }))));

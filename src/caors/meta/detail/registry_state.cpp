@@ -81,7 +81,7 @@ layer_call_guard::~layer_call_guard() {
 
 registry_snapshot::registry_snapshot(std::shared_ptr<registry_layer_state> primary)
     : layers_(core::vector<std::shared_ptr<registry_layer_state>>::allocator_type{
-          &memory::library_resource()}) {
+          primary != nullptr ? primary->state().resource : &memory::process_resource()}) {
   layers_.push_back(std::move(primary));
 }
 

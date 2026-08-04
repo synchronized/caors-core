@@ -152,7 +152,7 @@
 阶段 1 已让 `type_details`、property/method/enum metadata、wrapper 状态和 owned capability 继承
 所属 layer resource，并验证独立 layer detach/销毁后 tracking resource 零存活分配。
 
-阶段 2 新增 `process_resource()` 并迁移 `string_name`、type/capability identity、全局 module 索引和
-静态空 metadata。源码与公共头中的 `library_resource()` 文本出现已从阶段 0 的 54 处收敛至 23 处；
-剩余调用集中在方法返回值、容器迭代器、registration batch、registry snapshot 和 memory
-基础设施内部存储，需要分别在 result/scratch、runtime owner 或基础设施 owner 阶段处理，不能机械替换。
+阶段 2 新增 `process_resource()` 与顶层 `caors::runtime`，并迁移 `string_name`、type/capability
+identity、全局 module 索引和静态空 metadata。源码与公共头中的 `library_resource()` 已从阶段 0 的
+54 处收敛为仅剩兼容 API 的声明和定义；CAORS 内部不再调用该入口。CMake 配置阶段会扫描源码，发现
+新增调用时直接报错，要求按生命周期选择 process、registry、scratch 或 result resource。

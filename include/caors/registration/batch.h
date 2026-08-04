@@ -59,7 +59,9 @@ class batch_builder final {
   template <typename Builder> class item_model;
 
 public:
-  explicit batch_builder(meta::context& ctx) noexcept : context_(&ctx) {}
+  explicit batch_builder(meta::context& ctx) noexcept
+      : context_(&ctx), resource_(ctx.get_registry().internal_resource()),
+        items_(item_list::allocator_type{resource_}) {}
 
   batch_builder(const batch_builder&) = delete;
   batch_builder& operator=(const batch_builder&) = delete;
@@ -131,9 +133,9 @@ public:
     failure_ = {};
     status_ = {};
     core::vector<type_id> seen_ids{
-        core::vector<type_id>::allocator_type{&memory::library_resource()}};
+        core::vector<type_id>::allocator_type{resource_}};
     core::vector<core::string_name> seen_names{
-        core::vector<core::string_name>::allocator_type{&memory::library_resource()}};
+        core::vector<core::string_name>::allocator_type{resource_}};
 
     for (std::size_t index = 0; index < items_.size(); ++index) {
       item_base& item = *items_[index];
@@ -175,10 +177,10 @@ public:
   /** @brief 返回首个失败项的可读诊断文本；没有失败时返回空字符串。 */
   [[nodiscard]] core::string diagnostic_message() const {
     if (!has_diagnostic()) {
-      return core::make_string(&memory::library_resource());
+      return core::make_string(resource_);
     }
 
-    core::string message = core::make_string(&memory::library_resource());
+    core::string message = core::make_string(resource_);
     message += "registration batch failed at item ";
     message += std::to_string(failure_.index).c_str();
     message += ": ";
@@ -228,11 +230,10 @@ private:
   [[nodiscard]] memory::unique_ptr<item_base> make_item(batch_item_kind kind, type_id id,
                                                         core::string_name name, Builder&& builder) {
     using item_type = item_model<Builder>;
-    auto* raw =
-        memory::make<item_type>(&memory::library_resource(), kind, id, name, std::move(builder));
+    auto* raw = memory::make<item_type>(resource_, kind, id, name, std::move(builder));
     memory::unique_ptr<item_base> result{raw};
     result.get_deleter().reset(
-        &memory::library_resource(), [](void* user_data, void* value) noexcept {
+        resource_, [](void* user_data, void* value) noexcept {
           memory::destroy(static_cast<item_type*>(value), static_cast<memory_resource*>(user_data));
         });
     return result;
@@ -262,7 +263,8 @@ private:
   using item_list = core::vector<erased_item_ptr>;
 
   meta::context* context_ = nullptr;
-  item_list items_{item_list::allocator_type{&memory::library_resource()}};
+  memory::memory_resource* resource_ = &memory::process_resource();
+  item_list items_{};
   error status_{};
   batch_diagnostic failure_{};
   bool committed_ = false;

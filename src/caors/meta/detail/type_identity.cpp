@@ -36,10 +36,10 @@ public:
 
   [[nodiscard]] vector<identity_debug_record> snapshot(identity_debug_domain domain) const {
     std::scoped_lock lock{mutex_};
-    auto records = make_vector<identity_debug_record>(&memory::library_resource());
+    auto records = make_vector<identity_debug_record>(&memory::process_resource());
     records.reserve(identities_.size());
     for (const type_identity& identity : identities_) {
-      auto canonical_name = make_string(&memory::library_resource());
+      auto canonical_name = make_string(&memory::process_resource());
       canonical_name.assign(identity.canonical_name.data(), identity.canonical_name.size());
       records.push_back(identity_debug_record{domain, identity.id, std::move(canonical_name)});
     }
@@ -102,7 +102,7 @@ public:
   }
 
   [[nodiscard]] vector<identity_debug_record> snapshot() const {
-    auto records = make_vector<identity_debug_record>(&memory::library_resource());
+    auto records = make_vector<identity_debug_record>(&memory::process_resource());
     auto type_records = snapshot(identity_debug_domain::type);
     auto capability_records = snapshot(identity_debug_domain::capability);
     records.reserve(type_records.size() + capability_records.size());

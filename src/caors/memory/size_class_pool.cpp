@@ -77,7 +77,7 @@ size_class_pool_resource::size_class_pool_resource(size_class_pool_options optio
     detail::fail_invalid_argument("invalid size class pool options");
   }
 
-  memory_resource& storage = library_resource();
+  memory_resource& storage = process_resource();
   void* memory = storage.allocate(sizeof(state), alignof(state));
   state_ = ::new (memory) state(options, detail::resolve_resource(upstream));
   state_->storage = &storage;

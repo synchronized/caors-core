@@ -131,6 +131,8 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   /** @brief 返回 registry 的管理策略。 */
   [[nodiscard]] registry_management_policy management_policy() const noexcept;
+  /** @brief 返回 registry 内部长期数据使用的资源。 */
+  [[nodiscard]] memory::memory_resource* internal_resource() const noexcept;
 
   /** @brief 创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
   [[nodiscard]] std::unique_ptr<registry_layer> create_layer() const;

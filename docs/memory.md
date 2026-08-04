@@ -549,6 +549,11 @@ type/capability identity 和全局 module 索引。它默认固定使用 system 
 通用内部分配器：registry/type 数据应使用所属 layer 注入资源，单次操作使用 scratch，返回对象使用
 调用方提供的 result resource。
 
+顶层 `caors::runtime` 拥有一组 registry/context。`runtime::instance()` 是进程默认运行时，原有
+`meta::registry::instance()` 与 `meta::default_context()` 均定位到它；测试和嵌入场景可以创建独立
+runtime 并注入不同 registry resource。type/capability identity 与 `string_name` 不随 runtime 隔离，
+它们必须在同一进程的宿主和插件之间保持唯一。
+
 ## 当前已实现能力
 
 - 统一抽象：`memory_resource`

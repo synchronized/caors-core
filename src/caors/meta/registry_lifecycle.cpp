@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta/registry.h"
+#include "caors/runtime.h"
 #include "detail/registry_state.h"
 
 #include <vector>
@@ -28,7 +29,7 @@ registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
       state_(&primary_layer_->state()) {
   core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
       core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
-          &memory::library_resource()}};
+          state_resource_}};
   layers.push_back(primary_layer_);
   if (base_snapshot != nullptr) {
     layers.insert(layers.end(), base_snapshot->layers().begin(), base_snapshot->layers().end());
@@ -103,14 +104,13 @@ std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const no
   return snapshot_.load(std::memory_order_acquire);
 }
 
-registry& registry::instance() noexcept {
-  static registry instance;
-  return instance;
-}
+registry& registry::instance() noexcept { return runtime::instance().get_meta_registry(); }
 
 registry_management_policy registry::management_policy() const noexcept {
   return options_.management;
 }
+
+memory::memory_resource* registry::internal_resource() const noexcept { return state_resource_; }
 
 bool registry::frozen() const noexcept {
   return detail::read_layer_state(*primary_layer_, [](const auto& state) { return state.frozen; });

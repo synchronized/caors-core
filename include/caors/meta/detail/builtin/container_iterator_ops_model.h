@@ -52,7 +52,7 @@ template <typename Iterator> struct container_iterator_holder {
 template <typename Iterator, typename... Args>
 [[nodiscard]] void* make_container_iterator(Args&&... args) noexcept {
   using holder_type = container_iterator_holder<Iterator>;
-  memory::memory_resource& resource = memory::library_resource();
+  memory::memory_resource& resource = memory::process_resource();
   void* storage = resource.try_allocate(sizeof(holder_type), alignof(holder_type));
   if (storage == nullptr) {
     return nullptr;
