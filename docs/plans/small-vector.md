@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 2 实施中；
+- 当前状态：核心实现与 Windows、Linux Clang/GCC、ASan 验证已完成；固定 Linux 环境性能复验延期；
 - 目标：提供带对象内联存储、溢出后使用 CAORS `memory_resource` 的连续顺序容器；
 - 首批范围：核心容器语义、异常安全、资源分配、meta/serialization 适配、测试和代表性基准；
 - 非目标：首批不实现 `stable_vector`，不保证元素地址稳定，不提供用户自定义增长策略、容量整数类型或

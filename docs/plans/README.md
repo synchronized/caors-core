@@ -10,8 +10,6 @@
 
 ### 进行中
 
-- [small-vector.md](small-vector.md)：CAORS resource 感知的内联连续容器计划；方案设计已完成，
-  等待核心实现、meta/serialization 适配、基准和跨平台验证。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
@@ -22,15 +20,15 @@
   阶段性结论已完成；Linux 正式性能复验等待固定环境。
 - [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：核心迁移与 Windows 性能复验
   已完成；固定 Linux 环境部署后补充跨平台性能数据。
-- [memory-debug-guards.md](memory-debug-guards.md)：guard、填充、违规统计、Windows Static/Shared
-  验证已完成；Linux Clang/GCC/ASan 等待 GitHub Actions Billing/额度恢复。
+- [small-vector.md](small-vector.md)：核心容器、meta/serialization 适配、代表性基准和 Windows、
+  Linux Clang/GCC/ASan 验证已完成；固定 Linux 环境性能复验延期。
 
 ### 已完成
 
 - Runtime 与插件：`plugin-build-compatibility`、`library-plugin-system`、
   `registry-overlay-safe-unload`、`registry-query-fast-path`。
 - 构建与内存：`linux-validation-ci`、`installed-package-consumer-validation`、
-  `scoped-temporary-memory`、`pmr-resource-adapters`。
+  `scoped-temporary-memory`、`pmr-resource-adapters`、`memory-debug-guards`。
 - Meta：`detail-api-boundary-redesign`、`meta-type-data-redesign`、
   `meta-record-naming-migration`、`meta-wrapper-model-redesign`、`value-boundary-redesign`、
   `enum-view-migration`、`identity-id-unification`、`type-identity-state-redesign`。

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：核心实施完成；Linux Clang/GCC/ASan 因 GitHub Actions Billing/额度问题延期复验；
+- 当前状态：核心实施与 Windows、Linux Clang/GCC、ASan 验证均已完成；
 - 目标：扩展 `debug_tracking_resource`，检测用户分配前后越界、释放参数不匹配、重复或非法释放，
   并通过可配置字节模式辅助发现未初始化读取和释放后使用；
 - 首批范围：guard block、分配/释放填充、违规统计、可选诊断回调、对齐和溢出安全；
@@ -234,7 +234,7 @@ header。首批不把内部 metadata 放在用户块里，避免越界同时破�
 - [x] 覆盖 guard 关闭的直接布局及独立填充；
 - [x] 运行 Windows Static 全量和 Shared 专项测试；
 - [x] 更新 `docs/memory.md`、roadmap 和计划状态；
-- [ ] GitHub Actions Billing/额度恢复后执行 Linux Clang/GCC/ASan 完整验证。
+- [x] 使用 GitHub Actions 完成 Linux Clang/GCC/ASan 完整验证。
 
 实施结果：
 
@@ -245,8 +245,8 @@ header。首批不把内部 metadata 放在用户块里，避免越界同时破�
 - `guard_size == 0` 直接向上游转发用户布局，不保留 guard 或 alignment padding；
 - `windows-clang-debug` 完整构建成功，82 项 CTest 全部通过；
 - `windows-clang-shared-debug` 成功构建 CAORS DLL 和 debug tracking 测试目标，专项测试通过；
-- Linux workflow 暂未执行：GitHub 已明确返回账户付款失败或 spending limit 不足，待外部状态恢复后
-  复验，不属于当前代码阻塞。
+- GitHub Actions Linux 工作流 `30882960581` 完成 Clang/GCC Static Debug、Release，Clang Shared
+  Debug、Release 及 Clang Shared ASan 验证，全部通过。
 
 ## 风险
 
