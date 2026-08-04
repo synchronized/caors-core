@@ -202,9 +202,10 @@ size_class_pool_resource
 ### 阶段 4：跨平台验证与文档收尾
 
 - [x] Windows Clang/MSVC Debug、Release、Static/Shared；
-- [ ] Linux Clang/GCC Debug、Release；
-- [ ] Linux ASan/UBSan 压力验证；
-- [ ] 更新 `docs/memory.md`、`docs/roadmap.md` 和计划状态索引。
+- [x] Linux Clang/GCC Debug、Release；
+- [x] Linux Clang Shared ASan 全量与重复压力验证；
+- [ ] Linux UBSan 验证，等待固定 Linux 环境搭建完成；
+- [x] 更新 `docs/memory.md`、`docs/roadmap.md` 和计划状态索引。
 
 ## 完成标准
 
@@ -249,6 +250,13 @@ size_class_pool_resource
 - 2026-08-03：`windows-msvc-release` Static 全量构建通过，83/83 测试通过；
 - 2026-08-03：`windows-msvc-shared-release` Shared 全量构建通过，85/85 测试通过，包含插件协议和
   跨模块类型身份测试；
+- 2026-08-04：GitHub Actions Linux 运行 `30867036935` 通过：Clang Static/Shared
+  Debug/Release、GCC Static Debug/Release 和 Clang Shared ASan 全量矩阵均成功；
+- 2026-08-04：GitHub Actions Linux Stress 运行 `30867039278` 通过：插件卸载相关测试重复 20 次，
+  memory 全组与 MessagePack 测试重复 10 次，均在 Clang Shared ASan 下成功；
+- 2026-08-04：ASan 默认把测试中的不可满足超大 nothrow 分配视为致命错误；workflow 增加
+  `allocator_may_return_null=1`，保留 `try_allocate()` 返回空的契约，同时继续检测越界与泄漏；
 - 当前构建目录的 Ninja 日志曾被前台桥接超时截断，后续构建会自动恢复并产生额外重编译；这不属于
   源码或测试失败；
-- 真实业务 workload 和 Linux 验证仍未执行。
+- 固定 Linux 环境下的 UBSan、正式性能复验和真实业务 workload 仍未执行；GitHub 托管 Runner 的
+  结果仅作为跨平台正确性与短程压力验证，不作为性能基线。

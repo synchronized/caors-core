@@ -563,7 +563,8 @@ backend / strategy resource
 - [x] `monotonic_resource`：面向临时内存和批量释放。
 - [x] `stack_resource`：面向同步嵌套调用的作用域临时内存。
 - [x] `fixed_block_pool`：面向固定大小对象池。
-- [ ] `size_class_pool_resource`：面向中小型混合分配；核心实现已完成，等待完整性能和跨平台验证。
+- [ ] `size_class_pool_resource`：面向中小型混合分配；核心实现、Windows 全矩阵和 Linux
+  Clang/GCC/ASan 已验证，等待固定 Linux 环境的 UBSan、正式性能复验与真实业务 workload。
 - [x] `try_allocate`：提供不抛异常的失败返回路径。
 - [x] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
