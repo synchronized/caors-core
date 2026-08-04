@@ -4,6 +4,7 @@
 #ifndef CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
 #define CAORS_META_DETAIL_STATIC_TYPE_RECORD_MODEL_H_
 
+#include "caors/adapters/small_vector_traits.h"
 #include "caors/adapters/stl_traits.h"
 #include "caors/meta/detail/builtin_ops_model.h"
 #include "caors/meta/detail/static_type_name.h"

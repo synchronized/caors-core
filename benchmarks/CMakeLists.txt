@@ -8,6 +8,7 @@ target_sources(
   PRIVATE main.cpp
           support/benchmark_support.cpp
           core/string_name_bench.cpp
+          core/small_vector_bench.cpp
           meta/type_bench.cpp
           meta/property_bench.cpp
           meta/method_bench.cpp

@@ -99,6 +99,7 @@ void print_memory_statistics(std::string_view name, const caors::memory_statisti
 void ensure_benchmark_types_registered();
 
 void benchmark_string_name(std::size_t iterations);
+void benchmark_small_vector(std::size_t iterations);
 void benchmark_meta_lookup(std::size_t iterations);
 void benchmark_properties(std::size_t iterations);
 void benchmark_method_calls(std::size_t iterations);

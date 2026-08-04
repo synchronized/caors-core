@@ -12,7 +12,9 @@ param(
     [string]$Architecture = "x64",
 
     [ValidateRange(0, 2147483647)]
-    [int]$Jobs = 0
+    [int]$Jobs = 0,
+
+    [switch]$Fresh
 )
 
 $ErrorActionPreference = "Stop"
@@ -62,16 +64,20 @@ foreach ($line in $environmentLines) {
 }
 
 $buildArguments = @("--build", "--preset", $Preset)
+$configureArguments = @("--preset", $Preset)
+if ($Fresh) {
+    $configureArguments += "--fresh"
+}
 if ($Jobs -gt 0) {
     $buildArguments += @("-j", $Jobs)
 }
 
 switch ($Action) {
-    "configure" { Invoke-CheckedCommand cmake @("--preset", $Preset) }
+    "configure" { Invoke-CheckedCommand cmake $configureArguments }
     "build" { Invoke-CheckedCommand cmake $buildArguments }
     "test" { Invoke-CheckedCommand ctest @("--preset", $Preset) }
     "all" {
-        Invoke-CheckedCommand cmake @("--preset", $Preset)
+        Invoke-CheckedCommand cmake $configureArguments
         Invoke-CheckedCommand cmake $buildArguments
         Invoke-CheckedCommand ctest @("--preset", $Preset)
     }

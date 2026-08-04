@@ -10,6 +10,8 @@
 
 ### 进行中
 
+- [small-vector.md](small-vector.md)：CAORS resource 感知的内联连续容器计划；方案设计已完成，
+  等待核心实现、meta/serialization 适配、基准和跨平台验证。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。

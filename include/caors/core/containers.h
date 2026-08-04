@@ -4,6 +4,7 @@
 #ifndef CAORS_CORE_CONTAINERS_H_
 #define CAORS_CORE_CONTAINERS_H_
 
+#include "caors/core/small_vector.h"
 #include "caors/memory/resource.h"
 
 #include <functional>
@@ -42,6 +43,13 @@ template <typename T> [[nodiscard]] vector<T> make_vector(memory_resource* resou
   return vector<T>{allocator<T>{resource}};
 }
 
+/** @brief 使用指定 CAORS 资源创建内联动态数组。 */
+template <typename T, std::size_t InlineCapacity>
+[[nodiscard]] small_vector<T, InlineCapacity>
+make_small_vector(memory_resource* resource = nullptr) {
+  return small_vector<T, InlineCapacity>{resource};
+}
+
 /** @brief 使用指定 CAORS 资源创建双向链表。 */
 template <typename T> [[nodiscard]] list<T> make_list(memory_resource* resource = nullptr) {
   return list<T>{allocator<T>{resource}};
@@ -65,6 +73,8 @@ template <typename T, typename Hash = std::hash<T>, typename Equal = std::equal_
 namespace caors {
 
 template <typename T> using vector = core::vector<T>;
+template <typename T, std::size_t InlineCapacity>
+using small_vector = core::small_vector<T, InlineCapacity>;
 template <typename T> using list = core::list<T>;
 using string = core::string;
 template <typename K, typename V, typename Hash = std::hash<K>, typename Equal = std::equal_to<K>>
@@ -75,6 +85,7 @@ using hash_set = core::hash_set<T, Hash, Equal>;
 using core::make_hash_map;
 using core::make_hash_set;
 using core::make_list;
+using core::make_small_vector;
 using core::make_string;
 using core::make_vector;
 
