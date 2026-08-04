@@ -271,6 +271,108 @@ TEST_CASE("core small vector - default construction captures default resource",
   CHECK(values.resource() == &tracking);
 }
 
+TEST_CASE("core small vector - copy construction preserves values and selects resource",
+          "[core][small_vector]") {
+  caors::tracking_resource source_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource target_resource{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 2> source{&source_resource};
+  source.push_back(1);
+  source.push_back(2);
+  source.push_back(3);
+
+  caors::small_vector<int, 2> same_resource_copy{source};
+  caors::small_vector<int, 2> selected_resource_copy{source, &target_resource};
+
+  CHECK(same_resource_copy.resource() == &source_resource);
+  CHECK(selected_resource_copy.resource() == &target_resource);
+  CHECK(std::ranges::equal(same_resource_copy, source));
+  CHECK(std::ranges::equal(selected_resource_copy, source));
+  CHECK(same_resource_copy.data() != source.data());
+  CHECK(selected_resource_copy.data() != source.data());
+}
+
+TEST_CASE("core small vector - move construction adopts compatible dynamic storage",
+          "[core][small_vector]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 2> source{&tracking};
+  source.push_back(4);
+  source.push_back(5);
+  source.push_back(6);
+  const auto* dynamic_data = source.data();
+
+  caors::small_vector<int, 2> target{std::move(source)};
+
+  CHECK(target.data() == dynamic_data);
+  CHECK(std::ranges::equal(target, std::initializer_list<int>{4, 5, 6}));
+  CHECK(source.empty());
+  CHECK(source.uses_inline_storage());
+}
+
+TEST_CASE("core small vector - move construction relocates for a different resource",
+          "[core][small_vector]") {
+  caors::tracking_resource source_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource target_resource{&caors::get_system_memory_resource()};
+  caors::small_vector<std::unique_ptr<int>, 1> source{&source_resource};
+  source.emplace_back(std::make_unique<int>(7));
+  source.emplace_back(std::make_unique<int>(9));
+  const auto* source_data = source.data();
+
+  caors::small_vector<std::unique_ptr<int>, 1> target{std::move(source), &target_resource};
+
+  CHECK(target.resource() == &target_resource);
+  CHECK(target.data() != source_data);
+  REQUIRE(target.size() == 2);
+  CHECK(*target[0] == 7);
+  CHECK(*target[1] == 9);
+  CHECK(source.empty());
+}
+
+TEST_CASE("core small vector - assignments follow resource propagation rules",
+          "[core][small_vector]") {
+  caors::tracking_resource source_resource{&caors::get_system_memory_resource()};
+  caors::tracking_resource target_resource{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 1> source{&source_resource};
+  source.push_back(2);
+  source.push_back(4);
+
+  caors::small_vector<int, 1> copied{&target_resource};
+  copied = source;
+  CHECK(copied.resource() == &target_resource);
+  CHECK(std::ranges::equal(copied, source));
+
+  caors::small_vector<int, 1> moved{&target_resource};
+  moved = std::move(source);
+  CHECK(moved.resource() == &source_resource);
+  CHECK(std::ranges::equal(moved, std::initializer_list<int>{2, 4}));
+  CHECK(source.empty());
+
+  auto* copied_self = &copied;
+  auto* moved_self = &moved;
+  copied = *copied_self;
+  moved = std::move(*moved_self);
+  CHECK(std::ranges::equal(copied, std::initializer_list<int>{2, 4}));
+  CHECK(std::ranges::equal(moved, std::initializer_list<int>{2, 4}));
+}
+
+TEST_CASE("core small vector - shrink to fit returns to inline storage or exact capacity",
+          "[core][small_vector]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::small_vector<int, 2> values{&tracking};
+  values.resize(6, 8);
+  values.resize(4);
+
+  values.shrink_to_fit();
+  CHECK_FALSE(values.uses_inline_storage());
+  CHECK(values.capacity() == 4);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{8, 8, 8, 8}));
+
+  values.resize(2);
+  values.shrink_to_fit();
+  CHECK(values.uses_inline_storage());
+  CHECK(values.capacity() == 2);
+  CHECK(std::ranges::equal(values, std::initializer_list<int>{8, 8}));
+}
+
 #if CAORS_HAS_EXCEPTIONS
 TEST_CASE("core small vector - at reports an empty range", "[core][small_vector]") {
   const caors::core::small_vector<int, 2> values;
@@ -297,5 +399,22 @@ TEST_CASE("core small vector - failed relocation keeps the original inline state
   CHECK(statistics.allocation_count == 1);
   CHECK(statistics.deallocation_count == 1);
   CHECK(statistics.bytes_in_use == 0);
+}
+
+TEST_CASE("core small vector - failed copy assignment preserves the target",
+          "[core][small_vector]") {
+  caors::small_vector<throwing_copy_value, 2> source;
+  source.emplace_back(3);
+  caors::small_vector<throwing_copy_value, 2> target;
+  target.emplace_back(9);
+
+  throwing_copy_value::throw_on_copy = true;
+  CHECK_THROWS_AS(target = source, std::runtime_error);
+  throwing_copy_value::throw_on_copy = false;
+
+  REQUIRE(target.size() == 1);
+  CHECK(target.front().value == 9);
+  REQUIRE(source.size() == 1);
+  CHECK(source.front().value == 3);
 }
 #endif

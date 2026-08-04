@@ -57,10 +57,87 @@ public:
   explicit small_vector(memory::memory_resource* resource) noexcept
       : data_(inline_data()), resource_(resolve_resource(resource)) {}
 
-  small_vector(const small_vector&) = delete;
-  small_vector& operator=(const small_vector&) = delete;
-  small_vector(small_vector&&) = delete;
-  small_vector& operator=(small_vector&&) = delete;
+  /** @brief 使用源容器资源复制构造。 */
+  small_vector(const small_vector& other) : small_vector(other, other.resource_) {}
+
+  /**
+   * @brief 使用指定资源复制构造。
+   * @param other 复制来源。
+   * @param resource 目标动态存储使用的非拥有资源。
+   */
+  small_vector(const small_vector& other, memory::memory_resource* resource)
+      : small_vector(resource) {
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      copy_elements_from(other);
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      release_storage();
+      throw;
+    }
+#endif
+  }
+
+  /** @brief 使用源容器资源移动构造；动态缓冲区可被直接接管。 */
+  small_vector(small_vector&& other) : small_vector(other.resource_) {
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      move_elements_from(other);
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      release_storage();
+      throw;
+    }
+#endif
+  }
+
+  /**
+   * @brief 使用指定资源移动构造。
+   * @param other 移动来源。
+   * @param resource 目标动态存储使用的非拥有资源；资源等价时允许接管缓冲区。
+   */
+  small_vector(small_vector&& other, memory::memory_resource* resource) : small_vector(resource) {
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      move_elements_from(other);
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      release_storage();
+      throw;
+    }
+#endif
+  }
+
+  /** @brief 复制赋值并保留目标容器资源。 */
+  small_vector& operator=(const small_vector& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    small_vector temporary{resource_};
+    if (!other.empty() && InlineCapacity < max_size()) {
+      temporary.reserve((std::max)(other.size_, InlineCapacity + 1));
+    }
+    temporary.copy_elements_from(other);
+    release_storage();
+    move_elements_from(temporary);
+    return *this;
+  }
+
+  /** @brief 移动赋值并传播源容器资源。 */
+  small_vector& operator=(small_vector&& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    release_storage();
+    resource_ = other.resource_;
+    move_elements_from(other);
+    return *this;
+  }
 
   /** @brief 销毁已构造元素并释放动态存储。 */
   ~small_vector() {
@@ -172,6 +249,24 @@ public:
     }
     check_capacity(requested_capacity);
     relocate_storage(requested_capacity);
+  }
+
+  /**
+   * @brief 请求收缩动态容量，并在元素可放入内联区时迁回对象内部。
+   *
+   * 发生迁移时，全部元素引用和迭代器失效。
+   */
+  void shrink_to_fit() {
+    if (uses_inline_storage()) {
+      return;
+    }
+    if (size_ <= InlineCapacity) {
+      relocate_to_inline();
+      return;
+    }
+    if (size_ < capacity_) {
+      relocate_storage(size_);
+    }
   }
 
   /**
@@ -393,6 +488,102 @@ private:
   void destroy_tail(size_type new_size) noexcept {
     std::destroy(data_ + new_size, data_ + size_);
     size_ = new_size;
+  }
+
+  [[nodiscard]] bool can_adopt_storage_from(const small_vector& other) const noexcept {
+    return !other.uses_inline_storage() && *resource_ == *other.resource_;
+  }
+
+  void copy_elements_from(const small_vector& other) {
+    if (other.size_ > capacity_) {
+      reserve(other.size_);
+    }
+    allocator_type allocator{resource_};
+    const size_type original_size = size_;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      while (size_ < other.size_) {
+        allocator.construct(data_ + size_, other.data_[size_]);
+        ++size_;
+      }
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      std::destroy(data_ + original_size, data_ + size_);
+      size_ = original_size;
+      throw;
+    }
+#endif
+  }
+
+  void move_elements_from(small_vector& other) {
+    if (can_adopt_storage_from(other)) {
+      data_ = other.data_;
+      size_ = other.size_;
+      capacity_ = other.capacity_;
+      other.reset_to_inline();
+      return;
+    }
+
+    if (other.size_ > capacity_) {
+      reserve(other.size_);
+    }
+    allocator_type allocator{resource_};
+    const size_type original_size = size_;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      while (size_ < other.size_) {
+        allocator.construct(data_ + size_, std::move(other.data_[size_]));
+        ++size_;
+      }
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      std::destroy(data_ + original_size, data_ + size_);
+      size_ = original_size;
+      throw;
+    }
+#endif
+    other.clear();
+  }
+
+  void relocate_to_inline() {
+    pointer old_data = data_;
+    const size_type old_capacity = capacity_;
+    pointer new_data = inline_data();
+    allocator_type allocator{resource_};
+    size_type constructed = 0;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      for (; constructed < size_; ++constructed) {
+        allocator.construct(new_data + constructed, std::move_if_noexcept(old_data[constructed]));
+      }
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      std::destroy_n(new_data, constructed);
+      throw;
+    }
+#endif
+
+    std::destroy_n(old_data, size_);
+    allocator.deallocate(old_data, old_capacity);
+    data_ = new_data;
+    capacity_ = InlineCapacity;
+  }
+
+  void release_storage() noexcept {
+    std::destroy_n(data_, size_);
+    if (!uses_inline_storage()) {
+      allocator_type{resource_}.deallocate(data_, capacity_);
+    }
+    reset_to_inline();
+  }
+
+  void reset_to_inline() noexcept {
+    data_ = inline_data();
+    size_ = 0;
+    capacity_ = InlineCapacity;
   }
 
   pointer data_ = nullptr;
