@@ -89,6 +89,9 @@ public:
   [[nodiscard]] constexpr bool registered() const noexcept { return valid() && registered_; }
   [[nodiscard]] bool static_model_matches(const type_record& other) const noexcept;
 
+  /** @brief 将记录拥有的动态存储迁移到指定注册表资源。 */
+  void rebind_resource(memory::memory_resource* resource);
+
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   void set_parent_id(type_id parent_id);
@@ -142,6 +145,7 @@ private:
   const capability_entry* static_capabilities_ = nullptr;
   std::size_t static_capability_count_ = 0;
   bool registered_ = false;
+  memory::memory_resource* resource_ = &memory::library_resource();
   type_details* details_ = nullptr;
 };
 

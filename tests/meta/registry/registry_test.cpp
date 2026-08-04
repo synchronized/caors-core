@@ -426,6 +426,7 @@ TEST_CASE("meta registry 内部资源可注入并在销毁时释放外层状态"
         .internal_resource = &tracking,
     }};
     caors::meta::context context{registry};
+    const caors::memory_statistics baseline = tracking.statistics();
 
     REQUIRE_FALSE(caors::registration::type_<overlay_reflected_type>(
                       context, "caors.test.meta.memory_domain_baseline")
@@ -435,8 +436,8 @@ TEST_CASE("meta registry 内部资源可注入并在销毁时释放外层状态"
                       .commit());
 
     const caors::memory_statistics live = tracking.statistics();
-    CHECK(live.allocation_count > 0);
-    CHECK(live.bytes_in_use > 0);
+    CHECK(live.allocation_count > baseline.allocation_count);
+    CHECK(live.bytes_in_use > baseline.bytes_in_use);
   }
 
   const caors::memory_statistics released = tracking.statistics();
