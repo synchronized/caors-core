@@ -186,8 +186,11 @@ TEST_CASE("serialization - JSON and DOM backend frames use context temporary res
               .succeeded());
   CHECK(from_dom.value.value == 9);
 
+  context_codec_actor invalid{};
+  CHECK(caors::read_json_from(context, invalid, R"({"value":)").failed());
+
   CHECK(temporary.active_scope_count() == 0);
-  CHECK(temporary.statistics().mark_count >= 3);
+  CHECK(temporary.statistics().mark_count >= 4);
   CHECK(temporary.statistics().mark_count == temporary.statistics().rewind_count);
   temporary.reset();
   CHECK(tracking.statistics().bytes_in_use == 0);
