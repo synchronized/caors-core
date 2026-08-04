@@ -224,7 +224,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 ### 阶段 4：基准与跨平台验证
 
 - [x] 增加代表性 benchmark 并记录 Windows 结果；
-- [ ] 完成 Windows Clang/MSVC Debug、Release、Static/Shared；
+- [x] 完成 Windows Clang/MSVC Debug、Release、Static/Shared；
 - [ ] 使用 GitHub Actions 完成 Linux Clang/GCC 与 ASan；
 - [ ] 固定 Linux 环境完成正式性能复验后再选择首批实际接入点。
 
@@ -254,8 +254,8 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
   相比精确 reserve 明显更慢，因此继续禁止未经真实 workload 验证的批量替换；
 - 2026-08-04：Windows Clang 静态 Debug、Release 全量构建及 83 项测试通过；Windows MSVC 静态
   Debug、Release 全量构建及 83 项测试通过；
-- 2026-08-04：Windows Clang Shared Debug 全量构建及 85 项测试通过，包含
-  `caors.meta.plugin_identity` 与 `caors.plugins.protocol`；Clang Shared Release 和 MSVC Shared
-  Debug、Release 待后续批次验证；
+- 2026-08-04：Windows Clang、MSVC Shared Debug、Release 全量构建及 85 项测试全部通过，包含
+  `caors.meta.plugin_identity` 与 `caors.plugins.protocol`；Windows Clang/MSVC × Debug/Release ×
+  Static/Shared 验证矩阵完成；
 - `windows-clang-debug` 下 `caors.core.containers`、`caors.meta.sequence` 和
   `caors.serialization.container` 定向测试通过。
