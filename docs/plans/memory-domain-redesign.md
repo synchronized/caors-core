@@ -264,10 +264,10 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 0：冻结契约与建立审计
 
-- [ ] 为 process、registry layer、scratch、result/user 四个域补正式术语和生命周期表；
-- [ ] 枚举所有 `library_resource()`、默认资源和 temporary resource 调用点；
-- [ ] 为每个调用点标注 owner、释放时机、线程和插件边界；
-- [ ] 增加 Debug 域统计基线，不改变现有分配行为。
+- [x] 为 process、registry layer、scratch、result/user 四个域补正式术语和生命周期表；
+- [x] 枚举所有 `library_resource()`、默认资源和 temporary resource 调用点；
+- [x] 为每个调用点标注 owner、释放时机、线程和插件边界；
+- [x] 增加 Debug 域统计基线，不改变默认分配行为。
 
 ### 阶段 1：Registry 资源完整传播
 

@@ -60,6 +60,8 @@
 
 - [memory-domain-redesign.md](memory-domain-redesign.md)：内部长期元数据、registry layer、同步临时
   工作区与用户结果内存的统一生命周期域计划。
+- [memory-domain-audit.md](memory-domain-audit.md)：全仓资源入口、owner、释放时机、线程与插件边界的
+  阶段 0 审计基线。
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向

@@ -71,6 +71,8 @@ enum class registry_management_policy {
 /** @brief registry 创建选项。 */
 struct registry_options {
   registry_management_policy management = registry_management_policy::locked_append_only;
+  /** @brief registry 内部状态使用的资源；为空时使用 CAORS process/library 资源。 */
+  memory::memory_resource* internal_resource = nullptr;
 };
 
 /** @brief registry layer 生命周期策略。 */
@@ -140,7 +142,7 @@ private:
   friend class registry_layer;
 
   registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-           registry_layer_lifetime layer_lifetime);
+           registry_layer_lifetime layer_lifetime, memory::memory_resource* internal_resource);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -191,7 +193,7 @@ private:
   friend class registry;
   friend class ::caors::plugins::plugin_library_lease;
   registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                 registry_layer_lifetime lifetime);
+                 registry_layer_lifetime lifetime, memory::memory_resource* internal_resource);
 
   [[nodiscard]] error attach_lifetime(std::shared_ptr<void> owner);
 

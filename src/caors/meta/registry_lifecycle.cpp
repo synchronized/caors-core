@@ -11,15 +11,18 @@ namespace caors::meta {
 registry::registry() : registry(registry_options{}) {}
 
 registry::registry(registry_options options)
-    : state_resource_(&memory::library_resource()), options_(options),
-      primary_layer_(std::make_shared<detail::registry_layer_state>(
-          state_resource_, registry_layer_lifetime::pinned_process)),
+    : state_resource_(options.internal_resource != nullptr ? options.internal_resource
+                                                           : &memory::library_resource()),
+      options_(options), primary_layer_(std::make_shared<detail::registry_layer_state>(
+                             state_resource_, registry_layer_lifetime::pinned_process)),
       snapshot_(std::make_shared<detail::registry_snapshot>(primary_layer_)),
       state_(&primary_layer_->state()) {}
 
 registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                   registry_layer_lifetime layer_lifetime)
-    : state_resource_(&memory::library_resource()),
+                   registry_layer_lifetime layer_lifetime,
+                   memory::memory_resource* internal_resource)
+    : state_resource_(internal_resource != nullptr ? internal_resource
+                                                   : &memory::library_resource()),
       primary_layer_(
           std::make_shared<detail::registry_layer_state>(state_resource_, layer_lifetime)),
       state_(&primary_layer_->state()) {
@@ -37,8 +40,9 @@ registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
 registry::~registry() = default;
 
 registry_layer::registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                               registry_layer_lifetime lifetime)
-    : registry_(new registry{std::move(base_snapshot), lifetime}) {}
+                               registry_layer_lifetime lifetime,
+                               memory::memory_resource* internal_resource)
+    : registry_(new registry{std::move(base_snapshot), lifetime, internal_resource}) {}
 
 registry_layer::~registry_layer() { delete registry_; }
 
@@ -85,7 +89,8 @@ std::unique_ptr<registry_layer> registry::create_layer() const {
 }
 
 std::unique_ptr<registry_layer> registry::create_layer(registry_layer_lifetime lifetime) const {
-  return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot(), lifetime}};
+  return std::unique_ptr<registry_layer>{
+      new registry_layer{capture_snapshot(), lifetime, state_resource_}};
 }
 
 std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const noexcept {

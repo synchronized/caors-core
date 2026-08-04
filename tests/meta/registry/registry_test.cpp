@@ -3,6 +3,7 @@
 
 // 原测试文件：meta_type_registry_meta_type_global_registry_checks_parent_relationship_test.cpp
 
+#include "caors/memory/tracking.h"
 #include "caors/meta/detail/call_guard.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/property_accessor.h"
@@ -416,6 +417,32 @@ TEST_CASE("meta registry 管理策略保持创建选项") {
       caors::meta::registry_management_policy::manual_synchronization}};
   CHECK(manual_registry.management_policy() ==
         caors::meta::registry_management_policy::manual_synchronization);
+}
+
+TEST_CASE("meta registry 内部资源可注入并在销毁时释放外层状态") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  {
+    caors::meta::registry registry{caors::meta::registry_options{
+        .internal_resource = &tracking,
+    }};
+    caors::meta::context context{registry};
+
+    REQUIRE_FALSE(caors::registration::type_<overlay_reflected_type>(
+                      context, "caors.test.meta.memory_domain_baseline")
+                      .meta()
+                      .property("value", &overlay_reflected_type::value)
+                      .method("get_value", &overlay_reflected_type::get_value)
+                      .commit());
+
+    const caors::memory_statistics live = tracking.statistics();
+    CHECK(live.allocation_count > 0);
+    CHECK(live.bytes_in_use > 0);
+  }
+
+  const caors::memory_statistics released = tracking.statistics();
+  CHECK(released.deallocation_count == released.allocation_count);
+  CHECK(released.bytes_deallocated == released.bytes_allocated);
+  CHECK(released.bytes_in_use == 0);
 }
 
 TEST_CASE("meta registry frozen_read_optimized 在 init 后冻结 primary layer") {
