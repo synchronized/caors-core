@@ -252,5 +252,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
   反序列化保持容器资源并向嵌套资源感知元素传播；
 - 2026-08-04：完成 Windows Clang Release microbenchmark；内联和偶尔溢出工作集收益明确，频繁溢出
   相比精确 reserve 明显更慢，因此继续禁止未经真实 workload 验证的批量替换；
+- 2026-08-04：Windows Clang 静态 Debug、Release 全量构建及 83 项测试通过；Windows MSVC 静态
+  Debug 全量构建及 83 项测试通过；MSVC Release 与 Shared 组合待后续批次验证；
 - `windows-clang-debug` 下 `caors.core.containers`、`caors.meta.sequence` 和
   `caors.serialization.container` 定向测试通过。

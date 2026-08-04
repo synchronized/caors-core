@@ -88,6 +88,12 @@ CMake 缓存。
 .\scripts\msvc.ps1 -Action build -Preset windows-msvc-shared-debug -Jobs 1
 ```
 
+切换 worktree、移动源码目录或需要丢弃旧 CMake cache 时，使用 `-Fresh` 让 CMake 重新生成缓存：
+
+```powershell
+.\scripts\msvc.ps1 -Preset windows-msvc-debug -Fresh
+```
+
 ## 构建并行度与内存
 
 默认建议不指定 `-j` 或 `--parallel`，让 Ninja、Visual Studio 等底层构建工具采用自身默认并行度：
