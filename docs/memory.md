@@ -214,11 +214,16 @@ values.push_back(42);
 
 auto names = caors::make_hash_map<int, caors::string>(&tracking);
 names.emplace(1, caors::string{"player", caors::allocator<char>{&tracking}});
+
+auto recent = caors::make_small_vector<int, 8>(&tracking);
+recent.push_back(42); // 内联容量内不向 tracking 请求动态缓冲区
 ```
 
-`caors::string`、`caors::vector<T>`、`caors::hash_map<K, V>` 和 `caors::hash_set<T>` 都使用
+`caors::string`、`caors::vector<T>`、`caors::small_vector<T, N>`、`caors::hash_map<K, V>` 和
+`caors::hash_set<T>` 都使用
 `caors::allocator`。默认构造时，allocator 会捕获当前 CAORS 默认 `memory_resource`；显式资源可以通过
-allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`、`make_hash_set()` 工厂传入。
+allocator 构造参数或对应 `make_*` 工厂传入。`small_vector` 的资源指针同样非拥有，溢出动态存储及
+资源感知元素都使用容器捕获的资源。
 
 `caors::make<T>(resource, ...)` 会使用标准 uses-allocator construction 构造对象。对
 `caors::vector<T>`、`caors::string`、`caors::hash_map<K, V>` 等 allocator-aware 类型，传入的

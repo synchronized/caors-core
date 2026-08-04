@@ -215,11 +215,11 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 - [x] 实现 shrink_to_fit；
 - [x] 完成异常注入与别名/自身区间测试。
 
-### 阶段 3：Meta、序列化与文档
+### 阶段 3：Meta、序列化与文档（已完成）
 
-- [ ] 增加 sequence traits 和类型身份；
-- [ ] 完成 JSON/MessagePack 往返及资源传播测试；
-- [ ] 更新聚合头、`docs/core.md` 或相关正式容器文档和 roadmap。
+- [x] 增加 sequence traits 和类型身份；
+- [x] 完成 JSON/MessagePack 往返及资源传播测试；
+- [x] 更新聚合头、`docs/core.md` 或相关正式容器文档和 roadmap。
 
 ### 阶段 4：基准与跨平台验证
 
@@ -248,4 +248,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
   缓冲区允许接管，异资源逐元素迁移，并覆盖动态存储精确收缩和迁回内联区；
 - 2026-08-04：完成阶段 2 修改操作；增加初始化列表和区间构造、assign、insert、erase、swap 及内容
   比较，覆盖自身区间插入/赋值、只移动元素与 inline/heap 异资源交换；
-- `windows-clang-debug` 下 `caors.core.containers` 定向测试通过。
+- 2026-08-04：完成阶段 3；类型身份包含内联容量，顺序容器能力及 JSON/MessagePack 往返验证通过，
+  反序列化保持容器资源并向嵌套资源感知元素传播；
+- `windows-clang-debug` 下 `caors.core.containers`、`caors.meta.sequence` 和
+  `caors.serialization.container` 定向测试通过。

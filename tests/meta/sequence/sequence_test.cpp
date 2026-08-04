@@ -10,6 +10,24 @@
 
 using namespace test_meta;
 
+TEST_CASE("meta - small vector exposes capacity-aware sequence identity", "[meta]") {
+  using small_type = caors::small_vector<int, 4>;
+  const caors::meta::type type = caors::meta::resolve<small_type>();
+
+  CHECK(type.kind() == caors::meta::type_kind::sequence);
+  CHECK(type.name() == "caors.small_vector<int,4>");
+  CHECK(type.id() != caors::meta::resolve<caors::small_vector<int, 8>>().id());
+
+  small_type values{1, 2};
+  caors::meta::sequence_view view =
+      caors::meta::any_ref::from(values).get_capability<caors::meta::sequence_capability>();
+  REQUIRE(view);
+  CHECK(view.append_value(caors::any::from(3)));
+  REQUIRE(view.size().has_value());
+  CHECK(*view.size() == 3);
+  CHECK(values.back() == 3);
+}
+
 TEST_CASE("meta - custom sequence traits expose property view", "[meta]") {
   REQUIRE(
       caors::registration::type_<custom_sequence_holder>("caors.test.meta.custom_sequence_holder")

@@ -108,6 +108,8 @@ struct throwing_move_assignment_value {
 static_assert(std::ranges::contiguous_range<caors::core::small_vector<int, 4>>);
 static_assert(std::ranges::sized_range<caors::core::small_vector<int, 4>>);
 static_assert(std::is_same_v<caors::small_vector<int, 4>, caors::core::small_vector<int, 4>>);
+static_assert(std::uses_allocator_v<caors::small_vector<int, 4>,
+                                    caors::allocator<caors::small_vector<int, 4>>>);
 static_assert(caors::core::small_vector<int, 0>::inline_capacity() == 0);
 static_assert(caors::core::small_vector<int, 4>::inline_capacity() == 4);
 
@@ -268,6 +270,19 @@ TEST_CASE("core small vector - nested allocator aware elements use container res
   REQUIRE(values.size() == 2);
   CHECK(values[0].resource == &tracking);
   CHECK(values[1].resource == &tracking);
+}
+
+TEST_CASE("core small vector - nested small vectors inherit the outer resource",
+          "[core][small_vector]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::small_vector<caors::small_vector<int, 1>, 1> values{&tracking};
+
+  values.emplace_back();
+  values.front().push_back(3);
+  values.front().push_back(5);
+
+  CHECK(values.front().resource() == &tracking);
+  CHECK(std::ranges::equal(values.front(), std::initializer_list<int>{3, 5}));
 }
 
 TEST_CASE("core small vector - inline storage preserves element alignment",

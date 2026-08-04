@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_H_
 #define CAORS_SERIALIZATION_H_
 
+#include "caors/adapters/small_vector_traits.h"
 #include "caors/adapters/stl_traits.h"
 #include "caors/math/serialization.h"
 #include "caors/object/serialization.h"

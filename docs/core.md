@@ -12,13 +12,13 @@
 - `caors/core/string_name.h`：运行期字符串名。
 - `caors/core/guid.h`：128-bit 稳定标识值类型。
 - `caors/core/type_guid.h`：基于 `guid` 的稳定类型标识。
-- `caors/core/containers.h`：基于 CAORS allocator 的基础容器别名。
+- `caors/core/containers.h`：基于 CAORS allocator 的基础容器和容器别名。
 - `caors/core/locator.h`：非拥有的进程级服务定位器。
 
 后续可以按需要扩展：
 
 - 基础 hash 工具。
-- 与 CAORS 内存系统适配的更多基础容器，例如 list、small_vector、stable_vector。
+- 与 CAORS 内存系统适配的更多基础容器，例如 `stable_vector`。
 
 ## string_name
 
@@ -89,13 +89,15 @@ caors::type_guid id{*parsed};
 
 ## 基础容器
 
-`caors/core/containers.h` 当前提供轻量别名，而不是完整自研容器：
+`caors/core/containers.h` 提供使用 CAORS allocator 的轻量别名，以及带内联存储的
+`small_vector`：
 
 ```cpp
 caors::vector<int> values;
 caors::list<int> queue;
 caors::string text;
 caors::hash_map<int, caors::string> names;
+caors::small_vector<int, 8> recent_values;
 ```
 
 这些别名使用 `caors::allocator<T>`，不会修改进程级 `std::pmr` 默认资源，也不会影响宿主程序或其他库。
@@ -112,10 +114,17 @@ auto default_values = caors::make_vector<int>();
 auto queue = caors::make_list<int>(&tracking);
 auto text = caors::make_string(&tracking);
 auto map = caors::make_hash_map<int, caors::string>(&tracking);
+auto recent_values = caors::make_small_vector<int, 8>(&tracking);
 ```
 
-当前先覆盖序列化 DOM、注册表和元数据等近期需求。后续如果需要稳定地址或短数组优化，再分别评估
-`stable_vector`、`small_vector` 等容器。
+`small_vector<T, N>` 在不超过 `N` 个元素时使用对象内联存储，溢出后通过容器绑定的
+`memory_resource` 分配连续缓冲区。它支持常用 vector-like 修改操作、区间构造和资源感知复制/移动；
+扩容、插入、收缩及交换都可能使引用和迭代器失效。容器对象布局包含内联区，不能按值穿过稳定 C ABI，
+也不得比其非拥有 `memory_resource*` 存活更久。
+
+Meta 将它识别为顺序容器，类型身份包含元素类型和内联容量，例如
+`caors.small_vector<int,8>`。JSON 和 MessagePack 只保存元素序列，不保存容量或当前存储模式。
+是否在具体组件中替换普通 vector，仍需依据真实元素数量分布和基准结果决定。
 
 ## 服务定位器
 

@@ -60,6 +60,10 @@ public:
   explicit small_vector(memory::memory_resource* resource) noexcept
       : data_(inline_data()), resource_(resolve_resource(resource)) {}
 
+  /** @brief 使用 allocator 所绑定的资源构造空容器。 */
+  explicit small_vector(const allocator_type& allocator) noexcept
+      : small_vector(allocator.resource()) {}
+
   /** @brief 从初始化列表复制构造。 */
   small_vector(std::initializer_list<value_type> values,
                memory::memory_resource* resource = nullptr)
@@ -105,6 +109,10 @@ public:
 #endif
   }
 
+  /** @brief 使用 allocator 所绑定的资源复制构造。 */
+  small_vector(const small_vector& other, const allocator_type& allocator)
+      : small_vector(other, allocator.resource()) {}
+
   /** @brief 使用源容器资源移动构造；动态缓冲区可被直接接管。 */
   small_vector(small_vector&& other) : small_vector(other.resource_) {
 #if CAORS_HAS_EXCEPTIONS
@@ -136,6 +144,10 @@ public:
     }
 #endif
   }
+
+  /** @brief 使用 allocator 所绑定的资源移动构造。 */
+  small_vector(small_vector&& other, const allocator_type& allocator)
+      : small_vector(std::move(other), allocator.resource()) {}
 
   /** @brief 复制赋值并保留目标容器资源。 */
   small_vector& operator=(const small_vector& other) {

@@ -32,6 +32,9 @@ template <typename T> [[nodiscard]] std::string sequence_type_name_text() {
   if constexpr (requires { traits::sequence_traits<type>::fixed_size; }) {
     text += ",";
     text += std::to_string(traits::sequence_traits<type>::fixed_size);
+  } else if constexpr (requires { traits::sequence_traits<type>::inline_capacity; }) {
+    text += ",";
+    text += std::to_string(traits::sequence_traits<type>::inline_capacity);
   }
   text += ">";
   return text;
