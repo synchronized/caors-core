@@ -696,11 +696,14 @@ TEST_CASE("meta - method string parse conversion requires explicit policy", "[me
 }
 
 TEST_CASE("meta - method temporary arguments use and rewind explicit scratch resource", "[meta]") {
-  const caors::error result = caors::registration::type_<string_parse_conversion_actor>(
-                                  "caors.test.meta.string_parse_conversion_actor")
-                                  .meta()
-                                  .method("take_int", &string_parse_conversion_actor::take_int)
-                                  .commit();
+  const caors::error result =
+      caors::registration::type_<string_parse_conversion_actor>(
+          "caors.test.meta.string_parse_conversion_actor")
+          .meta()
+          .method("take_int", &string_parse_conversion_actor::take_int)
+          .method("take_bool", &string_parse_conversion_actor::take_bool)
+          .method("take_double", &string_parse_conversion_actor::take_double)
+          .commit();
   REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
 
   const caors::meta::method_set take_int =

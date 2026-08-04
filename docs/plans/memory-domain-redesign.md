@@ -290,7 +290,7 @@ decode_result decode(input_stream& input, operation_memory memory);
 - [x] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
 - [x] 审查 registry 查询路径；当前普通查询无临时集合，长期 snapshot 保持 registry resource；
 - [x] 审查 scope 声明与成员顺序，保证非平凡临时对象在 rewind 前析构；
-- [ ] 增加嵌套调用、异常、提前返回和无异常构建测试。
+- [x] 覆盖嵌套 scope、正常/提前返回，并完成异常配置测试与 Clang `-fno-exceptions` 库构建；
 
 ### 阶段 4：Result 与 Scratch API 分离
 

@@ -57,11 +57,15 @@ struct plugin_host::impl {
                                           std::size_t message_size) {
     auto& self = *static_cast<impl*>(context);
     if (self.log != nullptr) {
+#if CAORS_HAS_EXCEPTIONS
       try {
         self.log(self.log_context, level, message, message_size);
       } catch (...) {
         // C ABI 边界不允许传播异常。
       }
+#else
+      self.log(self.log_context, level, message, message_size);
+#endif
     }
   }
 
@@ -70,11 +74,16 @@ struct plugin_host::impl {
     if (context == nullptr || id == nullptr) {
       return nullptr;
     }
+    auto find = [&] { return static_cast<impl*>(context)->find_extension({id, id_size}, version); };
+#if CAORS_HAS_EXCEPTIONS
     try {
-      return static_cast<impl*>(context)->find_extension({id, id_size}, version);
+      return find();
     } catch (...) {
       return nullptr;
     }
+#else
+    return find();
+#endif
   }
 
   static std::int32_t CAORS_PLUGIN_CALL publish_service(void* context, const caors_plugin_guid* id,
@@ -83,7 +92,7 @@ struct plugin_host::impl {
     if (context == nullptr || id == nullptr) {
       return CAORS_PLUGIN_STATUS_INVALID_ARGUMENT;
     }
-    try {
+    auto publish = [&] {
       const error status =
           static_cast<impl*>(context)->publish_service(copy_guid(*id), version, service, owner);
       if (!status) {
@@ -91,11 +100,18 @@ struct plugin_host::impl {
       }
       return status.value() == errc::already_exists ? CAORS_PLUGIN_STATUS_ALREADY_EXISTS
                                                     : CAORS_PLUGIN_STATUS_INVALID_ARGUMENT;
+    };
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      return publish();
     } catch (const std::bad_alloc&) {
       return CAORS_PLUGIN_STATUS_OUT_OF_MEMORY;
     } catch (...) {
       return CAORS_PLUGIN_STATUS_INVALID_ARGUMENT;
     }
+#else
+    return publish();
+#endif
   }
 
   static const void* CAORS_PLUGIN_CALL find_service(void* context, const caors_plugin_guid* id,
@@ -105,39 +121,58 @@ struct plugin_host::impl {
     if (context == nullptr || id == nullptr) {
       return nullptr;
     }
-    try {
+    auto find = [&] {
       return static_cast<impl*>(context)->find_service(copy_guid(*id), minimum_version,
                                                        maximum_version, selected_version);
+    };
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      return find();
     } catch (...) {
       return nullptr;
     }
+#else
+    return find();
+#endif
   }
 
   static std::size_t CAORS_PLUGIN_CALL remove_services(void* context, void* owner) {
     if (context == nullptr) {
       return 0;
     }
+    auto remove = [&] { return static_cast<impl*>(context)->remove_services(owner); };
+#if CAORS_HAS_EXCEPTIONS
     try {
-      return static_cast<impl*>(context)->remove_services(owner);
+      return remove();
     } catch (...) {
       return 0;
     }
+#else
+    return remove();
+#endif
   }
 
   static void* CAORS_PLUGIN_CALL find_registration_context(void* context, void* owner) {
     if (context == nullptr || owner == nullptr) {
       return nullptr;
     }
-    try {
+    auto find = [&]() -> void* {
       auto& self = *static_cast<impl*>(context);
       const std::lock_guard lock{self.mutex};
       const auto found =
           std::find_if(self.registration_contexts.begin(), self.registration_contexts.end(),
                        [owner](const auto& item) { return item.owner == owner; });
       return found != self.registration_contexts.end() ? found->context : nullptr;
+    };
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      return find();
     } catch (...) {
       return nullptr;
     }
+#else
+    return find();
+#endif
   }
 
   [[nodiscard]] const void* find_extension(std::string_view id,
