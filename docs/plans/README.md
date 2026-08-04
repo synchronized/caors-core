@@ -10,6 +10,8 @@
 
 ### 进行中
 
+- [memory-domain-redesign.md](memory-domain-redesign.md)：按 process、registry layer、scratch 与
+  result/user 四个生命周期域收敛内部长期元数据、插件卸载、临时工作区和用户结果内存。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
@@ -56,6 +58,8 @@
 
 ## Memory
 
+- [memory-domain-redesign.md](memory-domain-redesign.md)：内部长期元数据、registry layer、同步临时
+  工作区与用户结果内存的统一生命周期域计划。
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
