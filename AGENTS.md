@@ -101,7 +101,6 @@ ctest --preset linux-clang-debug
 6. 大型功能可以使用 `feature/<topic>` 作为临时集成分支，并从子分支合入；功能完整后再统一向
    `main` 创建 Pull Request。默认不建立长期 `develop` 分支。
 7. 完整 Linux CI 在以下时机运行：
-   - 代码合并或 push 到 `main` 后自动运行；
    - 每周一北京时间 02:00 定时运行；
    - 大功能完工、关键里程碑或高风险改动准备合并时，通过 GitHub 或
      `gh workflow run linux.yml --ref <branch>` 手动运行。

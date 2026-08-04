@@ -1,13 +1,6 @@
 name: Linux
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "LICENSE"
   workflow_dispatch:
   schedule:
     # 每周一北京时间 02:00 执行完整矩阵。
