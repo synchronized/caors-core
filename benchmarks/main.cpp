@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   caors::benchmarks::print_meta_wrapper_registration_samples();
 
   caors::benchmarks::benchmark_string_name(iterations);
+  caors::benchmarks::benchmark_small_vector(iterations);
   caors::benchmarks::benchmark_meta_lookup(iterations);
   caors::benchmarks::benchmark_properties(iterations);
   caors::benchmarks::benchmark_method_calls(iterations);

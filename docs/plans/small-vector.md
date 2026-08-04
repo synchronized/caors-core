@@ -223,7 +223,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 
 ### 阶段 4：基准与跨平台验证
 
-- [ ] 增加代表性 benchmark 并记录 Windows 结果；
+- [x] 增加代表性 benchmark 并记录 Windows 结果；
 - [ ] 完成 Windows Clang/MSVC Debug、Release、Static/Shared；
 - [ ] 使用 GitHub Actions 完成 Linux Clang/GCC 与 ASan；
 - [ ] 固定 Linux 环境完成正式性能复验后再选择首批实际接入点。
@@ -250,5 +250,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
   比较，覆盖自身区间插入/赋值、只移动元素与 inline/heap 异资源交换；
 - 2026-08-04：完成阶段 3；类型身份包含内联容量，顺序容器能力及 JSON/MessagePack 往返验证通过，
   反序列化保持容器资源并向嵌套资源感知元素传播；
+- 2026-08-04：完成 Windows Clang Release microbenchmark；内联和偶尔溢出工作集收益明确，频繁溢出
+  相比精确 reserve 明显更慢，因此继续禁止未经真实 workload 验证的批量替换；
 - `windows-clang-debug` 下 `caors.core.containers`、`caors.meta.sequence` 和
   `caors.serialization.container` 定向测试通过。

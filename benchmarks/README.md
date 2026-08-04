@@ -26,7 +26,7 @@ benchmark 源码按主题拆分在 `core/`、`meta/`、`math/`、`serialization/
 等子目录中，跨主题 fixture 和公共辅助函数放在 `support/`。当前仍使用一个聚合目标
 `caors_benchmarks`，方便一次运行观察不同模块的相对成本。
 
-当前 benchmark 覆盖 `string_name`、meta 类型查询、属性读写、方法调用、`any` / `any_ref`、
+当前 benchmark 覆盖 `string_name`、`small_vector` 内联/溢出工作集、meta 类型查询、属性读写、方法调用、`any` / `any_ref`、
 math 向量/矩阵/四元数/投影纯计算路径、序列化到 `variant` / JSON 文本、schema 查找、property 查找、反射字段读取、手动 DOM 构造、DOM 写 JSON、
 直接 JSON writer、JSON parse / DOM 读回，以及资源 cache / provider / JSON loader 主路径。方法调用会同时测
 直接 C++ 调用、`method::invoke_result_of()`、`method::invoke()`、
