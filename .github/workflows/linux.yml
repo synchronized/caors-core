@@ -30,7 +30,7 @@ jobs:
           - linux-gcc-debug
           - linux-gcc-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装构建工具
         run: |
           sudo apt-get update
@@ -82,7 +82,7 @@ jobs:
           - linux-clang-shared-debug
           - linux-clang-shared-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装构建工具
         run: |
           sudo apt-get update
@@ -121,7 +121,7 @@ jobs:
       # try_allocate 测试会故意发起不可满足的超大申请，应保持 nothrow 返回空语义。
       ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:allocator_may_return_null=1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装构建工具
         run: |
           sudo apt-get update
