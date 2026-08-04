@@ -63,6 +63,16 @@ cmake --build --preset windows-clang-debug
 ctest --preset windows-clang-debug
 ```
 
+在普通 PowerShell 中使用 Ninja + MSVC 时，通过包装脚本自动加载 Visual Studio 开发环境：
+
+```powershell
+.\scripts\msvc.ps1 -Preset windows-msvc-debug
+.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
+```
+
+不要在未初始化的普通终端中直接调用 `windows-msvc-*` preset；如果希望直接使用 CMake 命令，
+可改用能够自行定位工具链的 `windows-vs2022-*` preset。
+
 更完整的构建、安装和 CMake 选项说明见 [docs/build.md](docs/build.md)。
 
 ## 文档入口

@@ -29,7 +29,8 @@ ctest --preset windows-vs2022-debug
 .\scripts\msvc.ps1
 ```
 
-也可以在 Visual Studio Developer PowerShell 中直接运行原有的 `windows-msvc-debug` preset。
+`scripts/msvc.ps1` 是 Ninja + MSVC 的标准入口。只有当前终端已经是 Visual Studio Developer
+PowerShell/Command Prompt 时，才直接调用 `windows-msvc-*` preset。
 
 ## 快速开始
 
@@ -65,6 +66,8 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 | `windows-vs2022-release` | Visual Studio 2022 generator，Release 构建 |
 | `windows-msvc-debug` | Ninja + MSVC Debug，要求已初始化 MSVC 环境 |
 | `windows-msvc-release` | Ninja + MSVC Release，要求已初始化 MSVC 环境 |
+| `windows-msvc-shared-debug` | Ninja + MSVC Shared Debug 与插件测试，要求已初始化 MSVC 环境 |
+| `windows-msvc-shared-release` | Ninja + MSVC Shared Release 与插件测试，要求已初始化 MSVC 环境 |
 | `windows-clang-cl-debug` | Windows clang-cl Debug 构建 |
 | `windows-clang-debug` | Clang Debug 构建 |
 | `linux-clang-debug` | Clang Debug 构建 |
@@ -81,21 +84,23 @@ CMake 缓存。
 ```powershell
 .\scripts\msvc.ps1 -Action configure
 .\scripts\msvc.ps1 -Preset windows-msvc-release
+.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-shared-debug -Jobs 1
 ```
 
 ## 构建并行度与内存
 
 默认建议不指定 `-j` 或 `--parallel`，让 Ninja、Visual Studio 等底层构建工具采用自身默认并行度：
 
-```sh
-cmake --build --preset windows-msvc-debug
+```powershell
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug
 ```
 
 如果模板密集目标并行编译时发生内存不足，应根据可用内存主动降低并行度。最稳妥的诊断和低内存
 构建方式是单任务：
 
-```sh
-cmake --build --preset windows-msvc-debug -j 1
+```powershell
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug -Jobs 1
 ```
 
 需要兼顾速度时，可从逻辑 CPU 数量的一半或更低值开始尝试，例如 `-j 4`，再根据峰值内存调整；

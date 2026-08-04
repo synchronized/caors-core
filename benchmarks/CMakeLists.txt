@@ -16,6 +16,7 @@ target_sources(
           math/math_bench.cpp
           serialization/serialization_bench.cpp
           resources/resources_bench.cpp
+          memory/pool_bench.cpp
           memory/allocation_samples.cpp)
 target_compile_features(caors_benchmarks PRIVATE cxx_std_20)
 target_compile_warnings(caors_benchmarks)

@@ -9,7 +9,10 @@ param(
     [string]$Preset = "windows-msvc-debug",
 
     [ValidateSet("x64", "x86", "arm64")]
-    [string]$Architecture = "x64"
+    [string]$Architecture = "x64",
+
+    [ValidateRange(0, 2147483647)]
+    [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,13 +61,18 @@ foreach ($line in $environmentLines) {
     }
 }
 
+$buildArguments = @("--build", "--preset", $Preset)
+if ($Jobs -gt 0) {
+    $buildArguments += @("-j", $Jobs)
+}
+
 switch ($Action) {
     "configure" { Invoke-CheckedCommand cmake @("--preset", $Preset) }
-    "build" { Invoke-CheckedCommand cmake @("--build", "--preset", $Preset) }
+    "build" { Invoke-CheckedCommand cmake $buildArguments }
     "test" { Invoke-CheckedCommand ctest @("--preset", $Preset) }
     "all" {
         Invoke-CheckedCommand cmake @("--preset", $Preset)
-        Invoke-CheckedCommand cmake @("--build", "--preset", $Preset)
+        Invoke-CheckedCommand cmake $buildArguments
         Invoke-CheckedCommand ctest @("--preset", $Preset)
     }
 }

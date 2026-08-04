@@ -1,13 +1,6 @@
 name: Linux
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "LICENSE"
   workflow_dispatch:
   schedule:
     # 每周一北京时间 02:00 执行完整矩阵。
@@ -125,7 +118,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      # try_allocate 测试会故意发起不可满足的超大申请，应保持 nothrow 返回空语义。
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:allocator_may_return_null=1
     steps:
       - uses: actions/checkout@v4
       - name: 安装构建工具

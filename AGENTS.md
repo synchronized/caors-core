@@ -49,11 +49,21 @@ CAORS 是一个 C++20 基础设施库，目标能力包括自定义内存分配�
 
 常用命令：
 
-```sh
+```powershell
 cmake --list-presets
-cmake --preset windows-msvc-debug
-cmake --build --preset windows-msvc-debug
-ctest --preset windows-msvc-debug
+.\scripts\msvc.ps1 -Preset windows-msvc-debug
+.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
+```
+
+Ninja + MSVC 必须在已初始化的 Visual Studio 开发环境中运行。普通 PowerShell 中应使用上述
+`scripts/msvc.ps1`，不要直接调用 `windows-msvc-*` preset；脚本会通过 `vswhere` 定位 Visual
+Studio 并加载 `VsDevCmd.bat`。若使用 Visual Studio generator，可在普通终端直接运行：
+
+```powershell
+cmake --list-presets
+cmake --preset windows-vs2022-debug
+cmake --build --preset windows-vs2022-debug
+ctest --preset windows-vs2022-debug
 ```
 
 Linux 示例：
@@ -65,8 +75,8 @@ ctest --preset linux-clang-debug
 ```
 
 修改代码后应尽量运行与改动相关的构建和测试。若因环境缺失无法验证，需要在最终说明中明确说明未验证的原因。
-构建默认不强制指定并行度；如果发生 OOM，优先降低并发，可使用 `-j 1` 做稳定验证，或从逻辑
-CPU 数量的一半以下开始并结合可用内存调整。
+构建默认不强制指定并行度；如果发生 OOM，优先降低并发。MSVC 包装脚本可使用 `-Jobs 1` 做稳定
+验证；其他构建可使用 `-j 1`，或从逻辑 CPU 数量的一半以下开始并结合可用内存调整。
 
 ## 修改原则
 
@@ -91,7 +101,6 @@ CPU 数量的一半以下开始并结合可用内存调整。
 6. 大型功能可以使用 `feature/<topic>` 作为临时集成分支，并从子分支合入；功能完整后再统一向
    `main` 创建 Pull Request。默认不建立长期 `develop` 分支。
 7. 完整 Linux CI 在以下时机运行：
-   - 代码合并或 push 到 `main` 后自动运行；
    - 每周一北京时间 02:00 定时运行；
    - 大功能完工、关键里程碑或高风险改动准备合并时，通过 GitHub 或
      `gh workflow run linux.yml --ref <branch>` 手动运行。

@@ -185,7 +185,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现 `tracking_resource`、`monotonic_resource` 和 `fixed_block_pool`。
 - [x] 实现 `debug_tracking_resource`，支持存活分配、调用点标签和错误释放统计。
 - [x] 实现 `stack_resource`、`stack_scope` 和线程局部临时资源，覆盖嵌套回滚、统计与序列化暂存。
-- [ ] 扩展分级 size class 池等上层策略。
+- [ ] 按 `docs/plans/size-class-pool.md` 完成分级 size class 池的固定 Linux UBSan、性能复验，
+  并以真实 workload 验证吞吐、上游调用次数和内部碎片率。
 - [x] 为 `debug_tracking_resource` 增加前后 guard、分配/释放填充、独立违规统计和锁外诊断回调。
 - [x] 提供与 `std::pmr::memory_resource` 的双向非拥有适配，并明确默认资源、异常和插件 ABI
   边界。

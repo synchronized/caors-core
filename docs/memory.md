@@ -46,6 +46,7 @@ meta / serialization / object
   非拥有适配。
 - `caors/memory/stack.h`：支持嵌套标记和作用域回滚的线程局部临时资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
+- `caors/memory/size_class_pool.h`：面向中小型混合分配的分级块池策略资源。
 - `caors/memory/resource.h`：同时提供裸内存 RAII 句柄 `memory_block` 和
   `allocate_block()` / `try_allocate_block()`。
 - `caors/memory/unique_ptr.h`：可保存运行期销毁回调的 `erased_deleter<T>` 和
@@ -386,6 +387,30 @@ caors::vector<caors::memory::memory_debug_record> records =
 - `monotonic_resource`：线性分配器，适合一批对象一起释放的临时内存。
 - `stack_resource`：支持严格 LIFO 的 mark/rewind，适合同步嵌套调用的临时工作内存。
 - `fixed_block_pool`：固定块池，适合同尺寸对象频繁创建和销毁。
+- `size_class_pool_resource`：分级块池，适合多种中小尺寸的频繁分配和释放。
+
+### size_class_pool_resource
+
+`size_class_pool_resource` 把中小型请求向上取整到二次幂尺寸等级，并在各等级内复用 chunk 中的空闲块。
+默认池化 16–4096 字节，每个 chunk 最多包含 64 个块，并以 4 KiB 为目标容量按 class 尺寸缩放。
+超过最大尺寸或超过池对齐能力的请求会直接回退到上游资源，不会被拒绝：
+
+```cpp
+caors::size_class_pool_options options{};
+options.largest_block_size = 4096;
+options.blocks_per_chunk = 64;
+
+caors::size_class_pool_resource pool{options, &caors::get_system_memory_resource()};
+caors::vector<int> values{caors::allocator<int>{&pool}};
+```
+
+该资源不保存逐分配 header，释放时根据调用方传回的大小和对齐重新计算尺寸等级。因此释放参数必须与
+分配时一致；需要诊断错误释放时，应在池外组合 `debug_tracking_resource`。实例本身不保证线程安全，适合
+线程局部或由更高层同步保护的场景。销毁或调用 `release()` 前不得仍有池内存活分配。
+
+统计区分池化请求、上游回退、chunk 申请、请求字节、class 容量和保留容量。请求字节与 class 容量之差
+可用于观察当前内部碎片；若要观察池向上游产生的所有真实分配，继续在上游组合
+`tracking_resource`。
 
 ### stack_resource
 
@@ -425,11 +450,12 @@ marker 必须由同一个资源创建、在同一线程使用，并严格按后�
 
 ### strategy resource 统计
 
-三种内置策略资源都提供独立的 `statistics()` 快照和 `reset_statistics()`：
+四种内置策略资源都提供独立的 `statistics()` 快照和 `reset_statistics()`：
 
 - `stack_resource_statistics`：占用字节、chunk、large allocation、mark、rewind、trim 和 reset；
 - `monotonic_resource_statistics`：占用字节、chunk、large allocation 和 reset；
 - `fixed_block_pool_statistics`：使用/空闲/总块数、chunk、分配/归还、拒绝请求、上游失败和 release。
+- `size_class_pool_statistics`：池化/回退请求、chunk、请求/class 使用字节、峰值和保留容量。
 
 统计在 Debug/Release 均可用，并使用普通整数；它不会改变这些策略资源本身“非线程安全”的约束。
 `reset_statistics()` 只清零累计事件计数，把峰值重置为当前水位，不释放资源内容。策略资源内部水位用于观察
@@ -453,7 +479,7 @@ chunk 或 block 的实际使用情况；需要逐地址泄漏、标签和错误�
 caors::allocate()
   -> default_resource
   -> tracking_resource
-  -> fixed_block_pool
+  -> size_class_pool_resource
   -> system_memory_resource
 ```
 
@@ -521,6 +547,7 @@ backend / strategy resource
 - 线性策略：`monotonic_resource`
 - 作用域临时策略：`stack_resource` / `stack_scope` / `library_temporary_resource()`
 - 固定块策略：`fixed_block_pool`
+- 分级块策略：`size_class_pool_resource`
 - 默认资源入口：`get_default_memory_resource()` / `set_default_memory_resource()`
 - 全局分配入口：`try_allocate()` / `allocate()` / `deallocate()`
 - 基础对齐分配
@@ -536,6 +563,8 @@ backend / strategy resource
 - [x] `monotonic_resource`：面向临时内存和批量释放。
 - [x] `stack_resource`：面向同步嵌套调用的作用域临时内存。
 - [x] `fixed_block_pool`：面向固定大小对象池。
+- [ ] `size_class_pool_resource`：面向中小型混合分配；核心实现、Windows 全矩阵和 Linux
+  Clang/GCC/ASan 已验证，等待固定 Linux 环境的 UBSan、正式性能复验与真实业务 workload。
 - [x] `try_allocate`：提供不抛异常的失败返回路径。
 - [x] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
