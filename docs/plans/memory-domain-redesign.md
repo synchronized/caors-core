@@ -295,9 +295,13 @@ decode_result decode(input_stream& input, operation_memory memory);
 ### 阶段 4：Result 与 Scratch API 分离
 
 - [ ] 统一 serialization、asset、IO 和 meta 操作中的 `result_resource` / `scratch` 术语；
-- [ ] 核心实现使用显式 `operation_memory` 或等价结构；
-- [ ] convenience API 只在边界解析默认资源和创建 scratch scope；
-- [ ] 增加返回对象不引用 scratch 的 Debug 与功能测试。
+- [x] 核心实现使用显式 `operation_memory` 或等价结构；
+- [x] convenience API 只在边界解析默认资源和创建 scratch scope；
+- [x] 增加返回对象不引用 scratch 的 Debug 与功能测试。
+
+已落地的验证包括 JSON/MessagePack DOM、unknown-field preserve 与 JSON resource loader；
+测试会在操作返回后显式 reset scratch，再访问结果对象。术语统一项仍保留未完成，
+等待清理内部 `temporary_memory_scope` 兼容名称和正式文档的剩余用词。
 
 ### 阶段 5：Layer storage 策略评估
 

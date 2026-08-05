@@ -692,7 +692,7 @@ MessagePack 支持 byte span 和 `io::input_stream` 读入，也可以把通用 
 caors::serialization::variant_result value =
     caors::serialization::parse_messagepack(input_stream, options, result_resource);
 
-caors::serialization::messagepack_writer writer{output_stream, temporary_resource};
+caors::serialization::messagepack_writer writer{output_stream, scratch_resource};
 caors::error status = caors::serialize(context, object, writer);
 if (!status) {
   status = output_stream.flush();
