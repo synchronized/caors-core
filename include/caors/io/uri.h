@@ -102,8 +102,8 @@ public:
   [[nodiscard]] operator uri_view() const noexcept { return view(); }
 
   /** @brief 返回可拷贝的 CAORS 字符串副本。 */
-  [[nodiscard]] core::string to_string(memory_resource* resource = nullptr) const {
-    core::string result{allocator<char>{resource}};
+  [[nodiscard]] core::string to_string(memory_resource* result_resource = nullptr) const {
+    core::string result{allocator<char>{result_resource}};
     result.assign(value_.begin(), value_.end());
     return result;
   }

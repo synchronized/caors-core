@@ -55,8 +55,9 @@ size_result byte_buffer_input_stream::read(std::span<std::byte> buffer) {
 
 bool byte_buffer_input_stream::eof() const noexcept { return position_ >= bytes_.size(); }
 
-input_stream_ptr make_input_stream(byte_buffer bytes, memory_resource* resource) {
-  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+input_stream_ptr make_input_stream(byte_buffer bytes, memory_resource* result_resource) {
+  memory_resource* resolved =
+      result_resource != nullptr ? result_resource : get_default_memory_resource();
   auto* stream = memory::make<byte_buffer_input_stream>(resolved, std::move(bytes));
   input_stream_ptr result{stream};
   result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {

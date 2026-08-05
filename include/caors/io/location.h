@@ -92,8 +92,8 @@ public:
   [[nodiscard]] operator path_view() const noexcept { return path_view{value_}; }
 
   /** @brief 返回可拷贝的 CAORS 字符串副本。 */
-  [[nodiscard]] core::string to_string(memory_resource* resource = nullptr) const {
-    core::string result{allocator<char>{resource}};
+  [[nodiscard]] core::string to_string(memory_resource* result_resource = nullptr) const {
+    core::string result{allocator<char>{result_resource}};
     result.assign(value_.begin(), value_.end());
     return result;
   }
@@ -120,14 +120,14 @@ namespace detail {
 [[nodiscard]] inline location make_location_from_parts(std::string_view scheme, bool authority_form,
                                                        std::string_view authority,
                                                        path_view value_path,
-                                                       memory_resource* resource) {
+                                                       memory_resource* result_resource) {
   if (scheme.empty()) {
-    return location{normalize_path(value_path, resource), resource};
+    return location{normalize_path(value_path, result_resource), result_resource};
   }
 
-  path normalized_path = normalize_path(value_path, resource);
+  path normalized_path = normalize_path(value_path, result_resource);
   const std::string_view path_text = normalized_path.string_view();
-  core::string result{allocator<char>{resource}};
+  core::string result{allocator<char>{result_resource}};
 
   if (authority_form) {
     result.reserve(scheme.size() + 3 + authority.size() + path_text.size() +
@@ -146,7 +146,7 @@ namespace detail {
     result.append(path_text.begin(), path_text.end());
   }
 
-  return location{location_view{result}, resource};
+  return location{location_view{result}, result_resource};
 }
 
 } // namespace detail
@@ -157,10 +157,11 @@ namespace detail {
  * 普通路径按虚拟路径规则规范化；带 scheme 的 URI 会保留 scheme / authority，只规范化 path 部分。
  */
 [[nodiscard]] inline location normalize_location(location_view value,
-                                                 memory_resource* resource = nullptr) {
+                                                 memory_resource* result_resource = nullptr) {
   const uri_view parsed{value.string_view()};
   return detail::make_location_from_parts(parsed.scheme(), detail::uses_authority_form(parsed),
-                                          parsed.authority(), path_view{parsed.path()}, resource);
+                                          parsed.authority(), path_view{parsed.path()},
+                                          result_resource);
 }
 
 /**
@@ -169,22 +170,22 @@ namespace detail {
  * `suffix` 如果本身是 URI，则直接作为完整位置规范化返回；否则拼到 `base` 的 path 部分。
  */
 [[nodiscard]] inline location join_location(location_view base, location_view suffix,
-                                            memory_resource* resource = nullptr) {
+                                            memory_resource* result_resource = nullptr) {
   const uri_view suffix_uri{suffix.string_view()};
   if (suffix_uri.has_scheme()) {
-    return normalize_location(suffix, resource);
+    return normalize_location(suffix, result_resource);
   }
 
-  const location normalized_base = normalize_location(base, resource);
+  const location normalized_base = normalize_location(base, result_resource);
   const uri_view parsed_base{normalized_base.string_view()};
   if (!parsed_base.has_scheme()) {
-    return location{join_path(normalized_base, suffix, resource), resource};
+    return location{join_path(normalized_base, suffix, result_resource), result_resource};
   }
 
-  const path joined_path = join_path(path_view{parsed_base.path()}, suffix, resource);
+  const path joined_path = join_path(path_view{parsed_base.path()}, suffix, result_resource);
   return detail::make_location_from_parts(parsed_base.scheme(),
                                           detail::uses_authority_form(parsed_base),
-                                          parsed_base.authority(), joined_path, resource);
+                                          parsed_base.authority(), joined_path, result_resource);
 }
 
 } // namespace caors::io

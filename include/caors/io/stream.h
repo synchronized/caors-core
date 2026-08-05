@@ -86,8 +86,8 @@ using input_stream_result = result<input_stream_ptr>;
 using output_stream_result = result<output_stream_ptr>;
 
 /** @brief 使用指定资源构造拥有式内存输入流。 */
-[[nodiscard]] CAORS_API input_stream_ptr make_input_stream(byte_buffer bytes,
-                                                           memory_resource* resource = nullptr);
+[[nodiscard]] CAORS_API input_stream_ptr
+make_input_stream(byte_buffer bytes, memory_resource* result_resource = nullptr);
 
 } // namespace caors::io
 

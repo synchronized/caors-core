@@ -22,8 +22,8 @@ using byte_buffer_result = result<byte_buffer>;
 using size_result = result<std::size_t>;
 
 /** @brief 使用指定内存资源创建字节缓冲区。 */
-[[nodiscard]] inline byte_buffer make_byte_buffer(memory_resource* resource = nullptr) {
-  return byte_buffer{allocator<std::byte>{resource}};
+[[nodiscard]] inline byte_buffer make_byte_buffer(memory_resource* result_resource = nullptr) {
+  return byte_buffer{allocator<std::byte>{result_resource}};
 }
 
 } // namespace caors::io
