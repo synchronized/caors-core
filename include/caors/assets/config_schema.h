@@ -180,8 +180,8 @@ private:
 
 /** @brief typed factory options 读入和校验结果。 */
 template <typename Options> struct typed_factory_options_result {
-  explicit typed_factory_options_result(memory_resource* resource = nullptr)
-      : validation(resource) {}
+  explicit typed_factory_options_result(memory_resource* result_resource = nullptr)
+      : validation(result_resource) {}
 
   error status{};
   Options value{};
@@ -194,8 +194,9 @@ template <typename Options> struct typed_factory_options_result {
 
 namespace detail {
 
-[[nodiscard]] inline core::string make_typed_factory_option_reason(memory_resource* resource) {
-  return core::string{allocator<char>{resource}};
+[[nodiscard]] inline core::string
+make_typed_factory_option_reason(memory_resource* result_resource) {
+  return core::string{allocator<char>{result_resource}};
 }
 
 inline void append_name(core::string& text, core::string_name name) {
@@ -290,15 +291,15 @@ inline void append_validation_diagnostics(serialization::config_validation_resul
  */
 template <typename Options>
 [[nodiscard]] typed_factory_options_result<Options>
-read_typed_factory_options(const variant& options, memory_resource* resource = nullptr,
+read_typed_factory_options(const variant& options, memory_resource* result_resource = nullptr,
                            serialization::unknown_field_policy unknown_fields =
                                serialization::unknown_field_policy::reject) {
   static_assert(std::is_default_constructible_v<Options>,
                 "Typed factory options must be default constructible");
 
-  typed_factory_options_result<Options> result{resource};
+  typed_factory_options_result<Options> result{result_resource};
 
-  result.status = serialization::apply_config_defaults(result.value, resource);
+  result.status = serialization::apply_config_defaults(result.value, result_resource);
   if (result.status) {
     detail::append_typed_factory_status_diagnostic(result.validation, result.status);
     return result;
@@ -323,7 +324,7 @@ read_typed_factory_options(const variant& options, memory_resource* resource = n
   }
 
   serialization::config_validation_result validation =
-      serialization::validate_config(result.value, resource);
+      serialization::validate_config(result.value, result_resource);
   detail::append_validation_diagnostics(result.validation, validation);
   if (result.validation.failed() && !result.status) {
     result.status = result.validation.status;

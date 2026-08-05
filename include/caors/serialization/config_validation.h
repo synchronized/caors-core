@@ -29,8 +29,8 @@ struct config_validation_diagnostic {
 struct config_validation_result {
   using diagnostic_list = core::vector<config_validation_diagnostic>;
 
-  explicit config_validation_result(memory_resource* resource = nullptr)
-      : diagnostics(typename diagnostic_list::allocator_type{resource}) {}
+  explicit config_validation_result(memory_resource* result_resource = nullptr)
+      : diagnostics(typename diagnostic_list::allocator_type{result_resource}) {}
 
   error status{};
   diagnostic_list diagnostics;
@@ -42,8 +42,8 @@ struct config_validation_result {
 
 namespace detail {
 
-[[nodiscard]] inline core::string make_config_validation_reason(memory_resource* resource) {
-  return core::string{allocator<char>{resource}};
+[[nodiscard]] inline core::string make_config_validation_reason(memory_resource* result_resource) {
+  return core::string{allocator<char>{result_resource}};
 }
 
 inline void append_field_name(core::string& reason, core::string_name name) {
@@ -303,15 +303,15 @@ template <typename T>
 
 /** @brief 使用默认类型上下文按属性 schema 中声明的默认值填充配置对象。 */
 template <typename T>
-[[nodiscard]] error apply_config_defaults(T& object, memory_resource* resource = nullptr) {
-  return apply_config_defaults(meta::default_context(), object, resource);
+[[nodiscard]] error apply_config_defaults(T& object, memory_resource* result_resource = nullptr) {
+  return apply_config_defaults(meta::default_context(), object, result_resource);
 }
 
 /** @brief 使用反射属性 schema 校验配置对象。 */
 template <typename T>
 [[nodiscard]] config_validation_result validate_config(meta::context& type_context, const T& object,
-                                                       memory_resource* resource = nullptr) {
-  config_validation_result result{resource};
+                                                       memory_resource* result_resource = nullptr) {
+  config_validation_result result{result_resource};
   const meta::type meta_type = meta::find<T>(type_context);
   if (!meta_type.registered()) {
     result.status = {error_domain::serialization, errc::missing_type};
@@ -340,8 +340,8 @@ template <typename T>
 /** @brief 使用默认类型上下文校验配置对象。 */
 template <typename T>
 [[nodiscard]] config_validation_result validate_config(const T& object,
-                                                       memory_resource* resource = nullptr) {
-  return validate_config(meta::default_context(), object, resource);
+                                                       memory_resource* result_resource = nullptr) {
+  return validate_config(meta::default_context(), object, result_resource);
 }
 
 } // namespace caors::serialization
