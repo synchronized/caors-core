@@ -69,6 +69,11 @@ build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
   `layer_find_type_id`、`frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`
   以及 `locked/frozen/layer_schema_lookup`，用于对比默认加锁 primary、冻结 primary 和已发布
   layer 的只读查询成本。
+- registry layer 资源策略：`meta.registry.resource.<system|monotonic|pool>.<register|query|unload>`
+  使用隔离 registry 和同一组类型，对比 system、monotonic 与 size class pool 的注册、查询和卸载。
+  同时输出 `live`、`unloaded`、`released` 三阶段的上游分配统计；`released` 阶段
+  `bytes_in_use` 应回到 0。monotonic 和 pool 在 `unloaded` 阶段仍保留内存属于策略行为，不能直接
+  判定为泄漏。
 - `meta::property` / `meta::instance`：成员属性、readonly 属性和 getter/setter 属性的 typed、
   `value`、`any`、compiled accessor 与直接成员访问路径。返回值 getter 使用装箱路径，返回引用的
   accessor 才参与 typed 原地读写。
@@ -126,6 +131,10 @@ wrapper 的所有权与擦除结构。
 
 分配统计不是耗时 benchmark。它用于发现分配热点和泄漏风险，正式性能对比仍以 Release benchmark
 同机重复运行结果为准。
+
+registry 资源策略同样属于相对测量。注册和卸载每种策略只执行一次，查询次数才由命令行迭代参数控制；
+因此正式判断应至少运行三轮，并结合分配次数、峰值、卸载后的保留量与真实 registry layer 生命周期，
+不能根据一次冒烟结果直接替换默认资源。
 
 ## Math Fast Path 判断
 
