@@ -74,6 +74,7 @@ private:
   registry_layer_lifetime lifetime_ = registry_layer_lifetime::detachable;
   std::atomic<bool> active_{true};
   std::atomic<std::size_t> in_flight_calls_{0};
+  /** @brief 保持注册代码所属模块存活；必须晚于 state_ 所有 record 和 wrapper 释放。 */
   std::shared_ptr<void> lifetime_owner_{};
   std::uint64_t generation_ = 0;
   bool frozen_ = false;

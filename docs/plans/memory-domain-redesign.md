@@ -307,8 +307,9 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 - [x] 在 system、monotonic 和 pool 上测量 registry 注册、查询、卸载和内存占用；结果见
   `benchmarks/results/2026-08-05-windows-clang-registry-resources-a4f5ba1.md`，当前继续保留 system 默认策略；
-- [ ] 确定 destructor list 或显式析构顺序；
-- [ ] 只有在真实 type/plugin workload 获得收益后才采用 arena 批量 storage；
+- [x] 采用显式析构顺序，不增加 destructor list：layer 先销毁 registry state 及其中全部
+  type/property/method/metadata wrapper，再释放插件 lifetime lease；
+- [x] 当前不采用 arena 批量 storage；只有真实 type/plugin workload 证明存在净收益后再单独评估；
 - [ ] 记录不同域的峰值、碎片、分配次数和释放延迟。
 
 ### 阶段 6：跨模块与全矩阵验证

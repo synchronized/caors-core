@@ -20,7 +20,12 @@ registry_layer_state::registry_layer_state(memory::memory_resource* resource,
       state_(memory::make<registry_state>(resource_, resource_)), lifetime_(lifetime),
       generation_(next_layer_generation.fetch_add(1, std::memory_order_relaxed)) {}
 
-registry_layer_state::~registry_layer_state() { memory::destroy(state_, resource_); }
+registry_layer_state::~registry_layer_state() {
+  // record 和 wrapper 的析构可能执行插件代码，必须在释放插件 lifetime lease 之前完成。
+  memory::destroy(state_, resource_);
+  state_ = nullptr;
+  lifetime_owner_.reset();
+}
 
 bool registry_layer_state::try_enter_call() noexcept {
   if (!active()) {
