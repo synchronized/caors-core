@@ -105,10 +105,11 @@ public:
   explicit factory_capability(meta::type type) noexcept : base_type(type) {}
 
   /** @brief 使用注册工厂构造并返回拥有对象生命周期的 `any`。 */
-  [[nodiscard]] any construct(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any construct(memory::memory_resource* result_resource = nullptr) const;
 
   /** @brief 使用注册工厂构造并返回可显式转移所有权的运行期值。 */
-  [[nodiscard]] owned_value construct_owned(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] owned_value
+  construct_owned(memory::memory_resource* result_resource = nullptr) const;
 };
 
 /** @brief 类型运行期带参构造能力的公开 facade。 */
@@ -131,11 +132,12 @@ public:
 
   /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
   [[nodiscard]] any construct(std::span<const argument> arguments,
-                              memory::memory_resource* resource = nullptr) const;
+                              memory::memory_resource* result_resource = nullptr) const;
 
   /** @brief 使用注册构造函数构造并返回可显式转移所有权的运行期值。 */
-  [[nodiscard]] owned_value construct_owned(std::span<const argument> arguments,
-                                            memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] owned_value
+  construct_owned(std::span<const argument> arguments,
+                  memory::memory_resource* result_resource = nullptr) const;
 };
 
 } // namespace caors::meta

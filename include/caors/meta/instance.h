@@ -52,7 +52,7 @@ public:
   [[nodiscard]] property find_property(std::string_view name,
                                        member_search search = member_search::local_only) const;
   /** @brief 返回属性视图快照；属性视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<property> properties(memory_resource* resource = nullptr) const;
+  [[nodiscard]] core::vector<property> properties(memory_resource* result_resource = nullptr) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method_set method_at(std::size_t index) const;
@@ -61,7 +61,7 @@ public:
   [[nodiscard]] method_set find_method(std::string_view name,
                                        member_search search = member_search::local_only) const;
   /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<method_set> methods(memory_resource* resource = nullptr) const;
+  [[nodiscard]] core::vector<method_set> methods(memory_resource* result_resource = nullptr) const;
 
   /** @brief 读取属性值的高层运行期值；属性不存在时返回 `null`。 */
   [[nodiscard]] meta::value get(std::string_view name) const;

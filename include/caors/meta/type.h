@@ -122,12 +122,12 @@ public:
   /** @brief 查询类型是否支持默认值构造能力。 */
   [[nodiscard]] bool value_constructible() const noexcept;
   /** @brief 创建运行期值，优先 factory，再匹配无参 constructor，最后回退默认值构造能力。 */
-  [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any create(memory::memory_resource* result_resource = nullptr) const;
   /** @brief 使用运行期参数列表创建运行期值；非空参数列表只匹配 constructor capability。 */
   [[nodiscard]] any create(std::span<const argument> arguments,
-                           memory::memory_resource* resource = nullptr) const;
+                           memory::memory_resource* result_resource = nullptr) const;
   /** @brief 使用类型默认值构造能力创建运行期值，不查询 factory capability。 */
-  [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any create_value(memory::memory_resource* result_resource = nullptr) const;
   [[nodiscard]] const metadata_map& metadata() const noexcept;
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;

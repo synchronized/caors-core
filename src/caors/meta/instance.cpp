@@ -33,8 +33,8 @@ property instance::find_property(std::string_view name, member_search search) co
   return type().find_property(name, search);
 }
 
-core::vector<property> instance::properties(memory_resource* resource) const {
-  core::vector<property> result{allocator<property>{resource}};
+core::vector<property> instance::properties(memory_resource* result_resource) const {
+  core::vector<property> result{allocator<property>{result_resource}};
   const std::size_t count = property_count();
   result.reserve(count);
   for (std::size_t index = 0; index < count; ++index) {
@@ -56,8 +56,8 @@ method_set instance::find_method(std::string_view name, member_search search) co
   return type().find_method(name, search);
 }
 
-core::vector<method_set> instance::methods(memory_resource* resource) const {
-  core::vector<method_set> result{allocator<method_set>{resource}};
+core::vector<method_set> instance::methods(memory_resource* result_resource) const {
+  core::vector<method_set> result{allocator<method_set>{result_resource}};
   const std::size_t count = method_count();
   result.reserve(count);
   for (std::size_t index = 0; index < count; ++index) {
