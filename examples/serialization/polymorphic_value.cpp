@@ -119,7 +119,7 @@ int main() {
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.resolvers.memory.resource = &tracking;
+  context.resolvers.memory.result_resource = &tracking;
 
   scene decoded{};
   const caors::error status = caors::read_json_from(context, decoded, *json);
