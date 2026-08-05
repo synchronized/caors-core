@@ -15,7 +15,7 @@ namespace caors::serialization {
 class CAORS_API json_reader final : public reader {
 public:
   explicit json_reader(std::string_view text, json_options options = {},
-                       memory::memory_resource* temporary_resource = nullptr);
+                       memory::memory_resource* scratch_resource = nullptr);
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
@@ -104,7 +104,7 @@ private:
 
   std::string_view text_{};
   json_options options_{};
-  memory::memory_resource* temporary_resource_ = nullptr;
+  memory::memory_resource* scratch_resource_ = nullptr;
   json_span root_{};
   vector<object_context> object_stack_;
   vector<array_context> array_stack_;

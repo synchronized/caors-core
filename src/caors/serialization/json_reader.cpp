@@ -569,16 +569,16 @@ private:
 } // namespace
 
 json_reader::json_reader(std::string_view text, json_options options,
-                         memory::memory_resource* temporary_resource)
+                         memory::memory_resource* scratch_resource)
     : text_(text), options_(options),
-      temporary_resource_(temporary_resource != nullptr ? temporary_resource
-                                                        : memory::get_default_memory_resource()),
+      scratch_resource_(scratch_resource != nullptr ? scratch_resource
+                                                    : memory::get_default_memory_resource()),
       root_{0, text.size(), true},
-      object_stack_(memory::allocator<object_context>{temporary_resource_}),
-      array_stack_(memory::allocator<array_context>{temporary_resource_}),
-      dictionary_stack_(memory::allocator<dictionary_context>{temporary_resource_}),
-      polymorphic_values_(memory::allocator<json_span>{temporary_resource_}),
-      polymorphic_object_depths_(memory::allocator<std::size_t>{temporary_resource_}) {}
+      object_stack_(memory::allocator<object_context>{scratch_resource_}),
+      array_stack_(memory::allocator<array_context>{scratch_resource_}),
+      dictionary_stack_(memory::allocator<dictionary_context>{scratch_resource_}),
+      polymorphic_values_(memory::allocator<json_span>{scratch_resource_}),
+      polymorphic_object_depths_(memory::allocator<std::size_t>{scratch_resource_}) {}
 
 format_features json_reader::features() const noexcept {
   return format_features::named_fields | format_features::ordered_fields |
@@ -591,7 +591,7 @@ error json_reader::begin_object(const type_schema& type) {
     return invalid_json();
   }
 
-  object_context context{temporary_resource_};
+  object_context context{scratch_resource_};
   context.members.reserve(type.fields.size());
   const error status = scan_object(*value, context.members, current_container_depth() + 1U);
   if (status) {
@@ -635,7 +635,7 @@ error json_reader::begin_array(std::size_t& size) {
     return invalid_json();
   }
 
-  array_context context{temporary_resource_};
+  array_context context{scratch_resource_};
   const error status = scan_array(*value, context.elements, current_container_depth() + 1U);
   if (status) {
     return status;
@@ -662,7 +662,7 @@ error json_reader::begin_dictionary(std::size_t& size) {
     return invalid_json();
   }
 
-  dictionary_context context{temporary_resource_};
+  dictionary_context context{scratch_resource_};
   const error status = scan_dictionary(*value, context.entries, current_container_depth() + 1U);
   if (status) {
     return status;
@@ -844,7 +844,7 @@ bool json_reader::is_polymorphic_envelope(const serialization::context& context)
     return false;
   }
 
-  vector<object_member> members{memory::allocator<object_member>{temporary_resource_}};
+  vector<object_member> members{memory::allocator<object_member>{scratch_resource_}};
   if (scan_object(*span, members, current_container_depth() + 1U)) {
     return false;
   }
@@ -872,7 +872,7 @@ error json_reader::read_polymorphic_type_guid(const serialization::context& cont
     return invalid_json();
   }
 
-  vector<object_member> members{memory::allocator<object_member>{temporary_resource_}};
+  vector<object_member> members{memory::allocator<object_member>{scratch_resource_}};
   error status = scan_object(*span, members, current_container_depth() + 1U);
   if (status) {
     return status;
@@ -907,7 +907,7 @@ error json_reader::begin_polymorphic_value(const serialization::context& context
     return invalid_json();
   }
 
-  vector<object_member> members{memory::allocator<object_member>{temporary_resource_}};
+  vector<object_member> members{memory::allocator<object_member>{scratch_resource_}};
   error status = scan_object(*span, members, current_container_depth() + 1U);
   if (status) {
     return status;
@@ -1043,8 +1043,7 @@ error json_reader::scan_object(json_span span, vector<object_member>& members,
 
 error json_reader::scan_array(json_span span, vector<json_span>& elements,
                               std::size_t depth) const {
-  vector<parsed_json_span> parsed_elements{
-      memory::allocator<parsed_json_span>{temporary_resource_}};
+  vector<parsed_json_span> parsed_elements{memory::allocator<parsed_json_span>{scratch_resource_}};
   json_span_cursor cursor{text_, options_, span.begin, span.end};
   const error status = cursor.scan_array_elements(parsed_elements, depth);
   if (status) {
@@ -1060,7 +1059,7 @@ error json_reader::scan_array(json_span span, vector<json_span>& elements,
 
 error json_reader::scan_dictionary(json_span span, vector<dictionary_entry>& entries,
                                    std::size_t depth) const {
-  vector<json_span> elements{memory::allocator<json_span>{temporary_resource_}};
+  vector<json_span> elements{memory::allocator<json_span>{scratch_resource_}};
   error status = scan_array(span, elements, depth);
   if (status) {
     return status;
@@ -1068,7 +1067,7 @@ error json_reader::scan_dictionary(json_span span, vector<dictionary_entry>& ent
 
   entries.reserve(elements.size());
   for (json_span entry_span : elements) {
-    vector<json_span> pair{memory::allocator<json_span>{temporary_resource_}};
+    vector<json_span> pair{memory::allocator<json_span>{scratch_resource_}};
     status = scan_array(entry_span, pair, depth + 1U);
     if (status) {
       return status;

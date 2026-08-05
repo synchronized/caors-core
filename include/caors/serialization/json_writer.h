@@ -15,14 +15,14 @@ class CAORS_API json_writer final : public writer {
 public:
   json_writer() noexcept;
   explicit json_writer(json_options options) noexcept;
-  json_writer(json_options options, memory::memory_resource* temporary_resource) noexcept;
+  json_writer(json_options options, memory::memory_resource* scratch_resource) noexcept;
   explicit json_writer(string& output);
   json_writer(string& output, json_options options);
-  json_writer(string& output, json_options options, memory::memory_resource* temporary_resource);
+  json_writer(string& output, json_options options, memory::memory_resource* scratch_resource);
   explicit json_writer(io::output_stream& output) noexcept;
   json_writer(io::output_stream& output, json_options options) noexcept;
   json_writer(io::output_stream& output, json_options options,
-              memory::memory_resource* temporary_resource) noexcept;
+              memory::memory_resource* scratch_resource) noexcept;
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;

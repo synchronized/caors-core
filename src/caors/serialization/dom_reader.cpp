@@ -33,14 +33,14 @@ namespace {
 } // namespace
 
 variant_reader::variant_reader(const variant& value,
-                               memory::memory_resource* temporary_resource) noexcept
-    : root_(&value), object_stack_(memory::allocator<const variant*>{temporary_resource}),
-      current_members_(memory::allocator<const meta::variant_member*>{temporary_resource}),
-      array_stack_(memory::allocator<const variant*>{temporary_resource}),
-      current_elements_(memory::allocator<const variant*>{temporary_resource}),
-      dictionary_stack_(memory::allocator<dictionary_context>{temporary_resource}),
-      polymorphic_values_(memory::allocator<const variant*>{temporary_resource}),
-      polymorphic_object_depths_(memory::allocator<std::size_t>{temporary_resource}) {}
+                               memory::memory_resource* scratch_resource) noexcept
+    : root_(&value), object_stack_(memory::allocator<const variant*>{scratch_resource}),
+      current_members_(memory::allocator<const meta::variant_member*>{scratch_resource}),
+      array_stack_(memory::allocator<const variant*>{scratch_resource}),
+      current_elements_(memory::allocator<const variant*>{scratch_resource}),
+      dictionary_stack_(memory::allocator<dictionary_context>{scratch_resource}),
+      polymorphic_values_(memory::allocator<const variant*>{scratch_resource}),
+      polymorphic_object_depths_(memory::allocator<std::size_t>{scratch_resource}) {}
 
 format_features variant_reader::features() const noexcept {
   return format_features::named_fields | format_features::numeric_fields |

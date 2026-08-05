@@ -12,7 +12,7 @@ namespace caors::serialization {
 class CAORS_API variant_reader final : public reader {
 public:
   explicit variant_reader(const variant& value,
-                          memory::memory_resource* temporary_resource = nullptr) noexcept;
+                          memory::memory_resource* scratch_resource = nullptr) noexcept;
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
