@@ -305,7 +305,8 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 5：Layer storage 策略评估
 
-- [ ] 在 system、monotonic 和 pool 上测量 registry 注册、查询、卸载和内存占用；
+- [x] 在 system、monotonic 和 pool 上测量 registry 注册、查询、卸载和内存占用；结果见
+  `benchmarks/results/2026-08-05-windows-clang-registry-resources-a4f5ba1.md`，当前继续保留 system 默认策略；
 - [ ] 确定 destructor list 或显式析构顺序；
 - [ ] 只有在真实 type/plugin workload 获得收益后才采用 arena 批量 storage；
 - [ ] 记录不同域的峰值、碎片、分配次数和释放延迟。
