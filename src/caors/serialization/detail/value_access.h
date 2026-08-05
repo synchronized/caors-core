@@ -75,7 +75,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
                       bool transfer_destroy_context = true) {
   const serialization::construction_options& options = context.effective_construction_options();
   const construction_request request = context.make_construction_request(type, site, index);
-  memory::memory_resource* resource = context.effective_memory_resource();
+  memory::memory_resource* resource = context.effective_result_resource();
 
   if (options.has_custom_construct()) {
     const construction_result result = options.create(request, context);
@@ -145,7 +145,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
     return {};
   }
 
-  memory::memory_resource* resource = context.effective_memory_resource();
+  memory::memory_resource* resource = context.effective_result_resource();
   any decoded = any::default_construct(type, resource);
   if (!decoded.valid()) {
     decoded = any::default_construct(type.id(), resource);

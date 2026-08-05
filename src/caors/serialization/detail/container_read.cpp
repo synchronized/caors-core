@@ -3,8 +3,8 @@
 
 #include "helpers.h"
 
-#include "construction.h"
 #include "caors/serialization/detail/temporary_memory.h"
+#include "construction.h"
 
 #include <optional>
 
@@ -37,7 +37,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   vector<any> staged{allocator<any>{temporary_scope.resource()}};
   staged.reserve(size);
   for (std::size_t index = 0; index < size; ++index) {
@@ -109,7 +109,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (view.resize(size, context.effective_memory_resource())) {
+  if (view.resize(size, context.effective_result_resource())) {
     for (std::size_t index = 0; index < size; ++index) {
       status = reader.begin_element(index);
       if (status) {
@@ -588,7 +588,7 @@ namespace caors::serialization::detail {
     return nested_status;
   }
 
-  if (view.emplace(active, context.effective_memory_resource())) {
+  if (view.emplace(active, context.effective_result_resource())) {
     any_ref value = view.value_ref();
     if (!value.valid() || !value.writable()) {
       return {error_domain::serialization, errc::invalid_field};

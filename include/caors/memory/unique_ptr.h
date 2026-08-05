@@ -70,7 +70,7 @@ private:
  * @brief 能接管 `memory_resource` 构造对象的 unique_ptr 别名。
  *
  * 普通 `std::unique_ptr<T>` 不能在运行期替换 deleter，因此当多态反序列化需要使用
- * `serialization::context::resolvers.memory.resource` 时，应使用这个别名作为字段类型。
+ * `serialization::context::resolvers.memory.result_resource` 时，应使用这个别名作为字段类型。
  */
 template <typename T> using unique_ptr = std::unique_ptr<T, erased_deleter<T>>;
 

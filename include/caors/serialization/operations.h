@@ -339,7 +339,7 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 [[nodiscard]] inline error apply_unknown_field_policy(const serialization::context& context,
                                                       const meta::type& type,
                                                       const variant& value) {
-  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
   return apply_unknown_field_policy_tree(context, type, value, root);
 }
@@ -387,7 +387,7 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
         schema_path preserved_path{
             path.begin(),
             path.end(),
-            allocator<schema_path_segment>{context.effective_memory_resource()},
+            allocator<schema_path_segment>{context.effective_result_resource()},
         };
         context.state.schema.preserved_unknown_field_entries->push_back(preserved_unknown_field{
             std::move(preserved_path),
@@ -406,7 +406,7 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 
 [[nodiscard]] inline error apply_schema_migration(const serialization::context& context,
                                                   const meta::type& type, variant& value) {
-  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
   return apply_schema_migration_tree(context, type, value, root);
 }
@@ -490,7 +490,7 @@ template <typename T>
     }
   }
 
-  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::variant_reader reader{value, temporary_scope.resource()};
   return detail::deserialize(context, meta_type, &object, reader);
 }
@@ -544,7 +544,7 @@ template <typename T>
     return {error_domain::serialization, errc::missing_type};
   }
 
-  temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::json_reader reader{text, options, temporary_scope.resource()};
   if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (reader.is_polymorphic_envelope(context)) {
@@ -883,7 +883,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output) {
-  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::json_writer writer{output, {}, temporary_scope.resource()};
   return serialize(context, object, writer);
 }
@@ -892,7 +892,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output) {
-  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::json_writer writer{output, {}, temporary_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
@@ -902,7 +902,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output, json_options options) {
-  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::json_writer writer{output, options, temporary_scope.resource()};
   return serialize(context, object, writer);
 }
@@ -911,7 +911,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output, json_options options) {
-  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   serialization::json_writer writer{output, options, temporary_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
@@ -978,8 +978,8 @@ template <typename T> [[nodiscard]] io::byte_buffer_result to_messagepack(const 
 template <typename T>
 [[nodiscard]] io::byte_buffer_result to_messagepack(const serialization::context& context,
                                                     const T& object) {
-  io::byte_buffer output = io::make_byte_buffer(context.effective_memory_resource());
-  messagepack_writer writer{output, context.effective_temporary_resource()};
+  io::byte_buffer output = io::make_byte_buffer(context.effective_result_resource());
+  messagepack_writer writer{output, context.effective_scratch_resource()};
   const error status = serialize(context, object, writer);
   return {status, std::move(output)};
 }
@@ -997,8 +997,8 @@ template <typename T>
 [[nodiscard]] error read_messagepack_from(const serialization::context& context, T& object,
                                           std::span<const std::byte> bytes,
                                           messagepack_options options = {}) {
-  variant_result value = parse_messagepack(bytes, options, context.effective_memory_resource(),
-                                           context.effective_temporary_resource());
+  variant_result value = parse_messagepack(bytes, options, context.effective_result_resource(),
+                                           context.effective_scratch_resource());
   return value.failed() ? value.status : read_value_from(context, object, value.value);
 }
 

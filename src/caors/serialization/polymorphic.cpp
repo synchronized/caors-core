@@ -93,7 +93,7 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
     return {error_domain::serialization, errc::not_found};
   }
 
-  detail::temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
   variant_reader reader{*stored_value, temporary_scope.resource()};
   const meta::type reflected_dynamic_type =
       meta::find(context.effective_type_context(), dynamic_type.value.id());

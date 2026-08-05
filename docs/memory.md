@@ -280,7 +280,7 @@ CAORS 默认资源与 `std::pmr` 默认资源保持独立，适配器不会调�
 ### memory::unique_ptr
 
 `caors::memory::unique_ptr<T>` 是 `std::unique_ptr<T, memory::erased_deleter<T>>` 的别名。
-默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::resolvers.memory.resource`
+默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::resolvers.memory.result_resource`
 构造内部对象或运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
 
 `memory::make_unique<T>(resource, ...)` 会使用指定 `memory_resource` 构造对象，并让返回的

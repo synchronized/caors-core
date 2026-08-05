@@ -167,7 +167,7 @@ TEST_CASE("serialization - JSON and DOM backend frames use context temporary res
   caors::stack_resource temporary{64, &tracking};
   caors::serialization::context context{};
   context.config.fields.schema_version = 5;
-  context.resolvers.memory.temporary_resource = &temporary;
+  context.resolvers.memory.scratch_resource = &temporary;
 
   const context_codec_actor source{{7}};
   caors::string json;

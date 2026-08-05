@@ -57,7 +57,7 @@ template <> struct codec_traits<caors::tests::serialization::nested_messagepack_
 
   [[nodiscard]] static caors::error write(const context& context, writer& writer,
                                           const value_type& value) {
-    auto* stack = dynamic_cast<caors::stack_resource*>(context.effective_temporary_resource());
+    auto* stack = dynamic_cast<caors::stack_resource*>(context.effective_scratch_resource());
     if (value.state != nullptr && stack != nullptr) {
       value.state->scope_count_before = stack->active_scope_count();
     }
@@ -672,8 +672,8 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
   caors::stack_resource temporary_resource{64, &temporary_tracking};
   caors::serialization::context context;
   context.state.storage.string_view_storage = &storage;
-  context.resolvers.memory.resource = &result_tracking;
-  context.resolvers.memory.temporary_resource = &temporary_resource;
+  context.resolvers.memory.result_resource = &result_tracking;
+  context.resolvers.memory.scratch_resource = &temporary_resource;
   codec_string_view_actor decoded{};
   REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());
   CHECK(decoded.name == "Mina");
@@ -712,7 +712,7 @@ TEST_CASE("serialization - nested MessagePack codec preserves outer temporary fr
   caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
   caors::stack_resource temporary_resource{64, &temporary_tracking};
   caors::serialization::context context;
-  context.resolvers.memory.temporary_resource = &temporary_resource;
+  context.resolvers.memory.scratch_resource = &temporary_resource;
 
   nested_messagepack_callback_state callback_state{};
   const nested_messagepack_callback_actor source{
@@ -800,8 +800,8 @@ TEST_CASE("serialization - preserved MessagePack fields outlive temporary storag
     caors::serialization::context context;
     context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::preserve;
     context.state.schema.preserved_unknown_fields = &preserved_fields;
-    context.resolvers.memory.resource = &result_tracking;
-    context.resolvers.memory.temporary_resource = &temporary_resource;
+    context.resolvers.memory.result_resource = &result_tracking;
+    context.resolvers.memory.scratch_resource = &temporary_resource;
 
     reader_unknown_field_actor decoded{};
     REQUIRE(caors::read_messagepack_from(context, decoded, encoded.value).succeeded());

@@ -825,8 +825,8 @@ TEST_CASE("serialization - schema unknown field preservation records nested path
   caors::vector<caors::serialization::preserved_unknown_field> preserved_entries;
   caors::serialization::context context{};
   context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::preserve;
-  context.resolvers.memory.resource = &result_tracking;
-  context.resolvers.memory.temporary_resource = &temporary;
+  context.resolvers.memory.result_resource = &result_tracking;
+  context.resolvers.memory.scratch_resource = &temporary;
   context.state.schema.preserved_unknown_field_entries = &preserved_entries;
 
   REQUIRE(caors::read_value_from(context, actor, caors::variant::object(std::move(members)))

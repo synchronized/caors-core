@@ -14,7 +14,7 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.resolvers.memory.resource = &tracking;
+  context.resolvers.memory.result_resource = &tracking;
 
   std::size_t allocation_count = 0;
   {
@@ -56,8 +56,7 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
 using namespace caors::tests::serialization;
 using namespace caors::tests::serialization::static_type_record;
 
-TEST_CASE("serialization - static enum data handles unregistered enum values",
-          "[serialization]") {
+TEST_CASE("serialization - static enum data handles unregistered enum values", "[serialization]") {
   static_enum_color color = static_enum_color::blue;
 
   const caors::serialization::variant_result ref_value =

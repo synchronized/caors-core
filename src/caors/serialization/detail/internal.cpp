@@ -42,9 +42,9 @@ construct_polymorphic_value(const meta::type& dynamic_type, const meta::indirect
                             const serialization::context& context) {
   serialization::context construction_context = context;
   const bool can_transfer_destroy_context =
-      context.effective_memory_resource() != nullptr && indirect.can_set_value_with_context();
+      context.effective_result_resource() != nullptr && indirect.can_set_value_with_context();
   if (!can_transfer_destroy_context) {
-    construction_context.resolvers.memory.resource = nullptr;
+    construction_context.resolvers.memory.result_resource = nullptr;
   }
 
   return construct_owned_value(dynamic_type, construction_context,
@@ -266,7 +266,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
       return {error_domain::serialization, errc::not_found};
     }
 
-    temporary_memory_scope temporary_scope{context.effective_temporary_resource()};
+    temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
     variant_reader value_reader{*stored_value, temporary_scope.resource()};
     status = deserialize(context, reflected_dynamic_type, instance.data(), value_reader);
     if (status) {
@@ -288,7 +288,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   }
 
   if (instance.uses_resource_destroy()) {
-    memory::memory_resource* resource = context.effective_memory_resource();
+    memory::memory_resource* resource = context.effective_result_resource();
     if (resource == nullptr) {
       return {error_domain::serialization, errc::invalid_argument};
     }
@@ -338,9 +338,9 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   serialization::context construction_context = context;
   const bool can_emplace_constructed_value = indirect.can_emplace_value();
   const bool can_transfer_destroy_context =
-      context.effective_memory_resource() != nullptr && indirect.can_set_value_with_context();
+      context.effective_result_resource() != nullptr && indirect.can_set_value_with_context();
   if (!can_transfer_destroy_context && !can_emplace_constructed_value) {
-    construction_context.resolvers.memory.resource = nullptr;
+    construction_context.resolvers.memory.result_resource = nullptr;
   }
 
   owned_constructed_value instance =
@@ -361,7 +361,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   }
 
   if (instance.uses_resource_destroy()) {
-    memory::memory_resource* resource = context.effective_memory_resource();
+    memory::memory_resource* resource = context.effective_result_resource();
     if (resource == nullptr) {
       return {error_domain::serialization, errc::invalid_argument};
     }
@@ -494,7 +494,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return read_polymorphic_indirect_value(reader, indirect, nested_context);
   }
 
-  if (!indirect.has_value() && !indirect.ensure_value(context.effective_memory_resource())) {
+  if (!indirect.has_value() && !indirect.ensure_value(context.effective_result_resource())) {
     if (indirect.can_emplace_value() || indirect.can_set_value() ||
         indirect.can_set_value_with_context()) {
       return read_constructed_indirect_value(reader, indirect, nested_context);

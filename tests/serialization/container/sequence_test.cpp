@@ -164,7 +164,7 @@ TEST_CASE("serialization - releases std span transaction storage after decoding"
   span_actor actor{std::span<int>{storage}};
   caors::serialization::context context;
   context.config.borrowed_views.allow_caller_buffer_write = true;
-  context.resolvers.memory.temporary_resource = &temporary;
+  context.resolvers.memory.scratch_resource = &temporary;
 
   REQUIRE(caors::read_json_from(context, actor, R"({"scores":[5,6,7]})").succeeded());
   CHECK(storage == std::array<int, 3>{5, 6, 7});

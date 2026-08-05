@@ -61,7 +61,7 @@ public:
     }
 
     serialization::detail::temporary_memory_scope temporary_scope{
-        context_.effective_temporary_resource()};
+        context_.effective_scratch_resource()};
     serialization::variant_reader reader{parsed.value, temporary_scope.resource()};
     return assets::load_serialized<resource_type>(context_, guid, reader, resource);
   }

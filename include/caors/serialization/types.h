@@ -78,8 +78,8 @@ struct construction_request {
 /**
  * @brief 自定义构造策略返回的运行期对象和匹配销毁函数。
  *
- * 返回对象会逃出当前临时工作作用域。构造回调必须使用 `context.effective_memory_resource()` 或其他
- * 生命周期足够长的资源，不能把对象放入 `context.effective_temporary_resource()`。
+ * 返回对象会逃出当前临时工作作用域。构造回调必须使用 `context.effective_result_resource()` 或其他
+ * 生命周期足够长的资源，不能把对象放入 `context.effective_scratch_resource()`。
  */
 struct construction_result {
   void* value = nullptr;
@@ -272,12 +272,15 @@ struct limit_options {
 };
 
 /** @brief 运行期构造和销毁相关的序列化语义选项。 */
-struct memory_options {
+struct operation_memory {
   /** @brief 目标对象和返回值使用的资源。 */
-  memory::memory_resource* resource = nullptr;
+  memory::memory_resource* result_resource = nullptr;
   /** @brief 单次调用的临时工作内存；为空时使用线程局部临时资源。 */
-  memory::memory_resource* temporary_resource = nullptr;
+  memory::memory_resource* scratch_resource = nullptr;
 };
+
+/** @brief 兼容旧类型名；新代码使用 `operation_memory`。 */
+using memory_options = operation_memory;
 
 /** @brief 借用视图反序列化相关的外部存储选项。 */
 struct storage_options {
@@ -316,7 +319,7 @@ struct context_resolvers {
   external_ref_options external_refs{};
   factory_options factories{};
   construction_options construction{};
-  memory_options memory{};
+  operation_memory memory{};
 };
 
 /** @brief 单次序列化调度的可变运行期状态。 */
@@ -400,12 +403,12 @@ struct context {
     return resolvers.factories.polymorphic_factory;
   }
 
-  [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
-    return resolvers.memory.resource;
+  [[nodiscard]] memory::memory_resource* effective_result_resource() const noexcept {
+    return resolvers.memory.result_resource;
   }
 
-  [[nodiscard]] memory::memory_resource* effective_temporary_resource() const noexcept {
-    return resolvers.memory.temporary_resource;
+  [[nodiscard]] memory::memory_resource* effective_scratch_resource() const noexcept {
+    return resolvers.memory.scratch_resource;
   }
 
   [[nodiscard]] const serialization::construction_options&
