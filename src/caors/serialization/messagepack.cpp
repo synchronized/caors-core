@@ -831,8 +831,8 @@ const io::byte_buffer& messagepack_writer::bytes() const noexcept {
 
 void messagepack_writer::reset() { implementation_->reset(); }
 
-io::byte_buffer_result encode_messagepack(const variant& value, memory_resource* resource) {
-  io::byte_buffer bytes = io::make_byte_buffer(resource);
+io::byte_buffer_result encode_messagepack(const variant& value, memory_resource* result_resource) {
+  io::byte_buffer bytes = io::make_byte_buffer(result_resource);
   error status = append_value(bytes, value);
   return {status, std::move(bytes)};
 }
@@ -842,19 +842,20 @@ variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_o
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
-                                 memory_resource* resource) {
-  return parse_messagepack(bytes, options, resource, nullptr);
+                                 memory_resource* result_resource) {
+  return parse_messagepack(bytes, options, result_resource, nullptr);
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
-                                 memory_resource* resource, memory_resource* temporary_resource) {
-  memory_resource* resolved_temporary =
-      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
-  std::optional<memory::stack_scope> temporary_scope;
-  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
-    temporary_scope.emplace(*stack);
+                                 memory_resource* result_resource,
+                                 memory_resource* scratch_resource) {
+  memory_resource* resolved_scratch =
+      scratch_resource != nullptr ? scratch_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> scratch_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
+    scratch_scope.emplace(*stack);
   }
-  return parser{bytes, options, resource, resolved_temporary}.parse();
+  return parser{bytes, options, result_resource, resolved_scratch}.parse();
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options) {
@@ -862,20 +863,21 @@ variant_result parse_messagepack(io::input_stream& stream, messagepack_options o
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* resource) {
-  return parse_messagepack(stream, options, resource, nullptr);
+                                 memory_resource* result_resource) {
+  return parse_messagepack(stream, options, result_resource, nullptr);
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* resource, memory_resource* temporary_resource) {
-  memory_resource* resolved_temporary =
-      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
-  std::optional<memory::stack_scope> temporary_scope;
-  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
-    temporary_scope.emplace(*stack);
+                                 memory_resource* result_resource,
+                                 memory_resource* scratch_resource) {
+  memory_resource* resolved_scratch =
+      scratch_resource != nullptr ? scratch_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> scratch_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
+    scratch_scope.emplace(*stack);
   }
 
-  io::byte_buffer bytes = io::make_byte_buffer(resolved_temporary);
+  io::byte_buffer bytes = io::make_byte_buffer(resolved_scratch);
   std::array<std::byte, 4096> chunk{};
   while (true) {
     io::size_result read = stream.read(chunk);
@@ -896,7 +898,7 @@ variant_result parse_messagepack(io::input_stream& stream, messagepack_options o
     }
   }
 
-  return parser{bytes, options, resource, resolved_temporary}.parse();
+  return parser{bytes, options, result_resource, resolved_scratch}.parse();
 }
 
 } // namespace caors::serialization

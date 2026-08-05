@@ -98,21 +98,21 @@ template <typename T>
 
 /** @brief 从输入流读取 JSON 并解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream,
-                                                  memory_resource* resource = nullptr);
+                                                  memory_resource* result_resource = nullptr);
 
 /** @brief 从输入流读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream, json_options options,
-                                                  memory_resource* resource = nullptr);
+                                                  memory_resource* result_resource = nullptr);
 
 /** @brief 从文件系统路径读取 JSON 并解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
                                                        io::path_view path,
-                                                       memory_resource* resource = nullptr);
+                                                       memory_resource* result_resource = nullptr);
 
 /** @brief 从文件系统路径读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
                                                        io::path_view path, json_options options,
-                                                       memory_resource* resource = nullptr);
+                                                       memory_resource* result_resource = nullptr);
 
 namespace detail {
 

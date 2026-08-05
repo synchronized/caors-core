@@ -31,12 +31,11 @@ class CAORS_API messagepack_writer final : public writer {
 public:
   messagepack_writer();
   /** @brief 使用指定临时资源构造 writer；为空时使用线程局部临时资源。 */
-  explicit messagepack_writer(memory_resource* temporary_resource);
-  explicit messagepack_writer(io::byte_buffer& output,
-                              memory_resource* temporary_resource = nullptr);
+  explicit messagepack_writer(memory_resource* scratch_resource);
+  explicit messagepack_writer(io::byte_buffer& output, memory_resource* scratch_resource = nullptr);
   /** @brief 将完成的根值写入输出流；短写由 `output_stream::write_all()` 处理。 */
   explicit messagepack_writer(io::output_stream& output,
-                              memory_resource* temporary_resource = nullptr);
+                              memory_resource* scratch_resource = nullptr);
   ~messagepack_writer() override;
 
   [[nodiscard]] format_features features() const noexcept override;
@@ -75,7 +74,7 @@ private:
 
 /** @brief 将 DOM 值编码为标准 MessagePack 字节。 */
 [[nodiscard]] CAORS_API io::byte_buffer_result
-encode_messagepack(const variant& value, memory_resource* resource = nullptr);
+encode_messagepack(const variant& value, memory_resource* result_resource = nullptr);
 
 /**
  * @brief 从一个完整 MessagePack 根值解析 DOM。
@@ -89,17 +88,17 @@ encode_messagepack(const variant& value, memory_resource* resource = nullptr);
 /** @brief 使用指定结果资源解析一个完整 MessagePack 根值。 */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
                                                          messagepack_options options,
-                                                         memory_resource* resource);
+                                                         memory_resource* result_resource);
 
 /**
  * @brief 使用指定结果资源和临时资源解析一个完整 MessagePack 根值。
  *
- * `temporary_resource` 为空时使用当前线程的库临时资源。返回 DOM 不引用临时资源。
+ * `scratch_resource` 为空时使用当前线程的库临时资源。返回 DOM 不引用临时资源。
  */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
                                                          messagepack_options options,
-                                                         memory_resource* resource,
-                                                         memory_resource* temporary_resource);
+                                                         memory_resource* result_resource,
+                                                         memory_resource* scratch_resource);
 
 /** @brief 从输入流读取到 EOF 后解析一个完整 MessagePack 根值。 */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
@@ -108,13 +107,13 @@ encode_messagepack(const variant& value, memory_resource* resource = nullptr);
 /** @brief 使用指定结果资源从输入流解析一个完整 MessagePack 根值。 */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
                                                          messagepack_options options,
-                                                         memory_resource* resource);
+                                                         memory_resource* result_resource);
 
 /** @brief 使用指定结果资源和临时资源从输入流解析一个完整 MessagePack 根值。 */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
                                                          messagepack_options options,
-                                                         memory_resource* resource,
-                                                         memory_resource* temporary_resource);
+                                                         memory_resource* result_resource,
+                                                         memory_resource* scratch_resource);
 
 } // namespace caors::serialization
 

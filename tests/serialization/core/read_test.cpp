@@ -353,6 +353,29 @@ TEST_CASE("serialization - json parser reads from input stream without staging t
   CHECK(*id->try_as_u64() == 1U);
 }
 
+TEST_CASE("serialization - json stream parser uses the result resource", "[serialization]") {
+  std::string_view text = R"({"items":["first","second"]})";
+  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
+  for (const unsigned char character : text) {
+    bytes.push_back(static_cast<std::byte>(character));
+  }
+
+  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
+  caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
+  caors::serialization::variant_result parsed =
+      caors::serialization::parse_json(*stream, &result_resource);
+  REQUIRE(parsed.succeeded());
+  CHECK(parsed->resource() == &result_resource);
+
+  const caors::variant* items = parsed->find_member_variant(caors::string_name{"items"});
+  REQUIRE(items != nullptr);
+  REQUIRE(items->try_as_array() != nullptr);
+  CHECK(items->resource() == &result_resource);
+  REQUIRE(items->as_array().size() == 2U);
+  CHECK(items->as_array()[0].resource() == &result_resource);
+  CHECK(items->as_array()[1].resource() == &result_resource);
+}
+
 TEST_CASE("serialization - json parser decodes unicode escapes as utf8", "[serialization]") {
   const caors::serialization::variant_result parsed =
       caors::serialization::parse_json(R"({"text":"caf\u00e9 \ud83d\ude00"})");
