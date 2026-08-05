@@ -28,7 +28,7 @@ public:
   /** @brief 从指定 source/location 读入工程资源配置。 */
   [[nodiscard]] virtual error load(project_config& target, resources::source& source,
                                    io::location_view location,
-                                   memory_resource* resource = nullptr) = 0;
+                                   memory_resource* scratch_resource = nullptr) = 0;
 };
 
 /** @brief 使用格式无关配置读取器读入工程资源配置。 */
@@ -36,8 +36,8 @@ public:
                                                project_config_loader& loader,
                                                resources::source& source,
                                                io::location_view location,
-                                               memory_resource* resource = nullptr) {
-  return loader.load(target, source, location, resource);
+                                               memory_resource* scratch_resource = nullptr) {
+  return loader.load(target, source, location, scratch_resource);
 }
 
 } // namespace caors::assets

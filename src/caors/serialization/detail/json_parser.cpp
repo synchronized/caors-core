@@ -119,7 +119,7 @@ public:
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  [[nodiscard]] variant_result parse_number() {
+  [[nodiscard]] variant_result parse_number(memory::memory_resource* result_resource) {
     const std::size_t begin = position_;
     if (consume('-')) {
       if (peek() < '0' || peek() > '9') {
@@ -174,7 +174,7 @@ public:
       if (end != text.c_str() + text.size() || !std::isfinite(value)) {
         return {{error_domain::serialization, errc::invalid_argument}, {}};
       }
-      return {{}, variant::from(value)};
+      return {{}, variant::from(value, result_resource)};
     }
 
     if (!number.empty() && number.front() == '-') {
@@ -183,7 +183,7 @@ public:
       if (ec != std::errc{}) {
         return {{error_domain::serialization, errc::invalid_argument}, {}};
       }
-      return {{}, variant::from(value)};
+      return {{}, variant::from(value, result_resource)};
     }
 
     std::uint64_t value = 0;
@@ -191,7 +191,7 @@ public:
     if (ec != std::errc{}) {
       return {{error_domain::serialization, errc::invalid_argument}, {}};
     }
-    return {{}, variant::from(value)};
+    return {{}, variant::from(value, result_resource)};
   }
 
 private:
@@ -399,7 +399,7 @@ public:
     return fail_status_or_invalid();
   }
 
-  [[nodiscard]] variant_result parse_number() {
+  [[nodiscard]] variant_result parse_number(memory::memory_resource* result_resource) {
     core::string number;
     bool floating = false;
 
@@ -462,7 +462,7 @@ public:
       if (end != text.c_str() + text.size() || !std::isfinite(value)) {
         return {{error_domain::serialization, errc::invalid_argument}, {}};
       }
-      return {{}, variant::from(value)};
+      return {{}, variant::from(value, result_resource)};
     }
 
     if (!number.empty() && number.front() == '-') {
@@ -471,7 +471,7 @@ public:
       if (ec != std::errc{}) {
         return {{error_domain::serialization, errc::invalid_argument}, {}};
       }
-      return {{}, variant::from(value)};
+      return {{}, variant::from(value, result_resource)};
     }
 
     std::uint64_t value = 0;
@@ -479,7 +479,7 @@ public:
     if (ec != std::errc{}) {
       return {{error_domain::serialization, errc::invalid_argument}, {}};
     }
-    return {{}, variant::from(value)};
+    return {{}, variant::from(value, result_resource)};
   }
 
 private:
@@ -607,8 +607,9 @@ private:
 
 template <typename TokenReader> class json_parser {
 public:
-  json_parser(TokenReader input, json_options options) noexcept
-      : input_(std::move(input)), options_(options) {}
+  json_parser(TokenReader input, json_options options,
+              memory::memory_resource* result_resource) noexcept
+      : input_(std::move(input)), options_(options), result_resource_(result_resource) {}
 
   [[nodiscard]] variant_result parse() {
     input_.skip_space();
@@ -650,26 +651,27 @@ private:
     case '"': {
       core::string value;
       const error status = input_.parse_string(value);
-      return status ? variant_result{status, {}} : variant_result{{}, variant::from(value)};
+      return status ? variant_result{status, {}}
+                    : variant_result{{}, variant::from(value, result_resource_)};
     }
     case 't':
       if (input_.consume_text("true")) {
-        return {{}, variant::from(true)};
+        return {{}, variant::from(true, result_resource_)};
       }
       break;
     case 'f':
       if (input_.consume_text("false")) {
-        return {{}, variant::from(false)};
+        return {{}, variant::from(false, result_resource_)};
       }
       break;
     case 'n':
       if (input_.consume_text("null")) {
-        return {{}, variant::null()};
+        return {{}, variant::null(result_resource_)};
       }
       break;
     default:
       if (input_.peek() == '-' || (input_.peek() >= '0' && input_.peek() <= '9')) {
-        return input_.parse_number();
+        return input_.parse_number(result_resource_);
       }
       break;
     }
@@ -682,7 +684,7 @@ private:
       return {{error_domain::serialization, errc::invalid_argument}, {}};
     }
 
-    variant::object_type members;
+    variant::object_type members{variant::object_type::allocator_type{result_resource_}};
     input_.skip_space();
     if (input_.consume('}')) {
       return {{}, variant::object(std::move(members))};
@@ -737,7 +739,7 @@ private:
       return {{error_domain::serialization, errc::invalid_argument}, {}};
     }
 
-    variant::array_type values;
+    variant::array_type values{variant::array_type::allocator_type{result_resource_}};
     input_.skip_space();
     if (input_.consume(']')) {
       return {{}, variant::array(std::move(values))};
@@ -798,17 +800,20 @@ private:
 
   TokenReader input_;
   json_options options_{};
+  memory::memory_resource* result_resource_ = nullptr;
 };
 
 } // namespace
 
-variant_result parse_json_value(std::string_view text, json_options options) {
-  json_parser parser{json_text_token_reader{text}, options};
+variant_result parse_json_value(std::string_view text, json_options options,
+                                memory::memory_resource* result_resource) {
+  json_parser parser{json_text_token_reader{text}, options, result_resource};
   return parser.parse();
 }
 
-variant_result parse_json_stream(io::input_stream& stream, json_options options) {
-  json_parser parser{json_stream_token_reader{stream}, options};
+variant_result parse_json_stream(io::input_stream& stream, json_options options,
+                                 memory::memory_resource* result_resource) {
+  json_parser parser{json_stream_token_reader{stream}, options, result_resource};
   return parser.parse();
 }
 

@@ -28,14 +28,14 @@ public:
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] file_system_capabilities capabilities() const noexcept override;
   [[nodiscard]] file_status_result status(path_view path) const override;
-  [[nodiscard]] directory_entry_list_result list(path_view directory,
-                                                 memory_resource* resource = nullptr) override;
+  [[nodiscard]] directory_entry_list_result
+  list(path_view directory, memory_resource* result_resource = nullptr) override;
   [[nodiscard]] byte_buffer_result read_all(path_view path,
-                                            memory_resource* resource = nullptr) override;
+                                            memory_resource* result_resource = nullptr) override;
   [[nodiscard]] input_stream_result open_read(path_view path,
-                                              memory_resource* resource = nullptr) override;
-  [[nodiscard]] output_stream_result open_write(path_view path,
-                                                memory_resource* resource = nullptr) override;
+                                              memory_resource* result_resource = nullptr) override;
+  [[nodiscard]] output_stream_result
+  open_write(path_view path, memory_resource* result_resource = nullptr) override;
   [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;
 
 private:

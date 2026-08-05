@@ -127,6 +127,33 @@ template <typename T> void* clone_value(const void* source) {
   }
 }
 
+template <typename T>
+void* resource_clone_value(memory::memory_resource* resource, const void* source) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (meta_copy_constructible<type>::value) {
+    void* storage = resource->allocate(sizeof(type), alignof(type));
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      if constexpr (requires(const type& value, memory::memory_resource* target) {
+                      type(value, typename type::allocator_type{target});
+                    }) {
+        return std::construct_at(static_cast<type*>(storage), *static_cast<const type*>(source),
+                                 typename type::allocator_type{resource});
+      } else {
+        return std::construct_at(static_cast<type*>(storage), *static_cast<const type*>(source));
+      }
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      resource->deallocate(storage, sizeof(type), alignof(type));
+      throw;
+    }
+#endif
+  } else {
+    return nullptr;
+  }
+}
+
 template <typename T> void destroy_value(void* value) noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   delete static_cast<type*>(value);
@@ -171,6 +198,16 @@ template <typename T> [[nodiscard]] value_ops::clone_fn value_clone_fn_of() noex
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (meta_copy_constructible<type>::value) {
     return &clone_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T>
+[[nodiscard]] value_ops::resource_clone_fn value_resource_clone_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (meta_copy_constructible<type>::value) {
+    return &resource_clone_value<type>;
   } else {
     return nullptr;
   }

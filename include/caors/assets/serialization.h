@@ -30,19 +30,19 @@ make_resource_resolver(asset_manager& manager) noexcept {
 template <typename T>
 [[nodiscard]] resources::load_result<T>
 load_serialized(const serialization::context& context, resources::resource_guid guid,
-                serialization::reader& reader, memory_resource* resource = nullptr);
+                serialization::reader& reader, memory_resource* result_resource = nullptr);
 
 template <typename T>
-[[nodiscard]] resources::load_result<T> load_serialized(resources::resource_guid guid,
-                                                        serialization::reader& reader,
-                                                        memory_resource* resource = nullptr) {
-  return load_serialized<T>(serialization::context{}, guid, reader, resource);
+[[nodiscard]] resources::load_result<T>
+load_serialized(resources::resource_guid guid, serialization::reader& reader,
+                memory_resource* result_resource = nullptr) {
+  return load_serialized<T>(serialization::context{}, guid, reader, result_resource);
 }
 
 template <typename T>
 [[nodiscard]] resources::load_result<T>
 load_serialized(const serialization::context& context, resources::resource_guid guid,
-                serialization::reader& reader, memory_resource* resource) {
+                serialization::reader& reader, memory_resource* result_resource) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
   static_assert(std::is_default_constructible_v<T>,
@@ -52,7 +52,7 @@ load_serialized(const serialization::context& context, resources::resource_guid 
     return {{error_domain::resources, errc::invalid_argument}, {}};
   }
 
-  memory::unique_ptr<T> value = memory::make_unique<T>(resource);
+  memory::unique_ptr<T> value = memory::make_unique<T>(result_resource);
   if (value == nullptr) {
     return {{error_domain::resources, errc::out_of_memory}, {}};
   }

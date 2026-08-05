@@ -80,8 +80,8 @@ public:
   [[nodiscard]] operator path_view() const noexcept { return view(); }
 
   /** @brief 返回可拷贝的 CAORS 字符串副本。 */
-  [[nodiscard]] core::string to_string(memory_resource* resource = nullptr) const {
-    core::string result{allocator<char>{resource}};
+  [[nodiscard]] core::string to_string(memory_resource* result_resource = nullptr) const {
+    core::string result{allocator<char>{result_resource}};
     result.assign(value_.begin(), value_.end());
     return result;
   }
@@ -97,8 +97,9 @@ private:
 };
 
 /** @brief 规范化虚拟路径：使用 `/`，去掉开头分隔符，并折叠连续分隔符。 */
-[[nodiscard]] inline path normalize_path(path_view value, memory_resource* resource = nullptr) {
-  path result{resource};
+[[nodiscard]] inline path normalize_path(path_view value,
+                                         memory_resource* result_resource = nullptr) {
+  path result{result_resource};
   std::string_view text = value.string_view();
 
   std::size_t index = 0;
@@ -107,7 +108,7 @@ private:
   }
 
   bool previous_separator = false;
-  core::string normalized{allocator<char>{resource}};
+  core::string normalized{allocator<char>{result_resource}};
   normalized.reserve(text.size());
   for (; index < text.size(); ++index) {
     const char current = text[index];
@@ -134,9 +135,9 @@ private:
 
 /** @brief 拼接并规范化两个虚拟路径片段。 */
 [[nodiscard]] inline path join_path(path_view base, path_view suffix,
-                                    memory_resource* resource = nullptr) {
-  path left = normalize_path(base, resource);
-  path right = normalize_path(suffix, resource);
+                                    memory_resource* result_resource = nullptr) {
+  path left = normalize_path(base, result_resource);
+  path right = normalize_path(suffix, result_resource);
 
   if (!left) {
     return right;
@@ -145,14 +146,14 @@ private:
     return left;
   }
 
-  core::string joined{allocator<char>{resource}};
+  core::string joined{allocator<char>{result_resource}};
   const std::string_view left_view = left.string_view();
   const std::string_view right_view = right.string_view();
   joined.reserve(left_view.size() + 1 + right_view.size());
   joined.append(left_view.begin(), left_view.end());
   joined.push_back('/');
   joined.append(right_view.begin(), right_view.end());
-  return path{path_view{joined}, resource};
+  return path{path_view{joined}, result_resource};
 }
 
 } // namespace caors::io

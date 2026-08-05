@@ -139,7 +139,7 @@ struct project_config {
 
 /** @brief 把资源工程描述转换为可写出的 DOM 配置。 */
 [[nodiscard]] CAORS_API variant to_value(const project_config& config,
-                                         memory_resource* resource = nullptr);
+                                         memory_resource* result_resource = nullptr);
 
 /** @brief 把资源工程描述写入序列化 writer。 */
 [[nodiscard]] CAORS_API error write_project_config(const project_config& config,

@@ -14,7 +14,8 @@ namespace caors::serialization {
 /** @brief 从 JSON 文本范围直接读取对象字段的 reader 后端。 */
 class CAORS_API json_reader final : public reader {
 public:
-  explicit json_reader(std::string_view text, json_options options = {});
+  explicit json_reader(std::string_view text, json_options options = {},
+                       memory::memory_resource* scratch_resource = nullptr);
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
@@ -59,13 +60,19 @@ private:
   };
 
   struct object_context {
-    vector<object_member> members{};
+    explicit object_context(memory::memory_resource* resource)
+        : members(memory::allocator<object_member>{resource}) {}
+
+    vector<object_member> members;
     const object_member* current = nullptr;
     std::size_t next_member = 0;
   };
 
   struct array_context {
-    vector<json_span> elements{};
+    explicit array_context(memory::memory_resource* resource)
+        : elements(memory::allocator<json_span>{resource}) {}
+
+    vector<json_span> elements;
     const json_span* current = nullptr;
   };
 
@@ -75,7 +82,10 @@ private:
   };
 
   struct dictionary_context {
-    vector<dictionary_entry> entries{};
+    explicit dictionary_context(memory::memory_resource* resource)
+        : entries(memory::allocator<dictionary_entry>{resource}) {}
+
+    vector<dictionary_entry> entries;
     const dictionary_entry* entry = nullptr;
     json_span current{};
   };
@@ -94,12 +104,13 @@ private:
 
   std::string_view text_{};
   json_options options_{};
+  memory::memory_resource* scratch_resource_ = nullptr;
   json_span root_{};
-  vector<object_context> object_stack_{};
-  vector<array_context> array_stack_{};
-  vector<dictionary_context> dictionary_stack_{};
-  vector<json_span> polymorphic_values_{};
-  vector<std::size_t> polymorphic_object_depths_{};
+  vector<object_context> object_stack_;
+  vector<array_context> array_stack_;
+  vector<dictionary_context> dictionary_stack_;
+  vector<json_span> polymorphic_values_;
+  vector<std::size_t> polymorphic_object_depths_;
 };
 
 } // namespace caors::serialization

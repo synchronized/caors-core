@@ -22,7 +22,7 @@ void print_allocation_samples() {
   {
     caors::tracking_resource tracking{&caors::get_system_memory_resource()};
     caors::serialization::context context{};
-    context.resolvers.memory.resource = &tracking;
+    context.resolvers.memory.result_resource = &tracking;
     for (std::size_t index = 0; index < iterations; ++index) {
       caors::serialization::variant_result result = caors::to_value(context, actor);
       if (result.failed()) {
@@ -75,8 +75,8 @@ void print_allocation_samples() {
     caors::tracking_resource temporary_tracking{&caors::get_system_memory_resource()};
     caors::stack_resource temporary{64 * 1024, &temporary_tracking};
     caors::serialization::context context{};
-    context.resolvers.memory.resource = &result_tracking;
-    context.resolvers.memory.temporary_resource = &temporary;
+    context.resolvers.memory.result_resource = &result_tracking;
+    context.resolvers.memory.scratch_resource = &temporary;
 
     for (std::size_t index = 0; index < iterations; ++index) {
       benchmark_actor target{};

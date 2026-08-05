@@ -87,7 +87,8 @@ template <typename Target, typename Source>
 }
 
 template <typename Target, typename Source>
-[[nodiscard]] std::optional<argument> try_convert_numeric_from(const argument& value) {
+[[nodiscard]] std::optional<argument> try_convert_numeric_from(const argument& value,
+                                                               memory::memory_resource* resource) {
   using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
   using source_type = std::remove_cv_t<std::remove_reference_t<Source>>;
 
@@ -100,55 +101,61 @@ template <typename Target, typename Source>
     }
 
     const target_type converted = static_cast<target_type>(*source);
-    return argument::move(any::from(converted));
+    return argument::move(any::from(converted, resource));
   } else {
     return std::nullopt;
   }
 }
 
 template <typename Target>
-[[nodiscard]] std::optional<argument> try_convert_numeric_argument(const argument& value) {
-  if (auto converted = try_convert_numeric_from<Target, char>(value)) {
+[[nodiscard]] std::optional<argument>
+try_convert_numeric_argument(const argument& value, memory::memory_resource* resource) {
+  if (auto converted = try_convert_numeric_from<Target, char>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, signed char>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, signed char>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, unsigned char>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, unsigned char>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, short>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, short>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, unsigned short>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, unsigned short>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, int>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, int>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, unsigned int>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, unsigned int>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, long>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, long>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, unsigned long>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, unsigned long>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, long long>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, long long>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, unsigned long long>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, unsigned long long>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, float>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, float>(value, resource)) {
     return converted;
   }
-  if (auto converted = try_convert_numeric_from<Target, double>(value)) {
+  if (auto converted = try_convert_numeric_from<Target, double>(value, resource)) {
     return converted;
   }
 
   return std::nullopt;
+}
+
+template <typename Target>
+[[nodiscard]] std::optional<argument> try_convert_numeric_argument(const argument& value) {
+  return try_convert_numeric_argument<Target>(value, nullptr);
 }
 
 [[nodiscard]] inline std::optional<std::string_view>
@@ -230,7 +237,8 @@ template <typename Target>
 }
 
 template <typename Target>
-[[nodiscard]] std::optional<argument> try_parse_string_argument(const argument& value) {
+[[nodiscard]] std::optional<argument> try_parse_string_argument(const argument& value,
+                                                                memory::memory_resource* resource) {
   using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
   const std::optional<std::string_view> text = try_get_argument_string_view(value);
   if (!text.has_value()) {
@@ -243,36 +251,38 @@ template <typename Target>
       return std::nullopt;
     }
 
-    return argument::move(any::from(parsed));
+    return argument::move(any::from(parsed, resource));
   } else if constexpr (std::is_floating_point_v<target_type>) {
     target_type parsed{};
     if (!parse_floating_argument(*text, parsed)) {
       return std::nullopt;
     }
 
-    return argument::move(any::from(parsed));
+    return argument::move(any::from(parsed, resource));
   } else if constexpr (std::is_same_v<target_type, core::string_name>) {
-    return argument::move(any::from(core::string_name{*text}));
+    return argument::move(any::from(core::string_name{*text}, resource));
   } else if constexpr (std::is_same_v<target_type, core::string>) {
-    return argument::move(any::from(core::string{*text}));
+    return argument::move(any::from(core::string{*text}, resource));
   } else if constexpr (std::is_same_v<target_type, std::string>) {
-    return argument::move(any::from(std::string{*text}));
+    return argument::move(any::from(std::string{*text}, resource));
   } else if constexpr (std::is_same_v<target_type, core::guid>) {
     const std::optional<core::guid> parsed = core::guid::parse(*text);
-    return parsed.has_value() ? std::optional<argument>{argument::move(any::from(*parsed))}
-                              : std::nullopt;
+    return parsed.has_value()
+               ? std::optional<argument>{argument::move(any::from(*parsed, resource))}
+               : std::nullopt;
   } else if constexpr (std::is_same_v<target_type, core::type_guid>) {
     const std::optional<core::guid> parsed = core::guid::parse(*text);
-    return parsed.has_value()
-               ? std::optional<argument>{argument::move(any::from(core::type_guid{*parsed}))}
-               : std::nullopt;
+    return parsed.has_value() ? std::optional<argument>{argument::move(
+                                    any::from(core::type_guid{*parsed}, resource))}
+                              : std::nullopt;
   } else if constexpr (std::is_enum_v<target_type>) {
     const meta::type enum_type = meta::resolve<target_type>();
     const meta::enum_capability values = enum_type.get_capability<meta::enum_capability>();
     if (const meta::enum_value named = values.find_value(*text)) {
       const std::optional<target_type> parsed = named.template get<target_type>();
-      return parsed.has_value() ? std::optional<argument>{argument::move(any::from(*parsed))}
-                                : std::nullopt;
+      return parsed.has_value()
+                 ? std::optional<argument>{argument::move(any::from(*parsed, resource))}
+                 : std::nullopt;
     }
 
     using underlying_type = std::underlying_type_t<target_type>;
@@ -281,7 +291,7 @@ template <typename Target>
       return std::nullopt;
     }
 
-    return argument::move(any::from(static_cast<target_type>(parsed)));
+    return argument::move(any::from(static_cast<target_type>(parsed), resource));
   } else {
     return std::nullopt;
   }
@@ -324,27 +334,27 @@ template <typename Target>
 
 template <typename Target>
 [[nodiscard]] std::optional<argument> try_convert_argument(const argument& value,
-                                                           argument_conversion_policy policy,
-                                                           bool allow_custom_conversions) {
+                                                           argument_match_options options) {
   using value_type = argument_value_type<Target>;
   if constexpr (std::is_reference_v<Target>) {
     return std::nullopt;
   } else {
     if constexpr (std::is_arithmetic_v<value_type>) {
-      if (policy == argument_conversion_policy::numeric_safe) {
-        if (auto converted = try_convert_numeric_argument<value_type>(value)) {
+      if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
+        if (auto converted =
+                try_convert_numeric_argument<value_type>(value, options.scratch_resource)) {
           return converted;
         }
       }
     }
 
-    if (policy == argument_conversion_policy::string_parse) {
-      if (auto converted = try_parse_string_argument<value_type>(value)) {
+    if (options.conversion_policy == argument_conversion_policy::string_parse) {
+      if (auto converted = try_parse_string_argument<value_type>(value, options.scratch_resource)) {
         return converted;
       }
     }
 
-    if (allow_custom_conversions) {
+    if (options.allow_custom_conversions) {
       if (auto converted = try_convert_custom_argument<value_type>(value)) {
         return converted;
       }
@@ -352,6 +362,16 @@ template <typename Target>
 
     return std::nullopt;
   }
+}
+
+template <typename Target>
+[[nodiscard]] std::optional<argument> try_convert_argument(const argument& value,
+                                                           argument_conversion_policy policy,
+                                                           bool allow_custom_conversions) {
+  argument_match_options options{};
+  options.conversion_policy = policy;
+  options.allow_custom_conversions = allow_custom_conversions;
+  return try_convert_argument<Target>(value, options);
 }
 
 template <typename Parameter>
@@ -362,9 +382,7 @@ template <typename Parameter>
   }
 
   if constexpr (!std::is_reference_v<Parameter>) {
-    if (try_convert_argument<Parameter>(value, options.conversion_policy,
-                                        options.allow_custom_conversions)
-            .has_value()) {
+    if (try_convert_argument<Parameter>(value, options).has_value()) {
       return argument_match_rank::conversion;
     }
   }
@@ -379,8 +397,7 @@ template <typename Parameter>
   }
 
   if constexpr (!std::is_reference_v<Parameter>) {
-    if (auto converted = try_convert_argument<Parameter>(value, options.conversion_policy,
-                                                         options.allow_custom_conversions)) {
+    if (auto converted = try_convert_argument<Parameter>(value, options)) {
       return std::move(*converted);
     }
   }
@@ -462,7 +479,7 @@ template <typename... Arguments>
     return {};
   }
 
-  vector<argument> result{};
+  vector<argument> result{memory::allocator<argument>{options.scratch_resource}};
   result.reserve(sizeof...(Arguments));
   std::size_t index = 0;
   bool succeeded = true;
@@ -477,7 +494,8 @@ template <typename... Arguments>
    }()),
    ...);
 
-  return succeeded ? result : vector<argument>{};
+  return succeeded ? std::move(result)
+                   : vector<argument>{memory::allocator<argument>{options.scratch_resource}};
 }
 
 } // namespace caors::meta::detail

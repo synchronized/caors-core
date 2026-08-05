@@ -27,15 +27,25 @@ namespace {
 
 } // namespace
 
-serialization::json_writer::json_writer() noexcept : text_(&owned_text_) {}
+serialization::json_writer::json_writer() noexcept
+    : text_(&owned_text_), contexts_(memory::allocator<context>{nullptr}) {}
 
 serialization::json_writer::json_writer(json_options options) noexcept
-    : options_(options), text_(&owned_text_) {}
+    : json_writer(options, nullptr) {}
+
+serialization::json_writer::json_writer(json_options options,
+                                        memory::memory_resource* scratch_resource) noexcept
+    : options_(options), text_(&owned_text_),
+      contexts_(memory::allocator<context>{scratch_resource}) {}
 
 serialization::json_writer::json_writer(string& output) : json_writer(output, json_options{}) {}
 
 serialization::json_writer::json_writer(string& output, json_options options)
-    : options_(options), text_(&output) {
+    : json_writer(output, options, nullptr) {}
+
+serialization::json_writer::json_writer(string& output, json_options options,
+                                        memory::memory_resource* scratch_resource)
+    : options_(options), text_(&output), contexts_(memory::allocator<context>{scratch_resource}) {
   reset();
 }
 
@@ -43,7 +53,12 @@ serialization::json_writer::json_writer(io::output_stream& output) noexcept
     : json_writer(output, json_options{}) {}
 
 serialization::json_writer::json_writer(io::output_stream& output, json_options options) noexcept
-    : options_(options), text_(&owned_text_), stream_(&output) {
+    : json_writer(output, options, nullptr) {}
+
+serialization::json_writer::json_writer(io::output_stream& output, json_options options,
+                                        memory::memory_resource* scratch_resource) noexcept
+    : options_(options), text_(&owned_text_), stream_(&output),
+      contexts_(memory::allocator<context>{scratch_resource}) {
   reset();
 }
 
@@ -509,27 +524,28 @@ variant_result parse_json(std::string_view text, json_options options) {
   return detail::parse_json_value(text, options);
 }
 
-variant_result parse_json(io::input_stream& stream, memory_resource* resource) {
-  return parse_json(stream, json_options{}, resource);
+variant_result parse_json(io::input_stream& stream, memory_resource* result_resource) {
+  return parse_json(stream, json_options{}, result_resource);
 }
 
-variant_result parse_json(io::input_stream& stream, json_options options, memory_resource*) {
-  return detail::parse_json_stream(stream, options);
-}
-
-variant_result parse_json_from(io::file_system& file_system, io::path_view path,
-                               memory_resource* resource) {
-  return parse_json_from(file_system, path, json_options{}, resource);
+variant_result parse_json(io::input_stream& stream, json_options options,
+                          memory_resource* result_resource) {
+  return detail::parse_json_stream(stream, options, result_resource);
 }
 
 variant_result parse_json_from(io::file_system& file_system, io::path_view path,
-                               json_options options, memory_resource* resource) {
-  io::input_stream_result stream = file_system.open_read(path, resource);
+                               memory_resource* result_resource) {
+  return parse_json_from(file_system, path, json_options{}, result_resource);
+}
+
+variant_result parse_json_from(io::file_system& file_system, io::path_view path,
+                               json_options options, memory_resource* result_resource) {
+  io::input_stream_result stream = file_system.open_read(path, result_resource);
   if (stream.failed()) {
     return {rethrow_as(stream.error(), error_domain::serialization), {}};
   }
 
-  return parse_json(*stream.value, options, resource);
+  return parse_json(*stream.value, options, result_resource);
 }
 
 } // namespace caors::serialization

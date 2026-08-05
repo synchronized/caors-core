@@ -157,9 +157,9 @@ any any::default_construct(type_id type) {
 
 any any::default_construct(meta::type type) { return default_construct(type, nullptr); }
 
-any any::default_construct(type_id type, memory::memory_resource* resource) {
+any any::default_construct(type_id type, memory::memory_resource* result_resource) {
   const meta::type meta = caors::meta::find(type);
-  return meta.valid() ? default_construct(meta, resource) : any{};
+  return meta.valid() ? default_construct(meta, result_resource) : any{};
 }
 
 bool any::valid() const noexcept { return type_.valid() && data_ != nullptr; }
@@ -269,6 +269,40 @@ any any::copy_from_raw(meta::type type, const void* source) {
   result.data_ = copy;
   result.destroy_ = value_ops->ops.destroy;
   result.mode_ = storage_mode::heap_value;
+  return result;
+}
+
+any any::copy_from_raw(meta::type type, const void* source,
+                       memory::memory_resource* result_resource) {
+  if (result_resource == nullptr) {
+    return copy_from_raw(type, source);
+  }
+
+  const auto guard = call_guard_for(type);
+  if (!guard) {
+    return {};
+  }
+  const meta::value_storage_ops* value_ops = type.get_raw_ops<meta::value_storage_ops>();
+  if (!type || value_ops == nullptr || source == nullptr ||
+      value_ops->ops.resource_clone == nullptr || value_ops->ops.resource_destroy == nullptr) {
+    return {};
+  }
+
+  if (can_store_inline(*value_ops)) {
+    return copy_from_raw(type, source);
+  }
+
+  void* copy = value_ops->ops.resource_clone(result_resource, source);
+  if (copy == nullptr) {
+    return {};
+  }
+
+  any result;
+  result.type_ = type;
+  result.data_ = copy;
+  result.resource_ = result_resource;
+  result.resource_destroy_ = value_ops->ops.resource_destroy;
+  result.mode_ = storage_mode::resource_value;
   return result;
 }
 
@@ -410,7 +444,7 @@ any_ref any_ref::from_erased(meta::type type, const void* data, bool writable) n
   return result;
 }
 
-any any::default_construct(meta::type type, memory::memory_resource* resource) {
+any any::default_construct(meta::type type, memory::memory_resource* result_resource) {
   const auto guard = call_guard_for(type);
   if (!guard) {
     return {};
@@ -421,7 +455,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
     return {};
   }
 
-  if (resource == nullptr && can_default_construct_inline(*value_ops)) {
+  if (result_resource == nullptr && can_default_construct_inline(*value_ops)) {
     any result;
     result.type_ = type;
     result.data_ = result.inline_data();
@@ -432,9 +466,9 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
 
   void* value = nullptr;
   meta::resource_destroy_fn resource_destroy = nullptr;
-  if (resource != nullptr && value_ops->ops.resource_construct != nullptr &&
+  if (result_resource != nullptr && value_ops->ops.resource_construct != nullptr &&
       value_ops->ops.resource_destroy != nullptr) {
-    value = value_ops->ops.resource_construct(resource);
+    value = value_ops->ops.resource_construct(result_resource);
     resource_destroy = value_ops->ops.resource_destroy;
   } else {
     value = value_ops->ops.default_construct();
@@ -447,7 +481,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
   any result;
   result.type_ = type;
   result.data_ = value;
-  result.resource_ = resource_destroy != nullptr ? resource : nullptr;
+  result.resource_ = resource_destroy != nullptr ? result_resource : nullptr;
   result.resource_destroy_ = resource_destroy;
   result.destroy_ = resource_destroy == nullptr ? value_ops->ops.destroy : nullptr;
   result.mode_ = resource_destroy != nullptr ? any::storage_mode::resource_value

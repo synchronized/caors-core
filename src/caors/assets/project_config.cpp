@@ -516,63 +516,73 @@ error load_project_config(project_config& target, const variant& value) {
   return {};
 }
 
-variant to_value(const project_config& config, memory_resource* resource) {
-  memory_resource* output_resource = resource != nullptr ? resource : config.resource;
-  variant::object_type members{typename variant::object_type::allocator_type{output_resource}};
-  add_member(members, "schema_version",
-             variant::from(static_cast<std::uint64_t>(config.schema_version)));
+variant to_value(const project_config& config, memory_resource* result_resource) {
+  memory_resource* resolved_result_resource =
+      result_resource != nullptr ? result_resource : config.resource;
+  variant::object_type members{
+      typename variant::object_type::allocator_type{resolved_result_resource}};
+  add_member(
+      members, "schema_version",
+      variant::from(static_cast<std::uint64_t>(config.schema_version), resolved_result_resource));
 
   if (!config.file_systems.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.file_systems.size());
     for (const project_file_system_config& file_system : config.file_systems) {
-      values.push_back(make_file_system_value(file_system, output_resource));
+      values.push_back(make_file_system_value(file_system, resolved_result_resource));
     }
     add_member(members, "file_systems", variant::array(std::move(values)));
   }
 
   if (!config.sources.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.sources.size());
     for (const project_source_config& source : config.sources) {
-      values.push_back(make_source_value(source, output_resource));
+      values.push_back(make_source_value(source, resolved_result_resource));
     }
     add_member(members, "sources", variant::array(std::move(values)));
   }
 
   if (!config.resource_types.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.resource_types.size());
     for (const project_resource_type_config& type : config.resource_types) {
-      values.push_back(make_resource_type_value(type, output_resource));
+      values.push_back(make_resource_type_value(type, resolved_result_resource));
     }
     add_member(members, "resource_types", variant::array(std::move(values)));
   }
 
   if (!config.resources.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.resources.size());
     for (const project_resource_config& resource_config : config.resources) {
-      values.push_back(make_resource_value(resource_config, output_resource));
+      values.push_back(make_resource_value(resource_config, resolved_result_resource));
     }
     add_member(members, "resources", variant::array(std::move(values)));
   }
 
   if (!config.dependencies.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.dependencies.size());
     for (const project_dependency_config& dependency : config.dependencies) {
-      values.push_back(make_dependency_value(dependency, output_resource));
+      values.push_back(make_dependency_value(dependency, resolved_result_resource));
     }
     add_member(members, "dependencies", variant::array(std::move(values)));
   }
 
   if (!config.preload_roots.empty()) {
-    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    variant::array_type values{
+        typename variant::array_type::allocator_type{resolved_result_resource}};
     values.reserve(config.preload_roots.size());
     for (resource_guid guid : config.preload_roots) {
       const std::string guid_text = guid.string();
-      values.push_back(variant::from(std::string_view{guid_text.data(), guid_text.size()}));
+      values.push_back(variant::from(std::string_view{guid_text.data(), guid_text.size()},
+                                     resolved_result_resource));
     }
     add_member(members, "preload", variant::array(std::move(values)));
   }

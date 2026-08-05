@@ -9,6 +9,7 @@
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/detail/request_payload.h"
+#include "caors/meta/detail/temporary_memory.h"
 #include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
@@ -142,7 +143,7 @@ struct method_wrapper_state {
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
   explicit method_wrapper_state(memory::memory_resource* resource) noexcept
-      : member_resource(resource != nullptr ? resource : &memory::library_resource()) {}
+      : member_resource(resource != nullptr ? resource : &memory::process_resource()) {}
   ~method_wrapper_state() { reset_member_storage(); }
 
   method_wrapper_state(const method_wrapper_state&) = delete;
@@ -173,8 +174,8 @@ public:
   using destroy_fn = void (*)(void*, memory::memory_resource*) noexcept;
 
   method_wrapper() noexcept = default;
-  explicit method_wrapper(invoke_fn invoke)
-      : resource_(&memory::library_resource()),
+  explicit method_wrapper(invoke_fn invoke, memory::memory_resource* resource = nullptr)
+      : resource_(resource != nullptr ? resource : &memory::process_resource()),
         state_(memory::make<method_wrapper_state>(resource_, resource_)), invoke_(invoke),
         destroy_(&destroy) {}
 
@@ -230,7 +231,8 @@ public:
   template <typename Callable> void store_callable(Callable&& callable) {
     using value_type = std::decay_t<Callable>;
     static_cast<method_wrapper_state*>(state_)->callable =
-        std::make_shared<method_callable_storage_model<value_type>>(
+        std::allocate_shared<method_callable_storage_model<value_type>>(
+            memory::allocator<method_callable_storage_model<value_type>>{resource_},
             std::forward<Callable>(callable));
   }
 
@@ -271,8 +273,15 @@ class method_record final {
 public:
   method_record() noexcept = default;
 
-  method_record(string_name method_name, method_wrapper::invoke_fn invoke, bool is_const_method)
-      : name_(method_name), const_method_(is_const_method), wrapper_(invoke) {}
+  method_record(string_name method_name, method_wrapper::invoke_fn invoke, bool is_const_method,
+                memory::memory_resource* resource = nullptr)
+      : name_(method_name), const_method_(is_const_method),
+        default_arguments_(
+            memory::allocator<any>{resource != nullptr ? resource : &memory::process_resource()}),
+        parameter_names_(memory::allocator<string_name>{
+            resource != nullptr ? resource : &memory::process_resource()}),
+        resource_(resource != nullptr ? resource : &memory::process_resource()),
+        wrapper_(invoke, resource_) {}
 
   method_record(const method_record&) = delete;
   method_record& operator=(const method_record&) = delete;
@@ -294,8 +303,8 @@ public:
 
   void set_metadata(meta::metadata_key key, meta::metadata_value value) {
     if (metadata_ == nullptr) {
-      metadata_ = memory::make_unique<meta::metadata_map>(
-          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(resource_, meta::make_metadata_map(resource_));
     }
     meta::set_metadata(*metadata_, key, std::move(value));
   }
@@ -347,6 +356,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const argument> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
@@ -363,6 +374,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const meta::value> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact) {
       return argument_match_rank::exact;
     }
@@ -379,6 +392,8 @@ public:
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const noexcept {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     vector<argument> completed = normalize_named_arguments(arguments, options);
     return !completed.empty() ? rank_model_arguments(completed, options)
                               : argument_match_rank::none;
@@ -404,6 +419,8 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const argument> arguments,
                                                argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_result::failed(invoke_failure_reason::invalid_object);
@@ -429,6 +446,8 @@ public:
   invoke_value_result_of(const void* object, bool mutable_object,
                          std::span<const meta::value> arguments,
                          argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_value_result::failed(invoke_failure_reason::invalid_object);
@@ -457,6 +476,8 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const {
+    temporary_memory_scope scratch{options.scratch_resource};
+    options.scratch_resource = scratch.resource();
     if (get_owner_type()) {
       if (object == nullptr) {
         return invoke_result::failed(invoke_failure_reason::invalid_object);
@@ -561,7 +582,9 @@ private:
 
   [[nodiscard]] vector<argument> prepare_model_arguments(std::span<const argument> arguments,
                                                          argument_match_options options) const {
-    method_prepare_arguments_request request{this, arguments, options};
+    method_prepare_arguments_request request{
+        this, arguments, options,
+        vector<argument>{memory::allocator<argument>{options.scratch_resource}}};
     (void)wrapper_.invoke(method_request_kind::prepare_arguments, request_payload{request});
     return std::move(request.result);
   }
@@ -583,7 +606,7 @@ private:
 
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
@@ -609,7 +632,7 @@ private:
       return {};
     }
 
-    vector<argument> completed{};
+    vector<argument> completed{memory::allocator<argument>{options.scratch_resource}};
     completed.reserve(parameter_count());
     for (const argument& value : arguments) {
       completed.push_back(value);
@@ -635,7 +658,7 @@ private:
       return {};
     }
 
-    vector<meta::value> completed{};
+    vector<meta::value> completed{memory::allocator<meta::value>{options.scratch_resource}};
     completed.reserve(parameter_count());
     for (const meta::value& value : arguments) {
       completed.push_back(value);
@@ -658,7 +681,9 @@ private:
                                                             argument_match_options options) const {
     if (rank_model_value_arguments(arguments, {}) == argument_match_rank::exact ||
         rank_model_value_arguments(arguments, options) != argument_match_rank::none) {
-      return vector<meta::value>{arguments.begin(), arguments.end()};
+      vector<meta::value> result{memory::allocator<meta::value>{options.scratch_resource}};
+      result.assign(arguments.begin(), arguments.end());
+      return result;
     }
 
     return complete_value_arguments(arguments, options);
@@ -668,7 +693,9 @@ private:
   prepare_positional_arguments(std::span<const argument> arguments,
                                argument_match_options options) const {
     if (rank_model_arguments(arguments, {}) == argument_match_rank::exact) {
-      return prepare_model_arguments(arguments, {});
+      argument_match_options exact_options{};
+      exact_options.scratch_resource = options.scratch_resource;
+      return prepare_model_arguments(arguments, exact_options);
     }
 
     vector<argument> prepared = prepare_model_arguments(arguments, options);
@@ -692,9 +719,10 @@ private:
       return {};
     }
 
-    vector<argument> completed{};
+    vector<argument> completed{memory::allocator<argument>{options.scratch_resource}};
     completed.reserve(parameter_count());
-    vector<bool> assigned(parameter_count(), false);
+    vector<bool> assigned(parameter_count(), false,
+                          memory::allocator<bool>{options.scratch_resource});
     for (std::size_t index = 0; index < parameter_count(); ++index) {
       completed.push_back({});
     }
@@ -746,6 +774,7 @@ private:
   vector<any> default_arguments_{};
   vector<string_name> parameter_names_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
+  memory::memory_resource* resource_ = &memory::process_resource();
   method_wrapper wrapper_{};
 };
 
@@ -753,7 +782,10 @@ private:
 class method_set_record final {
 public:
   method_set_record() noexcept = default;
-  explicit method_set_record(string_name method_name) noexcept : name_(method_name) {}
+  explicit method_set_record(string_name method_name,
+                             memory::memory_resource* resource = nullptr) noexcept
+      : name_(method_name), overloads_(memory::allocator<method_record>{
+                                resource != nullptr ? resource : &memory::process_resource()}) {}
 
   [[nodiscard]] bool valid() const noexcept {
     if (!name_ || overloads_.empty()) {

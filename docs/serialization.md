@@ -171,6 +171,19 @@ caors::read_json_from(context, object, text);
 当前测试覆盖裸指针自环、指针读入深链、拥有型 wrapper 自环和多层 pointer / wrapper
 逐层展开路径。
 
+### 单次操作内存
+
+`context.resolvers.memory` 是 `serialization::operation_memory`，明确区分两种资源：
+
+- `result_resource`：用于返回字符串、byte buffer、`variant` DOM、构造后写入目标的拥有型值，以及需要
+  跨出当前调用的错误路径数据；为空时由具体结果类型在分配边界解析当前默认资源。
+- `scratch_resource`：用于 reader/writer 帧、字段扫描、参数转换和格式解析暂存；为空时使用当前线程的
+  `library_temporary_resource()`，公共同步入口会建立 scope 并在返回时回滚。
+
+结果不得引用 scratch。需要从 scratch 数据生成返回字符串、DOM 或对象时，核心实现会 materialize/copy
+到结果资源。显式传入的资源均由调用方拥有，并且必须覆盖对应结果或后端对象的生命周期。异步操作不得借用
+发起线程的默认 TLS scratch；应为 request/task 提供生命周期覆盖整个异步操作的独立资源。
+
 ### 运行期构造策略
 
 反序列化需要新建运行期值时，会按同一套构造顺序尝试：
@@ -339,13 +352,13 @@ caors::registration::type_<player>("game.player")
     .factory(&construct_player, &destroy_player);
 ```
 
-反序列化时可以通过 `serialization::context::resolvers.memory.resource` 指定构造动态值使用的内存资源：
+反序列化时可以通过 `serialization::context::resolvers.memory.result_resource` 指定构造动态值使用的结果资源：
 
 ```cpp
 caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
 caors::serialization::context context{};
-context.resolvers.memory.resource = &tracking;
+context.resolvers.memory.result_resource = &tracking;
 
 caors::error status = caors::read_json_from(context, holder, json);
 ```
@@ -356,7 +369,7 @@ caors::error status = caors::read_json_from(context, holder, json);
 `std::unique_ptr<Base>` 的 deleter 不能保存运行期销毁上下文，因此会回退到标准 `new` / `delete`
 或无资源 factory 路径。自定义 wrapper 或自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
 
-同一个 `context.resolvers.memory.resource` 也会用于普通反序列化路径里需要临时构造的 `any`、空拥有型智能指针 wrapper
+同一个 `context.resolvers.memory.result_resource` 也会用于普通反序列化路径里需要构造并存入目标对象的 `any`、空拥有型智能指针 wrapper
 读入非空值时创建内部 `T`、顺序容器新增元素、关联容器 key/value 临时值，以及
 `std::variant` 切换候选时构造新的候选值。普通 `std::unique_ptr<T>` 没有可替换的资源释放语义，
 仍按标准 deleter 的边界处理。标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
@@ -692,7 +705,7 @@ MessagePack 支持 byte span 和 `io::input_stream` 读入，也可以把通用 
 caors::serialization::variant_result value =
     caors::serialization::parse_messagepack(input_stream, options, result_resource);
 
-caors::serialization::messagepack_writer writer{output_stream, temporary_resource};
+caors::serialization::messagepack_writer writer{output_stream, scratch_resource};
 caors::error status = caors::serialize(context, object, writer);
 if (!status) {
   status = output_stream.flush();
@@ -708,8 +721,14 @@ if (!status) {
 MessagePack 规定的大端字节序处理。
 
 `encode_messagepack(value, result_resource)` 的返回 buffer 及 `parse_messagepack()` 返回的 DOM
-使用结果资源。parser 的流输入缓冲、map 转换暂存和 writer 容器帧使用调用方提供的临时资源；为空时使用
-当前线程的库临时资源。返回 buffer 和 DOM 不引用临时资源。
+使用结果资源。parser 的流输入缓冲、map 转换暂存和 writer 容器帧使用调用方提供的 scratch 资源；
+为空时使用当前线程的库 scratch 资源。返回 buffer 和 DOM 不引用 scratch 资源。
+
+带 `serialization::context` 的 JSON/DOM 便利入口同样使用
+`context.effective_scratch_resource()`：JSON reader 的字段、数组和字典扫描帧，JSON writer 的容器帧，
+以及 `variant_reader` 的遍历栈都在一次同步操作的 scratch scope 中分配。直接构造这些后端时，可以在
+构造函数最后一个参数显式传入 scratch 资源；此时调用方必须保证资源覆盖后端对象生命周期。输出字符串、
+DOM 和目标对象仍属于结果/调用方资源，不引用 scratch scope。
 
 MessagePack typed 读入先完整解析 `variant` DOM，再复用 `variant_reader`，因此 schema migration、
 未知字段策略、多态 envelope 和 external-ref resolver 与 JSON/DOM 路径一致。格式解析完成前不会修改
@@ -1091,14 +1110,14 @@ template <> struct codec_traits<custom_value> {
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过
   上下文构造策略、`registration::type_<T>(name).meta().factory()`、空参数 constructor 或类型默认构造能力创建，并通过 wrapper 接管新对象。
-- 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
+- 如果反序列化上下文提供 `context.resolvers.memory.result_resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
   默认 `new/delete` 或非资源 factory 路径。
 - `std::optional<T>` 在读入非空值且内部为空时不会接管外部分配出的指针，只会从临时 `T`
   按值写入自身；如果 move/copy 到 optional 失败，原临时对象会被匹配销毁函数清理。
 - `objects::ref<T>` 读入非空普通值且内部为空时会通过
-  `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；引用计数本身不写入存档。
+  `objects::make_ref<T>(context.resolvers.memory.result_resource)` 创建对象；引用计数本身不写入存档。
   读入多态 envelope 时会按 `$type` 构造真实派生对象，并让 `objects::ref<Base>` 接管对应控制块和销毁回调。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
@@ -1118,7 +1137,7 @@ template <> struct codec_traits<custom_value> {
 | `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；资源序列化适配只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.resolvers.external_refs.resolver` 按策略解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；拥有型智能指针非空读入可通过上下文构造策略、factory、空参数 constructor 或默认构造创建内部值并接管所有权；`std::optional<T>` 非空读入会用同一构造策略创建临时值，再按值 move/copy 到 optional；空 wrapper 读入非空值但 `T` 不可构造时返回错误；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
-| `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
+| `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.result_resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::weak_ref<T>` | 弱引用本身不暴露普通 inline value | 通过 resolver 写出 `object_id` 或 `object_guid`；空或已失效引用写 `null` / `0` | 通过 resolver 找到仍由 `objects::ref<T>` 管理的对象并恢复弱引用 |
@@ -1163,7 +1182,7 @@ template <> struct codec_traits<custom_value> {
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
   可以通过 `context.resolvers.construction`、`registration::type_<T>(name).meta().factory()` 或空参数
   `registration::type_<T>(name).meta().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
-- `serialization::context::resolvers.memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
+- `serialization::context::resolvers.memory.result_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
   空 `caors::memory::unique_ptr<T>`、空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
   自身 allocator 管理；上下文不会替换已存在容器的 allocator。标准顺序容器适配会把该资源传给新增的
@@ -1344,7 +1363,7 @@ caors::string text = *result;
 - `serialization::json_reader`：从 JSON 文本范围直接读入字段的后端。
 - `serialization::messagepack_writer`：把通用 writer 事件编码到拥有式字节缓冲或输出流。
 - `serialization::encode_messagepack()` / `serialization::parse_messagepack()`：MessagePack DOM
-  编解码入口，支持 byte span、输入流、结果资源和临时资源。
+  编解码入口，支持 byte span、输入流、结果资源和 scratch 资源。
 - `serialization::to_messagepack()` / `serialization::read_messagepack_from()`：MessagePack typed
   便捷入口。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。

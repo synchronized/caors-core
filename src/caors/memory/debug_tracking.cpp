@@ -116,7 +116,7 @@ debug_tracking_resource::debug_tracking_resource(memory_resource* upstream,
                                                  memory_debug_options options)
     : state_(nullptr) {
   memory_resource& resolved = detail::resolve_resource(upstream);
-  memory_resource& storage = library_resource();
+  memory_resource& storage = process_resource();
   state_ = make<debug_tracking_state>(&storage, &resolved, &storage, options);
 }
 

@@ -23,7 +23,7 @@ public:
   module_registry()
       : modules_(typename core::hash_map<core::string_name,
                                          memory::unique_ptr<detail::module_record>>::allocator_type{
-            &memory::library_resource()}) {}
+            &memory::process_resource()}) {}
 
   detail::module_record* ensure(core::string_name name) {
     if (!name) {
@@ -36,7 +36,7 @@ public:
       return position->second.get();
     }
 
-    auto data = memory::make_unique<detail::module_record>(&memory::library_resource(), name);
+    auto data = memory::make_unique<detail::module_record>(&memory::process_resource(), name);
     detail::module_record* result = data.get();
     modules_.try_emplace(name, std::move(data));
     return result;

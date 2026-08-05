@@ -12,32 +12,33 @@
 
 namespace caors::meta {
 
-owned_value factory_capability::construct_owned(memory::memory_resource* resource) const {
+owned_value factory_capability::construct_owned(memory::memory_resource* result_resource) const {
   const detail::layer_call_guard guard{detail::type_access::layer_of(type_)};
   if (!guard || !valid()) {
     return {};
   }
-  void* value = ops_->construct(resource);
-  return make_owned_value(get_type(), value, resource, ops_->destroy);
+  void* value = ops_->construct(result_resource);
+  return make_owned_value(get_type(), value, result_resource, ops_->destroy);
 }
 
-any factory_capability::construct(memory::memory_resource* resource) const {
-  return std::move(construct_owned(resource)).into_any();
+any factory_capability::construct(memory::memory_resource* result_resource) const {
+  return std::move(construct_owned(result_resource)).into_any();
 }
 
-owned_value constructor_capability::construct_owned(std::span<const argument> arguments,
-                                                    memory::memory_resource* resource) const {
+owned_value
+constructor_capability::construct_owned(std::span<const argument> arguments,
+                                        memory::memory_resource* result_resource) const {
   const detail::layer_call_guard guard{detail::type_access::layer_of(type_)};
   if (!guard || !matches(arguments.size())) {
     return {};
   }
-  void* value = ops_->construct(resource, arguments);
-  return make_owned_value(get_type(), value, resource, ops_->destroy);
+  void* value = ops_->construct(result_resource, arguments);
+  return make_owned_value(get_type(), value, result_resource, ops_->destroy);
 }
 
 any constructor_capability::construct(std::span<const argument> arguments,
-                                      memory::memory_resource* resource) const {
-  return std::move(construct_owned(arguments, resource)).into_any();
+                                      memory::memory_resource* result_resource) const {
+  return std::move(construct_owned(arguments, result_resource)).into_any();
 }
 
 std::size_t type::size() const noexcept {
@@ -78,12 +79,12 @@ bool type::constructible(std::size_t argument_count) const noexcept {
   return argument_count == 0 && value_constructible();
 }
 
-any type::create(memory::memory_resource* resource) const {
-  return create(std::span<const meta::argument>{}, resource);
+any type::create(memory::memory_resource* result_resource) const {
+  return create(std::span<const meta::argument>{}, result_resource);
 }
 
 any type::create(std::span<const meta::argument> arguments,
-                 memory::memory_resource* resource) const {
+                 memory::memory_resource* result_resource) const {
   if (!valid()) {
     return {};
   }
@@ -91,7 +92,7 @@ any type::create(std::span<const meta::argument> arguments,
   if (arguments.empty()) {
     const meta::factory_capability factory = get_capability<meta::factory_capability>();
     if (factory) {
-      any value = factory.construct(resource);
+      any value = factory.construct(result_resource);
       if (value.valid()) {
         return value;
       }
@@ -100,17 +101,17 @@ any type::create(std::span<const meta::argument> arguments,
 
   const meta::constructor_capability constructor = get_capability<meta::constructor_capability>();
   if (constructor.matches(arguments.size())) {
-    any value = constructor.construct(arguments, resource);
+    any value = constructor.construct(arguments, result_resource);
     if (value.valid()) {
       return value;
     }
   }
 
-  return arguments.empty() ? create_value(resource) : any{};
+  return arguments.empty() ? create_value(result_resource) : any{};
 }
 
-any type::create_value(memory::memory_resource* resource) const {
-  return valid() ? any::default_construct(*this, resource) : any{};
+any type::create_value(memory::memory_resource* result_resource) const {
+  return valid() ? any::default_construct(*this, result_resource) : any{};
 }
 
 } // namespace caors::meta

@@ -17,16 +17,16 @@ class enum_value_record final {
 public:
   enum_value_record() noexcept = default;
 
-  enum_value_record(string_name enum_name, std::int64_t signed_value,
-                  std::uint64_t unsigned_value) noexcept
-      : name_(enum_name), signed_value_(signed_value), unsigned_value_(unsigned_value) {}
+  enum_value_record(string_name enum_name, std::int64_t signed_value, std::uint64_t unsigned_value,
+                    memory::memory_resource* resource = nullptr) noexcept
+      : name_(enum_name), signed_value_(signed_value), unsigned_value_(unsigned_value),
+        resource_(resource != nullptr ? resource : &memory::process_resource()) {}
 
   enum_value_record(const enum_value_record& other)
       : name_(other.name_), signed_value_(other.signed_value_),
-        unsigned_value_(other.unsigned_value_) {
+        unsigned_value_(other.unsigned_value_), resource_(other.resource_) {
     if (other.metadata_ != nullptr) {
-      metadata_ =
-          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+      metadata_ = memory::make_unique<meta::metadata_map>(resource_, *other.metadata_);
     }
   }
 
@@ -38,9 +38,9 @@ public:
     name_ = other.name_;
     signed_value_ = other.signed_value_;
     unsigned_value_ = other.unsigned_value_;
+    resource_ = other.resource_;
     if (other.metadata_ != nullptr) {
-      metadata_ =
-          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+      metadata_ = memory::make_unique<meta::metadata_map>(resource_, *other.metadata_);
     } else {
       metadata_.reset();
     }
@@ -64,10 +64,26 @@ public:
     return metadata_ != nullptr ? meta::find_metadata(*metadata_, key) : nullptr;
   }
 
+  void rebind_resource(memory::memory_resource* resource) {
+    memory::memory_resource* resolved =
+        resource != nullptr ? resource : &memory::process_resource();
+    if (resolved == resource_) {
+      return;
+    }
+    if (metadata_ != nullptr) {
+      meta::metadata_map migrated = meta::make_metadata_map(resolved);
+      for (auto& [key, value] : *metadata_) {
+        migrated.emplace(key, std::move(value));
+      }
+      metadata_ = memory::make_unique<meta::metadata_map>(resolved, std::move(migrated));
+    }
+    resource_ = resolved;
+  }
+
   void set_metadata(meta::metadata_key key, meta::metadata_value value) {
     if (metadata_ == nullptr) {
-      metadata_ = memory::make_unique<meta::metadata_map>(
-          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(resource_, meta::make_metadata_map(resource_));
     }
     meta::set_metadata(*metadata_, key, std::move(value));
   }
@@ -75,7 +91,7 @@ public:
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
@@ -83,6 +99,7 @@ private:
   std::int64_t signed_value_ = 0;
   std::uint64_t unsigned_value_ = 0;
   memory::unique_ptr<meta::metadata_map> metadata_{};
+  memory::memory_resource* resource_ = &memory::process_resource();
 };
 
 } // namespace caors::meta::detail

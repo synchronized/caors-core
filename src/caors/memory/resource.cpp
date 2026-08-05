@@ -168,13 +168,15 @@ memory_resource* set_default_memory_resource(memory_resource* resource) noexcept
   return detail::replace_default_resource(resource);
 }
 
-memory_resource& library_resource() noexcept {
+memory_resource& process_resource() noexcept {
 #if CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE
   return *get_default_memory_resource();
 #else
   return get_system_memory_resource();
 #endif
 }
+
+memory_resource& library_resource() noexcept { return process_resource(); }
 
 void* try_allocate(std::size_t size, std::size_t alignment, memory_resource* resource) noexcept {
   return detail::resolve_resource(resource).try_allocate(size, alignment);

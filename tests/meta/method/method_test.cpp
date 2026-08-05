@@ -695,6 +695,40 @@ TEST_CASE("meta - method string parse conversion requires explicit policy", "[me
   CHECK(*invoke_result.try_get<int>() == 7);
 }
 
+TEST_CASE("meta - method temporary arguments use and rewind explicit scratch resource", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<string_parse_conversion_actor>(
+          "caors.test.meta.string_parse_conversion_actor")
+          .meta()
+          .method("take_int", &string_parse_conversion_actor::take_int)
+          .method("take_bool", &string_parse_conversion_actor::take_bool)
+          .method("take_double", &string_parse_conversion_actor::take_double)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::method_set take_int =
+      caors::meta::find("caors.test.meta.string_parse_conversion_actor").find_method("take_int");
+  REQUIRE(take_int);
+
+  caors::stack_resource scratch{64};
+  caors::core::string input{"42"};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+  options.scratch_resource = &scratch;
+
+  const std::size_t rewind_count = scratch.statistics().rewind_count;
+  string_parse_conversion_actor instance{};
+  const caors::meta::invoke_result invoke_result =
+      take_int.invoke_result_of(caors::meta::view(instance), arguments, options);
+
+  REQUIRE(invoke_result.has_value());
+  CHECK(instance.value == 42);
+  CHECK(scratch.active_scope_count() == 0);
+  CHECK(scratch.statistics().bytes_in_use == 0);
+  CHECK(scratch.statistics().rewind_count > rewind_count);
+}
+
 TEST_CASE("meta - method string parse conversion rejects invalid text", "[meta]") {
   const caors::error result =
       caors::registration::type_<string_parse_conversion_actor>(

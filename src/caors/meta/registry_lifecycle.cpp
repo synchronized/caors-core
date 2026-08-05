@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta/registry.h"
+#include "caors/runtime.h"
 #include "detail/registry_state.h"
 
 #include <vector>
@@ -11,21 +12,24 @@ namespace caors::meta {
 registry::registry() : registry(registry_options{}) {}
 
 registry::registry(registry_options options)
-    : state_resource_(&memory::library_resource()), options_(options),
-      primary_layer_(std::make_shared<detail::registry_layer_state>(
-          state_resource_, registry_layer_lifetime::pinned_process)),
+    : state_resource_(options.internal_resource != nullptr ? options.internal_resource
+                                                           : &memory::process_resource()),
+      options_(options), primary_layer_(std::make_shared<detail::registry_layer_state>(
+                             state_resource_, registry_layer_lifetime::pinned_process)),
       snapshot_(std::make_shared<detail::registry_snapshot>(primary_layer_)),
       state_(&primary_layer_->state()) {}
 
 registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                   registry_layer_lifetime layer_lifetime)
-    : state_resource_(&memory::library_resource()),
+                   registry_layer_lifetime layer_lifetime,
+                   memory::memory_resource* internal_resource)
+    : state_resource_(internal_resource != nullptr ? internal_resource
+                                                   : &memory::process_resource()),
       primary_layer_(
           std::make_shared<detail::registry_layer_state>(state_resource_, layer_lifetime)),
       state_(&primary_layer_->state()) {
   core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
       core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
-          &memory::library_resource()}};
+          state_resource_}};
   layers.push_back(primary_layer_);
   if (base_snapshot != nullptr) {
     layers.insert(layers.end(), base_snapshot->layers().begin(), base_snapshot->layers().end());
@@ -37,8 +41,9 @@ registry::registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
 registry::~registry() = default;
 
 registry_layer::registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                               registry_layer_lifetime lifetime)
-    : registry_(new registry{std::move(base_snapshot), lifetime}) {}
+                               registry_layer_lifetime lifetime,
+                               memory::memory_resource* internal_resource)
+    : registry_(new registry{std::move(base_snapshot), lifetime, internal_resource}) {}
 
 registry_layer::~registry_layer() { delete registry_; }
 
@@ -85,21 +90,27 @@ std::unique_ptr<registry_layer> registry::create_layer() const {
 }
 
 std::unique_ptr<registry_layer> registry::create_layer(registry_layer_lifetime lifetime) const {
-  return std::unique_ptr<registry_layer>{new registry_layer{capture_snapshot(), lifetime}};
+  return create_layer(registry_layer_options{.lifetime = lifetime});
+}
+
+std::unique_ptr<registry_layer> registry::create_layer(registry_layer_options options) const {
+  memory::memory_resource* resource =
+      options.internal_resource != nullptr ? options.internal_resource : state_resource_;
+  return std::unique_ptr<registry_layer>{
+      new registry_layer{capture_snapshot(), options.lifetime, resource}};
 }
 
 std::shared_ptr<detail::registry_snapshot> registry::capture_snapshot() const noexcept {
   return snapshot_.load(std::memory_order_acquire);
 }
 
-registry& registry::instance() noexcept {
-  static registry instance;
-  return instance;
-}
+registry& registry::instance() noexcept { return runtime::instance().get_meta_registry(); }
 
 registry_management_policy registry::management_policy() const noexcept {
   return options_.management;
 }
+
+memory::memory_resource* registry::internal_resource() const noexcept { return state_resource_; }
 
 bool registry::frozen() const noexcept {
   return detail::read_layer_state(*primary_layer_, [](const auto& state) { return state.frozen; });

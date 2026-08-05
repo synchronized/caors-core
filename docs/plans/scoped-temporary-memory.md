@@ -193,9 +193,9 @@ result / target resource
 如果需要公开覆盖，建议扩展已有 memory resolver：
 
 ```cpp
-struct memory_options {
-  memory_resource* resource = nullptr;           // 目标/返回值资源
-  memory_resource* temporary_resource = nullptr; // 本次调用临时资源
+struct operation_memory {
+  memory_resource* result_resource = nullptr;  // 目标/返回值资源
+  memory_resource* scratch_resource = nullptr; // 本次调用临时资源
 };
 ```
 
@@ -329,7 +329,7 @@ LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标
   有效；
 - `string_view` 等借用值只保存到调用方显式提供的 `string_storage`，不借用 parser 临时字符串；
 - external-ref resolver 返回调用方管理的外部对象，context 只在同步调用期间借用 resolver ops；
-- 自定义构造结果由目标接管，必须使用 `effective_memory_resource()` 或其他长期资源；公共注释已明确禁止
+- 自定义构造结果由目标接管，必须使用 `effective_result_resource()` 或其他长期资源；公共注释已明确禁止
   返回 temporary resource 中的对象；
 - caller-buffer 事务中的 `any` 元素最终写入目标，因此元素自身继续使用 result resource；只有
   `vector<any>` 的暂存数组使用 temporary resource；

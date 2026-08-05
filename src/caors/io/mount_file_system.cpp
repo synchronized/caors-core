@@ -249,10 +249,10 @@ file_status_result mount_file_system::status(path_view path) const {
 }
 
 directory_entry_list_result mount_file_system::list(path_view directory,
-                                                    memory_resource* resource) {
+                                                    memory_resource* result_resource) {
   const core::string normalized_directory = normalize_mount_path(directory, this->resource());
   const std::string_view directory_text = string_view_of(normalized_directory);
-  directory_entry_list entries{allocator<directory_entry>{resource}};
+  directory_entry_list entries{allocator<directory_entry>{result_resource}};
 
   error target_status{};
   bool has_target_status = false;
@@ -260,7 +260,7 @@ directory_entry_list_result mount_file_system::list(path_view directory,
   const mount_entry* entry = find_mount(path_view{normalized_directory});
   if (entry != nullptr && entry->target != nullptr) {
     directory_entry_list_result target_entries =
-        entry->target->list(resolve_path(*entry, path_view{normalized_directory}), resource);
+        entry->target->list(resolve_path(*entry, path_view{normalized_directory}), result_resource);
     if (target_entries.succeeded()) {
       target_succeeded = true;
       for (const directory_entry& target_entry : *target_entries) {
@@ -269,8 +269,9 @@ directory_entry_list_result mount_file_system::list(path_view directory,
           continue;
         }
 
-        const path full_path = make_child_path(path_view{normalized_directory}, name, resource);
-        add_or_update_entry(entries, name, full_path, target_entry.kind, resource);
+        const path full_path =
+            make_child_path(path_view{normalized_directory}, name, result_resource);
+        add_or_update_entry(entries, name, full_path, target_entry.kind, result_resource);
       }
     } else {
       target_status = target_entries.error();
@@ -286,8 +287,8 @@ directory_entry_list_result mount_file_system::list(path_view directory,
 
     const std::size_t separator = suffix.find('/');
     const std::string_view name = suffix.substr(0, separator);
-    const path full_path = make_child_path(path_view{normalized_directory}, name, resource);
-    add_or_update_entry(entries, name, full_path, file_kind::directory, resource);
+    const path full_path = make_child_path(path_view{normalized_directory}, name, result_resource);
+    add_or_update_entry(entries, name, full_path, file_kind::directory, result_resource);
   }
 
   if (entries.empty()) {
@@ -304,7 +305,7 @@ directory_entry_list_result mount_file_system::list(path_view directory,
   return ok(std::move(entries));
 }
 
-byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* resource) {
+byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* result_resource) {
   if (path.empty()) {
     return fail<byte_buffer>({error_domain::io, errc::invalid_argument});
   }
@@ -315,7 +316,7 @@ byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* 
     return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
-  return entry->target->read_all(resolve_path(*entry, path_view{normalized_path}), resource);
+  return entry->target->read_all(resolve_path(*entry, path_view{normalized_path}), result_resource);
 }
 
 error mount_file_system::write_all(path_view path, std::span<const std::byte> bytes) {

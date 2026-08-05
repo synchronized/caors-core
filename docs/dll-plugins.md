@@ -119,6 +119,19 @@ detachable 插件卸载前必须保证：
 `detached_pending_release`；调用方可以通过 `plugin::unload_diagnostic()` 查看 generation、layer
 lease、in-flight 调用数、本地注册类型数量和阻止原因。
 
+### 插件内存域
+
+宿主为每个插件创建独立 registry layer，并决定该 layer 的长期资源。插件只向获得的显式 context 注册，
+不得把记录改分配到插件局部 TLS、短生命周期 scratch 或卸载时先于 layer 销毁的资源。layer detach 后，
+资源仍须覆盖旧 view、owning value 和 in-flight 调用所持 lease；最后一个 lease 释放后才能销毁 layer 并
+关闭动态库。
+
+EXE 与每个 DLL 可以拥有不同的 TLS 实例，因此 `library_temporary_resource()` 只代表当前模块、当前线程的
+同步 scratch。插件不能把由该资源分配的指针、view 或容器返回给宿主，也不能把它捕获到异步任务。native
+C++ 调用需要跨模块保存结果时，应由宿主显式提供生命周期足够长的结果资源；稳定 C ABI 则继续使用借用
+字节视图、opaque handle 和成对创建/销毁函数。当前 runtime extension 不发布通用 allocator 服务，也不
+允许直接跨 C ABI 传递 `memory_resource*`。
+
 ## Meta 视图和擦除值边界
 
 `meta::type`、`meta::property`、`meta::method`、`meta::any_ref`、容器 view、对象 view、

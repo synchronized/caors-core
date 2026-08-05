@@ -38,6 +38,36 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("resources - json loader result survives scratch rewind", "[resources][memory]") {
+  require_serialized_resource_metadata();
+
+  caors::io::memory_file_system files;
+  REQUIRE(files.write_all("assets/resource.json", R"({"width":768})").succeeded());
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
+  REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
+
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::tracking_resource scratch_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource scratch{64, &scratch_tracking};
+  caors::serialization::context context{};
+  context.resolvers.memory.result_resource = &result_tracking;
+  context.resolvers.memory.scratch_resource = &scratch;
+
+  caors::assets::json::loader<serialized_resource> loader{context, provider};
+  caors::resources::load_result<serialized_resource> loaded =
+      loader.load(test_guid_a, &result_tracking);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(scratch.active_scope_count() == 0);
+
+  scratch.reset();
+  CHECK(scratch_tracking.statistics().bytes_in_use == 0);
+  CHECK(loaded.value->guid() == test_guid_a);
+  CHECK(loaded.value->width == 768);
+  CHECK(result_tracking.statistics().bytes_in_use > 0);
+}
+
 #include "../../resources/resources_test_common.h"
 
 using namespace caors::tests::resources;

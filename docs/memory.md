@@ -280,7 +280,7 @@ CAORS 默认资源与 `std::pmr` 默认资源保持独立，适配器不会调�
 ### memory::unique_ptr
 
 `caors::memory::unique_ptr<T>` 是 `std::unique_ptr<T, memory::erased_deleter<T>>` 的别名。
-默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::resolvers.memory.resource`
+默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::resolvers.memory.result_resource`
 构造内部对象或运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
 
 `memory::make_unique<T>(resource, ...)` 会使用指定 `memory_resource` 构造对象，并让返回的
@@ -467,6 +467,11 @@ marker 必须由同一个资源创建、在同一线程使用，并严格按后�
 chunk 或 block 的实际使用情况；需要逐地址泄漏、标签和错误释放诊断时，仍应使用
 `debug_tracking_resource`。
 
+process、registry layer、scratch 与 result/user 四个域的统一统计口径和当前 Release 基线见
+[`benchmarks/results/2026-08-05-memory-domain-observability.md`](../benchmarks/results/2026-08-05-memory-domain-observability.md)。
+普通 `tracking_resource` 无法观察 system allocator 内部碎片，文档和 benchmark 不使用
+“累计分配字节减当前存活字节”伪造碎片率。
+
 ### wrapper resource
 
 包装资源不一定改变底层分配策略，而是在另一个资源外面增加能力。
@@ -539,6 +544,33 @@ backend / strategy resource
   各自声明并保证自己的线程安全边界
 ```
 
+## 生命周期资源入口
+
+CAORS 按数据的实际生命周期区分四类内存域：
+
+| 内存域 | 典型数据 | 生命周期与释放 | 默认来源 |
+|---|---|---|---|
+| process | 字符串驻留、type/capability identity、全局模块索引 | 随进程结束，不支持运行期整体回收 | `process_resource()` |
+| registry layer | primary 或单个插件 layer 的类型记录、属性、方法和 capability | primary 随 runtime；插件 layer 在 detach 且最后一个 lease 释放后销毁 | registry/layer 的 `internal_resource` |
+| scratch | 参数转换、reader/writer 帧、解析暂存和单次查询工作区 | 同步调用结束时通过 scope 回滚；不得逃逸 | 显式资源或 `library_temporary_resource()` |
+| result/user | 返回容器、DOM、拥有型值和调用方对象 | 由返回值或所属子系统决定 | 显式 `result_resource`，为空时由具体 API 解析默认资源 |
+
+资源指针均为非拥有引用。保存 allocator、容器、registry、返回值或异步状态的对象，不得比对应资源存活
+更久。scratch 只适合同步、栈式嵌套工作；返回值、registry 数据和异步任务不得引用 scratch 内存。
+
+`process_resource()` 专门用于进程生命周期内不会卸载的永久数据，例如 `string_name` 驻留表、
+type/capability identity 和全局 module 索引。它默认固定使用 system resource；只有构建时启用
+`CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=1` 才会跟随默认资源。
+
+`library_resource()` 保留为兼容入口，当前与 `process_resource()` 返回同一资源。新代码不应把它当作
+通用内部分配器：registry/type 数据应使用所属 layer 注入资源，单次操作使用 scratch，返回对象使用
+调用方提供的 result resource。
+
+顶层 `caors::runtime` 拥有一组 registry/context。`runtime::instance()` 是进程默认运行时，原有
+`meta::registry::instance()` 与 `meta::default_context()` 均定位到它；测试和嵌入场景可以创建独立
+runtime 并注入不同 registry resource。type/capability identity 与 `string_name` 不随 runtime 隔离，
+它们必须在同一进程的宿主和插件之间保持唯一。
+
 ## 当前已实现能力
 
 - 统一抽象：`memory_resource`
@@ -554,6 +586,7 @@ backend / strategy resource
 - 固定块策略：`fixed_block_pool`
 - 分级块策略：`size_class_pool_resource`
 - 默认资源入口：`get_default_memory_resource()` / `set_default_memory_resource()`
+- 进程永久数据入口：`process_resource()`；`library_resource()` 仅作为兼容别名
 - 全局分配入口：`try_allocate()` / `allocate()` / `deallocate()`
 - 基础对齐分配
 - 基础配置常量：`caors::config::default_new_alignment` / `caors::config::has_exceptions`

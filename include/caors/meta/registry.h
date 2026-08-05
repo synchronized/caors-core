@@ -71,6 +71,8 @@ enum class registry_management_policy {
 /** @brief registry 创建选项。 */
 struct registry_options {
   registry_management_policy management = registry_management_policy::locked_append_only;
+  /** @brief registry 内部状态使用的资源；为空时使用 CAORS process/library 资源。 */
+  memory::memory_resource* internal_resource = nullptr;
 };
 
 /** @brief registry layer 生命周期策略。 */
@@ -79,6 +81,13 @@ enum class registry_layer_lifetime {
   pinned_process,
   /** @brief 可从 registry snapshot 中 detach，进入函数指针调用时需要 in-flight guard。 */
   detachable,
+};
+
+/** @brief registry layer 创建选项。 */
+struct registry_layer_options {
+  registry_layer_lifetime lifetime = registry_layer_lifetime::detachable;
+  /** @brief layer 完整注册数据使用的资源；为空时继承宿主 registry 资源。 */
+  memory::memory_resource* internal_resource = nullptr;
 };
 
 /**
@@ -122,12 +131,16 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   /** @brief 返回 registry 的管理策略。 */
   [[nodiscard]] registry_management_policy management_policy() const noexcept;
+  /** @brief 返回 registry 内部长期数据使用的资源。 */
+  [[nodiscard]] memory::memory_resource* internal_resource() const noexcept;
 
   /** @brief 创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
   [[nodiscard]] std::unique_ptr<registry_layer> create_layer() const;
   /** @brief 按指定生命周期创建查询可回退到当前 snapshot、但写入保持隔离的 layer draft。 */
   [[nodiscard]] std::unique_ptr<registry_layer>
   create_layer(registry_layer_lifetime lifetime) const;
+  /** @brief 使用独立生命周期和内存资源创建隔离 layer draft。 */
+  [[nodiscard]] std::unique_ptr<registry_layer> create_layer(registry_layer_options options) const;
   /** @brief 校验、冻结并原子发布 layer；失败时当前 registry 保持不变。 */
   [[nodiscard]] error publish_layer(registry_layer& layer);
   /** @brief 从新 snapshot 原子移除已发布 layer，并使旧句柄失效。 */
@@ -140,7 +153,7 @@ private:
   friend class registry_layer;
 
   registry(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-           registry_layer_lifetime layer_lifetime);
+           registry_layer_lifetime layer_lifetime, memory::memory_resource* internal_resource);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -191,7 +204,7 @@ private:
   friend class registry;
   friend class ::caors::plugins::plugin_library_lease;
   registry_layer(std::shared_ptr<detail::registry_snapshot> base_snapshot,
-                 registry_layer_lifetime lifetime);
+                 registry_layer_lifetime lifetime, memory::memory_resource* internal_resource);
 
   [[nodiscard]] error attach_lifetime(std::shared_ptr<void> owner);
 

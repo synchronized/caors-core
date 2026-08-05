@@ -101,6 +101,7 @@ void ensure_benchmark_types_registered();
 void benchmark_string_name(std::size_t iterations);
 void benchmark_small_vector(std::size_t iterations);
 void benchmark_meta_lookup(std::size_t iterations);
+void benchmark_registry_resources(std::size_t iterations);
 void benchmark_properties(std::size_t iterations);
 void benchmark_method_calls(std::size_t iterations);
 void benchmark_any(std::size_t iterations);

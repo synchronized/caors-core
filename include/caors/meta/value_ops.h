@@ -32,6 +32,7 @@ struct type_layout {
 struct value_ops {
   using default_construct_fn = void* (*)();
   using clone_fn = void* (*)(const void*);
+  using resource_clone_fn = void* (*)(memory::memory_resource*, const void*);
   using destroy_fn = meta::destroy_fn;
   using assign_fn = bool (*)(void*, const void*);
   using resource_construct_fn = void* (*)(memory::memory_resource*);
@@ -39,6 +40,7 @@ struct value_ops {
 
   default_construct_fn default_construct = nullptr;
   clone_fn clone = nullptr;
+  resource_clone_fn resource_clone = nullptr;
   destroy_fn destroy = nullptr;
   assign_fn assign = nullptr;
   resource_construct_fn resource_construct = nullptr;

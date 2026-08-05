@@ -186,11 +186,12 @@ error append_value(io::byte_buffer& output, const variant& value) {
 
 class parser {
 public:
-  parser(std::span<const std::byte> bytes, messagepack_options options, memory_resource* resource,
-         memory_resource* temporary_resource) noexcept
+  parser(std::span<const std::byte> bytes, messagepack_options options,
+         memory_resource* result_resource, memory_resource* scratch_resource) noexcept
       : bytes_(bytes), options_(options),
-        resource_(resource != nullptr ? resource : get_default_memory_resource()),
-        temporary_resource_(temporary_resource) {}
+        result_resource_(result_resource != nullptr ? result_resource
+                                                    : get_default_memory_resource()),
+        scratch_resource_(scratch_resource) {}
 
   [[nodiscard]] variant_result parse() {
     variant_result result = parse_value(0);
@@ -231,7 +232,7 @@ private:
     }
     const char* data = reinterpret_cast<const char*>(bytes_.data() + position_);
     position_ += size;
-    return {{}, variant::from(std::string_view{data, size}, resource_)};
+    return {{}, variant::from(std::string_view{data, size}, result_resource_)};
   }
 
   [[nodiscard]] bool valid_container_size(std::size_t size) const noexcept {
@@ -249,7 +250,7 @@ private:
     if (!valid_container_size(size)) {
       return {invalid_messagepack(), {}};
     }
-    variant::array_type values{variant::array_type::allocator_type{resource_}};
+    variant::array_type values{variant::array_type::allocator_type{result_resource_}};
     values.reserve(size);
     for (std::size_t index = 0; index < size; ++index) {
       variant_result element = parse_value(depth);
@@ -269,7 +270,7 @@ private:
       return {invalid_messagepack(), {}};
     }
 
-    variant::dictionary_type entries{variant::dictionary_type::allocator_type{temporary_resource_}};
+    variant::dictionary_type entries{variant::dictionary_type::allocator_type{scratch_resource_}};
     entries.reserve(size);
     bool all_string_keys = true;
     for (std::size_t index = 0; index < size; ++index) {
@@ -286,7 +287,8 @@ private:
     }
 
     if (!all_string_keys) {
-      variant::dictionary_type result_entries{variant::dictionary_type::allocator_type{resource_}};
+      variant::dictionary_type result_entries{
+          variant::dictionary_type::allocator_type{result_resource_}};
       result_entries.reserve(entries.size());
       for (meta::variant_entry& entry : entries) {
         result_entries.push_back({std::move(entry.key), std::move(entry.value)});
@@ -294,7 +296,7 @@ private:
       return {{}, variant::dictionary(std::move(result_entries))};
     }
 
-    variant::object_type members{variant::object_type::allocator_type{resource_}};
+    variant::object_type members{variant::object_type::allocator_type{result_resource_}};
     members.reserve(entries.size());
     for (meta::variant_entry& entry : entries) {
       const string& key = entry.key.as_string();
@@ -311,7 +313,7 @@ private:
     }
 
     if (marker <= 0x7FU) {
-      return {{}, variant::from(static_cast<std::uint64_t>(marker), resource_)};
+      return {{}, variant::from(static_cast<std::uint64_t>(marker), result_resource_)};
     }
     if ((marker & 0xF0U) == 0x80U) {
       return parse_map(marker & 0x0FU, parent_depth + 1U);
@@ -325,7 +327,8 @@ private:
     if (marker >= 0xE0U) {
       return {
           {},
-          variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)), resource_)};
+          variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)),
+                        result_resource_)};
     }
 
     std::uint8_t u8 = 0;
@@ -334,59 +337,63 @@ private:
     std::uint64_t u64 = 0;
     switch (marker) {
     case 0xC0U:
-      return {{}, variant::null(resource_)};
+      return {{}, variant::null(result_resource_)};
     case 0xC2U:
-      return {{}, variant::from(false, resource_)};
+      return {{}, variant::from(false, result_resource_)};
     case 0xC3U:
-      return {{}, variant::from(true, resource_)};
+      return {{}, variant::from(true, result_resource_)};
     case 0xCAU:
       if (!read_big_endian(u32)) {
         return {invalid_messagepack(), {}};
       }
-      return {{}, variant::from(static_cast<double>(std::bit_cast<float>(u32)), resource_)};
+      return {{}, variant::from(static_cast<double>(std::bit_cast<float>(u32)), result_resource_)};
     case 0xCBU:
       if (!read_big_endian(u64)) {
         return {invalid_messagepack(), {}};
       }
-      return {{}, variant::from(std::bit_cast<double>(u64), resource_)};
+      return {{}, variant::from(std::bit_cast<double>(u64), result_resource_)};
     case 0xCCU:
       return read_big_endian(u8)
-                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u8), resource_)}
+                 ? variant_result{{},
+                                  variant::from(static_cast<std::uint64_t>(u8), result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xCDU:
       return read_big_endian(u16)
-                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u16), resource_)}
+                 ? variant_result{{},
+                                  variant::from(static_cast<std::uint64_t>(u16), result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xCEU:
       return read_big_endian(u32)
-                 ? variant_result{{}, variant::from(static_cast<std::uint64_t>(u32), resource_)}
+                 ? variant_result{{},
+                                  variant::from(static_cast<std::uint64_t>(u32), result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xCFU:
-      return read_big_endian(u64) ? variant_result{{}, variant::from(u64, resource_)}
+      return read_big_endian(u64) ? variant_result{{}, variant::from(u64, result_resource_)}
                                   : variant_result{invalid_messagepack(), {}};
     case 0xD0U:
       return read_big_endian(u8) ? variant_result{{},
                                                   variant::from(static_cast<std::int64_t>(
                                                                     static_cast<std::int8_t>(u8)),
-                                                                resource_)}
+                                                                result_resource_)}
                                  : variant_result{invalid_messagepack(), {}};
     case 0xD1U:
       return read_big_endian(u16)
                  ? variant_result{{},
                                   variant::from(
                                       static_cast<std::int64_t>(static_cast<std::int16_t>(u16)),
-                                      resource_)}
+                                      result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xD2U:
       return read_big_endian(u32)
                  ? variant_result{{},
                                   variant::from(
                                       static_cast<std::int64_t>(static_cast<std::int32_t>(u32)),
-                                      resource_)}
+                                      result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xD3U:
       return read_big_endian(u64)
-                 ? variant_result{{}, variant::from(static_cast<std::int64_t>(u64), resource_)}
+                 ? variant_result{{},
+                                  variant::from(static_cast<std::int64_t>(u64), result_resource_)}
                  : variant_result{invalid_messagepack(), {}};
     case 0xD9U:
       return read_big_endian(u8) ? parse_string(u8) : variant_result{invalid_messagepack(), {}};
@@ -416,8 +423,8 @@ private:
   std::span<const std::byte> bytes_{};
   messagepack_options options_{};
   std::size_t position_ = 0;
-  memory_resource* resource_ = nullptr;
-  memory_resource* temporary_resource_ = nullptr;
+  memory_resource* result_resource_ = nullptr;
+  memory_resource* scratch_resource_ = nullptr;
 };
 
 } // namespace
@@ -464,34 +471,34 @@ public:
 
   implementation() : implementation(nullptr) {}
 
-  explicit implementation(memory_resource* temporary_resource)
-      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
-                                                          : &memory::library_temporary_resource()),
-        output_(&owned_output_), frames_(vector<frame>::allocator_type{temporary_resource_}) {
-    begin_temporary_scope();
+  explicit implementation(memory_resource* scratch_resource)
+      : scratch_resource_(scratch_resource != nullptr ? scratch_resource
+                                                      : &memory::library_temporary_resource()),
+        output_(&owned_output_), frames_(vector<frame>::allocator_type{scratch_resource_}) {
+    begin_scratch_scope();
   }
 
-  implementation(io::byte_buffer& output, memory_resource* temporary_resource)
-      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
-                                                          : &memory::library_temporary_resource()),
-        output_(&output), frames_(vector<frame>::allocator_type{temporary_resource_}) {
-    begin_temporary_scope();
+  implementation(io::byte_buffer& output, memory_resource* scratch_resource)
+      : scratch_resource_(scratch_resource != nullptr ? scratch_resource
+                                                      : &memory::library_temporary_resource()),
+        output_(&output), frames_(vector<frame>::allocator_type{scratch_resource_}) {
+    begin_scratch_scope();
     output_->clear();
   }
 
-  implementation(io::output_stream& output, memory_resource* temporary_resource)
-      : temporary_resource_(temporary_resource != nullptr ? temporary_resource
-                                                          : &memory::library_temporary_resource()),
+  implementation(io::output_stream& output, memory_resource* scratch_resource)
+      : scratch_resource_(scratch_resource != nullptr ? scratch_resource
+                                                      : &memory::library_temporary_resource()),
         output_(&owned_output_), stream_(&output),
-        frames_(vector<frame>::allocator_type{temporary_resource_}) {
-    begin_temporary_scope();
+        frames_(vector<frame>::allocator_type{scratch_resource_}) {
+    begin_scratch_scope();
   }
 
   [[nodiscard]] error begin_container(frame_kind kind, std::size_t expected_size) {
     if (!can_accept_value()) {
       return invalid_messagepack();
     }
-    frames_.emplace_back(kind, expected_size, temporary_resource_);
+    frames_.emplace_back(kind, expected_size, scratch_resource_);
     return {};
   }
 
@@ -600,15 +607,14 @@ public:
     root_written_ = false;
   }
 
-  void begin_temporary_scope() {
-    if (auto* stack = dynamic_cast<memory::stack_resource*>(temporary_resource_);
-        stack != nullptr) {
-      temporary_scope_.emplace(*stack);
+  void begin_scratch_scope() {
+    if (auto* stack = dynamic_cast<memory::stack_resource*>(scratch_resource_); stack != nullptr) {
+      scratch_scope_.emplace(*stack);
     }
   }
 
-  memory_resource* temporary_resource_ = nullptr;
-  std::optional<memory::stack_scope> temporary_scope_{};
+  memory_resource* scratch_resource_ = nullptr;
+  std::optional<memory::stack_scope> scratch_scope_{};
   io::byte_buffer owned_output_{};
   io::byte_buffer* output_ = nullptr;
   io::output_stream* stream_ = nullptr;
@@ -618,15 +624,14 @@ public:
 
 messagepack_writer::messagepack_writer() : implementation_(std::make_unique<implementation>()) {}
 
-messagepack_writer::messagepack_writer(memory_resource* temporary_resource)
-    : implementation_(std::make_unique<implementation>(temporary_resource)) {}
+messagepack_writer::messagepack_writer(memory_resource* scratch_resource)
+    : implementation_(std::make_unique<implementation>(scratch_resource)) {}
 
-messagepack_writer::messagepack_writer(io::byte_buffer& output, memory_resource* temporary_resource)
-    : implementation_(std::make_unique<implementation>(output, temporary_resource)) {}
+messagepack_writer::messagepack_writer(io::byte_buffer& output, memory_resource* scratch_resource)
+    : implementation_(std::make_unique<implementation>(output, scratch_resource)) {}
 
-messagepack_writer::messagepack_writer(io::output_stream& output,
-                                       memory_resource* temporary_resource)
-    : implementation_(std::make_unique<implementation>(output, temporary_resource)) {}
+messagepack_writer::messagepack_writer(io::output_stream& output, memory_resource* scratch_resource)
+    : implementation_(std::make_unique<implementation>(output, scratch_resource)) {}
 
 messagepack_writer::~messagepack_writer() = default;
 
@@ -765,27 +770,27 @@ error messagepack_writer::end_dictionary() {
 }
 
 error messagepack_writer::write_bool(bool value) {
-  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::from(value, implementation_->scratch_resource_));
 }
 
 error messagepack_writer::write_i64(std::int64_t value) {
-  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::from(value, implementation_->scratch_resource_));
 }
 
 error messagepack_writer::write_u64(std::uint64_t value) {
-  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::from(value, implementation_->scratch_resource_));
 }
 
 error messagepack_writer::write_f64(double value) {
-  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::from(value, implementation_->scratch_resource_));
 }
 
 error messagepack_writer::write_string(std::string_view value) {
-  return implementation_->accept_value(variant::from(value, implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::from(value, implementation_->scratch_resource_));
 }
 
 error messagepack_writer::write_null() {
-  return implementation_->accept_value(variant::null(implementation_->temporary_resource_));
+  return implementation_->accept_value(variant::null(implementation_->scratch_resource_));
 }
 
 error messagepack_writer::end_element() {
@@ -831,8 +836,8 @@ const io::byte_buffer& messagepack_writer::bytes() const noexcept {
 
 void messagepack_writer::reset() { implementation_->reset(); }
 
-io::byte_buffer_result encode_messagepack(const variant& value, memory_resource* resource) {
-  io::byte_buffer bytes = io::make_byte_buffer(resource);
+io::byte_buffer_result encode_messagepack(const variant& value, memory_resource* result_resource) {
+  io::byte_buffer bytes = io::make_byte_buffer(result_resource);
   error status = append_value(bytes, value);
   return {status, std::move(bytes)};
 }
@@ -842,19 +847,20 @@ variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_o
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
-                                 memory_resource* resource) {
-  return parse_messagepack(bytes, options, resource, nullptr);
+                                 memory_resource* result_resource) {
+  return parse_messagepack(bytes, options, result_resource, nullptr);
 }
 
 variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_options options,
-                                 memory_resource* resource, memory_resource* temporary_resource) {
-  memory_resource* resolved_temporary =
-      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
-  std::optional<memory::stack_scope> temporary_scope;
-  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
-    temporary_scope.emplace(*stack);
+                                 memory_resource* result_resource,
+                                 memory_resource* scratch_resource) {
+  memory_resource* resolved_scratch =
+      scratch_resource != nullptr ? scratch_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> scratch_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
+    scratch_scope.emplace(*stack);
   }
-  return parser{bytes, options, resource, resolved_temporary}.parse();
+  return parser{bytes, options, result_resource, resolved_scratch}.parse();
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options) {
@@ -862,20 +868,21 @@ variant_result parse_messagepack(io::input_stream& stream, messagepack_options o
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* resource) {
-  return parse_messagepack(stream, options, resource, nullptr);
+                                 memory_resource* result_resource) {
+  return parse_messagepack(stream, options, result_resource, nullptr);
 }
 
 variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* resource, memory_resource* temporary_resource) {
-  memory_resource* resolved_temporary =
-      temporary_resource != nullptr ? temporary_resource : &memory::library_temporary_resource();
-  std::optional<memory::stack_scope> temporary_scope;
-  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_temporary); stack != nullptr) {
-    temporary_scope.emplace(*stack);
+                                 memory_resource* result_resource,
+                                 memory_resource* scratch_resource) {
+  memory_resource* resolved_scratch =
+      scratch_resource != nullptr ? scratch_resource : &memory::library_temporary_resource();
+  std::optional<memory::stack_scope> scratch_scope;
+  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
+    scratch_scope.emplace(*stack);
   }
 
-  io::byte_buffer bytes = io::make_byte_buffer(resolved_temporary);
+  io::byte_buffer bytes = io::make_byte_buffer(resolved_scratch);
   std::array<std::byte, 4096> chunk{};
   while (true) {
     io::size_result read = stream.read(chunk);
@@ -896,7 +903,7 @@ variant_result parse_messagepack(io::input_stream& stream, messagepack_options o
     }
   }
 
-  return parser{bytes, options, resource, resolved_temporary}.parse();
+  return parser{bytes, options, result_resource, resolved_scratch}.parse();
 }
 
 } // namespace caors::serialization

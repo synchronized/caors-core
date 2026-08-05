@@ -4,6 +4,7 @@
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_manager.h"
 
+#include "caors/memory/tracking.h"
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/property.h"
@@ -21,6 +22,7 @@
 #include "caors/meta/value/variant_view.h"
 #include "caors/object.h"
 #include "caors/plugins/plugin_host.h"
+#include "caors/registration.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/type_schema.h"
 #include "plugin_protocol_test_extension.h"
@@ -36,6 +38,8 @@
 
 namespace {
 
+struct host_primary_type {};
+
 [[nodiscard]] int fail(const char* message) {
   std::cerr << message << '\n';
   return 1;
@@ -49,8 +53,8 @@ void CAORS_PLUGIN_CALL capture_log(void* context, std::uint32_t, const char* mes
 } // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 7) {
-    return fail("插件协议测试需要六个动态库路径");
+  if (argc != 8) {
+    return fail("插件协议测试需要七个动态库路径");
   }
 
   caors::plugins::plugin_host host{};
@@ -91,6 +95,12 @@ int main(int argc, char** argv) {
   }
 
   caors::meta::registry registry{};
+  caors::meta::context registry_context{registry};
+  if (caors::registration::type_<host_primary_type>(registry_context,
+                                                    "caors.test.plugin.host_primary")
+          .commit()) {
+    return fail("host primary 类型注册失败");
+  }
   auto layer = registry.create_layer();
   if (library_lease.bind(*layer)) {
     return fail("无法将 library lease 绑定到 registry layer");
@@ -104,19 +114,19 @@ int main(int argc, char** argv) {
     return fail("registry layer 释放后没有归还动态库租约");
   }
 
-  const auto bad_abi = caors::plugins::plugin_binary::load(argv[2]);
+  const auto bad_abi = caors::plugins::plugin_binary::load(argv[3]);
   if (bad_abi || bad_abi.error() !=
                      caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type}) {
     return fail("不兼容插件 ABI 没有被拒绝");
   }
 
-  const auto missing_entry = caors::plugins::plugin_binary::load(argv[3]);
+  const auto missing_entry = caors::plugins::plugin_binary::load(argv[4]);
   if (missing_entry ||
       missing_entry.error() != caors::error{caors::error_domain::plugins, caors::errc::not_found}) {
     return fail("缺少入口的动态库没有被拒绝");
   }
 
-  auto failure_result = caors::plugins::plugin_binary::load(argv[4]);
+  auto failure_result = caors::plugins::plugin_binary::load(argv[5]);
   if (!failure_result) {
     return fail("无法加载生命周期失败插件");
   }
@@ -128,7 +138,7 @@ int main(int argc, char** argv) {
 
   caors::plugins::plugin_build_compatibility_diagnostic incompatible_diagnostic{};
   const auto incompatible_build =
-      caors::plugins::plugin_binary::load(argv[5], nullptr, &incompatible_diagnostic);
+      caors::plugins::plugin_binary::load(argv[6], nullptr, &incompatible_diagnostic);
   if (incompatible_build ||
       incompatible_build.error() !=
           caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type} ||
@@ -140,7 +150,7 @@ int main(int argc, char** argv) {
 
   caors::plugins::plugin_build_compatibility_diagnostic missing_build_diagnostic{};
   const auto missing_build =
-      caors::plugins::plugin_binary::load(argv[6], nullptr, &missing_build_diagnostic);
+      caors::plugins::plugin_binary::load(argv[7], nullptr, &missing_build_diagnostic);
   if (missing_build ||
       missing_build.error() !=
           caors::error{caors::error_domain::plugins, caors::errc::inconsistent_type} ||
@@ -166,6 +176,41 @@ int main(int argc, char** argv) {
   if (manager.initialize(managed_id) ||
       managed.state() != caors::plugins::plugin_state::initialized) {
     return fail("plugin manager 初始化或 layer 发布失败");
+  }
+  auto second_result = manager.load(argv[2]);
+  if (!second_result) {
+    return fail("plugin manager 无法加载第二个有效插件");
+  }
+  const caors::plugins::plugin second = *second_result;
+  const caors::guid second_id = second.id();
+  if (manager.initialize(second_id) || manager.size() != 2 ||
+      !registry.find_type("caors.test.plugin.host_primary") ||
+      !registry.find_type("caors.test.plugin.reflected")) {
+    return fail("host primary 与两个 plugin layer 未能同时发布");
+  }
+  auto second_type = registry.find_type("caors.test.plugin.second");
+  auto second_owned = caors::any::default_construct(second_type);
+  auto second_codec = caors::serialization::find_codec(second_type);
+  auto second_codec_view = second_codec.bind(second_owned.ref());
+  caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
+  caors::serialization::context serialization_context{};
+  serialization_context.resolvers.memory.result_resource = &result_tracking;
+  auto second_value = second_codec_view.make_value(serialization_context);
+  if (!second_type || !second_owned || !second_codec || !second_codec_view || !second_value ||
+      second_value->resource() != &result_tracking ||
+      result_tracking.statistics().bytes_in_use == 0) {
+    return fail("多 plugin layer 场景没有使用调用方 result resource");
+  }
+  second_value = {};
+  second_codec_view = {};
+  second_codec = {};
+  second_owned.reset();
+  second_type = {};
+  if (manager.unload(second_id) || manager.size() != 1 || second ||
+      result_tracking.statistics().bytes_in_use != 0 ||
+      registry.find_type("caors.test.plugin.second") ||
+      !registry.find_type("caors.test.plugin.host_primary")) {
+    return fail("第二个 plugin layer 卸载或 result resource 释放失败");
   }
   auto reflected = registry.find_type("caors.test.plugin.reflected");
   auto reflected_property = reflected.find_property("value");
@@ -329,7 +374,7 @@ int main(int argc, char** argv) {
     return fail("plugin manager 重新加载没有生成新的 generation");
   }
 
-  auto failed_managed_result = manager.load(argv[4]);
+  auto failed_managed_result = manager.load(argv[5]);
   if (!failed_managed_result) {
     return fail("plugin manager 无法加载 initialize 失败插件");
   }

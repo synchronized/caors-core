@@ -46,6 +46,9 @@ set(
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(utility)
+include(verify_memory_domains)
+
+caors_verify_memory_domains()
 
 add_subdirectory(3rd)
 add_subdirectory(src)

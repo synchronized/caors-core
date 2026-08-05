@@ -120,7 +120,8 @@ public:
 
   type_builder(meta::context& ctx, std::string_view name)
       : registry_(&ctx.get_registry()),
-        pending_(meta::detail::static_type_id<value_type>(), core::string_name{name}) {
+        pending_(meta::detail::static_type_id<value_type>(), core::string_name{name},
+                 registry_->state_resource_) {
     if (name.empty()) {
       status_ = {error_domain::meta, errc::invalid_argument};
     }
@@ -164,6 +165,7 @@ public:
       return status_;
     }
 
+    memory::memory_resource* registration_resource = pending_.resource();
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
@@ -176,8 +178,8 @@ public:
         status_ = meta::detail::register_owned_capability(
             *registry_, committed_type_.id(),
             meta::capability_key_of<serialization::schema_capability>(),
-            meta::detail::make_owned_capability<serialization::type_schema>(
-                serialization_schema_, &memory::library_resource()));
+            meta::detail::make_owned_capability<serialization::type_schema>(serialization_schema_,
+                                                                            registration_resource));
       }
     }
     return status_;
@@ -275,9 +277,9 @@ private:
       return *this;
     }
 
-    status_ =
-        pending_.add_owned_capability(meta::capability_key_of<meta::factory_ops>(),
-                                      meta::detail::make_owned_capability<meta::factory_ops>(ops));
+    status_ = pending_.add_owned_capability(
+        meta::capability_key_of<meta::factory_ops>(),
+        meta::detail::make_owned_capability<meta::factory_ops>(ops, pending_.resource()));
     return *this;
   }
 
@@ -292,7 +294,7 @@ private:
 
     status_ = pending_.add_owned_capability(
         meta::capability_key_of<meta::constructor_ops>(),
-        meta::detail::make_owned_capability<meta::constructor_ops>(ops));
+        meta::detail::make_owned_capability<meta::constructor_ops>(ops, pending_.resource()));
     return *this;
   }
 
@@ -325,10 +327,10 @@ private:
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
   type_builder& register_capability(Capability&& capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ =
-        pending_.add_owned_capability(meta::capability_key_of<capability_type>(),
-                                      meta::detail::make_owned_capability<capability_type>(
-                                          capability_type{std::forward<Capability>(capability)}));
+    status_ = pending_.add_owned_capability(
+        meta::capability_key_of<capability_type>(),
+        meta::detail::make_owned_capability<capability_type>(
+            capability_type{std::forward<Capability>(capability)}, pending_.resource()));
     return *this;
   }
 
@@ -341,13 +343,15 @@ private:
       using ops_type = typename meta::detail::capability_ops_type<capability_type>::type;
       using data_type = typename meta::detail::capability_data_type<capability_type>::type;
 
-      status_ = pending_.add_owned_capability(
-          meta::capability_key_of<ops_type>(),
-          meta::detail::make_owned_capability<ops_type>(ops_type{std::forward<Ops>(ops)}));
+      status_ =
+          pending_.add_owned_capability(meta::capability_key_of<ops_type>(),
+                                        meta::detail::make_owned_capability<ops_type>(
+                                            ops_type{std::forward<Ops>(ops)}, pending_.resource()));
       if (!status_) {
         status_ = pending_.add_owned_capability(
             meta::capability_key_of<capability_type>(),
-            meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)}));
+            meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)},
+                                                           pending_.resource()));
       }
     } else {
       (void)ops;
@@ -379,7 +383,8 @@ private:
       using data_type = typename meta::detail::capability_data_type<capability_type>::type;
       status_ = pending_.add_owned_capability(
           meta::capability_key_of<capability_type>(),
-          meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)}));
+          meta::detail::make_owned_capability<data_type>(data_type{std::forward<Data>(data)},
+                                                         pending_.resource()));
     } else {
       (void)data;
       status_ = {error_domain::meta, errc::unsupported};
@@ -463,7 +468,7 @@ private:
 
     meta::detail::property_record property =
         meta::detail::make_property_record<value_type, typename traits_type::property_type>(
-            name, type_name, meta::detail::member_offset(member));
+            name, type_name, meta::detail::member_offset(member), pending_.resource());
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
                  property.valid() ? errc::duplicate_field : errc::invalid_field};
@@ -531,7 +536,8 @@ private:
                   "registration::type_builder::property setter must be a member function pointer");
 
     meta::detail::property_record property =
-        meta::detail::make_accessor_property_record<value_type>(name, getter, setter);
+        meta::detail::make_accessor_property_record<value_type>(name, getter, setter,
+                                                                pending_.resource());
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
                  property.valid() ? errc::duplicate_field : errc::invalid_field};
@@ -555,7 +561,7 @@ private:
         "registration::type_builder::property_readonly requires a member function pointer");
 
     meta::detail::property_record property =
-        meta::detail::make_readonly_property_record<value_type>(name, getter);
+        meta::detail::make_readonly_property_record<value_type>(name, getter, pending_.resource());
     if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
       status_ = {error_domain::meta,
                  property.valid() ? errc::duplicate_field : errc::invalid_field};
@@ -582,7 +588,8 @@ private:
     static_assert(std::is_same_v<owner_type, value_type>,
                   "Method member pointer owner must match builder type");
 
-    meta::detail::method_record method = meta::detail::make_method_record<value_type>(name, member);
+    meta::detail::method_record method =
+        meta::detail::make_method_record<value_type>(name, member, pending_.resource());
     if (!method.valid()) {
       status_ = {error_domain::meta, errc::invalid_field};
       return {};

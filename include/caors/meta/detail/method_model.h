@@ -94,9 +94,9 @@ template <typename Return, typename Result>
     if constexpr (std::is_copy_constructible_v<value_type>) {
       return invoke_result::value(any::from(result));
     } else if constexpr (std::is_move_constructible_v<value_type>) {
-      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      auto* value = memory::make<value_type>(&memory::process_resource(), std::move(result));
       return invoke_result::value(any::take_ownership(
-          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+          make_owned_value(meta::resolve<value_type>(), value, &memory::process_resource(),
                            [](memory::memory_resource* resource, void* instance) noexcept {
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            })));
@@ -121,9 +121,9 @@ template <typename Return, typename Result>
     } else if constexpr (std::is_copy_constructible_v<value_type>) {
       return invoke_value_result::from_value(meta::value::from_any(any::from(result)));
     } else if constexpr (std::is_move_constructible_v<value_type>) {
-      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      auto* value = memory::make<value_type>(&memory::process_resource(), std::move(result));
       return invoke_value_result::from_value(meta::value::from_any(any::take_ownership(
-          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+          make_owned_value(meta::resolve<value_type>(), value, &memory::process_resource(),
                            [](memory::memory_resource* resource, void* instance) noexcept {
                              memory::destroy(static_cast<value_type*>(instance), resource);
                            }))));
@@ -370,11 +370,13 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                               Return (Class::*member)(Arguments...)) {
+                                               Return (Class::*member)(Arguments...),
+                                               memory::memory_resource* resource = nullptr) {
   method_record method{
       string_name{name},
       member_method_dispatch<Class, Return, Arguments...>(),
       false,
+      resource,
   };
   method.store_member_pointer(member);
   return method;
@@ -382,11 +384,13 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_record make_method_record(std::string_view name,
-                                               Return (Class::*member)(Arguments...) const) {
+                                               Return (Class::*member)(Arguments...) const,
+                                               memory::memory_resource* resource = nullptr) {
   method_record method{
       string_name{name},
       const_member_method_dispatch<Class, Return, Arguments...>(),
       true,
+      resource,
   };
   method.store_member_pointer(member);
   return method;

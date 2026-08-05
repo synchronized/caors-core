@@ -78,8 +78,10 @@ serialized_field_name(const serialization::field_schema& data) noexcept;
 [[nodiscard]] variant_result make_serialized_value(const any_ref& value,
                                                    const serialization::context& context,
                                                    const field_runtime_schema* field);
-[[nodiscard]] variant_result parse_json_value(std::string_view text, json_options options);
-[[nodiscard]] variant_result parse_json_stream(io::input_stream& stream, json_options options);
+[[nodiscard]] variant_result parse_json_value(std::string_view text, json_options options,
+                                              memory::memory_resource* result_resource = nullptr);
+[[nodiscard]] variant_result parse_json_stream(io::input_stream& stream, json_options options,
+                                               memory::memory_resource* result_resource = nullptr);
 [[nodiscard]] error write_serialized_value(writer& writer, const any_ref& value,
                                            const serialization::context& context);
 [[nodiscard]] error write_serialized_value(writer& writer, const any_ref& value,

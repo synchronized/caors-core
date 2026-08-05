@@ -32,6 +32,7 @@ math 向量/矩阵/四元数/投影纯计算路径、序列化到 `variant` / JS
 直接 C++ 调用、`method::invoke_result_of()`、`method::invoke()`、
 `instance::call()` 和 `instance::call_any()`；属性读写会同时测 typed、`meta::value` 和 `any`
 路径。内存基准比较系统资源、手工 fixed pools、CAORS size class pool 和标准 PMR pool 的混合尺寸批次，
-并输出 size class 内部碎片、保留容量和回退次数。程序末尾还会输出若干分配统计样本，用于判断是否存在
+并输出 size class 内部碎片、保留容量和回退次数。registry 资源基准还会在隔离 layer 中对比 system、
+monotonic 和 size class pool 的注册、查询、卸载及释放前后内存占用。程序末尾还会输出若干分配统计样本，用于判断是否存在
 明显的临时对象或 buffer 分配热点。
 异步请求、磁盘文件系统和网络相关能力更适合后续单独拆专项用例，避免与基础运行期 API 的耗时混在一起。

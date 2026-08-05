@@ -121,10 +121,10 @@ file_status_result memory_file_system::status(path_view path) const {
 }
 
 directory_entry_list_result memory_file_system::list(path_view directory,
-                                                     memory_resource* resource) {
+                                                     memory_resource* result_resource) {
   const core::string normalized_directory = key_for(directory);
   const std::string_view directory_text = string_view_of(normalized_directory);
-  directory_entry_list entries{allocator<directory_entry>{resource}};
+  directory_entry_list entries{allocator<directory_entry>{result_resource}};
   bool exact_file = false;
 
   for (const auto& [stored_path, bytes] : files_) {
@@ -145,9 +145,10 @@ directory_entry_list_result memory_file_system::list(path_view directory,
     const std::string_view name = suffix.substr(0, separator);
     const file_kind kind =
         separator == std::string_view::npos ? file_kind::file : file_kind::directory;
-    const path full_path =
-        directory_text.empty() ? path{name, resource} : join_path(directory_text, name, resource);
-    add_or_update_entry(entries, name, full_path, kind, resource);
+    const path full_path = directory_text.empty()
+                               ? path{name, result_resource}
+                               : join_path(directory_text, name, result_resource);
+    add_or_update_entry(entries, name, full_path, kind, result_resource);
   }
 
   if (entries.empty()) {
@@ -164,7 +165,7 @@ directory_entry_list_result memory_file_system::list(path_view directory,
   return ok(std::move(entries));
 }
 
-byte_buffer_result memory_file_system::read_all(path_view path, memory_resource* resource) {
+byte_buffer_result memory_file_system::read_all(path_view path, memory_resource* result_resource) {
   if (path.empty()) {
     return fail<byte_buffer>({error_domain::io, errc::invalid_argument});
   }
@@ -174,7 +175,7 @@ byte_buffer_result memory_file_system::read_all(path_view path, memory_resource*
     return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
-  byte_buffer bytes = make_byte_buffer(resource);
+  byte_buffer bytes = make_byte_buffer(result_resource);
   bytes.assign(found->second.begin(), found->second.end());
   return ok(std::move(bytes));
 }

@@ -62,21 +62,22 @@ directory_entry_list_result file_system::list(path_view, memory_resource*) {
   return fail<directory_entry_list>({error_domain::io, errc::unsupported});
 }
 
-input_stream_result file_system::open_read(path_view path, memory_resource* resource) {
-  byte_buffer_result bytes = read_all(path, resource);
+input_stream_result file_system::open_read(path_view path, memory_resource* result_resource) {
+  byte_buffer_result bytes = read_all(path, result_resource);
   if (bytes.failed()) {
     return fail<input_stream_ptr>(bytes.error());
   }
 
-  return ok(make_input_stream(std::move(bytes.value), resource));
+  return ok(make_input_stream(std::move(bytes.value), result_resource));
 }
 
-output_stream_result file_system::open_write(path_view path, memory_resource* resource) {
+output_stream_result file_system::open_write(path_view path, memory_resource* result_resource) {
   if (path.empty()) {
     return fail<output_stream_ptr>({error_domain::io, errc::invalid_argument});
   }
 
-  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  memory_resource* resolved =
+      result_resource != nullptr ? result_resource : get_default_memory_resource();
   auto* stream = memory::make<buffered_file_output_stream>(resolved, *this, path, resolved);
   output_stream_ptr result{stream};
   result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {

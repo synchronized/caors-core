@@ -341,7 +341,8 @@ template <typename Property> struct global_property_model {
 
 template <typename Class, typename Property>
 [[nodiscard]] property_record make_property_record(std::string_view name,
-                                                   std::string_view type_name, std::size_t offset) {
+                                                   std::string_view type_name, std::size_t offset,
+                                                   memory::memory_resource* resource = nullptr) {
   using property_type = std::remove_cv_t<Property>;
   if (!meta::resolve<property_type>() ||
       (!type_name.empty() && !property_type_matches_name<property_type>(type_name))) {
@@ -349,23 +350,30 @@ template <typename Class, typename Property>
   }
 
   using model_type = member_property_model<Class, Property>;
-  return property_record{string_name{name}, make_property_wrapper<model_type>(model_type{offset})};
+  return property_record{
+      string_name{name},
+      make_property_wrapper_with_resource<model_type>(resource, model_type{offset}), resource};
 }
 
 template <typename Property>
-[[nodiscard]] property_record make_global_property_record(std::string_view name,
-                                                          Property* pointer) {
+[[nodiscard]] property_record
+make_global_property_record(std::string_view name, Property* pointer,
+                            memory::memory_resource* resource = nullptr) {
   using property_type = std::remove_cv_t<Property>;
   if (pointer == nullptr || !meta::resolve<property_type>()) {
     return {};
   }
 
   using model_type = global_property_model<Property>;
-  return property_record{string_name{name}, make_property_wrapper<model_type>(model_type{pointer})};
+  return property_record{
+      string_name{name},
+      make_property_wrapper_with_resource<model_type>(resource, model_type{pointer}), resource};
 }
 
 template <typename Class, typename Getter>
-[[nodiscard]] property_record make_readonly_property_record(std::string_view name, Getter getter) {
+[[nodiscard]] property_record
+make_readonly_property_record(std::string_view name, Getter getter,
+                              memory::memory_resource* resource = nullptr) {
   using getter_traits = const_member_getter_traits<Getter>;
   static_assert(std::is_same_v<typename getter_traits::class_type, Class>);
   using value_type = typename getter_traits::value_type;
@@ -376,13 +384,15 @@ template <typename Class, typename Getter>
   using model_type = accessor_property_model<Class, Getter>;
   return property_record{
       string_name{name},
-      make_property_wrapper<model_type>(model_type{getter, nullptr}),
+      make_property_wrapper_with_resource<model_type>(resource, model_type{getter, nullptr}),
+      resource,
   };
 }
 
 template <typename Class, typename Getter, typename Setter>
-[[nodiscard]] property_record make_accessor_property_record(std::string_view name, Getter getter,
-                                                            Setter setter) {
+[[nodiscard]] property_record
+make_accessor_property_record(std::string_view name, Getter getter, Setter setter,
+                              memory::memory_resource* resource = nullptr) {
   using getter_traits = const_member_getter_traits<Getter>;
   using setter_traits = member_setter_traits<Setter>;
   static_assert(std::is_same_v<typename getter_traits::class_type, Class>);
@@ -397,7 +407,8 @@ template <typename Class, typename Getter, typename Setter>
   using model_type = accessor_property_model<Class, Getter, Setter>;
   return property_record{
       string_name{name},
-      make_property_wrapper<model_type>(model_type{getter, setter}),
+      make_property_wrapper_with_resource<model_type>(resource, model_type{getter, setter}),
+      resource,
   };
 }
 

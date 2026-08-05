@@ -10,11 +10,19 @@
 #include "caors/meta/detail/property_record.h"
 #include "caors/meta/metadata.h"
 
+#include <iterator>
 #include <utility>
 
 namespace caors::meta::detail {
 
 struct type_details {
+  explicit type_details(memory::memory_resource* resource)
+      : properties(memory::allocator<property_record>{resource}),
+        methods(memory::allocator<method_set_record>{resource}),
+        nested_types(memory::allocator<nested_type_data>{resource}),
+        enum_values(memory::allocator<enum_value_record>{resource}),
+        capabilities(memory::allocator<capability_data>{resource}) {}
+
   type_id parent_id{};
   parent_cast_ops parent_cast{};
   memory::unique_ptr<meta::metadata_map> metadata{};
@@ -25,9 +33,11 @@ struct type_details {
   vector<capability_data> capabilities{};
 };
 
-type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id)
+type_record::type_record(type_id id, string_name name, type_guid guid, type_id parent_id,
+                         memory::memory_resource* resource)
     : id_(id), name_(name), guid_(guid), registered_(true),
-      details_(memory::make<type_details>(&memory::library_resource())) {
+      resource_(resource != nullptr ? resource : &memory::process_resource()),
+      details_(memory::make<type_details>(resource_, resource_)) {
   details_->parent_id = parent_id;
 }
 
@@ -44,12 +54,12 @@ type_record::type_record(type_record&& other) noexcept
       semantics_(other.semantics_), builtin_(other.builtin_),
       static_capabilities_(other.static_capabilities_),
       static_capability_count_(other.static_capability_count_), registered_(other.registered_),
-      details_(std::exchange(other.details_, nullptr)) {}
+      resource_(other.resource_), details_(std::exchange(other.details_, nullptr)) {}
 
 type_record& type_record::operator=(type_record&& other) noexcept {
   if (this != &other) {
     if (details_ != nullptr) {
-      memory::destroy(details_, &memory::library_resource());
+      memory::destroy(details_, resource_);
     }
     id_ = other.id_;
     name_ = other.name_;
@@ -60,6 +70,7 @@ type_record& type_record::operator=(type_record&& other) noexcept {
     static_capabilities_ = other.static_capabilities_;
     static_capability_count_ = other.static_capability_count_;
     registered_ = other.registered_;
+    resource_ = other.resource_;
     details_ = std::exchange(other.details_, nullptr);
   }
   return *this;
@@ -67,8 +78,52 @@ type_record& type_record::operator=(type_record&& other) noexcept {
 
 type_record::~type_record() {
   if (details_ != nullptr) {
-    memory::destroy(details_, &memory::library_resource());
+    memory::destroy(details_, resource_);
   }
+}
+
+void type_record::rebind_resource(memory::memory_resource* resource) {
+  memory::memory_resource* resolved = resource != nullptr ? resource : &memory::process_resource();
+  if (resolved == resource_) {
+    return;
+  }
+
+  if (details_ == nullptr) {
+    resource_ = resolved;
+    return;
+  }
+
+  auto replacement = memory::make_unique<type_details>(resolved, resolved);
+  replacement->parent_id = details_->parent_id;
+  replacement->parent_cast = details_->parent_cast;
+
+  if (details_->metadata != nullptr) {
+    meta::metadata_map migrated = meta::make_metadata_map(resolved);
+    for (auto& [key, value] : *details_->metadata) {
+      migrated.emplace(key, std::move(value));
+    }
+    replacement->metadata = memory::make_unique<meta::metadata_map>(resolved, std::move(migrated));
+  }
+
+  replacement->properties.insert(replacement->properties.end(),
+                                 std::make_move_iterator(details_->properties.begin()),
+                                 std::make_move_iterator(details_->properties.end()));
+  replacement->methods.insert(replacement->methods.end(),
+                              std::make_move_iterator(details_->methods.begin()),
+                              std::make_move_iterator(details_->methods.end()));
+  replacement->nested_types.insert(replacement->nested_types.end(),
+                                   std::make_move_iterator(details_->nested_types.begin()),
+                                   std::make_move_iterator(details_->nested_types.end()));
+  replacement->enum_values.insert(replacement->enum_values.end(),
+                                  std::make_move_iterator(details_->enum_values.begin()),
+                                  std::make_move_iterator(details_->enum_values.end()));
+  replacement->capabilities.insert(replacement->capabilities.end(),
+                                   std::make_move_iterator(details_->capabilities.begin()),
+                                   std::make_move_iterator(details_->capabilities.end()));
+
+  memory::destroy(details_, resource_);
+  details_ = replacement.release();
+  resource_ = resolved;
 }
 
 bool type_record::static_model_matches(const type_record& other) const noexcept {
@@ -127,7 +182,7 @@ void type_record::set_static_data(const type_record& source) noexcept {
 
 type_details& type_record::ensure_details() {
   if (details_ == nullptr) {
-    details_ = memory::make<type_details>(&memory::library_resource());
+    details_ = memory::make<type_details>(resource_, resource_);
   }
   return *details_;
 }
@@ -187,7 +242,7 @@ bool type_record::members_valid() const noexcept {
 
 const meta::metadata_map& type_record::metadata() const noexcept {
   static const meta::metadata_map empty{
-      typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+      typename meta::metadata_map::allocator_type{&memory::process_resource()}};
 
   const type_details* value = details();
   return value != nullptr && value->metadata != nullptr ? *value->metadata : empty;
@@ -202,8 +257,8 @@ const meta::metadata_value* type_record::find_metadata(meta::metadata_key key) c
 void type_record::set_metadata(meta::metadata_key key, meta::metadata_value value) {
   type_details& details_value = ensure_details();
   if (details_value.metadata == nullptr) {
-    details_value.metadata = memory::make_unique<meta::metadata_map>(
-        &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+    details_value.metadata =
+        memory::make_unique<meta::metadata_map>(resource_, meta::make_metadata_map(resource_));
   }
   meta::set_metadata(*details_value.metadata, key, std::move(value));
 }
@@ -306,7 +361,7 @@ std::optional<std::size_t> type_record::add_method(method_record method) {
     return existing->add_overload(std::move(method));
   }
 
-  method_set_record method_set{method.name()};
+  method_set_record method_set{method.name(), resource_};
   std::optional<std::size_t> overload_index = method_set.add_overload(std::move(method));
   if (!overload_index.has_value()) {
     return std::nullopt;
@@ -452,6 +507,7 @@ const enum_value_record* type_record::find_enum_value_ptr(std::uint64_t value) c
 }
 
 void type_record::add_enum_value(enum_value_record value) {
+  value.rebind_resource(resource_);
   ensure_details().enum_values.push_back(std::move(value));
 }
 

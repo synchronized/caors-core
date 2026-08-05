@@ -178,6 +178,8 @@ namespace {
     return {error_domain::meta, errc::duplicate_guid};
   }
 
+  incoming.rebind_resource(state.resource);
+
   const type_id id = incoming.id();
   auto [position, inserted] = state.types.try_emplace(
       id.value(), memory::make_unique<detail::type_record>(state.resource, std::move(incoming)));

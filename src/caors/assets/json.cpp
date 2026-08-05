@@ -86,8 +86,8 @@ namespace {
 } // namespace
 
 error project_config_loader::load(project_config& target, resources::source& source,
-                                  io::location_view location, memory_resource* resource) {
-  return caors::assets::json::load_project_config(target, source, location, resource);
+                                  io::location_view location, memory_resource* scratch_resource) {
+  return caors::assets::json::load_project_config(target, source, location, scratch_resource);
 }
 
 error load_manifest(resources::manifest& target, const variant& value) {
@@ -116,19 +116,19 @@ error load_manifest(resources::manifest& target, std::string_view text) {
 }
 
 error load_manifest(resources::manifest& target, resources::source& resource_source,
-                    io::location_view location, memory_resource* resource) {
+                    io::location_view location, memory_resource* scratch_resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  io::input_stream_result stream =
-      resource_source.open_read(location, resource != nullptr ? resource : target.resource());
+  io::input_stream_result stream = resource_source.open_read(
+      location, scratch_resource != nullptr ? scratch_resource : target.resource());
   if (stream.failed()) {
     return stream.status;
   }
 
-  serialization::variant_result parsed =
-      serialization::parse_json(*stream.value, resource != nullptr ? resource : target.resource());
+  serialization::variant_result parsed = serialization::parse_json(
+      *stream.value, scratch_resource != nullptr ? scratch_resource : target.resource());
   if (parsed.failed()) {
     return parsed.status;
   }
@@ -146,19 +146,19 @@ error load_project_config(project_config& target, std::string_view text) {
 }
 
 error load_project_config(project_config& target, resources::source& resource_source,
-                          io::location_view location, memory_resource* resource) {
+                          io::location_view location, memory_resource* scratch_resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  io::input_stream_result stream =
-      resource_source.open_read(location, resource != nullptr ? resource : target.resource);
+  io::input_stream_result stream = resource_source.open_read(
+      location, scratch_resource != nullptr ? scratch_resource : target.resource);
   if (stream.failed()) {
     return stream.status;
   }
 
-  serialization::variant_result parsed =
-      serialization::parse_json(*stream.value, resource != nullptr ? resource : target.resource);
+  serialization::variant_result parsed = serialization::parse_json(
+      *stream.value, scratch_resource != nullptr ? scratch_resource : target.resource);
   if (parsed.failed()) {
     return parsed.status;
   }
@@ -174,13 +174,13 @@ error save_project_config_to(const project_config& source, string& output,
 
 error save_project_config_to(const project_config& source, resources::source& resource_source,
                              io::location_view location, serialization::json_options options,
-                             memory_resource* resource) {
+                             memory_resource* scratch_resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  io::output_stream_result stream =
-      resource_source.open_write(location, resource != nullptr ? resource : source.resource);
+  io::output_stream_result stream = resource_source.open_write(
+      location, scratch_resource != nullptr ? scratch_resource : source.resource);
   if (stream.failed()) {
     return stream.status;
   }

@@ -8,6 +8,7 @@
 #include "caors/meta/object.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
+#include "caors/serialization/detail/scratch_memory.h"
 
 #include <utility>
 
@@ -92,7 +93,8 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
     return {error_domain::serialization, errc::not_found};
   }
 
-  variant_reader reader{*stored_value};
+  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  variant_reader reader{*stored_value, scratch_scope.resource()};
   const meta::type reflected_dynamic_type =
       meta::find(context.effective_type_context(), dynamic_type.value.id());
   if (!reflected_dynamic_type) {

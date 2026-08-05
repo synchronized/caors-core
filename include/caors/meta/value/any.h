@@ -213,6 +213,14 @@ public:
     return copy_from_raw(meta::resolve<type>(), &source);
   }
 
+  /** @brief 使用指定资源复制 C++ 值；结果会用同一资源销毁。 */
+  template <typename T>
+  [[nodiscard]] static any from(const T& source, memory::memory_resource* result_resource) {
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+    static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
+    return copy_from_raw(meta::resolve<type>(), &source, result_resource);
+  }
+
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any from(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -239,14 +247,16 @@ public:
    * 会记住对应资源，并在析构时用匹配的资源销毁函数释放对象。若类型没有资源感知构造函数表，
    * 会回退到普通默认构造。
    */
-  [[nodiscard]] static any default_construct(type_id type, memory::memory_resource* resource);
+  [[nodiscard]] static any default_construct(type_id type,
+                                             memory::memory_resource* result_resource);
 
   /**
    * @brief 按运行期类型视图用指定内存资源默认构造一个值。
    *
    * `type` 可以是已注册类型，也可以是 `meta::resolve<T>()` 返回的未注册 C++ 类型视图。
    */
-  [[nodiscard]] static any default_construct(meta::type type, memory::memory_resource* resource);
+  [[nodiscard]] static any default_construct(meta::type type,
+                                             memory::memory_resource* result_resource);
 
   /**
    * @brief 从原始地址复制构造运行期值。
@@ -255,6 +265,10 @@ public:
    * `any`。
    */
   [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
+
+  /** @brief 使用指定资源从原始地址复制构造运行期值。 */
+  [[nodiscard]] static any copy_from_raw(meta::type type, const void* source,
+                                         memory::memory_resource* result_resource);
 
   /** @brief 接管一个 `owned_value` 持有的对象。转移成功后 `owned_value` 变为空。 */
   [[nodiscard]] static any take_ownership(owned_value&& value);

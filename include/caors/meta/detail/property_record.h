@@ -137,8 +137,9 @@ private:
 };
 
 template <typename Model, typename... Args>
-[[nodiscard]] property_wrapper make_property_wrapper(Args&&... args) {
-  memory::memory_resource* resource = &memory::library_resource();
+[[nodiscard]] property_wrapper
+make_property_wrapper_with_resource(memory::memory_resource* resource, Args&&... args) {
+  resource = resource != nullptr ? resource : &memory::process_resource();
   Model* state = memory::make<Model>(resource, std::forward<Args>(args)...);
   return property_wrapper{
       state,
@@ -150,12 +151,19 @@ template <typename Model, typename... Args>
   };
 }
 
+template <typename Model, typename... Args>
+[[nodiscard]] property_wrapper make_property_wrapper(Args&&... args) {
+  return make_property_wrapper_with_resource<Model>(nullptr, std::forward<Args>(args)...);
+}
+
 /** @brief 注册表内部保存的属性注册数据和 opaque wrapper。 */
 class property_record final {
 public:
   property_record() noexcept = default;
-  property_record(string_name name, property_wrapper wrapper) noexcept
-      : name_(name), wrapper_(std::move(wrapper)) {}
+  property_record(string_name name, property_wrapper wrapper,
+                  memory::memory_resource* resource = nullptr) noexcept
+      : name_(name), resource_(resource != nullptr ? resource : &memory::process_resource()),
+        wrapper_(std::move(wrapper)) {}
 
   property_record(const property_record&) = delete;
   property_record& operator=(const property_record&) = delete;
@@ -178,8 +186,8 @@ public:
 
   void set_metadata(meta::metadata_key key, meta::metadata_value value) {
     if (metadata_ == nullptr) {
-      metadata_ = memory::make_unique<meta::metadata_map>(
-          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(resource_, meta::make_metadata_map(resource_));
     }
     meta::set_metadata(*metadata_, key, std::move(value));
   }
@@ -268,13 +276,14 @@ public:
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
-        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+        typename meta::metadata_map::allocator_type{&memory::process_resource()}};
     return empty;
   }
 
   string_name name_{};
   meta::property_schema schema_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
+  memory::memory_resource* resource_ = &memory::process_resource();
   property_wrapper wrapper_{};
 };
 

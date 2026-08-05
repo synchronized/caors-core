@@ -5,6 +5,7 @@
 #define CAORS_META_ARGUMENT_H_
 
 #include "caors/core/string_name.h"
+#include "caors/memory/resource.h"
 #include "caors/meta/value/any_ref.h"
 
 #include <string_view>
@@ -30,6 +31,8 @@ struct argument_match_options {
   argument_conversion_policy conversion_policy = argument_conversion_policy::exact_only;
   /** @brief 允许查询来源类型注册的自定义参数转换能力。 */
   bool allow_custom_conversions = false;
+  /** @brief 方法匹配和调用期间使用的临时资源；为空时使用当前线程临时资源。 */
+  memory::memory_resource* scratch_resource = nullptr;
 };
 
 /**

@@ -92,7 +92,7 @@ error registry::publish_layer(registry_layer& layer) {
   layer.registry_->primary_layer_->freeze();
   core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
       core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
-          &memory::library_resource()}};
+          state_resource_}};
   layers.reserve(current->layers().size() + 1);
   layers.push_back(layer.registry_->primary_layer_);
   layers.insert(layers.end(), current->layers().begin(), current->layers().end());
@@ -120,7 +120,7 @@ error registry::detach_layer(registry_layer& layer) {
 
   core::vector<std::shared_ptr<detail::registry_layer_state>> layers{
       core::vector<std::shared_ptr<detail::registry_layer_state>>::allocator_type{
-          &memory::library_resource()}};
+          state_resource_}};
   layers.reserve(current->layers().size() - 1);
   for (const auto& candidate : current->layers()) {
     if (candidate != target) {

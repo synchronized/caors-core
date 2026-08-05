@@ -70,7 +70,7 @@ TEST_CASE("serialization - polymorphic object refs roundtrip derived values", "[
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.resolvers.memory.resource = &tracking;
+  context.resolvers.memory.result_resource = &tracking;
 
   polymorphic_object_ref_holder decoded{};
   const caors::error status = caors::read_json_from(context, decoded, json.value);

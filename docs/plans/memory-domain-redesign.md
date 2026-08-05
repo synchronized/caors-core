@@ -264,55 +264,69 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 0：冻结契约与建立审计
 
-- [ ] 为 process、registry layer、scratch、result/user 四个域补正式术语和生命周期表；
-- [ ] 枚举所有 `library_resource()`、默认资源和 temporary resource 调用点；
-- [ ] 为每个调用点标注 owner、释放时机、线程和插件边界；
-- [ ] 增加 Debug 域统计基线，不改变现有分配行为。
+- [x] 为 process、registry layer、scratch、result/user 四个域补正式术语和生命周期表；
+- [x] 枚举所有 `library_resource()`、默认资源和 temporary resource 调用点；
+- [x] 为每个调用点标注 owner、释放时机、线程和插件边界；
+- [x] 增加 Debug 域统计基线，不改变默认分配行为。
 
 ### 阶段 1：Registry 资源完整传播
 
-- [ ] `type_record` 保存所属 layer resource；
-- [ ] `type_details`、property、method、enum、metadata、nested type 与 dynamic capability 继承该资源；
-- [ ] 消除可卸载 record 路径中的直接 `library_resource()`；
-- [ ] 测试 primary 与 plugin layer 使用不同 tracking resource；
-- [ ] 验证 layer 销毁后其 tracking resource 无存活分配。
+- [x] `type_record` 保存所属 layer resource；
+- [x] `type_details`、property、method、enum、metadata、nested type 与 dynamic capability 继承该资源；
+- [x] 消除可卸载 record 路径中的直接 `library_resource()`；
+- [x] 测试 primary 与 plugin layer 使用不同 tracking resource；
+- [x] 验证 layer 销毁后其 tracking resource 无存活分配。
 
 ### 阶段 2：Process domain 收敛
 
-- [ ] 识别真正永久的 string/type/capability identity 数据；
-- [ ] 引入明确的 process resource/runtime owner；
-- [ ] 将 `library_resource()` 限制为兼容入口并阻止新滥用；
-- [ ] 支持测试创建隔离 runtime/context，避免所有测试依赖进程单例。
+- [x] 识别真正永久的 string/type/capability identity 数据；
+- [x] 引入明确的 process resource/runtime owner；
+- [x] 将 `library_resource()` 限制为兼容入口并阻止新滥用；
+- [x] 支持测试创建隔离 runtime/context，避免所有测试依赖进程单例。
 
 ### 阶段 3：Scratch 接入
 
-- [ ] meta 方法参数准备、默认参数补全和转换接入 scratch scope；
-- [ ] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
-- [ ] registry 查询临时集合接入 scratch；
-- [ ] 保证非平凡临时对象在 rewind 前析构；
-- [ ] 增加嵌套调用、异常、提前返回和无异常构建测试。
+- [x] meta 方法参数准备、默认参数补全和转换接入 scratch scope；
+- [x] JSON reader/writer 与 DOM reader 的 frame/context 接入 scratch；
+- [x] 审查 registry 查询路径；当前普通查询无临时集合，长期 snapshot 保持 registry resource；
+- [x] 审查 scope 声明与成员顺序，保证非平凡临时对象在 rewind 前析构；
+- [x] 覆盖嵌套 scope、正常/提前返回，并完成异常配置测试与 Clang `-fno-exceptions` 库构建；
 
 ### 阶段 4：Result 与 Scratch API 分离
 
-- [ ] 统一 serialization、asset、IO 和 meta 操作中的 `result_resource` / `scratch` 术语；
-- [ ] 核心实现使用显式 `operation_memory` 或等价结构；
-- [ ] convenience API 只在边界解析默认资源和创建 scratch scope；
-- [ ] 增加返回对象不引用 scratch 的 Debug 与功能测试。
+- [x] 统一 serialization、asset、IO 和 meta 操作中的 `result_resource` / `scratch` 术语；
+- [x] 核心实现使用显式 `operation_memory` 或等价结构；
+- [x] convenience API 只在边界解析默认资源和创建 scratch scope；
+- [x] 增加返回对象不引用 scratch 的 Debug 与功能测试。
+
+已落地的验证包括 JSON/MessagePack DOM、unknown-field preserve 与 JSON resource loader；
+测试会在操作返回后显式 reset scratch，再访问结果对象。内部作用域类型统一为
+`scratch_memory_scope`，正式 API 与文档使用 `result_resource` / `scratch_resource` 术语。
 
 ### 阶段 5：Layer storage 策略评估
 
-- [ ] 在 system、monotonic 和 pool 上测量 registry 注册、查询、卸载和内存占用；
-- [ ] 确定 destructor list 或显式析构顺序；
-- [ ] 只有在真实 type/plugin workload 获得收益后才采用 arena 批量 storage；
-- [ ] 记录不同域的峰值、碎片、分配次数和释放延迟。
+- [x] 在 system、monotonic 和 pool 上测量 registry 注册、查询、卸载和内存占用；结果见
+  `benchmarks/results/2026-08-05-windows-clang-registry-resources-a4f5ba1.md`，当前继续保留 system 默认策略；
+- [x] 采用显式析构顺序，不增加 destructor list：layer 先销毁 registry state 及其中全部
+  type/property/method/metadata wrapper，再释放插件 lifetime lease；
+- [x] 当前不采用 arena 批量 storage；只有真实 type/plugin workload 证明存在净收益后再单独评估；
+- [x] 统一记录不同域的峰值、分配次数、可观测碎片和释放阶段；不可可靠测量的 system 内部碎片与
+  process 释放延迟明确标记为不可观测或不适用，见
+  `benchmarks/results/2026-08-05-memory-domain-observability.md`。
 
 ### 阶段 6：跨模块与全矩阵验证
 
-- [ ] 覆盖 host、多个 plugin layer 和用户 result resource 并存；
-- [ ] 覆盖插件卸载、in-flight call、异步 task 和 TLS 退出；
-- [ ] 完成 Windows Clang/MSVC Static/Shared Debug/Release；
-- [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
-- [ ] 更新正式 memory、meta、plugin 和 serialization 文档。
+- [x] 覆盖 host primary、两个动态 plugin layer 和用户 result resource 并存；第二插件卸载后其类型
+  不再可见，host/第一插件保持有效，result tracking resource 零存活分配；
+- [x] 覆盖插件卸载、`std::async` in-flight method、task/request 资源所有权和 TLS 退出；TLS 测试确认
+  thread-local stack resource 在线程结束时向上游归还全部 chunk；
+- [x] 完成 Windows Clang/MSVC Static/Shared Debug/Release：Clang 与 MSVC 的 Static Debug/Release
+  均为 83/83 通过，Shared Debug/Release 均为 85/85 通过；MSVC 四组均在清理旧产物后使用
+  `-Jobs 1` 完成全量构建与测试；
+- [x] 完成当前提交的 Linux Clang/GCC、Static/Shared 与 ASan GitHub Actions 集成验证；
+- [ ] 在固定 Linux 环境补 UBSan；
+- [x] 更新正式 memory、meta、plugin 和 serialization 文档：统一四类内存域、layer 资源继承、
+  插件 TLS/ABI 边界和序列化 `operation_memory` 契约。
 
 ## 风险
 

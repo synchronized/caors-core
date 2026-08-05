@@ -46,11 +46,15 @@ error plugin_registration_scope::track(events::connection connection) {
   if (data_->cleaned || !connection) {
     return {error_domain::plugins, errc::invalid_argument};
   }
+#if CAORS_HAS_EXCEPTIONS
   try {
     data_->connections.push_back(std::move(connection));
   } catch (const std::bad_alloc&) {
     return {error_domain::plugins, errc::out_of_memory};
   }
+#else
+  data_->connections.push_back(std::move(connection));
+#endif
   return {};
 }
 
@@ -61,11 +65,15 @@ error plugin_registration_scope::track(tasks::request request) {
   if (data_->cleaned || !request) {
     return {error_domain::plugins, errc::invalid_argument};
   }
+#if CAORS_HAS_EXCEPTIONS
   try {
     data_->requests.push_back(std::move(request));
   } catch (const std::bad_alloc&) {
     return {error_domain::plugins, errc::out_of_memory};
   }
+#else
+  data_->requests.push_back(std::move(request));
+#endif
   return {};
 }
 

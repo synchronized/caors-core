@@ -3,36 +3,43 @@
 
 #include "caors/meta/detail/type_identity.h"
 
+#include "caors/core/containers.h"
 #include "caors/meta/capability_traits.h"
 #include "caors/meta/identity_id.h"
 
 #include <exception>
 #include <limits>
-#include <list>
 #include <mutex>
 #include <string_view>
-#include <unordered_map>
 
 namespace caors::meta::detail {
 namespace {
 
 struct type_identity final {
+  type_identity(std::uint64_t identity_id, std::string_view name, memory::memory_resource* resource)
+      : id(identity_id), canonical_name(name, allocator<char>{resource}) {}
+
   std::uint64_t id = 0;
-  std::string canonical_name{};
+  string canonical_name{};
 };
 
 class identity_table final {
 public:
+  identity_table()
+      : resource_(&memory::process_resource()), identities_(allocator<type_identity>{resource_}),
+        identities_by_name_(hash_map<std::string_view, type_identity*>::allocator_type{resource_}),
+        identities_by_id_(hash_map<std::uint64_t, type_identity*>::allocator_type{resource_}) {}
+
   [[nodiscard]] std::uint64_t get_or_create(std::string_view canonical_name) {
     return get_or_create_identity(canonical_name).id;
   }
 
   [[nodiscard]] vector<identity_debug_record> snapshot(identity_debug_domain domain) const {
     std::scoped_lock lock{mutex_};
-    auto records = make_vector<identity_debug_record>(&memory::library_resource());
+    auto records = make_vector<identity_debug_record>(&memory::process_resource());
     records.reserve(identities_.size());
     for (const type_identity& identity : identities_) {
-      auto canonical_name = make_string(&memory::library_resource());
+      auto canonical_name = make_string(&memory::process_resource());
       canonical_name.assign(identity.canonical_name.data(), identity.canonical_name.size());
       records.push_back(identity_debug_record{domain, identity.id, std::move(canonical_name)});
     }
@@ -68,7 +75,7 @@ private:
       std::terminate();
     }
 
-    identities_.push_back(type_identity{next_id_++, std::string{canonical_name}});
+    identities_.emplace_back(next_id_++, canonical_name, resource_);
     type_identity& identity = identities_.back();
     identities_by_name_.emplace(identity.canonical_name, &identity);
     identities_by_id_.emplace(identity.id, &identity);
@@ -76,9 +83,10 @@ private:
   }
 
   mutable std::mutex mutex_;
-  std::list<type_identity> identities_;
-  std::unordered_map<std::string_view, type_identity*> identities_by_name_;
-  std::unordered_map<std::uint64_t, type_identity*> identities_by_id_;
+  memory::memory_resource* resource_ = nullptr;
+  list<type_identity> identities_;
+  hash_map<std::string_view, type_identity*> identities_by_name_;
+  hash_map<std::uint64_t, type_identity*> identities_by_id_;
   std::uint64_t next_id_ = 1;
 };
 
@@ -94,7 +102,7 @@ public:
   }
 
   [[nodiscard]] vector<identity_debug_record> snapshot() const {
-    auto records = make_vector<identity_debug_record>(&memory::library_resource());
+    auto records = make_vector<identity_debug_record>(&memory::process_resource());
     auto type_records = snapshot(identity_debug_domain::type);
     auto capability_records = snapshot(identity_debug_domain::capability);
     records.reserve(type_records.size() + capability_records.size());
