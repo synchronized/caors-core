@@ -323,7 +323,8 @@ decode_result decode(input_stream& input, operation_memory memory);
 - [x] 完成 Windows Clang/MSVC Static/Shared Debug/Release：Clang 与 MSVC 的 Static Debug/Release
   均为 83/83 通过，Shared Debug/Release 均为 85/85 通过；MSVC 四组均在清理旧产物后使用
   `-Jobs 1` 完成全量构建与测试；
-- [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
+- [x] 完成当前提交的 Linux Clang/GCC、Static/Shared 与 ASan GitHub Actions 集成验证；
+- [ ] 在固定 Linux 环境补 UBSan；
 - [x] 更新正式 memory、meta、plugin 和 serialization 文档：统一四类内存域、layer 资源继承、
   插件 TLS/ABI 边界和序列化 `operation_memory` 契约。
 

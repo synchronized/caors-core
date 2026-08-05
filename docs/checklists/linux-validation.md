@@ -173,6 +173,20 @@ ctest --test-dir build/linux-clang-shared-asan \
 - OOM：未发生，CI 使用 `CMAKE_BUILD_PARALLEL_LEVEL=2`；
 - 已知限制：尚未覆盖 GCC Shared/ASan、UBSan、TSan、MSan、ARM64 或真实大端平台。
 
+### 2026-08-05 内存域重构集成验证
+
+- 提交：`4cf1c3c2e8ba558ec0bc30b8711eb71cb5cb6a19`；
+- 运行：[Linux #30996692832](https://github.com/synchronized/caors-core/actions/runs/30996692832)；
+- 环境：GitHub-hosted Ubuntu 24.04 LTS x86_64 虚拟机，Linux
+  `6.17.0-1020-azure`；
+- 工具：CMake 3.31.6、Clang 18.1.3、GCC 13.3.0；
+- Static Clang Debug/Release：各 83 项测试全部通过；
+- Static GCC Debug/Release：各 83 项测试全部通过；
+- Shared Clang Debug/Release：各 85 项测试全部通过；
+- Shared Clang ASan：85 项测试全部通过，未报告 AddressSanitizer 或 LeakSanitizer 错误；
+- Static/Shared Release 安装包消费测试全部通过；
+- 已知限制：固定 Linux 环境 UBSan 仍待环境部署后执行。
+
 ## 结果记录模板
 
 ```text
