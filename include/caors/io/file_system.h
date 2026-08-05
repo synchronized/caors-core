@@ -113,12 +113,12 @@ public:
    *
    * 空路径表示文件系统根目录。默认实现返回 `errc::unsupported`，只支持读写的后端可以不覆盖。
    */
-  [[nodiscard]] virtual directory_entry_list_result list(path_view directory,
-                                                         memory_resource* resource = nullptr);
+  [[nodiscard]] virtual directory_entry_list_result
+  list(path_view directory, memory_resource* result_resource = nullptr);
 
   /** @brief 读取整个文件或对象内容。 */
   [[nodiscard]] virtual byte_buffer_result read_all(path_view path,
-                                                    memory_resource* resource = nullptr) = 0;
+                                                    memory_resource* result_resource = nullptr) = 0;
 
   /**
    * @brief 打开同步输入流。
@@ -127,7 +127,7 @@ public:
    * 需要真正分块读取的后端可以覆盖该函数。
    */
   [[nodiscard]] virtual input_stream_result open_read(path_view path,
-                                                      memory_resource* resource = nullptr);
+                                                      memory_resource* result_resource = nullptr);
 
   /**
    * @brief 打开同步输出流。
@@ -136,7 +136,7 @@ public:
    * 析构函数不会隐式提交失败状态，调用方必须检查 `close()` 返回值。
    */
   [[nodiscard]] virtual output_stream_result open_write(path_view path,
-                                                        memory_resource* resource = nullptr);
+                                                        memory_resource* result_resource = nullptr);
 
   /** @brief 写出整个字节缓冲区。 */
   [[nodiscard]] virtual error write_all(path_view path, std::span<const std::byte> bytes) = 0;

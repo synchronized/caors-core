@@ -164,7 +164,7 @@ file_status_result file_system_resolver::status(path_view location) const {
 }
 
 directory_entry_list_result file_system_resolver::list(path_view directory,
-                                                       memory_resource* resource) {
+                                                       memory_resource* result_resource) {
   const uri_view parsed{directory};
   const route_entry* entry = find_route(parsed);
   if (entry == nullptr || entry->target == nullptr) {
@@ -172,55 +172,58 @@ directory_entry_list_result file_system_resolver::list(path_view directory,
   }
 
   directory_entry_list_result target_entries =
-      entry->target->list(resolve_path(*entry, parsed), resource);
+      entry->target->list(resolve_path(*entry, parsed), result_resource);
   if (target_entries.failed()) {
     return target_entries;
   }
 
-  directory_entry_list entries{allocator<directory_entry>{resource}};
+  directory_entry_list entries{allocator<directory_entry>{result_resource}};
   for (const directory_entry& target_entry : *target_entries) {
     const std::string_view name = target_entry.name.string_view();
     if (name.empty()) {
       continue;
     }
 
-    const core::string full_path = join_location(directory, name, resource).to_string(resource);
-    add_or_update_entry(entries, name, full_path, target_entry.kind, resource);
+    const core::string full_path =
+        join_location(directory, name, result_resource).to_string(result_resource);
+    add_or_update_entry(entries, name, full_path, target_entry.kind, result_resource);
   }
 
   std::sort(entries.begin(), entries.end(), compare_entries);
   return ok(std::move(entries));
 }
 
-byte_buffer_result file_system_resolver::read_all(path_view location, memory_resource* resource) {
+byte_buffer_result file_system_resolver::read_all(path_view location,
+                                                  memory_resource* result_resource) {
   const uri_view parsed{location};
   const route_entry* entry = find_route(parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
-  return entry->target->read_all(resolve_path(*entry, parsed), resource);
+  return entry->target->read_all(resolve_path(*entry, parsed), result_resource);
 }
 
-input_stream_result file_system_resolver::open_read(path_view location, memory_resource* resource) {
+input_stream_result file_system_resolver::open_read(path_view location,
+                                                    memory_resource* result_resource) {
   const uri_view parsed{location};
   const route_entry* entry = find_route(parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<input_stream_ptr>({error_domain::io, errc::not_found});
   }
 
-  return entry->target->open_read(resolve_path(*entry, parsed), resource);
+  return entry->target->open_read(resolve_path(*entry, parsed), result_resource);
 }
 
 output_stream_result file_system_resolver::open_write(path_view location,
-                                                      memory_resource* resource) {
+                                                      memory_resource* result_resource) {
   const uri_view parsed{location};
   const route_entry* entry = find_route(parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<output_stream_ptr>({error_domain::io, errc::not_found});
   }
 
-  return entry->target->open_write(resolve_path(*entry, parsed), resource);
+  return entry->target->open_write(resolve_path(*entry, parsed), result_resource);
 }
 
 error file_system_resolver::write_all(path_view location, std::span<const std::byte> bytes) {

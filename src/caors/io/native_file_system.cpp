@@ -245,7 +245,7 @@ file_status_result native_file_system::status(path_view path) const {
 }
 
 directory_entry_list_result native_file_system::list(path_view directory,
-                                                     memory_resource* resource) {
+                                                     memory_resource* result_resource) {
   const std::filesystem::path native_directory = native_directory_path(root(), directory);
 
   std::error_code ec;
@@ -263,7 +263,7 @@ directory_entry_list_result native_file_system::list(path_view directory,
     return fail<directory_entry_list>({error_domain::io, errc::invalid_argument});
   }
 
-  directory_entry_list entries{allocator<directory_entry>{resource}};
+  directory_entry_list entries{allocator<directory_entry>{result_resource}};
   std::filesystem::directory_iterator iterator{native_directory, ec};
   if (ec) {
     return fail<directory_entry_list>({error_domain::io, errc::backend_failure});
@@ -282,8 +282,8 @@ directory_entry_list_result native_file_system::list(path_view directory,
     }
 
     entries.push_back(directory_entry{
-        path{std::string_view{name}, resource},
-        append_child_path(directory, name, resource),
+        path{std::string_view{name}, result_resource},
+        append_child_path(directory, name, result_resource),
         kind,
     });
   }
@@ -292,7 +292,7 @@ directory_entry_list_result native_file_system::list(path_view directory,
   return ok(std::move(entries));
 }
 
-byte_buffer_result native_file_system::read_all(path_view path, memory_resource* resource) {
+byte_buffer_result native_file_system::read_all(path_view path, memory_resource* result_resource) {
   error status = validate_path(path);
   if (status) {
     return fail<byte_buffer>(status);
@@ -312,7 +312,7 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
     return fail<byte_buffer>({error_domain::io, errc::backend_failure});
   }
 
-  byte_buffer bytes = make_byte_buffer(resource);
+  byte_buffer bytes = make_byte_buffer(result_resource);
   bytes.resize(static_cast<std::size_t>(end));
   input.seekg(0, std::ios::beg);
   if (!bytes.empty()) {
@@ -325,7 +325,8 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
   return ok(std::move(bytes));
 }
 
-input_stream_result native_file_system::open_read(path_view path, memory_resource* resource) {
+input_stream_result native_file_system::open_read(path_view path,
+                                                  memory_resource* result_resource) {
   error status = validate_path(path);
   if (status) {
     return fail<input_stream_ptr>(status);
@@ -340,7 +341,8 @@ input_stream_result native_file_system::open_read(path_view path, memory_resourc
     return fail<input_stream_ptr>({error_domain::io, errc::backend_failure});
   }
 
-  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  memory_resource* resolved =
+      result_resource != nullptr ? result_resource : get_default_memory_resource();
   auto* stream = memory::make<native_input_stream>(resolved, std::move(input));
   input_stream_ptr result{stream};
   result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
@@ -350,7 +352,8 @@ input_stream_result native_file_system::open_read(path_view path, memory_resourc
   return ok(std::move(result));
 }
 
-output_stream_result native_file_system::open_write(path_view path, memory_resource* resource) {
+output_stream_result native_file_system::open_write(path_view path,
+                                                    memory_resource* result_resource) {
   error status = validate_path(path);
   if (status) {
     return fail<output_stream_ptr>(status);
@@ -361,7 +364,8 @@ output_stream_result native_file_system::open_write(path_view path, memory_resou
     return fail<output_stream_ptr>({error_domain::io, errc::backend_failure});
   }
 
-  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  memory_resource* resolved =
+      result_resource != nullptr ? result_resource : get_default_memory_resource();
   auto* stream = memory::make<native_output_stream>(resolved, std::move(output));
   output_stream_ptr result{stream};
   result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
