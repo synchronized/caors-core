@@ -320,7 +320,9 @@ decode_result decode(input_stream& input, operation_memory memory);
   不再可见，host/第一插件保持有效，result tracking resource 零存活分配；
 - [x] 覆盖插件卸载、`std::async` in-flight method、task/request 资源所有权和 TLS 退出；TLS 测试确认
   thread-local stack resource 在线程结束时向上游归还全部 chunk；
-- [ ] 完成 Windows Clang/MSVC Static/Shared Debug/Release；
+- [x] 完成 Windows Clang/MSVC Static/Shared Debug/Release：Clang 与 MSVC 的 Static Debug/Release
+  均为 83/83 通过，Shared Debug/Release 均为 85/85 通过；MSVC 四组均在清理旧产物后使用
+  `-Jobs 1` 完成全量构建与测试；
 - [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
 - [ ] 更新正式 memory、meta、plugin 和 serialization 文档。
 
