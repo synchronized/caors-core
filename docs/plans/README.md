@@ -10,14 +10,14 @@
 
 ### 进行中
 
-- [memory-domain-redesign.md](memory-domain-redesign.md)：按 process、registry layer、scratch 与
-  result/user 四个生命周期域收敛内部长期元数据、插件卸载、临时工作区和用户结果内存。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
 
 ### 延期复验
 
+- [memory-domain-redesign.md](memory-domain-redesign.md)：四类内存域实现、正式文档及 Windows、
+  Linux Clang/GCC/ASan 集成验证已完成；固定 Linux 环境 UBSan 延期执行。
 - [meta-wrapper-performance-validation.md](meta-wrapper-performance-validation.md)：Windows 评估与
   阶段性结论已完成；Linux 正式性能复验等待固定环境。
 - [meta-erased-wrapper-redesign.md](meta-erased-wrapper-redesign.md)：核心迁移与 Windows 性能复验
