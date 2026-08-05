@@ -124,6 +124,27 @@ TEST_CASE("memory - library temporary resource is isolated per thread", "[memory
   CHECK(first != second);
 }
 
+TEST_CASE("memory - thread local stack resource releases chunks at thread exit",
+          "[memory][stack]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  bool allocated = false;
+  bool observed_live_allocation = false;
+
+  std::thread worker{[&] {
+    thread_local caors::stack_resource scratch{64, &tracking};
+    caors::stack_scope scope{scratch};
+    allocated = scope.resource()->allocate(4096, 16) != nullptr;
+    observed_live_allocation = tracking.statistics().bytes_in_use > 0;
+  }};
+  worker.join();
+
+  REQUIRE(allocated);
+  CHECK(observed_live_allocation);
+  CHECK(tracking.statistics().allocation_count > 0);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+  CHECK(tracking.statistics().allocation_count == tracking.statistics().deallocation_count);
+}
+
 TEST_CASE("memory - stack resource reports scoped allocation statistics", "[memory][stack]") {
   caors::stack_resource stack{64};
 

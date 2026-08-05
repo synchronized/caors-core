@@ -318,7 +318,8 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 - [x] 覆盖 host primary、两个动态 plugin layer 和用户 result resource 并存；第二插件卸载后其类型
   不再可见，host/第一插件保持有效，result tracking resource 零存活分配；
-- [ ] 覆盖插件卸载、in-flight call、异步 task 和 TLS 退出；
+- [x] 覆盖插件卸载、`std::async` in-flight method、task/request 资源所有权和 TLS 退出；TLS 测试确认
+  thread-local stack resource 在线程结束时向上游归还全部 chunk；
 - [ ] 完成 Windows Clang/MSVC Static/Shared Debug/Release；
 - [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
 - [ ] 更新正式 memory、meta、plugin 和 serialization 文档。
