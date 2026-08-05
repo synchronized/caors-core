@@ -467,6 +467,11 @@ marker 必须由同一个资源创建、在同一线程使用，并严格按后�
 chunk 或 block 的实际使用情况；需要逐地址泄漏、标签和错误释放诊断时，仍应使用
 `debug_tracking_resource`。
 
+process、registry layer、scratch 与 result/user 四个域的统一统计口径和当前 Release 基线见
+[`benchmarks/results/2026-08-05-memory-domain-observability.md`](../benchmarks/results/2026-08-05-memory-domain-observability.md)。
+普通 `tracking_resource` 无法观察 system allocator 内部碎片，文档和 benchmark 不使用
+“累计分配字节减当前存活字节”伪造碎片率。
+
 ### wrapper resource
 
 包装资源不一定改变底层分配策略，而是在另一个资源外面增加能力。

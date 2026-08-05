@@ -310,7 +310,9 @@ decode_result decode(input_stream& input, operation_memory memory);
 - [x] 采用显式析构顺序，不增加 destructor list：layer 先销毁 registry state 及其中全部
   type/property/method/metadata wrapper，再释放插件 lifetime lease；
 - [x] 当前不采用 arena 批量 storage；只有真实 type/plugin workload 证明存在净收益后再单独评估；
-- [ ] 记录不同域的峰值、碎片、分配次数和释放延迟。
+- [x] 统一记录不同域的峰值、分配次数、可观测碎片和释放阶段；不可可靠测量的 system 内部碎片与
+  process 释放延迟明确标记为不可观测或不适用，见
+  `benchmarks/results/2026-08-05-memory-domain-observability.md`。
 
 ### 阶段 6：跨模块与全矩阵验证
 
