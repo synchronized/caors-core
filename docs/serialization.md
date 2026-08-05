@@ -171,6 +171,19 @@ caors::read_json_from(context, object, text);
 当前测试覆盖裸指针自环、指针读入深链、拥有型 wrapper 自环和多层 pointer / wrapper
 逐层展开路径。
 
+### 单次操作内存
+
+`context.resolvers.memory` 是 `serialization::operation_memory`，明确区分两种资源：
+
+- `result_resource`：用于返回字符串、byte buffer、`variant` DOM、构造后写入目标的拥有型值，以及需要
+  跨出当前调用的错误路径数据；为空时由具体结果类型在分配边界解析当前默认资源。
+- `scratch_resource`：用于 reader/writer 帧、字段扫描、参数转换和格式解析暂存；为空时使用当前线程的
+  `library_temporary_resource()`，公共同步入口会建立 scope 并在返回时回滚。
+
+结果不得引用 scratch。需要从 scratch 数据生成返回字符串、DOM 或对象时，核心实现会 materialize/copy
+到结果资源。显式传入的资源均由调用方拥有，并且必须覆盖对应结果或后端对象的生命周期。异步操作不得借用
+发起线程的默认 TLS scratch；应为 request/task 提供生命周期覆盖整个异步操作的独立资源。
+
 ### 运行期构造策略
 
 反序列化需要新建运行期值时，会按同一套构造顺序尝试：

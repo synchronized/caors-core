@@ -324,7 +324,8 @@ decode_result decode(input_stream& input, operation_memory memory);
   均为 83/83 通过，Shared Debug/Release 均为 85/85 通过；MSVC 四组均在清理旧产物后使用
   `-Jobs 1` 完成全量构建与测试；
 - [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
-- [ ] 更新正式 memory、meta、plugin 和 serialization 文档。
+- [x] 更新正式 memory、meta、plugin 和 serialization 文档：统一四类内存域、layer 资源继承、
+  插件 TLS/ABI 边界和序列化 `operation_memory` 契约。
 
 ## 风险
 

@@ -695,6 +695,16 @@ primary 写入层；之后直接向 primary 提交类型、枚举、metadata 或
 `registry::create_layer()`、`publish_layer()` 和 `detach_layer()` 仍可用于插件或模块热加载场景；已发布 layer
 按各自生命周期参与 snapshot 查询，detach 后从新 snapshot 中移除。
 
+registry 的长期内存按 layer 隔离。`registry_options::internal_resource` 指定 primary registry 状态和
+默认 layer 资源；`registry_layer_options::internal_resource` 可以为单个插件 draft 指定独立资源，为空时
+继承宿主 registry 的资源。发布不会迁移或复制 layer 数据；detach 只从新 snapshot 移除 layer，底层记录
+要等旧 view、owning value、in-flight 调用和其他 lease 全部释放后才销毁。因此资源必须覆盖该 layer 的
+完整 lease 生命周期，不能使用线程局部 scratch 或调用栈上的短生命周期资源。
+
+属性/方法查询返回的容器属于调用方结果域；方法匹配、默认参数补全和内建转换使用调用选项中的 scratch
+资源，为空时使用线程局部临时资源。同步调用结束后 scratch 会回滚，任何返回的 `meta::any`、参数值或
+异步状态都不得引用其中的数据。
+
 `CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
 静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
 测试隔离或插件加载时，优先使用显式 `register_all()`。

@@ -546,6 +546,18 @@ backend / strategy resource
 
 ## 生命周期资源入口
 
+CAORS 按数据的实际生命周期区分四类内存域：
+
+| 内存域 | 典型数据 | 生命周期与释放 | 默认来源 |
+|---|---|---|---|
+| process | 字符串驻留、type/capability identity、全局模块索引 | 随进程结束，不支持运行期整体回收 | `process_resource()` |
+| registry layer | primary 或单个插件 layer 的类型记录、属性、方法和 capability | primary 随 runtime；插件 layer 在 detach 且最后一个 lease 释放后销毁 | registry/layer 的 `internal_resource` |
+| scratch | 参数转换、reader/writer 帧、解析暂存和单次查询工作区 | 同步调用结束时通过 scope 回滚；不得逃逸 | 显式资源或 `library_temporary_resource()` |
+| result/user | 返回容器、DOM、拥有型值和调用方对象 | 由返回值或所属子系统决定 | 显式 `result_resource`，为空时由具体 API 解析默认资源 |
+
+资源指针均为非拥有引用。保存 allocator、容器、registry、返回值或异步状态的对象，不得比对应资源存活
+更久。scratch 只适合同步、栈式嵌套工作；返回值、registry 数据和异步任务不得引用 scratch 内存。
+
 `process_resource()` 专门用于进程生命周期内不会卸载的永久数据，例如 `string_name` 驻留表、
 type/capability identity 和全局 module 索引。它默认固定使用 system resource；只有构建时启用
 `CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE=1` 才会跟随默认资源。
