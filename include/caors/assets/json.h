@@ -23,7 +23,7 @@ class CAORS_API project_config_loader final : public assets::project_config_load
 public:
   [[nodiscard]] error load(project_config& target, resources::source& source,
                            io::location_view location,
-                           memory_resource* resource = nullptr) override;
+                           memory_resource* scratch_resource = nullptr) override;
 };
 
 /**
@@ -48,22 +48,22 @@ public:
       : provider_(&provider), context_(context), options_(options) {}
 
   [[nodiscard]] resources::load_result<resource_type>
-  load(resources::resource_guid guid, memory_resource* resource = nullptr) override {
-    io::input_stream_result stream = provider_->open_read(guid, resource);
+  load(resources::resource_guid guid, memory_resource* result_resource = nullptr) override {
+    serialization::detail::temporary_memory_scope scratch_scope{
+        context_.effective_scratch_resource()};
+    io::input_stream_result stream = provider_->open_read(guid, scratch_scope.resource());
     if (stream.failed()) {
       return {stream.status, {}};
     }
 
     serialization::variant_result parsed =
-        serialization::parse_json(*stream.value, options_, resource);
+        serialization::parse_json(*stream.value, options_, scratch_scope.resource());
     if (parsed.failed()) {
       return {parsed.status, {}};
     }
 
-    serialization::detail::temporary_memory_scope temporary_scope{
-        context_.effective_scratch_resource()};
-    serialization::variant_reader reader{parsed.value, temporary_scope.resource()};
-    return assets::load_serialized<resource_type>(context_, guid, reader, resource);
+    serialization::variant_reader reader{parsed.value, scratch_scope.resource()};
+    return assets::load_serialized<resource_type>(context_, guid, reader, result_resource);
   }
 
 private:
@@ -123,7 +123,7 @@ private:
 [[nodiscard]] CAORS_API error load_manifest(resources::manifest& target,
                                             resources::source& resource_source,
                                             io::location_view location,
-                                            memory_resource* resource = nullptr);
+                                            memory_resource* scratch_resource = nullptr);
 
 /** @brief 从 JSON 文本读入资源工程描述。 */
 [[nodiscard]] CAORS_API error load_project_config(project_config& target, std::string_view text);
@@ -132,7 +132,7 @@ private:
 [[nodiscard]] CAORS_API error load_project_config(project_config& target,
                                                   resources::source& resource_source,
                                                   io::location_view location,
-                                                  memory_resource* resource = nullptr);
+                                                  memory_resource* scratch_resource = nullptr);
 
 /** @brief 把资源工程描述写入 JSON 字符串。 */
 [[nodiscard]] CAORS_API error save_project_config_to(const project_config& source, string& output,
@@ -143,7 +143,7 @@ private:
                                                      resources::source& resource_source,
                                                      io::location_view location,
                                                      serialization::json_options options = {},
-                                                     memory_resource* resource = nullptr);
+                                                     memory_resource* scratch_resource = nullptr);
 
 /** @brief 把资源工程描述保存为 JSON 字符串。 */
 [[nodiscard]] CAORS_API serialization::serialization_text_result
