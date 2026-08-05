@@ -9,6 +9,7 @@ endif()
 set(
   PLUGIN_TARGETS
   caors_plugin_protocol_good
+  caors_plugin_protocol_second_good
   caors_plugin_protocol_bad_abi
   caors_plugin_protocol_missing_entry
   caors_plugin_protocol_failure
@@ -17,6 +18,7 @@ set(
 )
 
 add_library(caors_plugin_protocol_good SHARED good_plugin.cpp)
+add_library(caors_plugin_protocol_second_good SHARED second_good_plugin.cpp)
 add_library(caors_plugin_protocol_bad_abi SHARED bad_abi_plugin.cpp)
 add_library(caors_plugin_protocol_missing_entry SHARED missing_entry_plugin.c)
 add_library(caors_plugin_protocol_failure SHARED failure_plugin.cpp)
@@ -69,6 +71,7 @@ add_test(
   NAME caors.plugins.protocol
   COMMAND
     caors_plugins_protocol_test $<TARGET_FILE:caors_plugin_protocol_good>
+    $<TARGET_FILE:caors_plugin_protocol_second_good>
     $<TARGET_FILE:caors_plugin_protocol_bad_abi>
     $<TARGET_FILE:caors_plugin_protocol_missing_entry>
     $<TARGET_FILE:caors_plugin_protocol_failure>

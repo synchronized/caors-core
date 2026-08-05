@@ -316,7 +316,8 @@ decode_result decode(input_stream& input, operation_memory memory);
 
 ### 阶段 6：跨模块与全矩阵验证
 
-- [ ] 覆盖 host、多个 plugin layer 和用户 result resource 并存；
+- [x] 覆盖 host primary、两个动态 plugin layer 和用户 result resource 并存；第二插件卸载后其类型
+  不再可见，host/第一插件保持有效，result tracking resource 零存活分配；
 - [ ] 覆盖插件卸载、in-flight call、异步 task 和 TLS 退出；
 - [ ] 完成 Windows Clang/MSVC Static/Shared Debug/Release；
 - [ ] 完成 Linux Clang/GCC、ASan，并在固定 Linux 环境补 UBSan；
