@@ -634,8 +634,9 @@ template <typename T>
 /** @brief 从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::input_stream& stream,
-                                   memory_resource* resource = nullptr) {
-  variant_result value = parse_json(stream, resource);
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  variant_result value = parse_json(stream, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -646,8 +647,9 @@ template <typename T>
 /** @brief 从 JSON 输入流按格式选项读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::input_stream& stream, json_options options,
-                                   memory_resource* resource = nullptr) {
-  variant_result value = parse_json(stream, options, resource);
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  variant_result value = parse_json(stream, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -658,8 +660,11 @@ template <typename T>
 /** @brief 按上下文从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
-                                   io::input_stream& stream, memory_resource* resource = nullptr) {
-  variant_result value = parse_json(stream, json_options{}, resource);
+                                   io::input_stream& stream,
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{
+      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
+  variant_result value = parse_json(stream, json_options{}, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -671,8 +676,10 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::input_stream& stream, json_options options,
-                                   memory_resource* resource = nullptr) {
-  variant_result value = parse_json(stream, options, resource);
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{
+      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
+  variant_result value = parse_json(stream, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -683,8 +690,9 @@ template <typename T>
 /** @brief 从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
-                                   memory_resource* resource = nullptr) {
-  variant_result value = parse_json_from(file_system, path, resource);
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  variant_result value = parse_json_from(file_system, path, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -695,8 +703,10 @@ template <typename T>
 /** @brief 从文件系统路径按格式选项读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
-                                   json_options options, memory_resource* resource = nullptr) {
-  variant_result value = parse_json_from(file_system, path, options, resource);
+                                   json_options options,
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -708,8 +718,11 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::file_system& file_system, io::path_view path,
-                                   memory_resource* resource = nullptr) {
-  variant_result value = parse_json_from(file_system, path, json_options{}, resource);
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{
+      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
+  variant_result value =
+      parse_json_from(file_system, path, json_options{}, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }
@@ -721,8 +734,11 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::file_system& file_system, io::path_view path,
-                                   json_options options, memory_resource* resource = nullptr) {
-  variant_result value = parse_json_from(file_system, path, options, resource);
+                                   json_options options,
+                                   memory_resource* scratch_resource = nullptr) {
+  detail::temporary_memory_scope scratch_scope{
+      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
+  variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
   }

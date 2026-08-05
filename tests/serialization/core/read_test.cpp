@@ -258,6 +258,30 @@ TEST_CASE("serialization - reads json from io file system and deserializes refle
   CHECK(actor.name == "Ada");
 }
 
+TEST_CASE("serialization - json stream convenience rewinds context scratch", "[serialization]") {
+  require_reader_actor_metadata();
+
+  std::string_view text = R"({"id":9,"health":77.5,"active":true,"name":"Grace"})";
+  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
+  for (const unsigned char character : text) {
+    bytes.push_back(static_cast<std::byte>(character));
+  }
+  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
+
+  caors::tracking_resource scratch_tracking{&caors::get_system_memory_resource()};
+  caors::stack_resource scratch{64, &scratch_tracking};
+  caors::serialization::context context{};
+  context.resolvers.memory.scratch_resource = &scratch;
+
+  reader_actor actor{};
+  REQUIRE(caors::serialization::read_json_from(context, actor, *stream).succeeded());
+  CHECK(scratch.active_scope_count() == 0);
+  scratch.reset();
+  CHECK(scratch_tracking.statistics().bytes_in_use == 0);
+  CHECK(actor.id == 9);
+  CHECK(actor.name == "Grace");
+}
+
 // 原测试文件：serialization_read_rejects_invalid_char_and_enum_values_test.cpp
 
 #include "serialization_test_support.h"
