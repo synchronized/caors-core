@@ -708,14 +708,14 @@ if (!status) {
 MessagePack 规定的大端字节序处理。
 
 `encode_messagepack(value, result_resource)` 的返回 buffer 及 `parse_messagepack()` 返回的 DOM
-使用结果资源。parser 的流输入缓冲、map 转换暂存和 writer 容器帧使用调用方提供的临时资源；为空时使用
-当前线程的库临时资源。返回 buffer 和 DOM 不引用临时资源。
+使用结果资源。parser 的流输入缓冲、map 转换暂存和 writer 容器帧使用调用方提供的 scratch 资源；
+为空时使用当前线程的库 scratch 资源。返回 buffer 和 DOM 不引用 scratch 资源。
 
 带 `serialization::context` 的 JSON/DOM 便利入口同样使用
 `context.effective_scratch_resource()`：JSON reader 的字段、数组和字典扫描帧，JSON writer 的容器帧，
-以及 `variant_reader` 的遍历栈都在一次同步操作的临时作用域中分配。直接构造这些后端时，可以在构造函数
-最后一个参数显式传入临时资源；此时调用方必须保证资源覆盖后端对象生命周期。输出字符串、DOM 和目标对象
-仍属于结果/调用方资源，不引用临时作用域。
+以及 `variant_reader` 的遍历栈都在一次同步操作的 scratch scope 中分配。直接构造这些后端时，可以在
+构造函数最后一个参数显式传入 scratch 资源；此时调用方必须保证资源覆盖后端对象生命周期。输出字符串、
+DOM 和目标对象仍属于结果/调用方资源，不引用 scratch scope。
 
 MessagePack typed 读入先完整解析 `variant` DOM，再复用 `variant_reader`，因此 schema migration、
 未知字段策略、多态 envelope 和 external-ref resolver 与 JSON/DOM 路径一致。格式解析完成前不会修改
@@ -1350,7 +1350,7 @@ caors::string text = *result;
 - `serialization::json_reader`：从 JSON 文本范围直接读入字段的后端。
 - `serialization::messagepack_writer`：把通用 writer 事件编码到拥有式字节缓冲或输出流。
 - `serialization::encode_messagepack()` / `serialization::parse_messagepack()`：MessagePack DOM
-  编解码入口，支持 byte span、输入流、结果资源和临时资源。
+  编解码入口，支持 byte span、输入流、结果资源和 scratch 资源。
 - `serialization::to_messagepack()` / `serialization::read_messagepack_from()`：MessagePack typed
   便捷入口。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。

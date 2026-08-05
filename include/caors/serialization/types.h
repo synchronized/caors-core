@@ -275,7 +275,7 @@ struct limit_options {
 struct operation_memory {
   /** @brief 目标对象和返回值使用的资源。 */
   memory::memory_resource* result_resource = nullptr;
-  /** @brief 单次调用的临时工作内存；为空时使用线程局部临时资源。 */
+  /** @brief 单次调用的 scratch 工作内存；为空时使用线程局部 scratch 资源。 */
   memory::memory_resource* scratch_resource = nullptr;
 };
 

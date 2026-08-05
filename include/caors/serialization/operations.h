@@ -12,7 +12,7 @@
 #include "caors/object.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
-#include "caors/serialization/detail/temporary_memory.h"
+#include "caors/serialization/detail/scratch_memory.h"
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/json_reader.h"
 #include "caors/serialization/json_writer.h"
@@ -339,8 +339,8 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 [[nodiscard]] inline error apply_unknown_field_policy(const serialization::context& context,
                                                       const meta::type& type,
                                                       const variant& value) {
-  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
+  scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  const schema_path root{allocator<schema_path_segment>{scratch_scope.resource()}};
   return apply_unknown_field_policy_tree(context, type, value, root);
 }
 
@@ -406,8 +406,8 @@ apply_unknown_field_policy_to_nested_value(const serialization::context& context
 
 [[nodiscard]] inline error apply_schema_migration(const serialization::context& context,
                                                   const meta::type& type, variant& value) {
-  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  const schema_path root{allocator<schema_path_segment>{temporary_scope.resource()}};
+  scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  const schema_path root{allocator<schema_path_segment>{scratch_scope.resource()}};
   return apply_schema_migration_tree(context, type, value, root);
 }
 
@@ -490,8 +490,8 @@ template <typename T>
     }
   }
 
-  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::variant_reader reader{value, temporary_scope.resource()};
+  scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::variant_reader reader{value, scratch_scope.resource()};
   return detail::deserialize(context, meta_type, &object, reader);
 }
 
@@ -544,8 +544,8 @@ template <typename T>
     return {error_domain::serialization, errc::missing_type};
   }
 
-  temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::json_reader reader{text, options, temporary_scope.resource()};
+  scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::json_reader reader{text, options, scratch_scope.resource()};
   if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (reader.is_polymorphic_envelope(context)) {
       return deserialize_polymorphic_object_into(context, type.id(), object, reader);
@@ -635,7 +635,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::input_stream& stream,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  detail::scratch_memory_scope scratch_scope{scratch_resource};
   variant_result value = parse_json(stream, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
@@ -648,7 +648,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::input_stream& stream, json_options options,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  detail::scratch_memory_scope scratch_scope{scratch_resource};
   variant_result value = parse_json(stream, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
@@ -662,7 +662,7 @@ template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::input_stream& stream,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{
+  detail::scratch_memory_scope scratch_scope{
       scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
   variant_result value = parse_json(stream, json_options{}, scratch_scope.resource());
   if (value.failed()) {
@@ -677,7 +677,7 @@ template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::input_stream& stream, json_options options,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{
+  detail::scratch_memory_scope scratch_scope{
       scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
   variant_result value = parse_json(stream, options, scratch_scope.resource());
   if (value.failed()) {
@@ -691,7 +691,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  detail::scratch_memory_scope scratch_scope{scratch_resource};
   variant_result value = parse_json_from(file_system, path, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
@@ -705,7 +705,7 @@ template <typename T>
 [[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
                                    json_options options,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{scratch_resource};
+  detail::scratch_memory_scope scratch_scope{scratch_resource};
   variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
   if (value.failed()) {
     return value.status;
@@ -719,7 +719,7 @@ template <typename T>
 [[nodiscard]] error read_json_from(const serialization::context& context, T& object,
                                    io::file_system& file_system, io::path_view path,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{
+  detail::scratch_memory_scope scratch_scope{
       scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
   variant_result value =
       parse_json_from(file_system, path, json_options{}, scratch_scope.resource());
@@ -736,7 +736,7 @@ template <typename T>
                                    io::file_system& file_system, io::path_view path,
                                    json_options options,
                                    memory_resource* scratch_resource = nullptr) {
-  detail::temporary_memory_scope scratch_scope{
+  detail::scratch_memory_scope scratch_scope{
       scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
   variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
   if (value.failed()) {
@@ -899,8 +899,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output) {
-  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, {}, temporary_scope.resource()};
+  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::json_writer writer{output, {}, scratch_scope.resource()};
   return serialize(context, object, writer);
 }
 
@@ -908,8 +908,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output) {
-  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, {}, temporary_scope.resource()};
+  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::json_writer writer{output, {}, scratch_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }
@@ -918,8 +918,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   string& output, json_options options) {
-  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, options, temporary_scope.resource()};
+  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::json_writer writer{output, options, scratch_scope.resource()};
   return serialize(context, object, writer);
 }
 
@@ -927,8 +927,8 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
                                   io::output_stream& output, json_options options) {
-  detail::temporary_memory_scope temporary_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, options, temporary_scope.resource()};
+  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
+  serialization::json_writer writer{output, options, scratch_scope.resource()};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }

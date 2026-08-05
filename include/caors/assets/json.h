@@ -49,7 +49,7 @@ public:
 
   [[nodiscard]] resources::load_result<resource_type>
   load(resources::resource_guid guid, memory_resource* result_resource = nullptr) override {
-    serialization::detail::temporary_memory_scope scratch_scope{
+    serialization::detail::scratch_memory_scope scratch_scope{
         context_.effective_scratch_resource()};
     io::input_stream_result stream = provider_->open_read(guid, scratch_scope.resource());
     if (stream.failed()) {
