@@ -273,6 +273,17 @@ caors::tasks::request request = caors::tasks::spawn(main_executor, load(worker_e
 - coroutine frame 在调用 `spawn()` 前已经分配，当前由编译器默认分配器管理；自定义长期资源将在
   allocator 适配批次处理。
 
+多个 coroutine 可以非阻塞等待同一个共享 request：
+
+```cpp
+caors::error status = co_await caors::tasks::async_wait(request);
+```
+
+- 请求进入 completed、failed 或 cancelled 时恢复全部等待者，并返回 `request::result()`。
+- 已经终止的请求不会挂起 coroutine。
+- 等待者在释放 request 状态锁后恢复，因此恢复的 coroutine 可以安全查询或再次组合 request。
+- `async_wait()` 本身不改变取消传播语义；取消等待方的 running request 不会自动取消被等待的 request。
+
 ## 与资源系统的关系
 
 资源系统当前加载、重载和保存仍是同步 API。`tasks` 模块只是为后续异步资源流程提供底层拼装件：

@@ -120,6 +120,93 @@ private:
   return schedule_awaiter{std::move(target)};
 }
 
+namespace detail {
+
+struct request_wait_state final {
+  std::atomic<schedule_phase> phase{schedule_phase::initiating};
+  std::coroutine_handle<> continuation{};
+  caors::error registration_error{};
+};
+
+inline void complete_request_wait(const std::shared_ptr<void>& erased) noexcept {
+  const auto state = std::static_pointer_cast<request_wait_state>(erased);
+  const schedule_phase previous =
+      state->phase.exchange(schedule_phase::completed, std::memory_order_acq_rel);
+  if (previous == schedule_phase::suspended) {
+    state->continuation.resume();
+  }
+}
+
+} // namespace detail
+
+/** @brief 非阻塞等待共享 request 进入终止状态。 */
+class request_awaiter final {
+public:
+  explicit request_awaiter(request operation)
+      : operation_(std::move(operation)), state_(std::make_shared<detail::request_wait_state>()) {}
+
+  request_awaiter(const request_awaiter&) = delete;
+  request_awaiter& operator=(const request_awaiter&) = delete;
+  request_awaiter(request_awaiter&& other) noexcept
+      : operation_(std::move(other.operation_)), state_(std::move(other.state_)) {}
+  request_awaiter& operator=(request_awaiter&&) = delete;
+
+  ~request_awaiter() noexcept {
+    if (state_ == nullptr) {
+      return;
+    }
+    detail::schedule_phase current = state_->phase.load(std::memory_order_acquire);
+    while (current != detail::schedule_phase::completed &&
+           current != detail::schedule_phase::abandoned &&
+           !state_->phase.compare_exchange_weak(current, detail::schedule_phase::abandoned,
+                                                std::memory_order_acq_rel,
+                                                std::memory_order_acquire)) {
+    }
+  }
+
+  [[nodiscard]] bool await_ready() const { return operation_.done(); }
+
+  [[nodiscard]] bool await_suspend(std::coroutine_handle<> continuation) {
+    std::shared_ptr<detail::request_wait_state> state = state_;
+    state->continuation = continuation;
+    bool registered = false;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      registered = detail::request_access::add_waiter(
+          detail::request_access::state(operation_),
+          detail::request_waiter{state, &detail::complete_request_wait});
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      state->registration_error = {error_domain::core, errc::out_of_memory};
+      state->phase.store(detail::schedule_phase::completed, std::memory_order_release);
+      return false;
+    }
+#endif
+    if (!registered) {
+      state->phase.store(detail::schedule_phase::completed, std::memory_order_release);
+      return false;
+    }
+
+    const detail::schedule_phase previous =
+        state->phase.exchange(detail::schedule_phase::suspended, std::memory_order_acq_rel);
+    return previous != detail::schedule_phase::completed;
+  }
+
+  [[nodiscard]] caors::error await_resume() const {
+    return state_->registration_error ? state_->registration_error : operation_.result();
+  }
+
+private:
+  request operation_;
+  std::shared_ptr<detail::request_wait_state> state_;
+};
+
+/** @brief 创建等待共享 request 的 coroutine awaiter。 */
+[[nodiscard]] inline request_awaiter async_wait(request operation) {
+  return request_awaiter{std::move(operation)};
+}
+
 class async_operation;
 
 /** @brief 在指定 executor 启动 coroutine，并返回共享请求状态。 */
