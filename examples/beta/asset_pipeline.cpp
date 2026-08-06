@@ -13,7 +13,7 @@
 namespace {
 
 [[nodiscard]] bool drain_until_done(
-    caors::tasks::completion_queue& completions,
+    caors::tasks::execution_context& completions,
     const caors::resources::load_request<caors::examples::beta::texture_resource>& load,
     const caors::resources::preload_request& preload) {
   for (int frame = 0; frame < 200 && (!load.done() || !preload.done()); ++frame) {
@@ -26,7 +26,7 @@ namespace {
 }
 
 [[nodiscard]] bool drain_until_done(
-    caors::tasks::completion_queue& completions,
+    caors::tasks::execution_context& completions,
     const caors::resources::load_request<caors::examples::beta::texture_resource>& request) {
   for (int frame = 0; frame < 200 && !request.done(); ++frame) {
     (void)completions.drain();
@@ -57,7 +57,7 @@ int main() {
 
   caors::tasks::thread_pool pool{1};
   caors::tasks::executor executor = pool.get_executor();
-  caors::tasks::completion_queue completions;
+  caors::tasks::execution_context completions;
 
   caors::resources::load_request<texture_resource> direct =
       assets.request_load<texture_resource>(texture_guid, executor, completions.get_executor());

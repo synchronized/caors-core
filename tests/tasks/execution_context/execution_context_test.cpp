@@ -76,6 +76,22 @@ TEST_CASE("tasks - execution context reports and clears pending tasks", "[tasks]
   CHECK(observed == 1);
 }
 
+TEST_CASE("tasks - execution context drain accepts batches after becoming empty", "[tasks][asio]") {
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor = context.get_executor();
+  int observed = 0;
+
+  CHECK(context.drain() == 0);
+  CHECK_FALSE(executor.post(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(context.drain() == 1);
+  CHECK(observed == 1);
+
+  CHECK(context.drain() == 0);
+  CHECK_FALSE(executor.post(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(context.drain() == 1);
+  CHECK(observed == 2);
+}
+
 TEST_CASE("tasks - executor is a one pointer handle", "[tasks][asio]") {
   STATIC_CHECK(sizeof(caors::tasks::executor) == sizeof(void*));
 }

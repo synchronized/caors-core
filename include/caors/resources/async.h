@@ -38,7 +38,7 @@ enum class request_status {
 
 /** @brief request poll/drain 辅助函数的结果。 */
 struct request_poll_result {
-  /** @brief 本次从 completion queue 执行的完成回调数量。 */
+  /** @brief 本次从完成执行环境执行的回调数量。 */
   std::size_t drained = 0;
   /** @brief 目标请求或请求集合是否已经进入终态。 */
   bool done = false;
@@ -49,12 +49,12 @@ template <typename T> class load_request_table;
 class preload_request;
 
 /**
- * @brief drain 一次 completion queue，并返回单个请求是否完成。
+ * @brief drain 一次完成执行环境，并返回单个请求是否完成。
  *
- * 该函数不阻塞等待后台线程，只执行调用时已经进入 completion queue 的回调。
+ * 该函数不阻塞等待后台线程，只执行调用时已经进入执行环境的回调。
  */
 template <typename Request>
-[[nodiscard]] request_poll_result poll_request(tasks::completion_queue& completions,
+[[nodiscard]] request_poll_result poll_request(tasks::execution_context& completions,
                                                const Request& request) {
   request_poll_result result;
   if (!request.done()) {
@@ -65,14 +65,14 @@ template <typename Request>
 }
 
 /**
- * @brief 持续 drain completion queue，直到单个请求完成或当前队列没有更多回调。
+ * @brief 持续 drain 完成执行环境，直到单个请求完成或当前没有更多回调。
  *
  * `max_drains` 限制最多执行多少轮 drain，用于测试或上层主循环避免一次处理过多回调。该函数不阻塞等待
  * 尚未入队的后台结果。
  */
 template <typename Request>
 [[nodiscard]] request_poll_result
-drain_until_done(tasks::completion_queue& completions, const Request& request,
+drain_until_done(tasks::execution_context& completions, const Request& request,
                  std::size_t max_drains = std::numeric_limits<std::size_t>::max()) {
   request_poll_result result;
   while (!request.done() && max_drains > 0) {
@@ -100,12 +100,12 @@ template <typename Requests> [[nodiscard]] bool all_requests_done(const Requests
 }
 
 /**
- * @brief drain 一次 completion queue，并返回请求集合是否全部完成。
+ * @brief drain 一次完成执行环境，并返回请求集合是否全部完成。
  *
  * 该函数适合跨帧轮询一批 `load_request<T>` 或 `preload_request`。
  */
 template <typename Requests>
-[[nodiscard]] request_poll_result poll_requests(tasks::completion_queue& completions,
+[[nodiscard]] request_poll_result poll_requests(tasks::execution_context& completions,
                                                 const Requests& requests) {
   request_poll_result result;
   if (!all_requests_done(requests)) {
@@ -116,13 +116,13 @@ template <typename Requests>
 }
 
 /**
- * @brief 持续 drain completion queue，直到请求集合全部完成或当前队列没有更多回调。
+ * @brief 持续 drain 完成执行环境，直到请求集合全部完成或当前没有更多回调。
  *
  * 该函数不等待后台线程把新回调放入队列；如果返回 `done == false`，调用方应在后续帧再次调用。
  */
 template <typename Requests>
 [[nodiscard]] request_poll_result
-drain_until_all_done(tasks::completion_queue& completions, const Requests& requests,
+drain_until_all_done(tasks::execution_context& completions, const Requests& requests,
                      std::size_t max_drains = std::numeric_limits<std::size_t>::max()) {
   request_poll_result result;
   while (!all_requests_done(requests) && max_drains > 0) {

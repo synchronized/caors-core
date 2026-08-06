@@ -26,7 +26,7 @@ request_load<T>(guid, background_executor, completion_executor)
 
 当前行为：
 
-- resources 入口接收两个轻量 executor，不依赖具体 `completion_queue`；
+- resources 入口接收两个轻量 executor，不依赖具体完成队列类型；
 - assets 与 resources 均接收 background/completion 两个轻量 executor；
 - `load_request<T>` 和 `preload_request` 是可复制共享状态句柄，查询由互斥量保护；
 - 同类型、同 GUID 的进行中请求可以复用；

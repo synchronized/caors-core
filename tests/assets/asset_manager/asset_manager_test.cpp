@@ -976,7 +976,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
               .succeeded());
 
   caors::tasks::executor executor = caors::tasks::inline_executor();
-  caors::tasks::completion_queue completions;
+  caors::tasks::execution_context completions;
 
   caors::resources::load_request<serialized_resource> loaded =
       assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());

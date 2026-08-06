@@ -5,7 +5,7 @@
 
 本文档说明 CAORS 任务调度模块的当前边界。任务系统以仓库固定的 standalone Asio 作为私有后端，
 公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor()` 工厂、单线程
-`execution_context`、固定线程数 `thread_pool`、主线程 `completion_queue` 和轻量 `request` 状态句柄。
+`execution_context`、固定线程数 `thread_pool` 和轻量 `request` 状态句柄。
 
 ## 设计目标
 
@@ -16,9 +16,8 @@
 - `tasks::executor`：一个指针大小的可复制调度句柄，通过 `post(task)` 提交任务。
 - `tasks::inline_executor()`：返回提交后在调用线程立即执行的轻量 executor，用于测试、确定性执行和
   同步 fallback。
-- `tasks::execution_context`：由调用方驱动 `run()` / `poll()` 的单线程执行上下文。
+- `tasks::execution_context`：由调用方驱动 `run()` / `poll()` / `drain()` 的单线程执行上下文。
 - `tasks::thread_pool`：固定线程数后台执行上下文，析构默认 drain 已入队任务。
-- `tasks::completion_queue`：线程安全完成回调队列，适合后台任务完成后把 commit 阶段交给主线程。
 - `tasks::request`：提交任务后的共享状态句柄，覆盖 queued/running/completed/failed/cancelled 和错误查询。
 - `task` 和执行环境可传入 `memory_resource`，长期 control block 使用对应资源；Asio 内部 operation
   allocator 的接入仍属于后续优化。
@@ -28,7 +27,7 @@
 - work stealing、fiber、任务图或平台异步 IO。
 - 优先级、阻塞等待、取消传播、进度和任务返回值保存。
 - 任务异常诊断保存。
-- 聚合 `completion_queue::drain()` 中每个任务返回的错误。
+- 聚合 `execution_context::drain()` 中每个任务返回的错误。
 
 这些能力会在资源异步加载和资源热更新流程落地后继续扩展。
 
@@ -56,12 +55,11 @@ scheduler，也不是完整作业系统：
 - `tasks::execution_context`
 - `tasks::thread_pool`
 - `tasks::shutdown_mode`
-- `tasks::completion_queue`
 - `tasks::request`
 - `tasks::request_status`
 - `tasks::submit_request()`
 
-任务模块不再向根命名空间导出低层别名。任务、执行器、完成队列和请求状态统一通过
+任务模块不再向根命名空间导出低层别名。任务、执行器、执行环境和请求状态统一通过
 `caors::tasks::...` 使用，避免根命名空间承担运行期调度组合件。
 
 公共头文件：
@@ -71,7 +69,6 @@ scheduler，也不是完整作业系统：
 - `caors/tasks/inline_executor.h`
 - `caors/tasks/execution_context.h`
 - `caors/tasks/thread_pool.h`
-- `caors/tasks/completion_queue.h`
 - `caors/tasks/request.h`
 - `caors/tasks.h`
 
@@ -214,14 +211,15 @@ pool.shutdown(caors::tasks::shutdown_mode::drain);
 - `shutdown(cancel)` 不是强制中断；已经开始执行的任务仍会跑完。
 - 资源 cache、manifest、provider 和对象状态仍不应在后台 worker 中被隐式修改。
 
-## completion_queue
+## execution_context 手动 pump
 
-`completion_queue` 是主线程 `execution_context` 的兼容包装，用于把完成回调排队到主线程：
+后台线程通过轻量 executor 投递，拥有线程通过 `drain()` 执行完成回调：
 
 ```cpp
-caors::tasks::completion_queue completions;
+caors::tasks::execution_context completions;
+caors::tasks::executor completion_executor = completions.get_executor();
 
-completions.push(caors::tasks::task{[] {
+completion_executor.post(caors::tasks::task{[] {
   // 在主线程 drain 时执行。
 }});
 
@@ -230,9 +228,10 @@ std::size_t count = completions.drain();
 
 需要注意：
 
-- 后台线程可以调用 `push()`；`drain()` 和 `clear()` 由拥有该执行环境的线程调用，且不得彼此并发。
+- 后台线程可以调用 executor 的 `post()`；`drain()` 和 `clear()` 由拥有该执行环境的线程调用，且不得彼此并发。
 - `drain()` 开始后新增的任务会留到下一次 `drain()`。
 - `clear()` 丢弃尚未开始的任务，并保留后续继续投递和执行的能力。
+- `drain()` 会在 context 因上一轮耗尽而 stopped 时自动 restart；`poll()` 保留显式 stop 边界。
 - `drain()` 返回执行数量，不聚合任务返回的错误。需要错误传播时，应把错误写入调用方自己的 request 状态。
 
 ## coroutine 调度适配
@@ -298,9 +297,9 @@ caors::error status = co_await caors::tasks::async_wait(request);
   reload 通知；该 executor 通常来自主线程 `execution_context`。
 - 请求状态：资源层使用 `resources::load_request<T>` 保存 queued/loading/loaded/failed/cancelled、错误和结果 handle。
 
-resources 和 assets 异步入口都接收后台 executor 与 completion executor，不依赖具体的
-`completion_queue` 类型。需要帧循环手动 pump 时，可通过 `completion_queue::get_executor()` 取得
-轻量句柄并作为 completion executor；等待资源请求的 coroutine 适配位于显式可选的
+resources 和 assets 异步入口都接收后台 executor 与 completion executor。需要帧循环手动 pump 时，
+可通过主线程 `execution_context::get_executor()` 取得轻量句柄并作为 completion executor；等待资源
+请求的 coroutine 适配位于显式可选的
 `caors/resources/coroutine.h`。
 
 第一阶段不会让资源 cache、manifest、provider 或对象系统在后台线程被隐式修改。

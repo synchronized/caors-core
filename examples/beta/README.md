@@ -10,7 +10,7 @@
 
 1. `assets_sync_load.cpp`：最小同步加载链路，验证 `asset_manager`、manifest、provider、loader 和
    cache 的基础组合。
-2. `assets_async_load.cpp`：同步链路扩展到异步 request、后台加载和主线程 completion queue commit。
+2. `assets_async_load.cpp`：同步链路扩展到异步 request、后台加载和主线程 execution context commit。
 3. `resource_reload.cpp`：验证已缓存资源的同步重载和失败保留旧资源语义。
 4. `asset_pipeline.cpp`：串起 `project_config -> VFS/provider -> asset_manager -> async preload -> resolve -> reload/save`。
 5. `config_schema.cpp`：展示 typed factory options 的校验入口。

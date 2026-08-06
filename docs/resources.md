@@ -417,7 +417,7 @@ caors::resources::preload_result preload_result =
 - request 只延长共享请求状态，不拥有 database、cache、loader、provider 或 source。销毁这些服务前，
   调用方必须停止提交并 drain 或取消在途工作。
 
-可以使用 request poll/drain helper 在主循环或测试中收敛 completion queue：
+可以使用 request poll/drain helper 在主循环或测试中收敛完成 `execution_context`：
 
 - `poll_request(completions, request)`：执行一轮当前已经入队的完成回调，并返回请求是否完成。
 - `drain_until_done(completions, request, max_drains)`：持续 drain，直到该请求完成、队列暂时为空或达到轮数上限。
@@ -425,7 +425,7 @@ caors::resources::preload_result preload_result =
 - `poll_requests(completions, requests)` / `drain_until_all_done(completions, requests, max_drains)`：
   面向一组 `load_request<T>` 或 `preload_request` 的批量版本。
 
-这些 helper 不阻塞等待后台线程，也不自带条件变量；如果返回 `done == false`，说明当前 completion queue
+这些 helper 不阻塞等待后台线程，也不自带条件变量；如果返回 `done == false`，说明当前完成执行环境
 暂时没有足够回调，调用方应在后续帧或外部等待策略后再次调用。
 
 loader 可选择覆盖带 `progress_reporter` 的重载来上报内部阶段进度；不覆盖时默认忽略进度并转调旧
@@ -497,8 +497,8 @@ public:
 - 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
-- completion executor 应由拥有 cache 的线程运行；使用手动 pump 队列时，对应操作是
-  `completion_queue::drain()`。
+- completion executor 应由拥有 cache 的线程运行；使用手动 pump 执行环境时，对应操作是
+  `execution_context::drain()`。
 - execution context 不聚合完成回调自身的返回错误；异步资源请求会把 loader/commit 错误写入 request
   状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
 - `load_request<T>::try_get()` 和 `result()` 都不阻塞；需要跨帧推进时使用

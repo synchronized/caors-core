@@ -193,7 +193,7 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
 - `request_load<T>()` / `request_reload<T>()` / `request_preload()`：分别接收后台 executor 和完成
   executor；加载在后台执行，cache commit 在完成 executor 执行。需要手动 pump 时可显式传入
-  `completion_queue::get_executor()`。
+  `execution_context::get_executor()`。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
 

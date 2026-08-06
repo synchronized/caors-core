@@ -153,6 +153,13 @@ std::size_t execution_context::poll() {
 
 std::size_t execution_context::poll_one() { return as_context(control_)->backend->poll_one(); }
 
+std::size_t execution_context::drain() {
+  if (stopped()) {
+    restart();
+  }
+  return poll();
+}
+
 std::size_t execution_context::pending() const noexcept {
   return as_context(control_)->pending.load(std::memory_order_relaxed);
 }

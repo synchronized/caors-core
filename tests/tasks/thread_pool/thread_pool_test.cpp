@@ -43,8 +43,9 @@ TEST_CASE("tasks - thread pool executor reports invalid and frozen submissions",
         caors::error{caors::error_domain::core, caors::errc::frozen});
 }
 
-TEST_CASE("tasks - thread pool executor can post completions back to completion queue", "[tasks]") {
-  caors::tasks::completion_queue completions;
+TEST_CASE("tasks - thread pool executor can post back to execution context", "[tasks]") {
+  caors::tasks::execution_context completions;
+  caors::tasks::executor completion_executor = completions.get_executor();
   std::atomic<int> background_total = 0;
   int main_total = 0;
 
@@ -54,7 +55,8 @@ TEST_CASE("tasks - thread pool executor can post completions back to completion 
     for (int index = 0; index < 8; ++index) {
       CHECK_FALSE(executor.post(caors::tasks::task{[&, index] {
         background_total.fetch_add(index);
-        CHECK_FALSE(completions.push(caors::tasks::task{[&, index] { main_total += index; }}));
+        CHECK_FALSE(
+            completion_executor.post(caors::tasks::task{[&, index] { main_total += index; }}));
       }}));
     }
 

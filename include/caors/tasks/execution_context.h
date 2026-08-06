@@ -33,6 +33,8 @@ public:
   [[nodiscard]] std::size_t poll();
   /** @brief 非阻塞运行至多一个任务。 */
   [[nodiscard]] std::size_t poll_one();
+  /** @brief 必要时重启已耗尽的 context，并非阻塞运行调用开始时已经等待的任务。 */
+  [[nodiscard]] std::size_t drain();
 
   /** @brief 返回已经投递但尚未开始执行的任务数量。 */
   [[nodiscard]] std::size_t pending() const noexcept;

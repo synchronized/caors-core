@@ -119,7 +119,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
   caors::tasks::executor executor = caors::tasks::inline_executor();
-  caors::tasks::completion_queue completions;
+  caors::tasks::execution_context completions;
 
   caors::resources::load_request<serialized_resource> direct =
       assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());
@@ -131,7 +131,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   CHECK(direct.status() == caors::resources::request_status::loading);
   CHECK(preload.total_count() == 2);
   CHECK(preload.pending_count() == 2);
-  CHECK(completions.size() == 2);
+  CHECK(completions.pending() == 2);
 
   CHECK(completions.drain() == 2);
   REQUIRE(direct.loaded());
