@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 2 已完成；
+- 当前状态：阶段 0 至阶段 3 已完成；
 - 前置条件：`asio-task-redesign` 阶段 0 到阶段 5 已完成；
 - 目标：让现有资源请求可安全 `co_await`，减少手工轮询，同时保持 cache 提交线程、共享请求和
   取消语义明确；
@@ -27,13 +27,13 @@ request_load<T>(guid, background_executor, completion_executor)
 当前行为：
 
 - resources 入口接收两个轻量 executor，不依赖具体 `completion_queue`；
-- assets 仍保留 `executor + completion_queue&` 兼容 API；
+- assets 与 resources 均接收 background/completion 两个轻量 executor；
 - `load_request<T>` 和 `preload_request` 是可复制共享状态句柄，查询由互斥量保护；
 - 同类型、同 GUID 的进行中请求可以复用；
 - cache 和 loader 以引用进入异步任务，必须比请求流水线存活更久；
 - cache 只在 completion executor 所属线程修改；
 - 取消是共享且协作式的，不会中断已经运行的 loader；
-- 当前等待方式是轮询 request 或 pump `completion_queue`，尚不支持非阻塞 `co_await`。
+- request 既可轮询或 pump 完成 executor，也可通过显式 coroutine 适配头非阻塞 `co_await`。
 
 现有 Windows Clang Debug 基线为全量 86 项测试通过。安装包已分别验证基础 API、核心 tasks 和
 coroutine consumer；本计划不能破坏普通 consumer 不包含 coroutine 头的能力。
@@ -123,7 +123,7 @@ owner/lease 边界。
 
 首批完成 resources 请求等待后，再评估 assets 的两步迁移：
 
-1. 增加接收 background/completion executor 的重载，保留现有 completion queue 兼容入口；
+1. 将 assets 入口统一为 background/completion 两个 executor，不保留具体 completion queue 重载；
 2. 根据真实调用点决定是否增加 `async_load/async_reload/async_preload` 便利 awaiter。
 
 在命名、返回错误和取消传播没有稳定前，不直接删除 assets 现有请求 API。
@@ -165,10 +165,10 @@ owner/lease 边界。
 
 ### 阶段 3：Assets 边界
 
-- [ ] 增加接收两个轻量 executor 的 assets 重载；
-- [ ] 保留并测试 completion queue 兼容入口；
-- [ ] 根据调用点决定是否增加直接返回 awaiter 的便利 API；
-- [ ] 不在没有迁移文档和测试时删除现有 API。
+- [x] 将 assets 异步入口统一为两个轻量 executor；
+- [x] 删除 assets 的具体 completion queue 入口；需要手动 pump 时显式传入其 executor；
+- [x] 不增加 Assets 专用便利 awaiter；使用 `async_wait(assets.request_load(...))` 显式组合；
+- [x] 已迁移仓库内调用点、示例和正式文档后删除旧入口。
 
 ### 阶段 4：文档、安装与性能验证
 

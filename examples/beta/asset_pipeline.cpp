@@ -60,9 +60,9 @@ int main() {
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<texture_resource> direct =
-      assets.request_load<texture_resource>(texture_guid, executor, completions);
+      assets.request_load<texture_resource>(texture_guid, executor, completions.get_executor());
   caors::resources::preload_request preload =
-      assets.request_preload(texture_guid, executor, completions);
+      assets.request_preload(texture_guid, executor, completions.get_executor());
 
   if (!drain_until_done(completions, direct, preload) || direct.failed() || preload.failed()) {
     std::cerr << "async load/preload pipeline failed\n";
@@ -83,7 +83,7 @@ int main() {
   }
 
   caors::resources::load_request<texture_resource> reload =
-      assets.request_reload<texture_resource>(texture_guid, executor, completions);
+      assets.request_reload<texture_resource>(texture_guid, executor, completions.get_executor());
   if (!drain_until_done(completions, reload) || reload.failed() || !reload.try_get()) {
     std::cerr << "async reload failed\n";
     return 1;

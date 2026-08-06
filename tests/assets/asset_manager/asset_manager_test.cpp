@@ -979,7 +979,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<serialized_resource> loaded =
-      assets.request_load<serialized_resource>(test_guid_a, executor, completions);
+      assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());
   REQUIRE(loaded);
   CHECK(loaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
@@ -990,7 +990,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":256})"}).succeeded());
   caors::resources::load_request<serialized_resource> reloaded =
-      assets.request_reload<serialized_resource>(test_guid_a, executor, completions);
+      assets.request_reload<serialized_resource>(test_guid_a, executor, completions.get_executor());
   REQUIRE(reloaded);
   CHECK(reloaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
@@ -998,7 +998,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   CHECK(reloaded.try_get()->width == 256);
 
   caors::resources::preload_request preloaded =
-      assets.request_preload(test_guid_b, executor, completions);
+      assets.request_preload(test_guid_b, executor, completions.get_executor());
   REQUIRE(preloaded);
   CHECK(completions.drain() == 1);
   REQUIRE(preloaded.loaded());

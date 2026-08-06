@@ -25,7 +25,7 @@ int main() {
   caors::tasks::executor executor = pool.get_executor();
   caors::tasks::completion_queue completions;
   caors::resources::load_request<texture_resource> request =
-      assets.request_load<texture_resource>(texture_guid, executor, completions);
+      assets.request_load<texture_resource>(texture_guid, executor, completions.get_executor());
 
   for (int frame = 0; frame < 200 && !request.done(); ++frame) {
     (void)completions.drain();
