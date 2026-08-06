@@ -356,8 +356,8 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 ### 阶段 4：C++20 coroutine 适配
 
-- [ ] 增加可选 `caors/tasks/asio.h`；
-- [ ] 实现并测试 `schedule(executor)` awaiter；
+- [x] 增加可选 `caors/tasks/asio.h`；
+- [x] 实现并测试 `schedule(executor)` awaiter；
 - [ ] 提供顶层 spawn/helper，把异常和 Asio error 转为 CAORS 错误；
 - [ ] 为 request 增加非阻塞 coroutine wait；
 - [ ] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；

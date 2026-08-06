@@ -234,6 +234,25 @@ std::size_t count = completions.drain();
 - `clear()` 丢弃尚未开始的任务，并保留后续继续投递和执行的能力。
 - `drain()` 返回执行数量，不聚合任务返回的错误。需要错误传播时，应把错误写入调用方自己的 request 状态。
 
+## coroutine 调度适配
+
+显式包含 `caors/tasks/asio.h` 后，可以用 `schedule(executor)` 将当前 C++20 coroutine 切换到指定
+执行目标：
+
+```cpp
+caors::error status = co_await caors::tasks::schedule(executor);
+if (status) {
+  co_return status;
+}
+```
+
+- `schedule()` 只切换执行目标，不定义新的 coroutine 返回类型，也不替代共享 `request` 状态。
+- executor 拒绝提交或在执行前销毁时，coroutine 会恢复并获得相应错误；销毁仍在等待的 coroutine frame
+  后，排队 handler 不会再次恢复该 frame。
+- 当前调度共享状态使用系统长期分配，不使用 TLS scratch；CAORS `memory_resource` 和 Asio associated
+  allocator 的接入属于后续工作。
+- 顶层 coroutine 必须由调用方持有并负责销毁；安全的 `spawn` 边界将在下一批实现。
+
 ## 与资源系统的关系
 
 资源系统当前加载、重载和保存仍是同步 API。`tasks` 模块只是为后续异步资源流程提供底层拼装件：
