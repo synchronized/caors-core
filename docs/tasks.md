@@ -249,8 +249,8 @@ if (status) {
 - `schedule()` 只切换执行目标，不定义新的 coroutine 返回类型，也不替代共享 `request` 状态。
 - executor 拒绝提交或在执行前销毁时，coroutine 会恢复并获得相应错误；销毁仍在等待的 coroutine frame
   后，排队 handler 不会再次恢复该 frame。
-- 当前调度共享状态使用系统长期分配，不使用 TLS scratch；CAORS `memory_resource` 和 Asio associated
-  allocator 的接入属于后续工作。
+- 调度共享状态使用目标 executor 的长期 `memory_resource`，不使用 TLS scratch；任务完成或等待方
+  提前销毁后会归还该资源。
 
 需要让运行时管理 coroutine frame 时，使用 error-only `async_operation` 和 `spawn()`：
 
@@ -272,6 +272,9 @@ caors::tasks::request request = caors::tasks::spawn(main_executor, load(worker_e
   挂起的 coroutine。
 - coroutine frame 在调用 `spawn()` 前已经分配，当前由编译器默认分配器管理；自定义长期资源将在
   allocator 适配批次处理。
+- 关闭异常时，当前 CAORS 原生 coroutine 适配仍通过 `caors::error` 表达业务失败；此时不存在逃逸
+  异常转换路径。该模式已在 Windows Clang `-fno-exceptions` 下完成编译探针，其他编译器组合仍需
+  在完整构建矩阵中验证。
 
 多个 coroutine 可以非阻塞等待同一个共享 request：
 
@@ -283,6 +286,7 @@ caors::error status = co_await caors::tasks::async_wait(request);
 - 已经终止的请求不会挂起 coroutine。
 - 等待者在释放 request 状态锁后恢复，因此恢复的 coroutine 可以安全查询或再次组合 request。
 - `async_wait()` 本身不改变取消传播语义；取消等待方的 running request 不会自动取消被等待的 request。
+- 每个等待操作的辅助状态使用被等待 request 的长期 `memory_resource`，终止或销毁等待方后释放。
 
 ## 与资源系统的关系
 

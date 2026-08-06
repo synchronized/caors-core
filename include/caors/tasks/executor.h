@@ -42,6 +42,9 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
+  /** @brief 查询执行环境的长期内存资源；空句柄返回当前默认资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept;
+
   /** @brief 交换两个句柄。 */
   void swap(executor& other) noexcept;
 

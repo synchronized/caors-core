@@ -89,6 +89,11 @@ public:
   /** @brief 查询请求是否已经结束。 */
   [[nodiscard]] bool done() const;
 
+  /** @brief 查询共享状态使用的长期内存资源；空请求返回当前默认资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
+
   /** @brief 查询任务是否成功完成。 */
   [[nodiscard]] bool completed() const { return status() == request_status::completed; }
 

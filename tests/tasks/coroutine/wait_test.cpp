@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/memory/tracking.h"
 #include "caors/tasks/asio.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
@@ -74,4 +75,19 @@ TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][a
 
   CHECK(waiting.completed());
   CHECK_FALSE(observed);
+}
+
+TEST_CASE("tasks - async wait state uses request long lived resource", "[tasks][asio][coroutine]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::tasks::inline_executor start;
+  caors::tasks::request source = caors::tasks::request::make(&tracking);
+  const std::size_t baseline = tracking.statistics().bytes_in_use;
+  caors::error observed;
+
+  caors::tasks::request waiting = caors::tasks::spawn(start, wait_and_record(source, &observed));
+  CHECK(tracking.statistics().bytes_in_use > baseline);
+
+  REQUIRE(source.cancel());
+  CHECK(waiting.completed());
+  CHECK(tracking.statistics().bytes_in_use == baseline);
 }

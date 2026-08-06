@@ -63,7 +63,8 @@ struct schedule_handler final {
 class schedule_awaiter final {
 public:
   explicit schedule_awaiter(executor target)
-      : target_(std::move(target)), state_(std::make_shared<detail::schedule_state>()) {}
+      : target_(std::move(target)), state_(std::allocate_shared<detail::schedule_state>(
+                                        allocator<detail::schedule_state>{target_.resource()})) {}
 
   schedule_awaiter(const schedule_awaiter&) = delete;
   schedule_awaiter& operator=(const schedule_awaiter&) = delete;
@@ -143,7 +144,9 @@ inline void complete_request_wait(const std::shared_ptr<void>& erased) noexcept 
 class request_awaiter final {
 public:
   explicit request_awaiter(request operation)
-      : operation_(std::move(operation)), state_(std::make_shared<detail::request_wait_state>()) {}
+      : operation_(std::move(operation)),
+        state_(std::allocate_shared<detail::request_wait_state>(
+            allocator<detail::request_wait_state>{operation_.resource()})) {}
 
   request_awaiter(const request_awaiter&) = delete;
   request_awaiter& operator=(const request_awaiter&) = delete;

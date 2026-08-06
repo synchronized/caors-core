@@ -50,6 +50,11 @@ bool executor::valid() const noexcept {
   return control_ != nullptr && control_->valid != nullptr && control_->valid(control_);
 }
 
+memory_resource* executor::resource() const noexcept {
+  return control_ != nullptr && control_->resource != nullptr ? control_->resource
+                                                              : get_default_memory_resource();
+}
+
 void executor::swap(executor& other) noexcept { std::swap(control_, other.control_); }
 
 namespace {

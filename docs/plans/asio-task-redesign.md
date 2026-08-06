@@ -316,7 +316,8 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
 - Windows MSVC Static Debug：基础调度探针通过；
 - Windows Clang Shared Debug：基础调度探针通过；
 - Windows Clang Shared Debug 安装包：原始前缀与迁移前缀 consumer 均通过，安装导出不依赖 Asio；
-- GCC、无异常模式和 coroutine 检测仍待后续环境与适配设计完成后验证。
+- Windows Clang `-fno-exceptions` 已验证核心库、`asio.h` 独立包含以及当前 CAORS 原生 coroutine
+  适配可以编译；MSVC、GCC 和 Linux 无异常矩阵仍留到阶段 6 验证。
 
 control block 由 context 指定的长期 `memory_resource` 分配，内部保存引用计数、提交状态和私有 Asio
 backend。`execution_context` 销毁时先关闭提交并销毁 backend；外部仍存活的 executor 只保留 control
@@ -360,9 +361,11 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 实现并测试 `schedule(executor)` awaiter；
 - [x] 提供顶层 `spawn()` 和 error-only `async_operation`，把逃逸异常转换为 CAORS 错误；
 - [x] 为 request 增加支持多个共享等待者的非阻塞 `async_wait()`；
-- [ ] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；
-- [ ] 明确无异常构建的支持级别；
-- [ ] 验证 coroutine frame 不使用同步 TLS scratch。
+- [x] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；
+- [x] 明确无异常构建的支持级别：当前适配不依赖 Asio `awaitable`，业务失败通过 `caors::error`
+  传播；关闭异常后不提供逃逸异常转换，但 `schedule/spawn/async_wait` 仍可编译；
+- [x] 验证 coroutine frame 不使用同步 TLS scratch；frame 仍由编译器默认长期分配器管理，
+  `schedule` 和 `async_wait` 的辅助状态分别使用 executor 与 request 的长期资源。
 
 ### 阶段 5：调用方迁移和正式文档
 

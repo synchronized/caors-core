@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/memory/tracking.h"
 #include "caors/tasks/asio.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/thread_pool.h"
@@ -124,4 +125,19 @@ TEST_CASE("tasks - schedule coordinates fast concurrent completion", "[tasks][as
     CHECK(operation.done());
     CHECK_FALSE(operation.result());
   }
+}
+
+TEST_CASE("tasks - schedule state uses executor long lived resource", "[tasks][asio][coroutine]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  caors::tasks::execution_context context{&tracking};
+  const std::size_t baseline = tracking.statistics().bytes_in_use;
+
+  {
+    probe_coroutine operation = switch_to(context.get_executor());
+    CHECK(tracking.statistics().bytes_in_use > baseline);
+    CHECK(context.poll() == 1);
+    CHECK(operation.done());
+  }
+
+  CHECK(tracking.statistics().bytes_in_use == baseline);
 }
