@@ -398,7 +398,7 @@ public:
 
   /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
+  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor executor,
                                              tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
@@ -407,7 +407,7 @@ public:
 
   /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor& executor,
+  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
                                                tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
@@ -416,7 +416,7 @@ public:
 
   /** @brief 按同一资源类型异步预加载依赖闭包。 */
   template <typename T>
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
                                                 tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
@@ -424,7 +424,7 @@ public:
   }
 
   /** @brief 按 manifest type 异步预加载跨类型依赖闭包。 */
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
                                                 tasks::completion_queue& completions) {
     return database_.request_preload(root, executor, completions);
   }

@@ -132,7 +132,7 @@ class holding_executor final {
 public:
   holding_executor() : executor(context.get_executor()) {}
 
-  operator caors::tasks::executor&() noexcept { return executor; }
+  operator caors::tasks::executor() const noexcept { return executor; }
 
   [[nodiscard]] caors::error run_once() {
     if (context.poll_one() == 0) {

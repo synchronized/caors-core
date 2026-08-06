@@ -34,8 +34,7 @@ public:
   ~thread_pool_executor() noexcept;
 
   [[nodiscard]] executor get_executor() const noexcept;
-  operator executor&() noexcept { return executor_; }
-  operator const executor&() const noexcept { return executor_; }
+  operator executor() const noexcept { return executor_; }
   [[nodiscard]] memory_resource* resource() const noexcept;
   [[nodiscard]] std::size_t thread_count() const noexcept;
   [[nodiscard]] std::size_t pending() const;

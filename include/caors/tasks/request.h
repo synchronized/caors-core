@@ -250,7 +250,7 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
  * 成功提交后返回 queued/running/completed 之一，具体取决于 executor 是否同步执行。提交失败时返回
  * failed request，错误来自 executor。任务返回错误时请求进入 failed；返回成功时进入 completed。
  */
-[[nodiscard]] inline request submit_request(executor& target, task next,
+[[nodiscard]] inline request submit_request(executor target, task next,
                                             memory_resource* resource = nullptr) {
   if (!next) {
     return request::make_failed({error_domain::core, errc::invalid_argument}, resource);
@@ -284,7 +284,7 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
 #endif
                }};
 
-  const error submit_status = target.submit(std::move(wrapped));
+  const error submit_status = target.post(std::move(wrapped));
   if (submit_status) {
     detail::request_access::fail(state, submit_status);
   }

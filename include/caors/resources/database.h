@@ -518,7 +518,7 @@ public:
 
   /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
+  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor executor,
                                              tasks::completion_queue& completions) {
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
@@ -537,7 +537,7 @@ public:
 
   /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor& executor,
+  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
                                                tasks::completion_queue& completions) {
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
@@ -561,7 +561,7 @@ public:
    * loader 阶段，cache 写入会延迟到 completion queue drain。
    */
   template <typename T>
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
                                                 tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
@@ -598,7 +598,7 @@ public:
    *
    * 该重载要求 database 设置 manifest，并把每个资源项按 manifest type 分派到对应 cache/loader。
    */
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
                                                 tasks::completion_queue& completions) {
     preload_plan plan = plan_preload(root);
     preload_request request = preload_request::from_plan(plan, resource_);
@@ -870,7 +870,7 @@ private:
   template <typename T>
   [[nodiscard]] static error
   request_load_in_cache(void* cache, void* loader, void* requests, preload_item item,
-                        tasks::executor& executor, tasks::completion_queue& completions,
+                        const tasks::executor& executor, tasks::completion_queue& completions,
                         const std::shared_ptr<detail::preload_request_state>& state) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);

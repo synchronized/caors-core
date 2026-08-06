@@ -20,8 +20,7 @@ public:
   [[nodiscard]] executor get_executor() const noexcept { return executor_; }
   [[nodiscard]] error submit(task next) { return executor_.post(std::move(next)); }
 
-  operator executor&() noexcept { return executor_; }
-  operator const executor&() const noexcept { return executor_; }
+  operator executor() const noexcept { return executor_; }
 
 private:
   executor executor_;

@@ -38,9 +38,6 @@ public:
   /** @brief 投递任务。空任务返回 `errc::invalid_argument`。 */
   [[nodiscard]] error post(task next) const;
 
-  /** @brief 迁移期兼容入口；等价于 `post(next)`。 */
-  [[nodiscard]] error submit(task next) const { return post(std::move(next)); }
-
   /** @brief 判断句柄当前是否关联仍接受任务的执行环境。 */
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }

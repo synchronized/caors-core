@@ -15,7 +15,7 @@ class holding_executor final {
 public:
   holding_executor() : executor(context.get_executor()) {}
 
-  operator caors::tasks::executor&() noexcept { return executor; }
+  operator caors::tasks::executor() const noexcept { return executor; }
 
   caors::tasks::execution_context context;
   caors::tasks::executor executor;

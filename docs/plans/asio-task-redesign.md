@@ -333,9 +333,10 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
 - [x] 增加 control block 长期内存资源与无泄漏测试；Asio operation allocator 仍属于后续工作。
 
-迁移期间，原 `inline_executor` 与 `thread_pool_executor` 类暂时保留 `submit()` 转发和到轻量
-executor 的访问入口，生产实现已不再依赖 executor 虚基类。完成 request/resources 与线程池迁移后删除
-这些兼容入口，并把 inline 入口收敛为最终的 `inline_executor()` 工厂函数。
+迁移期间，原 `inline_executor` 与 `thread_pool_executor` 类暂时保留到轻量 executor 的访问入口；
+线程池还保留 `submit()` 转发。生产实现与 `request/resources/assets` 已统一使用 `post()`，不再依赖
+executor 虚基类。完成线程池迁移后删除剩余兼容入口，并把 inline 入口收敛为最终的
+`inline_executor()` 工厂函数。
 
 ### 阶段 2：线程池与 completion queue 迁移
 
@@ -348,8 +349,8 @@ executor 的访问入口，生产实现已不再依赖 executor 虚基类。完�
 
 ### 阶段 3：task/request 适配
 
-- [ ] 让 `task` 可安全作为 Asio handler 提交；
-- [ ] 迁移 `submit_request()` 到轻量 executor；
+- [x] 通过内部持有 control block 引用的 move-only handler 安全提交 `task`；
+- [x] 迁移 `submit_request()`、resources 与 assets 异步入口到按值轻量 executor 和 `post()`；
 - [ ] 保持 queued/running/completed/failed/cancelled 行为；
 - [ ] 覆盖多个等待者、提交失败、handler 失败和协作取消；
 - [ ] 评估 task SBO，但只有独立 benchmark 证明收益后实施。
