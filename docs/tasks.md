@@ -19,7 +19,8 @@
 - `tasks::thread_pool`：固定线程数后台执行上下文，析构默认 drain 已入队任务。
 - `tasks::completion_queue`：线程安全完成回调队列，适合后台任务完成后把 commit 阶段交给主线程。
 - `tasks::request`：提交任务后的共享状态句柄，覆盖 queued/running/completed/failed/cancelled 和错误查询。
-- `task` 和 `completion_queue` 可传入 `memory_resource`，内部动态存储使用对应资源。
+- `task` 和执行环境可传入 `memory_resource`，长期 control block 使用对应资源；Asio 内部 operation
+  allocator 的接入仍属于后续优化。
 
 当前不会包含：
 
@@ -213,7 +214,7 @@ pool.shutdown(caors::tasks::shutdown_mode::drain);
 
 ## completion_queue
 
-`completion_queue` 用于把完成回调排队到主线程：
+`completion_queue` 是主线程 `execution_context` 的兼容包装，用于把完成回调排队到主线程：
 
 ```cpp
 caors::tasks::completion_queue completions;
@@ -227,9 +228,9 @@ std::size_t count = completions.drain();
 
 需要注意：
 
-- `push()`、`size()`、`empty()`、`clear()` 和 `drain()` 内部受互斥锁保护。
-- `drain()` 执行任务期间不持锁，任务内部可以继续 `push()`。
+- 后台线程可以调用 `push()`；`drain()` 和 `clear()` 由拥有该执行环境的线程调用，且不得彼此并发。
 - `drain()` 开始后新增的任务会留到下一次 `drain()`。
+- `clear()` 丢弃尚未开始的任务，并保留后续继续投递和执行的能力。
 - `drain()` 返回执行数量，不聚合任务返回的错误。需要错误传播时，应把错误写入调用方自己的 request 状态。
 
 ## 与资源系统的关系

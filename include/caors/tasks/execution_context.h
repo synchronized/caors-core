@@ -34,6 +34,11 @@ public:
   /** @brief 非阻塞运行至多一个任务。 */
   [[nodiscard]] std::size_t poll_one();
 
+  /** @brief 返回已经投递但尚未开始执行的任务数量。 */
+  [[nodiscard]] std::size_t pending() const noexcept;
+  /** @brief 丢弃尚未开始执行的任务；调用时不得有成员函数正在运行。 */
+  void clear();
+
   /** @brief 停止运行并使当前 run 调用尽快返回。 */
   void stop() noexcept;
   /** @brief 允许停止后的 context 再次运行；调用时不得有成员函数正在运行。 */

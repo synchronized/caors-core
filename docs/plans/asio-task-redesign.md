@@ -341,9 +341,9 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 - [x] 实现 `thread_pool` 并保持默认 drain 析构；
 - [x] 定义并测试 `shutdown(drain/cancel)`；
-- [ ] 让 `completion_queue` 临时包装 `execution_context`；
+- [x] 让 `completion_queue` 临时包装 `execution_context`；
 - [x] 迁移 tests/examples 到统一 `post()` 接口；
-- [ ] 验证主线程每帧 `poll()` 和本轮新任务延后语义；
+- [x] 验证主线程每帧 `poll()` 和本轮新任务延后语义；
 - [x] 移除旧独立队列/worker 实现，避免两套调度状态长期并存。
 
 ### 阶段 3：task/request 适配

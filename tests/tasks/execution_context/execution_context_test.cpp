@@ -57,6 +57,25 @@ TEST_CASE("tasks - execution context supports stop and restart", "[tasks][asio]"
   CHECK(context.poll() == 1);
 }
 
+TEST_CASE("tasks - execution context reports and clears pending tasks", "[tasks][asio]") {
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor = context.get_executor();
+  int observed = 0;
+
+  CHECK_FALSE(executor.post(caors::tasks::task{[&] { ++observed; }}));
+  CHECK_FALSE(executor.post(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(context.pending() == 2);
+
+  context.clear();
+  CHECK(context.pending() == 0);
+  CHECK(context.poll() == 0);
+  CHECK(observed == 0);
+
+  CHECK_FALSE(executor.post(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(context.poll() == 1);
+  CHECK(observed == 1);
+}
+
 TEST_CASE("tasks - executor is a one pointer handle", "[tasks][asio]") {
   STATIC_CHECK(sizeof(caors::tasks::executor) == sizeof(void*));
 }

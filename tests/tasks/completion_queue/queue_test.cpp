@@ -35,6 +35,24 @@ TEST_CASE("tasks - completion queue rejects empty task", "[tasks]") {
   CHECK(queue.empty());
 }
 
+TEST_CASE("tasks - completion queue clears pending tasks and remains reusable", "[tasks]") {
+  caors::tasks::completion_queue queue;
+  int observed = 0;
+
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { ++observed; }}));
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(queue.size() == 2);
+
+  queue.clear();
+  CHECK(queue.empty());
+  CHECK(queue.drain() == 0);
+  CHECK(observed == 0);
+
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(queue.drain() == 1);
+  CHECK(observed == 1);
+}
+
 TEST_CASE("tasks - completion queue keeps reentrant push for next drain", "[tasks]") {
   caors::tasks::completion_queue queue;
   int value = 0;
@@ -74,4 +92,19 @@ TEST_CASE("tasks - completion queue is available from module namespace", "[tasks
   CHECK_FALSE(queue.push(caors::tasks::task{[&] { called = true; }}));
   CHECK(queue.drain() == 1);
   CHECK(called);
+}
+
+TEST_CASE("tasks - completion queue accepts a new batch after becoming empty", "[tasks]") {
+  caors::tasks::completion_queue queue;
+  int observed = 0;
+
+  CHECK(queue.drain() == 0);
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(queue.drain() == 1);
+  CHECK(observed == 1);
+
+  CHECK(queue.drain() == 0);
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { ++observed; }}));
+  CHECK(queue.drain() == 1);
+  CHECK(observed == 2);
 }

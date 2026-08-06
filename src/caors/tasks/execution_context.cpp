@@ -41,7 +41,6 @@ struct context_control final : detail::executor_control_block {
       return {};
 #if CAORS_HAS_EXCEPTIONS
     } catch (...) {
-      control->pending.fetch_sub(1, std::memory_order_relaxed);
       return {error_domain::core, errc::out_of_memory};
     }
 #endif
@@ -69,17 +68,27 @@ struct context_control final : detail::executor_control_block {
     scheduled_task& operator=(const scheduled_task&) = delete;
 
     scheduled_task(scheduled_task&& other) noexcept
-        : control(std::exchange(other.control, nullptr)), next(std::move(other.next)) {}
+        : control(std::exchange(other.control, nullptr)), next(std::move(other.next)),
+          started(std::exchange(other.started, true)) {}
 
-    ~scheduled_task() noexcept { detail::release_executor_control(control); }
+    ~scheduled_task() noexcept {
+      if (control != nullptr) {
+        if (!started) {
+          control->pending.fetch_sub(1, std::memory_order_relaxed);
+        }
+        detail::release_executor_control(control);
+      }
+    }
 
     void operator()() {
+      started = true;
       control->pending.fetch_sub(1, std::memory_order_relaxed);
       (void)next.run();
     }
 
     context_control* control = nullptr;
     task next;
+    bool started = false;
   };
 
   ~context_control() noexcept {
@@ -143,6 +152,23 @@ std::size_t execution_context::poll() {
 }
 
 std::size_t execution_context::poll_one() { return as_context(control_)->backend->poll_one(); }
+
+std::size_t execution_context::pending() const noexcept {
+  return as_context(control_)->pending.load(std::memory_order_relaxed);
+}
+
+void execution_context::clear() {
+  context_control* control = as_context(control_);
+  asio::io_context* replacement = caors::make<asio::io_context>(control->resource);
+  asio::io_context* previous = nullptr;
+  {
+    std::lock_guard lock{control->mutex};
+    previous = std::exchange(control->backend, replacement);
+  }
+
+  previous->stop();
+  caors::destroy(previous, control->resource);
+}
 
 void execution_context::stop() noexcept { as_context(control_)->backend->stop(); }
 
