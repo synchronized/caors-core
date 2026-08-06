@@ -154,12 +154,14 @@ target_link_libraries(caors_installed_consumer PRIVATE caors::caors)
 
 - [x] 增加最小外部 CMake 工程；
 - [x] 覆盖版本、基础 API、meta 和 JSON round trip；
+- [x] 分离覆盖核心 tasks 与显式 coroutine 适配，确认安装导出不暴露内部 Asio target；
 - [x] 确认工程不依赖源码树。
 
 独立工程位于 `tests/installed_package/consumer/`。普通测试树不会递归构建该目录；consumer 禁用
 CMake user/system package registry，并只链接安装包导出的 `caors::caors`。阶段 1 实施后已使用隔离
 Windows Clang Static Release 安装前缀完成一次人工 configure/build/run 冒烟，正式阶段 2 仍以统一
-验证脚本和可重定位复验为完成依据。
+验证脚本和可重定位复验为完成依据。后续 tasks 重构又增加了核心 tasks 与 coroutine 两个独立目标，
+Windows Clang Static/Shared Debug 的原前缀和迁移前缀均为 3/3 通过。
 
 ### 阶段 2：本地安装验证
 
