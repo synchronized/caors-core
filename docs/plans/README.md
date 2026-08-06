@@ -12,6 +12,8 @@
 
 - [asio-task-redesign.md](asio-task-redesign.md)：引入 standalone Asio，统一 execution context、
   轻量 executor、主线程 poll、线程池和可选 C++20 coroutine 适配。
+- [resource-coroutine-pipeline.md](resource-coroutine-pipeline.md)：让 resources 共享请求支持多 coroutine
+  等待，并分阶段收敛 assets 的执行目标与便利 API。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
@@ -62,6 +64,8 @@
 
 - [asio-task-redesign.md](asio-task-redesign.md)：standalone Asio 依赖、execution context、轻量 executor、
   completion queue/thread pool 收敛和可选 C++20 coroutine 适配计划。
+- [resource-coroutine-pipeline.md](resource-coroutine-pipeline.md)：资源请求等待协议、coroutine 适配、
+  assets 边界、生命周期和性能验证计划。
 
 ## Memory
 

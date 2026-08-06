@@ -206,7 +206,7 @@ template <typename T>
  * @brief 异步资源加载请求视图。
  *
  * `load_request<T>` 是可拷贝的轻量句柄，多个副本共享同一个线程安全状态。后台任务会把加载结果提交到
- * `tasks::completion_queue`，调用方在主线程 drain 后再通过 `status()`、`error()` 和 `try_get()`
+ * 指定 completion executor，调用方运行该执行环境后再通过 `status()`、`error()` 和 `try_get()`
  * 查询结果。
  */
 template <typename T> class load_request {
@@ -277,7 +277,7 @@ public:
    * @brief 请求取消。
    *
    * 只有 queued/loading 状态可以取消。取消不会强制中断已经开始执行的 loader，但会阻止后续
-   * completion queue commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
+   * completion executor commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
    */
   [[nodiscard]] bool cancel() const {
     if (state_ == nullptr) {
@@ -534,7 +534,7 @@ public:
   /**
    * @brief 请求取消。
    *
-   * 取消不会强制中断已经开始执行的 loader，但会阻止后续 completion queue commit 写入 cache。
+   * 取消不会强制中断已经开始执行的 loader，但会阻止后续 completion executor commit 写入 cache。
    */
   [[nodiscard]] bool cancel() const;
 

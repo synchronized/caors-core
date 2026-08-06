@@ -298,7 +298,8 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 第一版异步资源 API 只拆分两个阶段：
 
 - 后台阶段：通过 `tasks::executor` 调用 `loader<T>::load()`，读取 provider、解码数据并构造资源对象。
-- 主线程阶段：通过 `tasks::completion_queue` 把加载结果提交到 `cache<T>`，执行 insert 或 replace。
+- 提交阶段：通过调用方指定的 completion executor 把加载结果提交到 `cache<T>`，执行 insert 或
+  replace；通常由主线程 `execution_context` 提供该 executor。
 
 直接使用 cache 和 loader：
 
@@ -306,13 +307,15 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 caors::resource_cache<texture> cache;
 texture_loader loader{provider};
 caors::tasks::thread_pool pool{2};
-caors::tasks::executor executor = pool.get_executor();
-caors::tasks::completion_queue completions;
+caors::tasks::executor worker = pool.get_executor();
+caors::tasks::execution_context main_context;
+caors::tasks::executor completion = main_context.get_executor();
 
-auto request = caors::resources::request_load_into(cache, loader, texture_id, executor, completions);
+auto request =
+    caors::resources::request_load_into(cache, loader, texture_id, worker, completion);
 
 // 后台任务完成后，在主线程明确时机提交 cache 修改。
-completions.drain();
+main_context.poll();
 
 if (request.loaded()) {
   caors::resource_handle<texture> texture = request.try_get();
@@ -330,7 +333,7 @@ if (result.failed()) {
 caors::resource_database database;
 database.register_type(cache, loader);
 
-auto request = database.request_load<texture>(texture_id, executor, completions);
+auto request = database.request_load<texture>(texture_id, worker, completion);
 ```
 
 `database.request_load<T>()` 和 `database.request_reload<T>()` 会按资源类型和 GUID 复用进行中的请求：
@@ -353,10 +356,10 @@ database.register_type(texture_cache, texture_loader, texture_type);
 database.register_type(material_cache, material_loader, material_type);
 
 caors::resources::preload_request request =
-    database.request_preload(material_id, executor, completions);
+    database.request_preload(material_id, worker, completion);
 
 // 后台 loader 完成后，在主线程提交各个 cache 修改。
-completions.drain();
+main_context.poll();
 
 if (request.loaded()) {
   caors::resources::preload_result result = request.result();
@@ -372,7 +375,7 @@ if (request.loaded()) {
 - `loading`：后台任务正在加载，或加载完成后等待主线程 commit。
 - `loaded`：主线程 commit 成功，`try_get()` 返回结果 handle。
 - `failed`：请求失败，`error()` 返回失败原因。
-- `cancelled`：请求已取消。已经开始的后台 loader 不会被强制中断，但后续 completion queue commit 会跳过，
+- `cancelled`：请求已取消。已经开始的后台 loader 不会被强制中断，但后续 completion executor commit 会跳过，
   不再写入 cache。
 
 常用查询：
@@ -424,7 +427,7 @@ public:
 持有，调用方可通过 cache 或 database 查询。它额外提供：
 
 - `total_count()`：计划中本次需要异步加载的资源数量；已缓存资源不计入。
-- `loaded_count()`：已经在 completion queue drain 阶段成功提交到 cache 的资源数量。
+- `loaded_count()`：已经在 completion executor 阶段成功提交到 cache 的资源数量。
 - `failed_count()`：已经失败的资源数量。
 - `pending_count()`：还未结束的资源数量；请求进入 loaded、failed 或 cancelled 后返回 0。
 - `progress()`：非阻塞聚合进度。它按本次实际提交的资源项平均计算，未完成项会使用对应 loader 最近一次上报的内部进度。
@@ -465,9 +468,10 @@ public:
 - 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
-- `completion_queue::drain()` 应在拥有 cache 的线程调用。
-- `completion_queue::drain()` 不聚合完成回调自身的返回错误；异步资源请求会把 loader/commit 错误写入
-  request 状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
+- completion executor 应由拥有 cache 的线程运行；使用兼容包装时，对应操作是
+  `completion_queue::drain()`。
+- execution context 不聚合完成回调自身的返回错误；异步资源请求会把 loader/commit 错误写入 request
+  状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
 - `load_request<T>::try_get()` 和 `result()` 都不阻塞；需要跨帧推进时使用
   `poll_request()`、`drain_until_done()`、`poll_requests()` 或 `drain_until_all_done()`。
 - 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、真正阻塞等待和分层依赖等待后续再补。

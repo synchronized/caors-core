@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：方案讨论与实施前基线；
+- 当前状态：阶段 0 到阶段 5 已完成，等待阶段 6 全矩阵与性能验证；
 - 目标：引入固定版本的 standalone Asio，统一当前 `executor`、`completion_queue`、
   `thread_pool_executor` 的调度模型，并为 C++20 coroutine 提供可选适配；
 - 首批范围：依赖接入、execution context、轻量 executor、主线程 poll、线程池、现有 task/request
@@ -374,7 +374,8 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 更新独立 consumer，覆盖基础 API、核心 tasks 和显式 coroutine 适配；安装导出继续保持 Asio 私有；
 - [x] 删除过期 `thread_pool_executor` 别名与 `inline_executor` 包装类；保留 assets 仍依赖的
   `completion_queue` 兼容层；
-- [ ] 为后续 assets/resources coroutine 重构建立独立计划和基线。
+- [x] 为后续 assets/resources coroutine 重构建立独立计划和基线，见
+  `resource-coroutine-pipeline.md`。
 
 ### 阶段 6：性能与全矩阵验证
 
