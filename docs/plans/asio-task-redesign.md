@@ -369,8 +369,8 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 ### 阶段 5：调用方迁移和正式文档
 
-- [ ] 迁移 resources 当前 `executor + completion_queue` 调用点，但不在本阶段重设 assets API；
-- [ ] 更新 `docs/tasks.md` 和聚合头；
+- [x] 迁移 resources 当前 `executor + completion_queue` 调用点，但不在本阶段重设 assets API；
+- [x] 更新 `docs/tasks.md`；coroutine 适配保持显式包含，不加入聚合头；
 - [ ] 更新 CMake 安装导出与独立 consumer；
 - [ ] 删除过期 API 或完成弃用标记；
 - [ ] 为后续 assets/resources coroutine 重构建立独立计划和基线。

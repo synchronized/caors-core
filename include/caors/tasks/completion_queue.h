@@ -30,6 +30,9 @@ public:
   /** @brief 查询内部执行环境使用的长期内存资源。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return context_.resource(); }
 
+  /** @brief 获取兼容包装内部的轻量执行句柄。 */
+  [[nodiscard]] executor get_executor() const noexcept { return executor_; }
+
   /** @brief 提交一个完成回调。空任务返回 `errc::invalid_argument`。 */
   [[nodiscard]] error push(task next) { return executor_.post(std::move(next)); }
 

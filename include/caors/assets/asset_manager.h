@@ -402,7 +402,7 @@ public:
                                              tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
-    return database_.request_load<T>(guid, executor, completions);
+    return database_.request_load<T>(guid, executor, completions.get_executor());
   }
 
   /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
@@ -411,7 +411,7 @@ public:
                                                tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
-    return database_.request_reload<T>(guid, executor, completions);
+    return database_.request_reload<T>(guid, executor, completions.get_executor());
   }
 
   /** @brief 按同一资源类型异步预加载依赖闭包。 */
@@ -420,13 +420,13 @@ public:
                                                 tasks::completion_queue& completions) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
-    return database_.request_preload<T>(root, executor, completions);
+    return database_.request_preload<T>(root, executor, completions.get_executor());
   }
 
   /** @brief 按 manifest type 异步预加载跨类型依赖闭包。 */
   [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
                                                 tasks::completion_queue& completions) {
-    return database_.request_preload(root, executor, completions);
+    return database_.request_preload(root, executor, completions.get_executor());
   }
 
   /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */

@@ -1167,7 +1167,7 @@ namespace detail {
 
 template <typename T, typename StatePtr>
 void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
-                                 resource_guid guid, tasks::completion_queue& completions,
+                                 resource_guid guid, const tasks::executor& completion_executor,
                                  bool replace, load_request_table<T>* requests = nullptr,
                                  load_request<T> request = {}) {
   if (!load_request_access<T>::loading(state)) {
@@ -1212,7 +1212,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       return;
     }
 
-    error push_status = completions.push(tasks::task{
+    error push_status = completion_executor.post(tasks::task{
         target.resource(), [state, &target, guid, replace, requests, request,
                             loaded_resource = std::move(loaded.value)]() mutable {
           if (!load_request_access<T>::should_commit(state)) {
@@ -1263,7 +1263,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 template <typename T>
 [[nodiscard]] load_request<T>
 request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                       const tasks::executor& executor, tasks::completion_queue& completions,
+                       const tasks::executor& executor, const tasks::executor& completion_executor,
                        load_request_table<T>* requests, bool commit_unconditionally = true,
                        std::shared_ptr<preload_request_state> preload_state = {},
                        preload_item preload_observer_item = {}) {
@@ -1301,10 +1301,10 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
   }
 
   error submit_status = executor.post(
-      tasks::task{target.resource(),
-                  [state, request, &target, &source, guid, &completions, requests]() mutable {
-                    load_resource_in_background(state, target, source, guid, completions, false,
-                                                requests, request);
+      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
+                                      requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completion_executor,
+                                                false, requests, request);
                   }});
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
@@ -1318,10 +1318,11 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
 }
 
 template <typename T>
-[[nodiscard]] load_request<T>
-request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                         const tasks::executor& executor, tasks::completion_queue& completions,
-                         load_request_table<T>* requests) {
+[[nodiscard]] load_request<T> request_reload_into_impl(cache<T>& target, loader<T>& source,
+                                                       resource_guid guid,
+                                                       const tasks::executor& executor,
+                                                       const tasks::executor& completion_executor,
+                                                       load_request_table<T>* requests) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
@@ -1346,12 +1347,12 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
     requests->store(guid, request);
   }
 
-  error submit_status =
-      executor.post(tasks::task{target.resource(), [state, request, &target, &source, guid,
-                                                    &completions, requests]() mutable {
-                                  load_resource_in_background(state, target, source, guid,
-                                                              completions, true, requests, request);
-                                }});
+  error submit_status = executor.post(
+      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
+                                      requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completion_executor,
+                                                true, requests, request);
+                  }});
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
     if (requests != nullptr) {
@@ -1365,16 +1366,16 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
 } // namespace detail
 
 /**
- * @brief 异步加载资源并在 completion queue 中提交到 cache。
+ * @brief 异步加载资源并通过指定执行目标提交到 cache。
  *
  * 已缓存资源会立即返回 loaded 请求。未缓存资源会在 executor 中调用 loader，随后把 cache
- * 插入动作投递到 completion queue；调用方应在主线程 drain completion queue。
+ * 插入动作投递到 completion executor；调用方负责在拥有该执行环境的线程运行它。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
                                                 resource_guid guid, tasks::executor executor,
-                                                tasks::completion_queue& completions) {
-  return detail::request_load_into_impl<T>(target, source, guid, executor, completions,
+                                                tasks::executor completion_executor) {
+  return detail::request_load_into_impl<T>(target, source, guid, executor, completion_executor,
                                            static_cast<load_request_table<T>*>(nullptr));
 }
 
@@ -1384,20 +1385,21 @@ template <typename T>
 template <typename T>
 [[nodiscard]] load_request<T>
 request_load_into(cache<T>& target, loader<T>& source, resource_guid guid, tasks::executor executor,
-                  tasks::completion_queue& completions, load_request_table<T>& requests) {
-  return detail::request_load_into_impl(target, source, guid, executor, completions, &requests);
+                  tasks::executor completion_executor, load_request_table<T>& requests) {
+  return detail::request_load_into_impl(target, source, guid, executor, completion_executor,
+                                        &requests);
 }
 
 /**
- * @brief 异步重载资源并在 completion queue 中替换 cache 绑定。
+ * @brief 异步重载资源并通过指定执行目标替换 cache 绑定。
  *
  * cache 未包含该 GUID 时立即失败。加载或 commit 失败时旧资源保持不变。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
                                                   resource_guid guid, tasks::executor executor,
-                                                  tasks::completion_queue& completions) {
-  return detail::request_reload_into_impl<T>(target, source, guid, executor, completions,
+                                                  tasks::executor completion_executor) {
+  return detail::request_reload_into_impl<T>(target, source, guid, executor, completion_executor,
                                              static_cast<load_request_table<T>*>(nullptr));
 }
 
@@ -1407,9 +1409,10 @@ template <typename T>
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
                                                   resource_guid guid, tasks::executor executor,
-                                                  tasks::completion_queue& completions,
+                                                  tasks::executor completion_executor,
                                                   load_request_table<T>& requests) {
-  return detail::request_reload_into_impl(target, source, guid, executor, completions, &requests);
+  return detail::request_reload_into_impl(target, source, guid, executor, completion_executor,
+                                          &requests);
 }
 
 } // namespace caors::resources

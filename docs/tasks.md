@@ -293,7 +293,12 @@ caors::error status = co_await caors::tasks::async_wait(request);
 资源系统当前加载、重载和保存仍是同步 API。`tasks` 模块只是为后续异步资源流程提供底层拼装件：
 
 - 后台阶段：通过 executor 读取 provider、调用 loader、构造资源对象。
-- 主线程阶段：通过 completion queue 把成功结果插入 cache、替换资源、更新 generation，并发送 reload 通知。
+- 主线程阶段：通过轻量 completion executor 把成功结果插入 cache、替换资源、更新 generation，并发送
+  reload 通知；该 executor 通常来自主线程 `execution_context`。
 - 请求状态：资源层使用 `resources::load_request<T>` 保存 queued/loading/loaded/failed/cancelled、错误和结果 handle。
+
+resources 异步入口接收后台 executor 与 completion executor，不再依赖具体的 `completion_queue` 类型。
+`completion_queue` 仍作为旧 assets API 和帧循环轮询辅助的兼容包装，可通过 `get_executor()` 取得内部
+轻量句柄。
 
 第一阶段不会让资源 cache、manifest、provider 或对象系统在后台线程被隐式修改。
