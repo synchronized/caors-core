@@ -10,6 +10,8 @@
 
 ### 进行中
 
+- [asio-task-redesign.md](asio-task-redesign.md)：引入 standalone Asio，统一 execution context、
+  轻量 executor、主线程 poll、线程池和可选 C++20 coroutine 适配。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
@@ -55,6 +57,11 @@
   Debug/Release、ASan、POSIX 插件卸载与 GitHub Actions 验证计划。
 - [installed-package-consumer-validation.md](installed-package-consumer-validation.md)：安装包导出、
   独立 `find_package` consumer、Static/Shared 运行与可重定位验证计划。
+
+## Tasks
+
+- [asio-task-redesign.md](asio-task-redesign.md)：standalone Asio 依赖、execution context、轻量 executor、
+  completion queue/thread pool 收敛和可选 C++20 coroutine 适配计划。
 
 ## Memory
 
