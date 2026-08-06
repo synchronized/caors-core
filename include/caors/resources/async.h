@@ -143,6 +143,19 @@ namespace detail {
 template <typename T> class load_request_access;
 class preload_request_access;
 
+struct request_waiter {
+  std::shared_ptr<void> state;
+  void (*notify)(const std::shared_ptr<void>&) noexcept = nullptr;
+};
+
+inline void notify_request_waiters(core::vector<request_waiter>& waiters) noexcept {
+  for (request_waiter& waiter : waiters) {
+    if (waiter.notify != nullptr) {
+      waiter.notify(waiter.state);
+    }
+  }
+}
+
 [[nodiscard]] inline double clamp_progress(double value) noexcept {
   if (!(value >= 0.0)) {
     return 0.0;
@@ -156,7 +169,8 @@ class preload_request_access;
 struct preload_request_state {
   explicit preload_request_state(memory_resource* memory)
       : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource),
-        item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}) {}
+        item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}),
+        waiters(allocator<request_waiter>{resource}) {}
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
@@ -168,6 +182,7 @@ struct preload_request_state {
   std::size_t failed = 0;
   core::vector<double> item_progress;
   core::string progress_stage;
+  core::vector<request_waiter> waiters;
 };
 
 template <typename T>
@@ -369,7 +384,8 @@ private:
 
     explicit state_type(memory_resource* resource)
         : resource(resource), progress_stage(allocator<char>{resource}),
-          preload_observers(allocator<preload_observer>{resource}) {}
+          preload_observers(allocator<preload_observer>{resource}),
+          waiters(allocator<detail::request_waiter>{resource}) {}
 
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
@@ -380,6 +396,7 @@ private:
     core::string progress_stage;
     bool commit_unconditionally = false;
     core::vector<preload_observer> preload_observers;
+    core::vector<detail::request_waiter> waiters;
   };
 
   explicit load_request(std::shared_ptr<state_type> state) noexcept : state_(std::move(state)) {}
@@ -712,16 +729,22 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return false;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return false;
+      }
+
+      state->status = request_status::loaded;
+      state->status_error = {};
+      state->value = std::move(value);
+      state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::loaded;
-    state->status_error = {};
-    state->value = std::move(value);
-    state->progress = 1.0;
+    notify_request_waiters(waiters);
     return true;
   }
 
@@ -734,17 +757,23 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->value = {};
+      state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->value = {};
-    state->progress = 1.0;
+    notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -754,6 +783,7 @@ public:
       return false;
     }
 
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
     {
       std::lock_guard lock{state->mutex};
       if (state->status != request_status::queued && state->status != request_status::loading) {
@@ -764,9 +794,26 @@ public:
       state->status_error = {error_domain::resources, errc::cancelled};
       state->value = {};
       state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
+    notify_request_waiters(waiters);
     notify_preload_observers(state);
+    return true;
+  }
+
+  [[nodiscard]] static bool add_waiter(const std::shared_ptr<state_type>& state,
+                                       request_waiter waiter) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::loaded || state->status == request_status::failed ||
+        state->status == request_status::cancelled) {
+      return false;
+    }
+    state->waiters.push_back(std::move(waiter));
     return true;
   }
 
@@ -859,22 +906,28 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->result.loaded.push_back(item);
+      ++state->loaded;
+      if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+        state->item_progress[index] = 1.0;
+      }
+      if (state->loaded + state->failed >= state->total) {
+        state->status = request_status::loaded;
+        state->status_error = {};
+        state->result.status = {};
+        waiters.swap(state->waiters);
+      }
     }
 
-    state->result.loaded.push_back(item);
-    ++state->loaded;
-    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
-      state->item_progress[index] = 1.0;
-    }
-    if (state->loaded + state->failed >= state->total) {
-      state->status = request_status::loaded;
-      state->status_error = {};
-      state->result.status = {};
-    }
+    notify_request_waiters(waiters);
   }
 
   static void fail(const request_type& request, caors::error status) {
@@ -886,16 +939,22 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   static void fail_all_items(const std::shared_ptr<state_type>& state, caors::error status) {
@@ -903,24 +962,30 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      const caors::error failure =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      for (const preload_item& item : state->result.plan.load_order) {
+        append_preload_failure(state->result, item, failure);
+      }
+      state->failed = state->result.plan.load_order.size();
+      for (double& item_progress : state->item_progress) {
+        item_progress = 1.0;
+      }
+      state->status = request_status::failed;
+      state->status_error = failure;
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    const caors::error failure =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    for (const preload_item& item : state->result.plan.load_order) {
-      append_preload_failure(state->result, item, failure);
-    }
-    state->failed = state->result.plan.load_order.size();
-    for (double& item_progress : state->item_progress) {
-      item_progress = 1.0;
-    }
-    state->status = request_status::failed;
-    state->status_error = failure;
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   static void fail_item(const std::shared_ptr<state_type>& state, preload_item item,
@@ -929,23 +994,29 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      ++state->failed;
+      append_preload_failure(state->result, item,
+                             status ? status
+                                    : caors::error{error_domain::resources, errc::backend_failure});
+      if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+        state->item_progress[index] = 1.0;
+      }
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    ++state->failed;
-    append_preload_failure(state->result, item,
-                           status ? status
-                                  : caors::error{error_domain::resources, errc::backend_failure});
-    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
-      state->item_progress[index] = 1.0;
-    }
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -955,14 +1026,35 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status != request_status::queued && state->status != request_status::loading) {
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status != request_status::queued && state->status != request_status::loading) {
+        return false;
+      }
+
+      state->status = request_status::cancelled;
+      state->status_error = {error_domain::resources, errc::cancelled};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
+    }
+
+    notify_request_waiters(waiters);
+    return true;
+  }
+
+  [[nodiscard]] static bool add_waiter(const std::shared_ptr<state_type>& state,
+                                       request_waiter waiter) {
+    if (state == nullptr) {
       return false;
     }
 
-    state->status = request_status::cancelled;
-    state->status_error = {error_domain::resources, errc::cancelled};
-    state->result.status = state->status_error;
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::loaded || state->status == request_status::failed ||
+        state->status == request_status::cancelled) {
+      return false;
+    }
+    state->waiters.push_back(std::move(waiter));
     return true;
   }
 

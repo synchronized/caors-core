@@ -150,10 +150,10 @@ owner/lease 边界。
 
 ### 阶段 1：共享等待协议
 
-- [ ] 为 `load_request<T>` 增加多个 waiter 注册和锁外通知；
-- [ ] 为 `preload_request` 增加多个 waiter 注册和锁外通知；
-- [ ] 覆盖完成、失败、取消、终态注册和注册/完成竞争；
-- [ ] 验证 request 表复用时只完成一次但通知全部等待者。
+- [x] 为 `load_request<T>` 增加多个 waiter 注册和锁外通知；
+- [x] 为 `preload_request` 增加多个 waiter 注册和锁外通知；
+- [x] 覆盖完成、失败、取消、终态注册和注册/完成竞争；
+- [x] 验证 request 表复用时只完成一次但通知全部等待者。
 
 ### 阶段 2：Coroutine 适配
 

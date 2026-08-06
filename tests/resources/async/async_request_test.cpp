@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <functional>
 #include <thread>
 
 using namespace caors::tests::resources;
@@ -151,6 +152,20 @@ public:
   caors::tasks::executor executor;
 };
 
+struct waiter_probe {
+  std::function<void()> action;
+};
+
+void notify_waiter_probe(const std::shared_ptr<void>& erased) noexcept {
+  const auto probe = std::static_pointer_cast<waiter_probe>(erased);
+  probe->action();
+}
+
+[[nodiscard]] caors::resources::detail::request_waiter
+make_waiter_probe(std::function<void()> action) {
+  return {std::make_shared<waiter_probe>(waiter_probe{std::move(action)}), &notify_waiter_probe};
+}
+
 [[nodiscard]] bool meta_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
 }
@@ -204,6 +219,124 @@ TEST_CASE("resources - request states use caller long lived resource", "[resourc
     CHECK(tracking.statistics().bytes_in_use > 0);
   }
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("resources - load request notifies every waiter outside state lock", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.next_value = 17;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
+  caors::tasks::completion_queue completions;
+  caors::resources::load_request<async_resource> request = caors::resources::request_load_into(
+      cache, loader, test_guid_a, executor, completions.get_executor());
+  auto state = caors::resources::detail::load_request_access<async_resource>::state(request);
+  int notified = 0;
+
+  REQUIRE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+      state, make_waiter_probe([&] {
+        ++notified;
+        CHECK(request.loaded());
+        CHECK(request.result().succeeded());
+      })));
+  REQUIRE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+      state, make_waiter_probe([&] { ++notified; })));
+
+  CHECK(completions.drain() == 1);
+  CHECK(notified == 2);
+  CHECK_FALSE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+      state, make_waiter_probe([] {})));
+}
+
+TEST_CASE("resources - load request notifies waiters on failure and cancellation", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.fail_next = true;
+  holding_executor held;
+  caors::tasks::completion_queue completions;
+  caors::resources::load_request<async_resource> failed = caors::resources::request_load_into(
+      cache, loader, test_guid_a, held, completions.get_executor());
+  int failed_notifications = 0;
+  REQUIRE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+      caors::resources::detail::load_request_access<async_resource>::state(failed),
+      make_waiter_probe([&] { ++failed_notifications; })));
+
+  CHECK_FALSE(held.run_once());
+  CHECK(failed.failed());
+  CHECK(failed_notifications == 1);
+
+  holding_executor cancelled_executor;
+  caors::resources::load_request<async_resource> cancelled = caors::resources::request_load_into(
+      cache, loader, test_guid_b, cancelled_executor, completions.get_executor());
+  int cancelled_notifications = 0;
+  REQUIRE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+      caors::resources::detail::load_request_access<async_resource>::state(cancelled),
+      make_waiter_probe([&] { ++cancelled_notifications; })));
+
+  REQUIRE(cancelled.cancel());
+  CHECK(cancelled_notifications == 1);
+  CHECK_FALSE(cancelled_executor.run_once());
+}
+
+TEST_CASE("resources - preload request notifies waiters for every terminal path", "[resources]") {
+  const caors::resources::preload_item item{test_guid_a, texture_manifest_type()};
+
+  auto make_request = [&] {
+    caors::resources::preload_plan plan;
+    plan.load_order.push_back(item);
+    return caors::resources::preload_request::from_plan(std::move(plan));
+  };
+
+  caors::resources::preload_request completed = make_request();
+  auto completed_state = caors::resources::detail::preload_request_access::state(completed);
+  int completed_notifications = 0;
+  REQUIRE(caors::resources::detail::preload_request_access::add_waiter(
+      completed_state, make_waiter_probe([&] {
+        ++completed_notifications;
+        CHECK(completed.loaded());
+        CHECK(completed.result().succeeded());
+      })));
+  caors::resources::detail::preload_request_access::complete_item(completed_state, item);
+  CHECK(completed_notifications == 1);
+
+  caors::resources::preload_request failed = make_request();
+  auto failed_state = caors::resources::detail::preload_request_access::state(failed);
+  int failed_notifications = 0;
+  REQUIRE(caors::resources::detail::preload_request_access::add_waiter(
+      failed_state, make_waiter_probe([&] { ++failed_notifications; })));
+  caors::resources::detail::preload_request_access::fail_item(
+      failed_state, item, {caors::error_domain::resources, caors::errc::not_found});
+  CHECK(failed_notifications == 1);
+
+  caors::resources::preload_request cancelled = make_request();
+  auto cancelled_state = caors::resources::detail::preload_request_access::state(cancelled);
+  int cancelled_notifications = 0;
+  REQUIRE(caors::resources::detail::preload_request_access::add_waiter(
+      cancelled_state, make_waiter_probe([&] { ++cancelled_notifications; })));
+  REQUIRE(cancelled.cancel());
+  CHECK(cancelled_notifications == 1);
+}
+
+TEST_CASE("resources - waiter registration racing terminal transition does not lose notification",
+          "[resources]") {
+  for (int iteration = 0; iteration < 128; ++iteration) {
+    caors::resources::load_request<async_resource> request =
+        caors::resources::detail::load_request_access<async_resource>::make();
+    auto state = caors::resources::detail::load_request_access<async_resource>::state(request);
+    std::atomic<int> notifications{0};
+    std::atomic<bool> registered{false};
+
+    std::thread register_thread{[&] {
+      registered.store(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+                           state, make_waiter_probe([&] { notifications.fetch_add(1); })),
+                       std::memory_order_release);
+    }};
+    std::thread cancel_thread{[&] { (void)request.cancel(); }};
+    register_thread.join();
+    cancel_thread.join();
+
+    CHECK(request.cancelled());
+    CHECK(notifications.load() == (registered.load(std::memory_order_acquire) ? 1 : 0));
+  }
 }
 
 TEST_CASE("resources - async load commits through completion executor", "[resources]") {
