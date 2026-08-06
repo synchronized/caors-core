@@ -304,9 +304,11 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
   `ASIO_NO_DEPRECATED` 和 C++20；
 - [ ] 验证 MSVC/Clang/GCC、Static/Shared、异常开关和 C++20 coroutine 检测；
 - [x] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
-- [ ] 原型比较 executor control block 的安全性、大小、分配和提交成本；
-- [ ] 明确 `poll()` 的快照批次语义和 Asio 原生行为差异；
-- [ ] 决定兼容迁移周期。
+- [x] executor 使用一个指针大小的侵入式引用计数 control block；句柄可复制，context
+  销毁后句柄仍可安全判定失效，不采用公共虚基类或 `std::shared_ptr` 布局；
+- [x] `execution_context::poll()` 保留调用开始时的快照批次语义；Asio 原生 `poll()`
+  可能继续执行 handler 内重入投递的工作，因此实现不能直接无界转发；
+- [x] 项目仍处 beta，本分支直接迁移到轻量 executor；不长期维护两套调度实现。
 
 当前验证记录：
 
@@ -315,6 +317,12 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
 - Windows Clang Shared Debug：基础调度探针通过；
 - Windows Clang Shared Debug 安装包：原始前缀与迁移前缀 consumer 均通过，安装导出不依赖 Asio；
 - GCC、无异常模式和 coroutine 检测仍待后续环境与适配设计完成后验证。
+
+control block 由 context 指定的长期 `memory_resource` 分配，内部保存引用计数、提交状态和私有 Asio
+backend。`execution_context` 销毁时先关闭提交并销毁 backend；外部仍存活的 executor 只保留 control
+block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler 在完成或被销毁前持有内部引用，
+避免任务与 control block 的生命周期竞争。context 析构不与其自身的 `run/poll` 成员调用并发，这是
+对象生命周期层面的前置条件，而不是 executor 句柄的限制。
 
 ### 阶段 1：execution context 与 executor
 
