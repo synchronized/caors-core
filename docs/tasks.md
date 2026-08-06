@@ -251,7 +251,27 @@ if (status) {
   后，排队 handler 不会再次恢复该 frame。
 - 当前调度共享状态使用系统长期分配，不使用 TLS scratch；CAORS `memory_resource` 和 Asio associated
   allocator 的接入属于后续工作。
-- 顶层 coroutine 必须由调用方持有并负责销毁；安全的 `spawn` 边界将在下一批实现。
+
+需要让运行时管理 coroutine frame 时，使用 error-only `async_operation` 和 `spawn()`：
+
+```cpp
+caors::tasks::async_operation load(caors::tasks::executor worker) {
+  if (caors::error status = co_await caors::tasks::schedule(worker)) {
+    co_return status;
+  }
+  co_return caors::error{};
+}
+
+caors::tasks::request request = caors::tasks::spawn(main_executor, load(worker_executor));
+```
+
+- `spawn()` 返回现有共享 `request`，并维护 queued、running、completed、failed 和 cancelled 状态。
+- 提交失败或 executor 在执行前销毁时，frame 会被释放并保存对应错误。
+- 允许异常的构建会把未处理异常转换为 `core / backend_failure`。
+- 取消 queued 请求会在启动点销毁 frame；取消 running 请求仍是协作式取消，不会强制销毁正在运行或
+  挂起的 coroutine。
+- coroutine frame 在调用 `spawn()` 前已经分配，当前由编译器默认分配器管理；自定义长期资源将在
+  allocator 适配批次处理。
 
 ## 与资源系统的关系
 

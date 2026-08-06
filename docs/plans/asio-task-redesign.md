@@ -358,7 +358,7 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 - [x] 增加可选 `caors/tasks/asio.h`；
 - [x] 实现并测试 `schedule(executor)` awaiter；
-- [ ] 提供顶层 spawn/helper，把异常和 Asio error 转为 CAORS 错误；
+- [x] 提供顶层 `spawn()` 和 error-only `async_operation`，把逃逸异常转换为 CAORS 错误；
 - [ ] 为 request 增加非阻塞 coroutine wait；
 - [ ] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；
 - [ ] 明确无异常构建的支持级别；
