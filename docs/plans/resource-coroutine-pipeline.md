@@ -172,8 +172,8 @@ owner/lease 边界。
 
 ### 阶段 4：文档、安装与性能验证
 
-- [ ] 更新 resources/assets/tasks 正式文档；
-- [ ] 增加独立安装包 resources coroutine consumer；
+- [x] 更新 resources/assets/tasks 正式文档；
+- [x] 增加独立安装包 resources coroutine consumer；
 - [ ] Windows Clang/MSVC Static/Shared Debug/Release；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
 - [ ] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟；

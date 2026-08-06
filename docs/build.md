@@ -256,7 +256,8 @@ cmake \
 
 脚本会重新创建四个显式输出目录，执行 install、两轮独立 consumer configure/build/run，并检查
 迁移后的配置不引用旧前缀。为避免误删，所有输出目录必须是当前仓库 `build/` 下彼此不嵌套的具体
-子目录。
+子目录。consumer 当前覆盖基础库、tasks executor、tasks coroutine，以及通过公开 database 和双
+executor 实际加载资源的 resources coroutine API。
 
 常见问题：
 

@@ -197,6 +197,17 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
 
+异步入口不拥有传入的 executor，也不延长内部 database、cache、loader、provider 或 source 的生命周期。
+调用方应让完成 executor 运行在拥有 cache 的线程，并在销毁 `asset_manager` 前停止提交且 drain 或取消
+在途工作。需要 coroutine 等待时显式包含 `caors/resources/coroutine.h`：
+
+```cpp
+auto request = assets.request_load<texture>(texture_id, worker, main_executor);
+auto result = co_await caors::resources::async_wait(request);
+```
+
+Assets 不额外提供重复的 `async_load()` 包装；启动请求与等待保持两个可独立组合的步骤。
+
 需要把 `asset_manager` 挂到 `serialization::context` 解析 `resource_ref<T>` 时，使用 adapter 自由函数：
 
 ```cpp

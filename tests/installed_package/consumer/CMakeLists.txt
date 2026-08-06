@@ -31,10 +31,18 @@ add_executable(caors_installed_coroutine_consumer coroutine.cpp)
 target_compile_features(caors_installed_coroutine_consumer PRIVATE cxx_std_20)
 target_link_libraries(caors_installed_coroutine_consumer PRIVATE caors::caors)
 
+add_executable(caors_installed_resources_coroutine_consumer resources_coroutine.cpp)
+target_compile_features(caors_installed_resources_coroutine_consumer PRIVATE cxx_std_20)
+target_link_libraries(caors_installed_resources_coroutine_consumer PRIVATE caors::caors)
+
 enable_testing()
 add_test(NAME caors.installed_consumer COMMAND caors_installed_consumer)
 add_test(NAME caors.installed_tasks_consumer COMMAND caors_installed_tasks_consumer)
 add_test(NAME caors.installed_coroutine_consumer COMMAND caors_installed_coroutine_consumer)
+add_test(
+  NAME caors.installed_resources_coroutine_consumer
+  COMMAND caors_installed_resources_coroutine_consumer
+)
 
 if(CAORS_INSTALLED_SHARED)
   if(NOT CAORS_INSTALLED_RUNTIME_DIR)
@@ -55,6 +63,7 @@ if(CAORS_INSTALLED_SHARED)
       caors.installed_consumer
       caors.installed_tasks_consumer
       caors.installed_coroutine_consumer
+      caors.installed_resources_coroutine_consumer
   )
     set_property(
       TEST ${CONSUMER_TEST}

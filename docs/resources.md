@@ -388,6 +388,35 @@ if (request.loaded()) {
 - `progress()`：非阻塞；queued/loading 返回最近一次 loader 上报的 0.0 到 1.0 进度，终态返回 1.0。
 - `progress_stage()`：返回最近一次 loader 上报的阶段文本副本。
 
+### Coroutine 等待
+
+显式包含可选头后，资源请求可以被多个 coroutine 非阻塞等待：
+
+```cpp
+#include <caors/resources/coroutine.h>
+
+auto request = database.request_load<texture>(texture_id, worker, completion);
+caors::resources::handle_result<texture> result =
+    co_await caors::resources::async_wait(request);
+
+caors::resources::preload_result preload_result =
+    co_await caors::resources::async_wait(preload_request);
+```
+
+- `caors/resources.h` 不隐式包含 coroutine 适配；不使用 coroutine 的调用方无需包含 `<coroutine>`。
+- `load_request<T>` 返回 `handle_result<T>`，`preload_request` 返回 `preload_result`；失败和取消继续通过
+  `caors::error` 表达。
+- 已经进入 loaded、failed 或 cancelled 的请求不会挂起。
+- 同一个共享请求可以注册多个等待者；请求进入终态后，在释放请求状态锁后恢复全部仍存活的等待者。
+- 默认由使请求进入终态的线程恢复。正常 commit 通常在 completion executor 线程恢复；后台加载失败
+  可能在 worker 线程恢复。需要固定后续线程时，再显式 `co_await tasks::schedule(target)`。
+- 销毁等待 coroutine 只放弃该等待，不会取消共享资源请求；显式调用 request 的 `cancel()` 仍影响
+  观察同一共享状态的全部句柄。
+- 每次等待的辅助状态使用 request 的长期 `memory_resource`；coroutine frame 仍由调用方所用 coroutine
+  类型及编译器负责分配。
+- request 只延长共享请求状态，不拥有 database、cache、loader、provider 或 source。销毁这些服务前，
+  调用方必须停止提交并 drain 或取消在途工作。
+
 可以使用 request poll/drain helper 在主循环或测试中收敛 completion queue：
 
 - `poll_request(completions, request)`：执行一轮当前已经入队的完成回调，并返回请求是否完成。
@@ -468,13 +497,13 @@ public:
 - 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
-- completion executor 应由拥有 cache 的线程运行；使用兼容包装时，对应操作是
+- completion executor 应由拥有 cache 的线程运行；使用手动 pump 队列时，对应操作是
   `completion_queue::drain()`。
 - execution context 不聚合完成回调自身的返回错误；异步资源请求会把 loader/commit 错误写入 request
   状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
 - `load_request<T>::try_get()` 和 `result()` 都不阻塞；需要跨帧推进时使用
   `poll_request()`、`drain_until_done()`、`poll_requests()` 或 `drain_until_all_done()`。
-- 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、真正阻塞等待和分层依赖等待后续再补。
+- 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、阻塞等待和分层依赖等待后续再补。
 
 ## 序列化
 
