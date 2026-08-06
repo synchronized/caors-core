@@ -326,12 +326,16 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 ### 阶段 1：execution context 与 executor
 
-- [ ] 实现 `execution_context` 私有 Asio backend；
-- [ ] 实现可复制、安全失效的轻量 `executor`；
-- [ ] 实现 `post()`、`run/run_one`、`poll/poll_one`、`stop/restart`；
+- [x] 实现 `execution_context` 私有 Asio backend；
+- [x] 实现一个指针大小、可复制且可安全失效的轻量 `executor`；
+- [x] 实现 `post()`、`run/run_one`、快照 `poll/poll_one`、`stop/restart`；
 - [ ] 实现明确的 `inline_executor()`；
-- [ ] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
-- [ ] 增加内存资源与无泄漏测试。
+- [x] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
+- [x] 增加 control block 长期内存资源与无泄漏测试；Asio operation allocator 仍属于后续工作。
+
+迁移期间，原 `inline_executor` 与 `thread_pool_executor` 类暂时保留 `submit()` 转发和到轻量
+executor 的访问入口，生产实现已不再依赖 executor 虚基类。完成 request/resources 与线程池迁移后删除
+这些兼容入口，并把 inline 入口收敛为最终的 `inline_executor()` 工厂函数。
 
 ### 阶段 2：线程池与 completion queue 迁移
 

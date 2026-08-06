@@ -11,26 +11,21 @@
 
 namespace {
 
-class holding_executor final : public caors::tasks::executor {
+class holding_executor final {
 public:
-  [[nodiscard]] caors::error submit(caors::tasks::task next) override {
-    if (!next) {
+  holding_executor() : executor(context.get_executor()) {}
+
+  operator caors::tasks::executor&() noexcept { return executor; }
+
+  [[nodiscard]] caors::error run_once() {
+    if (context.poll_one() == 0) {
       return {caors::error_domain::core, caors::errc::invalid_argument};
     }
-
-    queued = std::move(next);
     return {};
   }
 
-  [[nodiscard]] caors::error run_once() {
-    if (!queued) {
-      return {caors::error_domain::core, caors::errc::invalid_argument};
-    }
-
-    return queued.run();
-  }
-
-  caors::tasks::task queued{};
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor;
 };
 
 } // namespace

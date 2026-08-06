@@ -128,27 +128,21 @@ public:
   return caors::string_name{"caors.test.resources.async_material"};
 }
 
-class holding_executor final : public caors::tasks::executor {
+class holding_executor final {
 public:
-  [[nodiscard]] caors::error submit(caors::tasks::task next) override {
-    if (!next) {
+  holding_executor() : executor(context.get_executor()) {}
+
+  operator caors::tasks::executor&() noexcept { return executor; }
+
+  [[nodiscard]] caors::error run_once() {
+    if (context.poll_one() == 0) {
       return {caors::error_domain::core, caors::errc::invalid_argument};
     }
-
-    queued = std::move(next);
     return {};
   }
 
-  [[nodiscard]] caors::error run_once() {
-    caors::tasks::task current = std::move(queued);
-    if (!current) {
-      return {caors::error_domain::core, caors::errc::invalid_argument};
-    }
-
-    return current.run();
-  }
-
-  caors::tasks::task queued{};
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor;
 };
 
 [[nodiscard]] bool meta_result_ok(caors::error result) noexcept {
@@ -534,24 +528,23 @@ TEST_CASE("resources - database async load keeps newer request after cancelled t
   async_loader loader;
   caors::resource_database database;
   REQUIRE(database.register_type(cache, loader).succeeded());
-  holding_executor executor;
+  holding_executor cancelled_executor;
+  holding_executor current_executor;
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> first =
-      database.request_load<async_resource>(test_guid_a, executor, completions);
+      database.request_load<async_resource>(test_guid_a, cancelled_executor, completions);
   REQUIRE(first.cancel());
 
-  caors::tasks::task cancelled_task = std::move(executor.queued);
-
   caors::resources::load_request<async_resource> second =
-      database.request_load<async_resource>(test_guid_a, executor, completions);
+      database.request_load<async_resource>(test_guid_a, current_executor, completions);
   CHECK(second.status() == caors::resources::request_status::queued);
 
-  CHECK_FALSE(cancelled_task.run());
+  CHECK_FALSE(cancelled_executor.run_once());
   CHECK(loader.load_count.load() == 0);
 
   caors::resources::load_request<async_resource> third =
-      database.request_load<async_resource>(test_guid_a, executor, completions);
+      database.request_load<async_resource>(test_guid_a, current_executor, completions);
 
   REQUIRE(second.cancel());
   CHECK(third.cancelled());

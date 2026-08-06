@@ -23,10 +23,10 @@ TEST_CASE("tasks - inline executor reports empty task", "[tasks]") {
 
 TEST_CASE("tasks - executor interfaces are available from module namespace", "[tasks]") {
   caors::tasks::inline_executor executor;
-  caors::tasks::executor* base = &executor;
+  caors::tasks::executor base = executor.get_executor();
   bool called = false;
 
-  CHECK_FALSE(base->submit(caors::tasks::task{[&] { called = true; }}));
+  CHECK_FALSE(base.post(caors::tasks::task{[&] { called = true; }}));
 
   CHECK(called);
 }

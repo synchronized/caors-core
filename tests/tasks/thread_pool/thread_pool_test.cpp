@@ -79,9 +79,9 @@ TEST_CASE("tasks - thread pool executor is available from module namespace", "[t
 
   {
     caors::tasks::thread_pool_executor executor{1};
-    caors::tasks::executor* base = &executor;
+    caors::tasks::executor base = executor.get_executor();
 
-    CHECK_FALSE(base->submit(caors::tasks::task{[&] { value.store(3); }}));
+    CHECK_FALSE(base.post(caors::tasks::task{[&] { value.store(3); }}));
     executor.shutdown();
   }
 

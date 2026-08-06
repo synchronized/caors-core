@@ -9,13 +9,22 @@
 namespace caors::tasks {
 
 /**
- * @brief 在调用线程立即执行任务的 executor。
+ * @brief 在调用线程立即执行任务的迁移期包装器。
  *
- * `inline_executor` 主要用于测试、确定性执行和暂未接入后台线程时的同步 fallback。
+ * 新代码可通过 `get_executor()` 取得统一轻量句柄。
  */
-class inline_executor final : public executor {
+class CAORS_API inline_executor final {
 public:
-  [[nodiscard]] error submit(task next) override { return next.run(); }
+  inline_executor() noexcept;
+
+  [[nodiscard]] executor get_executor() const noexcept { return executor_; }
+  [[nodiscard]] error submit(task next) { return executor_.post(std::move(next)); }
+
+  operator executor&() noexcept { return executor_; }
+  operator const executor&() const noexcept { return executor_; }
+
+private:
+  executor executor_;
 };
 
 } // namespace caors::tasks
