@@ -18,6 +18,7 @@ struct executor_control_block;
 
 class execution_context;
 class executor;
+/** @brief 返回在调用线程立即执行任务的轻量 executor。 */
 [[nodiscard]] CAORS_API executor inline_executor() noexcept;
 class thread_pool;
 
@@ -56,7 +57,7 @@ private:
 
   friend class execution_context;
   friend class thread_pool;
-  friend executor inline_executor() noexcept;
+  friend CAORS_API executor inline_executor() noexcept;
 };
 
 inline void swap(executor& lhs, executor& rhs) noexcept { lhs.swap(rhs); }
