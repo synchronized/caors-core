@@ -68,10 +68,11 @@ TEST_CASE("tasks - request reports invalid and rejected submissions", "[tasks]")
   CHECK(invalid.failed());
   CHECK(invalid.error() == caors::error{caors::error_domain::core, caors::errc::invalid_argument});
 
-  caors::tasks::thread_pool_executor pool{1};
+  caors::tasks::thread_pool pool{1};
   pool.shutdown();
 
-  caors::tasks::request rejected = caors::tasks::submit_request(pool, caors::tasks::task{[] {}});
+  caors::tasks::request rejected =
+      caors::tasks::submit_request(pool.get_executor(), caors::tasks::task{[] {}});
   CHECK(rejected.failed());
   CHECK(rejected.error() == caors::error{caors::error_domain::core, caors::errc::frozen});
 }
@@ -102,10 +103,11 @@ TEST_CASE("tasks - request observes thread pool completion", "[tasks]") {
   caors::tasks::request request;
 
   {
-    caors::tasks::thread_pool_executor executor{1};
-    request = caors::tasks::submit_request(executor, caors::tasks::task{[&] { value.store(11); }});
+    caors::tasks::thread_pool pool{1};
+    request = caors::tasks::submit_request(pool.get_executor(),
+                                           caors::tasks::task{[&] { value.store(11); }});
     REQUIRE(request);
-    executor.shutdown();
+    pool.shutdown();
   }
 
   CHECK(request.completed());

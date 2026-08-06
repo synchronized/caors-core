@@ -3,9 +3,9 @@
 
 # Tasks
 
-本文档说明 CAORS 任务调度模块的当前边界。任务系统第一阶段只提供最小公共底座：move-only
-`task`、executor 抽象、同步 `inline_executor`、固定线程数 `thread_pool_executor`、主线程
-`completion_queue` 和轻量 `request` 状态句柄。它用于资源异步加载、资源导入、后台序列化和跨线程完成回调。
+本文档说明 CAORS 任务调度模块的当前边界。任务系统以仓库固定的 standalone Asio 作为私有后端，
+公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor`、单线程
+`execution_context`、固定线程数 `thread_pool`、主线程 `completion_queue` 和轻量 `request` 状态句柄。
 
 ## 设计目标
 
@@ -13,16 +13,17 @@
 
 - `tasks::task`：move-only 任务包装器，可保存 move-only lambda，任务 callable 可以返回 `void` 或
   `caors::error`。
-- `tasks::executor`：最小提交抽象，只定义 `submit(task)`。
+- `tasks::executor`：一个指针大小的可复制调度句柄，通过 `post(task)` 提交任务。
 - `tasks::inline_executor`：提交后在调用线程立即执行，用于测试、确定性执行和同步 fallback。
-- `tasks::thread_pool_executor`：固定线程数后台执行器，析构默认 drain 已入队任务。
+- `tasks::execution_context`：由调用方驱动 `run()` / `poll()` 的单线程执行上下文。
+- `tasks::thread_pool`：固定线程数后台执行上下文，析构默认 drain 已入队任务。
 - `tasks::completion_queue`：线程安全完成回调队列，适合后台任务完成后把 commit 阶段交给主线程。
 - `tasks::request`：提交任务后的共享状态句柄，覆盖 queued/running/completed/failed/cancelled 和错误查询。
 - `task` 和 `completion_queue` 可传入 `memory_resource`，内部动态存储使用对应资源。
 
 当前不会包含：
 
-- work stealing、fiber、协程 scheduler、任务图或平台异步 IO。
+- work stealing、fiber、任务图或平台异步 IO。
 - 优先级、阻塞等待、取消传播、进度和任务返回值保存。
 - 任务异常诊断保存。
 - 聚合 `completion_queue::drain()` 中每个任务返回的错误。
@@ -35,7 +36,7 @@
 scheduler，也不是完整作业系统：
 
 - 不做 work stealing。当前没有细粒度任务图和大量短任务场景，固定线程池更容易验证生命周期和停止边界。
-- 不做 fiber 或协程 scheduler。CAORS 目前只要求 C++20 STL 底座，暂不把 API 绑定到协程运行时或平台调度模型。
+- 不做 fiber。C++20 coroutine 适配将在统一 executor 语义稳定后单独提供。
 - 不做任务图。资源依赖闭包和预加载顺序目前由资源数据库管理，任务层只负责执行单个 callable。
 - 不做平台异步 IO。provider/source 仍以同步读取为主；后续如果加入文件包、远程资源或平台 IO，再在资源层评估接入方式。
 - 不做强制取消。`request::cancel()` 只改变请求状态，不中断正在运行的线程或 callable。
@@ -50,7 +51,8 @@ scheduler，也不是完整作业系统：
 - `tasks::task`
 - `tasks::executor`
 - `tasks::inline_executor`
-- `tasks::thread_pool_executor`
+- `tasks::execution_context`
+- `tasks::thread_pool`
 - `tasks::shutdown_mode`
 - `tasks::completion_queue`
 - `tasks::request`
@@ -65,7 +67,8 @@ scheduler，也不是完整作业系统：
 - `caors/tasks/task.h`
 - `caors/tasks/executor.h`
 - `caors/tasks/inline_executor.h`
-- `caors/tasks/thread_pool_executor.h`
+- `caors/tasks/execution_context.h`
+- `caors/tasks/thread_pool.h`
 - `caors/tasks/completion_queue.h`
 - `caors/tasks/request.h`
 - `caors/tasks.h`
@@ -107,13 +110,18 @@ caors::tasks::task current{resource, [] {
 
 ## executor
 
-`executor` 只定义任务提交入口：
+`executor` 是不拥有执行上下文的轻量句柄。复制句柄不会复制线程或队列；执行上下文销毁后，仍存活的
+句柄会安全失效，后续 `post()` 返回 `errc::frozen`：
 
 ```cpp
-class executor {
-public:
-  virtual caors::error submit(caors::tasks::task next) = 0;
-};
+caors::tasks::execution_context context;
+caors::tasks::executor executor = context.get_executor();
+
+executor.post(caors::tasks::task{[] {
+  // 由 context.run() 或 context.poll() 执行。
+}});
+
+context.poll();
 ```
 
 `inline_executor` 是第一版确定性实现：
@@ -121,12 +129,10 @@ public:
 ```cpp
 caors::tasks::inline_executor executor;
 
-auto status = executor.submit(caors::tasks::task{[] {
-  // 在 submit 调用线程立即执行。
+auto status = executor.get_executor().post(caors::tasks::task{[] {
+  // 在 post 调用线程立即执行。
 }});
 ```
-
-`thread_pool_executor` 复用同一个提交接口，并在执行器自身定义停止、析构、drain、取消和线程安全边界。
 
 ## request
 
@@ -134,7 +140,8 @@ auto status = executor.submit(caors::tasks::task{[] {
 可跨线程查询：
 
 ```cpp
-caors::tasks::thread_pool_executor executor{2};
+caors::tasks::thread_pool pool{2};
+caors::tasks::executor executor = pool.get_executor();
 
 caors::tasks::request request =
     caors::tasks::submit_request(executor, caors::tasks::task{[] {
@@ -170,24 +177,26 @@ if (request.done()) {
 - 当前只提供“协作式取消状态”，不会把取消信号传入 callable，也不会中断正在运行的线程。
 - 当启用异常时，`submit_request()` 包装层会把逃逸异常转换为 `core / backend_failure`。
 
-## thread_pool_executor
+## thread_pool
 
-`thread_pool_executor` 是固定线程数后台执行器：
+`thread_pool` 拥有固定数量的后台 worker，并通过轻量 executor 暴露提交入口：
 
 ```cpp
-caors::tasks::thread_pool_executor executor{2};
+caors::tasks::thread_pool pool{2};
+caors::tasks::executor executor = pool.get_executor();
 
-executor.submit(caors::tasks::task{[] {
+executor.post(caors::tasks::task{[] {
   // 在后台 worker 中执行。
 }});
 
-executor.shutdown(caors::tasks::shutdown_mode::drain);
+pool.shutdown(caors::tasks::shutdown_mode::drain);
 ```
 
 常用入口：
 
-- `thread_pool_executor(thread_count, resource)`：创建固定数量 worker。`thread_count == 0` 时使用默认线程数。
-- `submit(task)`：提交后台任务。空任务返回 `errc::invalid_argument`，关闭后返回 `errc::frozen`。
+- `thread_pool(thread_count, resource)`：创建固定数量 worker。`thread_count == 0` 时使用默认线程数。
+- `get_executor()`：取得可复制的任务提交句柄。
+- `executor::post(task)`：提交任务。空任务返回 `errc::invalid_argument`，关闭后返回 `errc::frozen`。
 - `shutdown(shutdown_mode::drain)`：停止接收新任务，执行完已经入队的任务后退出 worker。
 - `shutdown(shutdown_mode::cancel)`：停止接收新任务，丢弃尚未开始执行的任务，当前正在执行的任务继续完成。
 - `pending()`：查询尚未开始执行的任务数量。
@@ -196,7 +205,8 @@ executor.shutdown(caors::tasks::shutdown_mode::drain);
 需要注意：
 
 - 析构会自动执行 `shutdown(shutdown_mode::drain)`。
-- `thread_pool_executor` 自身不保存每个任务的返回错误；需要状态时使用 `submit_request()` 包装任务。
+- 不得从该线程池正在执行的任务内部调用 `shutdown()` 或销毁线程池；关闭操作需要等待 worker 退出。
+- `thread_pool` 自身不保存每个任务的返回错误；需要状态时使用 `submit_request()` 包装任务。
 - 当启用异常时，worker 会捕获逃逸异常以避免后台线程终止进程，但当前不会保存异常信息。
 - `shutdown(cancel)` 不是强制中断；已经开始执行的任务仍会跑完。
 - 资源 cache、manifest、provider 和对象状态仍不应在后台 worker 中被隐式修改。

@@ -14,7 +14,8 @@ CAORS 当前仍处于 beta 前收口阶段。项目早期不为破坏性 API 调
 - `io`：`file_system`、`input_stream` / `output_stream`、native/memory/mount/resolver 后端。
 - `resources`：`resource`、`ref<T>`、`handle<T>`、`cache<T>`、`provider`、`database`、同步/异步加载和依赖图。
 - `assets`：`project_config`、`project_config_loader`、`asset_manager`、typed factory 注册入口和 JSON 适配。
-- `tasks`：`executor`、`inline_executor`、`thread_pool_executor`、`completion_queue` 和基础 request。
+- `tasks`：`executor`、`execution_context`、`inline_executor`、`thread_pool`、`completion_queue` 和基础
+  request。
 - `events`：`delegate`、`signal`、`sink`、`connection`、`dispatcher`。
 - `math`：基础向量、矩阵、四元数、几何和相机 helper。
 

@@ -333,19 +333,18 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
 - [x] 增加 control block 长期内存资源与无泄漏测试；Asio operation allocator 仍属于后续工作。
 
-迁移期间，原 `inline_executor` 与 `thread_pool_executor` 类暂时保留到轻量 executor 的访问入口；
-线程池还保留 `submit()` 转发。生产实现与 `request/resources/assets` 已统一使用 `post()`，不再依赖
-executor 虚基类。完成线程池迁移后删除剩余兼容入口，并把 inline 入口收敛为最终的
-`inline_executor()` 工厂函数。
+迁移期间保留 `thread_pool_executor` 到 `thread_pool` 的类型别名，供已有调用方过渡。生产实现与
+`request/resources/assets` 已统一使用轻量 executor 的 `post()`，不再依赖 executor 虚基类或
+线程池上的 `submit()` 转发。
 
 ### 阶段 2：线程池与 completion queue 迁移
 
-- [ ] 实现 `thread_pool` 并保持默认 drain 析构；
-- [ ] 定义并测试 `shutdown(drain/cancel)`；
+- [x] 实现 `thread_pool` 并保持默认 drain 析构；
+- [x] 定义并测试 `shutdown(drain/cancel)`；
 - [ ] 让 `completion_queue` 临时包装 `execution_context`；
-- [ ] 迁移 tests/examples 到统一 `post()` 接口；
+- [x] 迁移 tests/examples 到统一 `post()` 接口；
 - [ ] 验证主线程每帧 `poll()` 和本轮新任务延后语义；
-- [ ] 移除旧独立队列/worker 实现，避免两套调度状态长期并存。
+- [x] 移除旧独立队列/worker 实现，避免两套调度状态长期并存。
 
 ### 阶段 3：task/request 适配
 

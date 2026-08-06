@@ -21,7 +21,8 @@ int main() {
     return 1;
   }
 
-  caors::tasks::thread_pool_executor executor{1};
+  caors::tasks::thread_pool pool{1};
+  caors::tasks::executor executor = pool.get_executor();
   caors::tasks::completion_queue completions;
   caors::resources::load_request<texture_resource> request =
       assets.request_load<texture_resource>(texture_guid, executor, completions);

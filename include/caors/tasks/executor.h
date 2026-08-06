@@ -18,7 +18,7 @@ struct executor_control_block;
 
 class execution_context;
 class inline_executor;
-class thread_pool_executor;
+class thread_pool;
 
 /**
  * @brief 可复制的轻量任务提交句柄。
@@ -51,7 +51,7 @@ private:
   detail::executor_control_block* control_ = nullptr;
 
   friend class execution_context;
-  friend class thread_pool_executor;
+  friend class thread_pool;
   friend class inline_executor;
 };
 

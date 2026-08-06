@@ -305,7 +305,8 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 ```cpp
 caors::resource_cache<texture> cache;
 texture_loader loader{provider};
-caors::tasks::thread_pool_executor executor{2};
+caors::tasks::thread_pool pool{2};
+caors::tasks::executor executor = pool.get_executor();
 caors::tasks::completion_queue completions;
 
 auto request = caors::resources::request_load_into(cache, loader, texture_id, executor, completions);

@@ -602,13 +602,14 @@ TEST_CASE("resources - async load can run background stage on thread pool", "[re
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 13;
-  caors::tasks::thread_pool_executor executor{1};
+  caors::tasks::thread_pool pool{1};
+  caors::tasks::executor executor = pool.get_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request =
       caors::resources::request_load_into(cache, loader, test_guid_a, executor, completions);
 
-  executor.shutdown();
+  pool.shutdown();
   CHECK(completions.drain() == 1);
 
   REQUIRE(request.loaded());

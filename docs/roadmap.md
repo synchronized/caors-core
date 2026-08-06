@@ -490,11 +490,12 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 ## 7. 任务调度
 
-- [x] 建立 `tasks` 主题，第一阶段只依赖 C++20 STL，不引入第三方任务库。
-- [x] 定义最小 `tasks::executor` 抽象，用于资源异步加载、资源导入管线、后台序列化和跨线程事件投递等模块提交任务。
+- [x] 引入仓库固定的 standalone Asio 私有后端，公共核心头不直接暴露 Asio 类型。
+- [x] 定义一个指针大小的 `tasks::executor` 句柄，用于资源异步加载、资源导入管线、后台序列化和
+  跨线程事件投递等模块提交任务。
 - [x] 提供 `tasks::inline_executor`，用于测试和确定性执行；提交的任务在调用线程立即运行。
-- [x] 提供 `tasks::thread_pool_executor`，基于 `std::jthread` / `std::mutex` / `std::condition_variable_any`
-  实现固定线程池，支持安全停止和析构前 drain / cancel 边界。
+- [x] 提供 `tasks::execution_context` 与基于 Asio 的 `tasks::thread_pool`，支持安全失效句柄、快照
+  poll 和析构前 drain / cancel 边界。
 - [x] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
 - [x] 提供 `tasks::completion_queue` 主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
 - [x] 定义基础任务状态和结果语义，提供 `tasks::request` / `submit_request()`，覆盖
