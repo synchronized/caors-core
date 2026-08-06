@@ -252,6 +252,11 @@ public:
   [[nodiscard]] bool valid() const noexcept { return state_ != nullptr; }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
+  /** @brief 返回请求共享状态使用的长期内存资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
+
   /** @brief 查询请求状态。空请求返回 `cancelled`。 */
   [[nodiscard]] request_status status() const {
     if (state_ == nullptr) {
@@ -511,6 +516,11 @@ public:
   /** @brief 判断当前句柄是否引用一个请求状态。 */
   [[nodiscard]] bool valid() const noexcept { return state_ != nullptr; }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  /** @brief 返回请求共享状态使用的长期内存资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
 
   /** @brief 查询请求状态。空请求返回 `cancelled`。 */
   [[nodiscard]] request_status status() const {

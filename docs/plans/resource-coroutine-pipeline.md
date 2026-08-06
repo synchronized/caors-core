@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：方案基线，尚未开始实现；
+- 当前状态：阶段 0 至阶段 2 已完成；
 - 前置条件：`asio-task-redesign` 阶段 0 到阶段 5 已完成；
 - 目标：让现有资源请求可安全 `co_await`，减少手工轮询，同时保持 cache 提交线程、共享请求和
   取消语义明确；
@@ -157,11 +157,11 @@ owner/lease 边界。
 
 ### 阶段 2：Coroutine 适配
 
-- [ ] 新增 `caors/resources/coroutine.h`；
-- [ ] 实现 `async_wait(load_request<T>)`；
-- [ ] 实现 `async_wait(preload_request)`；
-- [ ] 覆盖等待方提前销毁、无异常构建与内存资源释放；
-- [ ] 保持 `caors/resources.h` 不隐式包含 coroutine 适配。
+- [x] 新增 `caors/resources/coroutine.h`；
+- [x] 实现 `async_wait(load_request<T>)`；
+- [x] 实现 `async_wait(preload_request)`；
+- [x] 覆盖等待方提前销毁、无异常构建与内存资源释放；
+- [x] 保持 `caors/resources.h` 不隐式包含 coroutine 适配。
 
 ### 阶段 3：Assets 边界
 
