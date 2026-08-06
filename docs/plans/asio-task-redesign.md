@@ -303,10 +303,18 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
 - [x] 建立唯一 `caors_asio_config` target，集中声明 `ASIO_STANDALONE`、
   `ASIO_NO_DEPRECATED` 和 C++20；
 - [ ] 验证 MSVC/Clang/GCC、Static/Shared、异常开关和 C++20 coroutine 检测；
-- [ ] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
+- [x] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
 - [ ] 原型比较 executor control block 的安全性、大小、分配和提交成本；
 - [ ] 明确 `poll()` 的快照批次语义和 Asio 原生行为差异；
 - [ ] 决定兼容迁移周期。
+
+当前验证记录：
+
+- Windows Clang Static Debug：基础调度探针通过；
+- Windows MSVC Static Debug：基础调度探针通过；
+- Windows Clang Shared Debug：基础调度探针通过；
+- Windows Clang Shared Debug 安装包：原始前缀与迁移前缀 consumer 均通过，安装导出不依赖 Asio；
+- GCC、无异常模式和 coroutine 检测仍待后续环境与适配设计完成后验证。
 
 ### 阶段 1：execution context 与 executor
 
