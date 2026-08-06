@@ -42,7 +42,12 @@ target_sources(
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)
 target_compile_warnings(${TARGET_NAME})
-target_link_libraries(${TARGET_NAME} PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(
+  ${TARGET_NAME}
+  PRIVATE
+    $<BUILD_INTERFACE:caors_asio_config>
+    ${CMAKE_DL_LIBS}
+)
 
 target_compile_options(
   ${TARGET_NAME}

@@ -298,9 +298,10 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
 
 ### 阶段 0：依赖与语义原型
 
-- [ ] 选定 standalone Asio 固定版本并记录许可证；
-- [ ] 比较仓库固定依赖与 `find_package`/获取方案，验证离线构建；
-- [ ] 建立唯一 `caors_asio_config` target 和配置宏；
+- [x] 固定 standalone Asio `asio-1.38.2`，使用 Boost Software License 1.0；
+- [x] 选择仓库固定依赖，避免 `FetchContent` 首次配置联网；Asio 在核心库中保持私有；
+- [x] 建立唯一 `caors_asio_config` target，集中声明 `ASIO_STANDALONE`、
+  `ASIO_NO_DEPRECATED` 和 C++20；
 - [ ] 验证 MSVC/Clang/GCC、Static/Shared、异常开关和 C++20 coroutine 检测；
 - [ ] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
 - [ ] 原型比较 executor control block 的安全性、大小、分配和提交成本；
