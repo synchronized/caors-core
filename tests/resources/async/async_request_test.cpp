@@ -3,11 +3,13 @@
 
 #include "resources_test_common.h"
 
+#include "caors/memory/tracking.h"
 #include "caors/tasks.h"
 
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <thread>
 
 using namespace caors::tests::resources;
 
@@ -25,6 +27,9 @@ public:
   [[nodiscard]] caors::resources::load_result<async_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
     load_count.fetch_add(1);
+    if (load_thread != nullptr) {
+      *load_thread = std::this_thread::get_id();
+    }
     if (fail_next) {
       fail_next = false;
       return {{caors::error_domain::resources, caors::errc::not_found}, {}};
@@ -36,6 +41,7 @@ public:
   }
 
   std::atomic<int> load_count{0};
+  std::thread::id* load_thread = nullptr;
   int next_value = 0;
   bool fail_next = false;
 };
@@ -180,6 +186,25 @@ void require_async_preload_metadata() {
 }
 
 } // namespace
+
+TEST_CASE("resources - request states use caller long lived resource", "[resources]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+
+  {
+    caors::resources::load_request<async_resource> request =
+        caors::resources::load_request<async_resource>::failed(
+            {caors::error_domain::resources, caors::errc::not_found}, &tracking);
+    CHECK(tracking.statistics().bytes_in_use > 0);
+  }
+  CHECK(tracking.statistics().bytes_in_use == 0);
+
+  {
+    caors::resources::preload_request request = caors::resources::preload_request::failed(
+        {caors::error_domain::resources, caors::errc::not_found}, &tracking);
+    CHECK(tracking.statistics().bytes_in_use > 0);
+  }
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
 
 TEST_CASE("resources - async load commits through completion executor", "[resources]") {
   caors::resource_cache<async_resource> cache;
@@ -601,6 +626,9 @@ TEST_CASE("resources - async load can run background stage on thread pool", "[re
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 13;
+  std::thread::id load_thread;
+  loader.load_thread = &load_thread;
+  const std::thread::id completion_thread = std::this_thread::get_id();
   caors::tasks::thread_pool pool{1};
   caors::tasks::executor executor = pool.get_executor();
   caors::tasks::completion_queue completions;
@@ -609,6 +637,9 @@ TEST_CASE("resources - async load can run background stage on thread pool", "[re
       cache, loader, test_guid_a, executor, completions.get_executor());
 
   pool.shutdown();
+  CHECK(load_thread != completion_thread);
+  CHECK(request.status() == caors::resources::request_status::loading);
+  CHECK_FALSE(cache.contains(test_guid_a));
   CHECK(completions.drain() == 1);
 
   REQUIRE(request.loaded());
