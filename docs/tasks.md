@@ -137,8 +137,9 @@ auto status = executor.get_executor().post(caors::tasks::task{[] {
 
 ## request
 
-`request` 是任务提交后的共享状态句柄。它不保存任务返回值，只保存状态和错误；多个 `request` 副本共享同一状态，
-可跨线程查询：
+`request` 是任务提交后的共享状态句柄。它不保存任务返回值，只保存状态和错误；多个 `request` 副本共享
+同一状态，可跨线程查询。取消 running 请求不会中断 callable，且 callable 随后的完成或失败不会覆盖
+cancelled 状态：
 
 ```cpp
 caors::tasks::thread_pool pool{2};

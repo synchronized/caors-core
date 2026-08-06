@@ -350,8 +350,8 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 
 - [x] 通过内部持有 control block 引用的 move-only handler 安全提交 `task`；
 - [x] 迁移 `submit_request()`、resources 与 assets 异步入口到按值轻量 executor 和 `post()`；
-- [ ] 保持 queued/running/completed/failed/cancelled 行为；
-- [ ] 覆盖多个等待者、提交失败、handler 失败和协作取消；
+- [x] 保持 queued/running/completed/failed/cancelled 行为；
+- [x] 覆盖多个共享观察者、提交失败、handler 失败和协作取消；
 - [ ] 评估 task SBO，但只有独立 benchmark 证明收益后实施。
 
 ### 阶段 4：C++20 coroutine 适配
