@@ -330,13 +330,13 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 实现 `execution_context` 私有 Asio backend；
 - [x] 实现一个指针大小、可复制且可安全失效的轻量 `executor`；
 - [x] 实现 `post()`、`run/run_one`、快照 `poll/poll_one`、`stop/restart`；
-- [ ] 实现明确的 `inline_executor()`；
+- [x] 实现明确返回轻量句柄的 `inline_executor()`；
 - [x] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
 - [x] 增加 control block 长期内存资源与无泄漏测试；Asio operation allocator 仍属于后续工作。
 
-迁移期间保留 `thread_pool_executor` 到 `thread_pool` 的类型别名，供已有调用方过渡。生产实现与
-`request/resources/assets` 已统一使用轻量 executor 的 `post()`，不再依赖 executor 虚基类或
-线程池上的 `submit()` 转发。
+生产实现与 `request/resources/assets` 已统一使用轻量 executor 的 `post()`，不再依赖 executor
+虚基类或线程池上的 `submit()` 转发。迁移期 `thread_pool_executor` 别名和 `inline_executor` 包装类
+已经删除。
 
 ### 阶段 2：线程池与 completion queue 迁移
 
@@ -372,7 +372,8 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 - [x] 迁移 resources 当前 `executor + completion_queue` 调用点，但不在本阶段重设 assets API；
 - [x] 更新 `docs/tasks.md`；coroutine 适配保持显式包含，不加入聚合头；
 - [x] 更新独立 consumer，覆盖基础 API、核心 tasks 和显式 coroutine 适配；安装导出继续保持 Asio 私有；
-- [ ] 删除过期 API 或完成弃用标记；
+- [x] 删除过期 `thread_pool_executor` 别名与 `inline_executor` 包装类；保留 assets 仍依赖的
+  `completion_queue` 兼容层；
 - [ ] 为后续 assets/resources coroutine 重构建立独立计划和基线。
 
 ### 阶段 6：性能与全矩阵验证

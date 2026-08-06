@@ -11,6 +11,5 @@
 #include "caors/tasks/request.h"
 #include "caors/tasks/task.h"
 #include "caors/tasks/thread_pool.h"
-#include "caors/tasks/thread_pool_executor.h"
 
 #endif

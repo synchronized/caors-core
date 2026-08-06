@@ -185,7 +185,7 @@ TEST_CASE("resources - async load commits through completion executor", "[resour
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 7;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::execution_context completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_load_into(
@@ -213,7 +213,7 @@ TEST_CASE("resources - async helpers poll single request through completion queu
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 19;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_load_into(
@@ -241,7 +241,7 @@ TEST_CASE("resources - async helpers poll request batches through completion que
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 23;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> first = caors::resources::request_load_into(
@@ -294,7 +294,7 @@ TEST_CASE("resources - async load reports loader progress and stage", "[resource
   caors::resource_cache<async_resource> cache;
   progress_async_loader loader;
   loader.next_value = 17;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_load_into(
@@ -316,7 +316,7 @@ TEST_CASE("resources - async load reports loader progress and stage", "[resource
 TEST_CASE("resources - async load returns cached resource immediately", "[resources]") {
   caors::resource_cache<async_resource> cache;
   async_loader loader;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   async_resource* existing = cache.create(test_guid_a);
@@ -342,7 +342,7 @@ TEST_CASE("resources - async reload replaces cache and keeps old handle alive", 
 
   async_loader loader;
   loader.next_value = 2;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_reload_into(
@@ -367,7 +367,7 @@ TEST_CASE("resources - async reload failure keeps existing resource", "[resource
 
   async_loader loader;
   loader.fail_next = true;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_reload_into(
@@ -413,7 +413,7 @@ TEST_CASE("resources - async load cancellation prevents queued commit", "[resour
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 17;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request = caors::resources::request_load_into(
@@ -442,7 +442,7 @@ TEST_CASE("resources - database async load uses registered cache and loader", "[
   loader.next_value = 9;
   caors::resource_database database;
   REQUIRE(database.register_type(cache, loader).succeeded());
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request =
@@ -463,7 +463,7 @@ TEST_CASE("resources - database async load reuses pending request for same guid"
   loader.next_value = 21;
   caors::resource_database database;
   REQUIRE(database.register_type(cache, loader).succeeded());
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> first =
@@ -561,7 +561,7 @@ TEST_CASE("resources - database async reload reuses pending request for same gui
   loader.next_value = 22;
   caors::resource_database database;
   REQUIRE(database.register_type(cache, loader).succeeded());
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> first =
@@ -587,7 +587,7 @@ TEST_CASE("resources - database async reload reuses pending request for same gui
 
 TEST_CASE("resources - database async load reports missing registration", "[resources]") {
   caors::resource_database database;
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<async_resource> request =
@@ -639,7 +639,7 @@ TEST_CASE("resources - database async preload dispatches manifest types", "[reso
   REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
               .succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request request =
@@ -692,7 +692,7 @@ TEST_CASE("resources - database async preload aggregates loader progress", "[res
   REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
               .succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request request =
@@ -726,7 +726,7 @@ TEST_CASE("resources - database async preload reuses pending direct load request
   database.set_manifest(manifest);
   REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<texture_resource> direct =
@@ -806,7 +806,7 @@ TEST_CASE("resources - database async preload reuses pending preload request", "
   database.set_manifest(manifest);
   REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request first =
@@ -846,7 +846,7 @@ TEST_CASE("resources - database async preload completes cached resources immedia
   database.set_manifest(manifest);
   REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request preload =
@@ -888,7 +888,7 @@ TEST_CASE("resources - database async preload cancellation skips queued commits"
   REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
               .succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request request =
@@ -930,7 +930,7 @@ TEST_CASE("resources - database async preload fails the batch when one item fail
   REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
               .succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::preload_request request =

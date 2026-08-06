@@ -975,7 +975,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<serialized_resource> loaded =

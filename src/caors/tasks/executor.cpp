@@ -74,6 +74,6 @@ detail::executor_control_block inline_control{
 
 } // namespace
 
-inline_executor::inline_executor() noexcept : executor_(&inline_control, false) {}
+executor inline_executor() noexcept { return executor{&inline_control, false}; }
 
 } // namespace caors::tasks

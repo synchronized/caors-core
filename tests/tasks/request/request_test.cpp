@@ -34,7 +34,7 @@ public:
 } // namespace
 
 TEST_CASE("tasks - request reports completed inline task", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   int value = 0;
 
   caors::tasks::request request =
@@ -49,7 +49,7 @@ TEST_CASE("tasks - request reports completed inline task", "[tasks]") {
 }
 
 TEST_CASE("tasks - request reports callable errors", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
 
   caors::tasks::request request = caors::tasks::submit_request(
       executor, caors::tasks::task{[] {
@@ -64,10 +64,9 @@ TEST_CASE("tasks - request reports callable errors", "[tasks]") {
 }
 
 TEST_CASE("tasks - request reports invalid and rejected submissions", "[tasks]") {
-  caors::tasks::inline_executor inline_executor;
+  caors::tasks::executor inline_target = caors::tasks::inline_executor();
 
-  caors::tasks::request invalid =
-      caors::tasks::submit_request(inline_executor, caors::tasks::task{});
+  caors::tasks::request invalid = caors::tasks::submit_request(inline_target, caors::tasks::task{});
   CHECK(invalid.failed());
   CHECK(invalid.error() == caors::error{caors::error_domain::core, caors::errc::invalid_argument});
 
@@ -172,7 +171,7 @@ TEST_CASE("tasks - cancelling a running request does not interrupt its callable"
 
 #if CAORS_HAS_EXCEPTIONS
 TEST_CASE("tasks - request converts callable exceptions to backend failure", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::request request = caors::tasks::submit_request(
       executor, caors::tasks::task{[] { throw std::runtime_error{"任务失败"}; }});
 
@@ -201,7 +200,7 @@ TEST_CASE("tasks - request factories expose terminal and empty states", "[tasks]
 
 TEST_CASE("tasks - request uses configured memory resource", "[tasks]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
 
   {
     caors::tasks::request request =
@@ -214,7 +213,7 @@ TEST_CASE("tasks - request uses configured memory resource", "[tasks]") {
 }
 
 TEST_CASE("tasks - request helpers are available from module namespace", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::request request = caors::tasks::submit_request(executor, caors::tasks::task{[] {}});
 
   CHECK(request.status() == caors::tasks::request_status::completed);

@@ -17,7 +17,8 @@ struct executor_control_block;
 }
 
 class execution_context;
-class inline_executor;
+class executor;
+[[nodiscard]] CAORS_API executor inline_executor() noexcept;
 class thread_pool;
 
 /**
@@ -55,7 +56,7 @@ private:
 
   friend class execution_context;
   friend class thread_pool;
-  friend class inline_executor;
+  friend executor inline_executor() noexcept;
 };
 
 inline void swap(executor& lhs, executor& rhs) noexcept { lhs.swap(rhs); }

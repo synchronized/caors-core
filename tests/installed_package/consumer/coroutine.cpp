@@ -22,7 +22,7 @@ caors::tasks::async_operation switch_once(caors::tasks::executor target, int* ob
 
 int main() {
   caors::tasks::execution_context context;
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   int observed = 0;
 
   caors::tasks::request request =

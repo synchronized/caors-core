@@ -20,7 +20,7 @@ caors::tasks::async_operation wait_and_record(caors::tasks::request source,
 
 TEST_CASE("tasks - multiple coroutines await one shared request", "[tasks][asio][coroutine]") {
   caors::tasks::execution_context source_context;
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source =
       caors::tasks::submit_request(source_context.get_executor(), caors::tasks::task{[] {}});
   caors::error first_status{caors::error_domain::core, caors::errc::pending};
@@ -42,7 +42,7 @@ TEST_CASE("tasks - multiple coroutines await one shared request", "[tasks][asio]
 
 TEST_CASE("tasks - async wait preserves source failure", "[tasks][asio][coroutine]") {
   caors::tasks::execution_context source_context;
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::submit_request(
       source_context.get_executor(), caors::tasks::task{[] {
         return caors::error{caors::error_domain::core, caors::errc::unsupported};
@@ -57,7 +57,7 @@ TEST_CASE("tasks - async wait preserves source failure", "[tasks][asio][coroutin
 }
 
 TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make();
   caors::error observed;
   caors::tasks::request waiting = caors::tasks::spawn(start, wait_and_record(source, &observed));
@@ -68,7 +68,7 @@ TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][asio][
 }
 
 TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make_completed();
   caors::error observed{caors::error_domain::core, caors::errc::pending};
   caors::tasks::request waiting = caors::tasks::spawn(start, wait_and_record(source, &observed));
@@ -79,7 +79,7 @@ TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][a
 
 TEST_CASE("tasks - async wait state uses request long lived resource", "[tasks][asio][coroutine]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make(&tracking);
   const std::size_t baseline = tracking.statistics().bytes_in_use;
   caors::error observed;

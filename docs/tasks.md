@@ -4,7 +4,7 @@
 # Tasks
 
 本文档说明 CAORS 任务调度模块的当前边界。任务系统以仓库固定的 standalone Asio 作为私有后端，
-公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor`、单线程
+公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor()` 工厂、单线程
 `execution_context`、固定线程数 `thread_pool`、主线程 `completion_queue` 和轻量 `request` 状态句柄。
 
 ## 设计目标
@@ -14,7 +14,8 @@
 - `tasks::task`：move-only 任务包装器，可保存 move-only lambda，任务 callable 可以返回 `void` 或
   `caors::error`。
 - `tasks::executor`：一个指针大小的可复制调度句柄，通过 `post(task)` 提交任务。
-- `tasks::inline_executor`：提交后在调用线程立即执行，用于测试、确定性执行和同步 fallback。
+- `tasks::inline_executor()`：返回提交后在调用线程立即执行的轻量 executor，用于测试、确定性执行和
+  同步 fallback。
 - `tasks::execution_context`：由调用方驱动 `run()` / `poll()` 的单线程执行上下文。
 - `tasks::thread_pool`：固定线程数后台执行上下文，析构默认 drain 已入队任务。
 - `tasks::completion_queue`：线程安全完成回调队列，适合后台任务完成后把 commit 阶段交给主线程。
@@ -51,7 +52,7 @@ scheduler，也不是完整作业系统：
 
 - `tasks::task`
 - `tasks::executor`
-- `tasks::inline_executor`
+- `tasks::inline_executor()`
 - `tasks::execution_context`
 - `tasks::thread_pool`
 - `tasks::shutdown_mode`
@@ -125,10 +126,10 @@ executor.post(caors::tasks::task{[] {
 context.poll();
 ```
 
-`inline_executor` 是第一版确定性实现：
+`inline_executor()` 返回确定性同步执行句柄：
 
 ```cpp
-caors::tasks::inline_executor executor;
+caors::tasks::executor executor = caors::tasks::inline_executor();
 
 auto status = executor.get_executor().post(caors::tasks::task{[] {
   // 在 post 调用线程立即执行。

@@ -49,7 +49,7 @@ caors::tasks::async_operation retain_marker(std::shared_ptr<int> marker, int* ob
 } // namespace
 
 TEST_CASE("tasks - spawn completes inline operation", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   int observed = 0;
 
   caors::tasks::request request = caors::tasks::spawn(executor, succeed(&observed));
@@ -60,7 +60,7 @@ TEST_CASE("tasks - spawn completes inline operation", "[tasks][asio][coroutine]"
 }
 
 TEST_CASE("tasks - spawn preserves coroutine error", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::request request = caors::tasks::spawn(executor, fail());
 
   CHECK(request.failed());
@@ -68,7 +68,7 @@ TEST_CASE("tasks - spawn preserves coroutine error", "[tasks][asio][coroutine]")
 }
 
 TEST_CASE("tasks - spawn owns frame across executor switch", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor start;
+  caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::thread_pool pool{1};
   const std::thread::id caller = std::this_thread::get_id();
   std::thread::id observed;
@@ -83,9 +83,9 @@ TEST_CASE("tasks - spawn owns frame across executor switch", "[tasks][asio][coro
 }
 
 TEST_CASE("tasks - spawn rejects invalid operation and executor", "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor inline_executor;
+  caors::tasks::executor inline_target = caors::tasks::inline_executor();
   caors::tasks::request invalid =
-      caors::tasks::spawn(inline_executor, caors::tasks::async_operation{});
+      caors::tasks::spawn(inline_target, caors::tasks::async_operation{});
   CHECK(invalid.failed());
   CHECK(invalid.result() == caors::error{caors::error_domain::core, caors::errc::invalid_argument});
 
@@ -129,7 +129,7 @@ TEST_CASE("tasks - discarded spawn fails request and destroys frame", "[tasks][a
 #if CAORS_HAS_EXCEPTIONS
 TEST_CASE("tasks - spawn converts unhandled exception to backend failure",
           "[tasks][asio][coroutine]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::request request = caors::tasks::spawn(executor, throw_failure());
 
   CHECK(request.failed());

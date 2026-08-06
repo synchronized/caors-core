@@ -118,7 +118,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   CHECK(assets.provider().contains(test_guid_a));
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::completion_queue completions;
 
   caors::resources::load_request<serialized_resource> direct =
