@@ -179,7 +179,10 @@ owner/lease 边界。
   - [x] Windows Clang Static Release：全量 86/86；
   - [x] Windows Clang Shared Debug：全量 88/88；
   - [x] Windows Clang Shared Release：全量 88/88；
-  - [ ] Windows MSVC Static/Shared Debug/Release；
+  - [x] Windows MSVC Static Debug：全量 86/86；
+  - [ ] Windows MSVC Static Release；
+  - [ ] Windows MSVC Shared Debug；
+  - [ ] Windows MSVC Shared Release；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
 - [ ] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟；
 - [ ] 固定 Linux 环境完成 UBSan 与正式性能复验。
