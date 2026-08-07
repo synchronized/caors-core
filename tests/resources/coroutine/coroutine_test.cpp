@@ -34,8 +34,7 @@ public:
   explicit probe_coroutine(std::coroutine_handle<promise_type> handle) noexcept : handle_(handle) {}
   probe_coroutine(const probe_coroutine&) = delete;
   probe_coroutine& operator=(const probe_coroutine&) = delete;
-  probe_coroutine(probe_coroutine&& other) noexcept
-      : handle_(std::exchange(other.handle_, {})) {}
+  probe_coroutine(probe_coroutine&& other) noexcept : handle_(std::exchange(other.handle_, {})) {}
   ~probe_coroutine() {
     if (handle_) {
       handle_.destroy();
@@ -61,8 +60,7 @@ probe_coroutine wait_preload(caors::resources::preload_request request,
 
 } // namespace
 
-TEST_CASE("resources coroutine - load request resumes all waiters",
-          "[resources][coroutine]") {
+TEST_CASE("resources coroutine - load request resumes all waiters", "[resources][coroutine]") {
   auto request = caors::resources::detail::load_request_access<coroutine_resource>::make();
   caors::resources::handle_result<coroutine_resource> first;
   caors::resources::handle_result<coroutine_resource> second;
@@ -74,7 +72,7 @@ TEST_CASE("resources coroutine - load request resumes all waiters",
   auto owned = caors::memory::make_unique<coroutine_resource>(nullptr, caors::resource_guid{});
   auto handle = caors::resources::adopt_handle(std::move(owned), nullptr);
   caors::resources::detail::load_request_access<coroutine_resource>::complete(request,
-                                                                               std::move(handle));
+                                                                              std::move(handle));
 
   CHECK(first_wait.done());
   CHECK(second_wait.done());
@@ -104,8 +102,7 @@ TEST_CASE("resources coroutine - load failure and cancellation become results",
         caors::error{caors::error_domain::resources, caors::errc::cancelled});
 }
 
-TEST_CASE("resources coroutine - preload resumes with aggregate result",
-          "[resources][coroutine]") {
+TEST_CASE("resources coroutine - preload resumes with aggregate result", "[resources][coroutine]") {
   caors::resources::preload_plan plan;
   const caors::resources::preload_item item{};
   plan.load_order.push_back(item);
@@ -139,8 +136,7 @@ TEST_CASE("resources coroutine - destroyed frame abandons only its wait",
 TEST_CASE("resources coroutine - helper state uses request memory resource",
           "[resources][coroutine]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
-  auto request =
-      caors::resources::detail::load_request_access<coroutine_resource>::make(&tracking);
+  auto request = caors::resources::detail::load_request_access<coroutine_resource>::make(&tracking);
   const std::size_t baseline = tracking.statistics().bytes_in_use;
   caors::resources::handle_result<coroutine_resource> result;
 
@@ -152,4 +148,38 @@ TEST_CASE("resources coroutine - helper state uses request memory resource",
   }
 
   CHECK(tracking.statistics().bytes_in_use == baseline);
+}
+
+TEST_CASE("resources coroutine - ready request does not allocate helper state",
+          "[resources][coroutine]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  auto owned = caors::memory::make_unique<coroutine_resource>(nullptr, caors::resource_guid{});
+  auto handle = caors::resources::adopt_handle(std::move(owned), nullptr);
+  auto request =
+      caors::resources::load_request<coroutine_resource>::completed(std::move(handle), &tracking);
+  const caors::memory_statistics baseline = tracking.statistics();
+  caors::resources::handle_result<coroutine_resource> result;
+
+  probe_coroutine wait = wait_load(std::move(request), &result);
+
+  CHECK(wait.done());
+  CHECK_FALSE(wait.failed());
+  CHECK(result.value);
+  CHECK(tracking.statistics().allocation_count == baseline.allocation_count);
+}
+
+TEST_CASE("resources coroutine - ready preload does not allocate helper state",
+          "[resources][coroutine]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+  auto request = caors::resources::preload_request::from_plan(
+      caors::resources::preload_plan{&tracking}, &tracking);
+  const caors::memory_statistics baseline = tracking.statistics();
+  caors::resources::preload_result result;
+
+  probe_coroutine wait = wait_preload(std::move(request), &result);
+
+  CHECK(wait.done());
+  CHECK_FALSE(wait.failed());
+  CHECK(result.succeeded());
+  CHECK(tracking.statistics().allocation_count == baseline.allocation_count);
 }
