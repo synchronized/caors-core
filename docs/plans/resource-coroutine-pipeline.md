@@ -174,7 +174,7 @@ owner/lease 边界。
 
 - [x] 更新 resources/assets/tasks 正式文档；
 - [x] 增加独立安装包 resources coroutine consumer；
-- [ ] Windows Clang/MSVC Static/Shared Debug/Release；
+- [x] Windows Clang/MSVC Static/Shared Debug/Release；
   - [x] Windows Clang Static Debug：全量 86/86；
   - [x] Windows Clang Static Release：全量 86/86；
   - [x] Windows Clang Shared Debug：全量 88/88；
@@ -182,7 +182,7 @@ owner/lease 边界。
   - [x] Windows MSVC Static Debug：全量 86/86；
   - [x] Windows MSVC Static Release：全量 86/86；
   - [x] Windows MSVC Shared Debug：全量 88/88；
-  - [ ] Windows MSVC Shared Release；
+  - [x] Windows MSVC Shared Release：全量 88/88；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
 - [ ] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟；
 - [ ] 固定 Linux 环境完成 UBSan 与正式性能复验。
