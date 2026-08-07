@@ -184,7 +184,8 @@ owner/lease 边界。
   - [x] Windows MSVC Shared Debug：全量 88/88；
   - [x] Windows MSVC Shared Release：全量 88/88；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
-- [ ] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟；
+- [x] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟，结果见
+  `benchmarks/results/2026-08-07-windows-clang-resource-coroutines.md`；
 - [ ] 固定 Linux 环境完成 UBSan 与正式性能复验。
 
 ## 完成标准
