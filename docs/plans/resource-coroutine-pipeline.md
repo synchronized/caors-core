@@ -180,7 +180,7 @@ owner/lease 边界。
   - [x] Windows Clang Shared Debug：全量 88/88；
   - [x] Windows Clang Shared Release：全量 88/88；
   - [x] Windows MSVC Static Debug：全量 86/86；
-  - [ ] Windows MSVC Static Release；
+  - [x] Windows MSVC Static Release：全量 86/86；
   - [ ] Windows MSVC Shared Debug；
   - [ ] Windows MSVC Shared Release；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
