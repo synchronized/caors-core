@@ -6,6 +6,11 @@
 
 #include <catch2/catch_all.hpp>
 
+#if defined(_WIN32)
+static_assert(_WIN32_WINNT >= 0x0A00);
+static_assert(WINVER >= 0x0A00);
+#endif
+
 TEST_CASE("tasks - standalone Asio configuration can dispatch work", "[tasks][asio]") {
   asio::io_context context;
   int observed = 0;

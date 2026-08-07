@@ -53,6 +53,8 @@ if(NOT TARGET caors_asio_config)
         INTERFACE
             ASIO_STANDALONE
             ASIO_NO_DEPRECATED
+            $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>
+            $<$<PLATFORM_ID:Windows>:WINVER=0x0A00>
     )
     set_target_properties(caors_asio_config PROPERTIES FOLDER "${third_party_folder}/Asio")
 endif()
