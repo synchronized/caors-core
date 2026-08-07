@@ -181,7 +181,7 @@ owner/lease 边界。
   - [x] Windows Clang Shared Release：全量 88/88；
   - [x] Windows MSVC Static Debug：全量 86/86；
   - [x] Windows MSVC Static Release：全量 86/86；
-  - [ ] Windows MSVC Shared Debug；
+  - [x] Windows MSVC Shared Debug：全量 88/88；
   - [ ] Windows MSVC Shared Release；
 - [ ] Linux Clang/GCC Static/Shared、ASan；
 - [ ] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟；
