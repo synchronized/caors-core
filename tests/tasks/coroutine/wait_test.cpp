@@ -68,13 +68,16 @@ TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][asio][
 }
 
 TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][asio][coroutine]") {
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
   caors::tasks::executor start = caors::tasks::inline_executor();
-  caors::tasks::request source = caors::tasks::request::make_completed();
+  caors::tasks::request source = caors::tasks::request::make_completed(&tracking);
+  const caors::memory_statistics baseline = tracking.statistics();
   caors::error observed{caors::error_domain::core, caors::errc::pending};
   caors::tasks::request waiting = caors::tasks::spawn(start, wait_and_record(source, &observed));
 
   CHECK(waiting.completed());
   CHECK_FALSE(observed);
+  CHECK(tracking.statistics().allocation_count == baseline.allocation_count);
 }
 
 TEST_CASE("tasks - async wait state uses request long lived resource", "[tasks][asio][coroutine]") {

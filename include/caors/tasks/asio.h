@@ -143,15 +143,13 @@ inline void complete_request_wait(const std::shared_ptr<void>& erased) noexcept 
 /** @brief 非阻塞等待共享 request 进入终止状态。 */
 class request_awaiter final {
 public:
-  explicit request_awaiter(request operation)
-      : operation_(std::move(operation)),
-        state_(std::allocate_shared<detail::request_wait_state>(
-            allocator<detail::request_wait_state>{operation_.resource()})) {}
+  explicit request_awaiter(request operation) : operation_(std::move(operation)) {}
 
   request_awaiter(const request_awaiter&) = delete;
   request_awaiter& operator=(const request_awaiter&) = delete;
   request_awaiter(request_awaiter&& other) noexcept
-      : operation_(std::move(other.operation_)), state_(std::move(other.state_)) {}
+      : operation_(std::move(other.operation_)), state_(std::move(other.state_)),
+        registration_error_(other.registration_error_) {}
   request_awaiter& operator=(request_awaiter&&) = delete;
 
   ~request_awaiter() noexcept {
@@ -170,39 +168,49 @@ public:
   [[nodiscard]] bool await_ready() const { return operation_.done(); }
 
   [[nodiscard]] bool await_suspend(std::coroutine_handle<> continuation) {
-    std::shared_ptr<detail::request_wait_state> state = state_;
-    state->continuation = continuation;
     bool registered = false;
 #if CAORS_HAS_EXCEPTIONS
     try {
 #endif
+      state_ = std::allocate_shared<detail::request_wait_state>(
+          allocator<detail::request_wait_state>{operation_.resource()});
+      state_->continuation = continuation;
       registered = detail::request_access::add_waiter(
           detail::request_access::state(operation_),
-          detail::request_waiter{state, &detail::complete_request_wait});
+          detail::request_waiter{state_, &detail::complete_request_wait});
 #if CAORS_HAS_EXCEPTIONS
     } catch (...) {
-      state->registration_error = {error_domain::core, errc::out_of_memory};
-      state->phase.store(detail::schedule_phase::completed, std::memory_order_release);
+      if (state_ != nullptr) {
+        state_->registration_error = {error_domain::core, errc::out_of_memory};
+        state_->phase.store(detail::schedule_phase::completed, std::memory_order_release);
+      } else {
+        registration_error_ = {error_domain::core, errc::out_of_memory};
+      }
       return false;
     }
 #endif
     if (!registered) {
-      state->phase.store(detail::schedule_phase::completed, std::memory_order_release);
+      state_->phase.store(detail::schedule_phase::completed, std::memory_order_release);
       return false;
     }
 
     const detail::schedule_phase previous =
-        state->phase.exchange(detail::schedule_phase::suspended, std::memory_order_acq_rel);
+        state_->phase.exchange(detail::schedule_phase::suspended, std::memory_order_acq_rel);
     return previous != detail::schedule_phase::completed;
   }
 
   [[nodiscard]] caors::error await_resume() const {
-    return state_->registration_error ? state_->registration_error : operation_.result();
+    if (registration_error_) {
+      return registration_error_;
+    }
+    return state_ != nullptr && state_->registration_error ? state_->registration_error
+                                                           : operation_.result();
   }
 
 private:
   request operation_;
   std::shared_ptr<detail::request_wait_state> state_;
+  caors::error registration_error_{};
 };
 
 /** @brief 创建等待共享 request 的 coroutine awaiter。 */
