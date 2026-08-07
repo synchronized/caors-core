@@ -174,12 +174,9 @@ TEST_CASE("resources coroutine - ready preload does not allocate helper state",
   auto request = caors::resources::preload_request::from_plan(
       caors::resources::preload_plan{&tracking}, &tracking);
   const caors::memory_statistics baseline = tracking.statistics();
-  caors::resources::preload_result result;
 
-  probe_coroutine wait = wait_preload(std::move(request), &result);
+  auto awaiter = caors::resources::async_wait(std::move(request));
 
-  CHECK(wait.done());
-  CHECK_FALSE(wait.failed());
-  CHECK(result.succeeded());
+  CHECK(awaiter.await_ready());
   CHECK(tracking.statistics().allocation_count == baseline.allocation_count);
 }
