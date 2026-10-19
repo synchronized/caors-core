@@ -3,7 +3,7 @@
 
 #include "support/benchmark_support.h"
 
-#include "caors/tasks/asio.h"
+#include "caors/tasks/coroutine.h"
 
 #include <algorithm>
 #include <array>

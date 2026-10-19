@@ -7,7 +7,7 @@
 
 状态：待验收，对应 C51-06。版本与依赖见 [v0.2.0](../versions/v0.2.0.md)。
 现有 `tasks::executor` 主要由 CAORS context/thread_pool 构造；新增宿主投递适配，
-保持 Asio 私有，不要求引入 libuv 依赖或新建线程池。
+内置调度改用标准库线程，不要求引入 libuv 依赖或新建线程池。
 
 ## 设计与实施
 

@@ -3,7 +3,7 @@
 
 # Tasks
 
-本文档说明 CAORS 任务调度模块的当前边界。任务系统以仓库固定的 standalone Asio 作为私有后端，
+本文档说明 CAORS 任务调度模块的当前边界。内置后端使用 C++20 标准库线程、互斥锁和条件变量，
 公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor()` 工厂、单线程
 `execution_context`、固定线程数 `thread_pool` 和轻量 `request` 状态句柄。
 
@@ -19,8 +19,7 @@
 - `tasks::execution_context`：由调用方驱动 `run()` / `poll()` / `drain()` 的单线程执行上下文。
 - `tasks::thread_pool`：固定线程数后台执行上下文，析构默认 drain 已入队任务。
 - `tasks::request`：提交任务后的共享状态句柄，覆盖 queued/running/completed/failed/cancelled 和错误查询。
-- `task` 和执行环境可传入 `memory_resource`，长期 control block 使用对应资源；Asio 内部 operation
-  allocator 的接入仍属于后续优化。
+- `task`、control block、排队节点和 worker 数组使用指定的长期 `memory_resource`；标准库线程及同步原语的系统内部资源不计入该资源。
 
 当前不会包含：
 
@@ -37,7 +36,7 @@
 scheduler，也不是完整作业系统：
 
 - 不做 work stealing。当前没有细粒度任务图和大量短任务场景，固定线程池更容易验证生命周期和停止边界。
-- 不做 fiber。C++20 coroutine 适配将在统一 executor 语义稳定后单独提供。
+- 不做 fiber。C++20 coroutine 适配由显式头 `caors/tasks/coroutine.h` 提供。
 - 不做任务图。资源依赖闭包和预加载顺序目前由资源数据库管理，任务层只负责执行单个 callable。
 - 不做平台异步 IO。provider/source 仍以同步读取为主；后续如果加入文件包、远程资源或平台 IO，再在资源层评估接入方式。
 - 不做强制取消。`request::cancel()` 只改变请求状态，不中断正在运行的线程或 callable。
@@ -236,7 +235,7 @@ std::size_t count = completions.drain();
 
 ## coroutine 调度适配
 
-显式包含 `caors/tasks/asio.h` 后，可以用 `schedule(executor)` 将当前 C++20 coroutine 切换到指定
+显式包含 `caors/tasks/coroutine.h` 后，可以用 `schedule(executor)` 将当前 C++20 coroutine 切换到指定
 执行目标：
 
 ```cpp
@@ -307,7 +306,7 @@ resources 和 assets 异步入口都接收后台 executor 与 completion executo
 ## 外部 executor
 
 `tasks::external_executor` 将共享拥有的 `external_executor_context` 适配为普通 executor。
-宿主实现 `post(task)` 和 `close()`，接口不含 Asio 类型；可分别为宿主线程池和所属线程完成队列创建适配器。
+宿主实现 `post(task)` 和 `close()`，接口不绑定具体后端；可分别为宿主线程池和所属线程完成队列创建适配器。
 `post` 接管任务，成功后必须执行或销毁，拒绝后不得执行。`close` 必须封闭队列并排空/销毁已接受任务，
 与投递并发时仍保证协议；不在自己的工作任务中阻塞等待自身关闭。允许同步 inline 执行，需支持重入。
 适配器不持锁调用宿主，投递异常在允许异常的构建中转换为 `backend_failure`。

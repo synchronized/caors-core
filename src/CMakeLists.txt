@@ -42,10 +42,12 @@ target_sources(
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)
 caors_target_compile_warnings(${TARGET_NAME})
+find_package(Threads REQUIRED)
+
 target_link_libraries(
   ${TARGET_NAME}
   PRIVATE
-    $<BUILD_INTERFACE:caors_asio_config>
+    Threads::Threads
     ${CMAKE_DL_LIBS}
 )
 

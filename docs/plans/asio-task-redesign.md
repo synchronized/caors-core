@@ -3,6 +3,8 @@
 
 # Asio 与 Tasks 重构开发计划
 
+> 后端方案已取代：本文保留原迁移设计与历史证据。2026-10-19 起按[标准库调度后端](standard-thread-backends.md)移除 Asio；当前 API 以[任务参考](../reference/tasks.md)为准。
+
 ## 文档状态
 
 - 当前状态：阶段 0 到阶段 6 的迁移验收已完成；固定 Linux 环境正式性能复验延期，单独跟踪；

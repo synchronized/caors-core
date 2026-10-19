@@ -39,28 +39,6 @@ MESSAGE(STATUS "===========================")
 set(third_party_folder "ThirdParty")
 set(THIRD_PARTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# standalone Asio 仅作为 CAORS 私有实现依赖。集中配置可以避免不同目标使用不一致的宏。
-if(NOT TARGET caors_asio_config)
-    add_library(caors_asio_config INTERFACE)
-    target_include_directories(
-        caors_asio_config
-        SYSTEM INTERFACE
-            "${THIRD_PARTY_ROOT}/asio-1.38.2/include"
-    )
-    target_compile_features(caors_asio_config INTERFACE cxx_std_20)
-    target_compile_definitions(
-        caors_asio_config
-        INTERFACE
-            ASIO_STANDALONE
-            ASIO_NO_DEPRECATED
-            # 禁止 Asio 头主动恢复 default visibility，保持 CAORS 的私有符号边界。
-            ASIO_DISABLE_VISIBILITY
-            $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>
-            $<$<PLATFORM_ID:Windows>:WINVER=0x0A00>
-    )
-    set_target_properties(caors_asio_config PROPERTIES FOLDER "${third_party_folder}/Asio")
-endif()
-
 # 只在使用方启用时配置测试和性能依赖。
 if(CAORS_BUILD_TESTING AND BUILD_TESTING)
     if(TARGET Catch2::Catch2)

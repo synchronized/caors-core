@@ -29,7 +29,7 @@
 
 ## 执行与事件
 
-- [Tasks](tasks.md)：任务、轻量 executor、Asio context/pool、request 与显式协程适配。
+- [Tasks](tasks.md)：任务、轻量 executor、标准库 context/pool、request 与显式协程适配。
 - [Events](events.md)：delegate、signal、sink、连接和同步 dispatcher。
 
 ## 兼容政策

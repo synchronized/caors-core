@@ -68,7 +68,7 @@ Tasks/Resources 协程迁移和延期验证的状态见[计划索引](plans/READ
 
 ## 7. 任务调度
 
-统一 Asio context、轻量 executor 和协程请求等待已完成迁移验收，延期扩展验证见
+统一 context、轻量 executor 和协程请求等待已有迁移验收；内置后端正在[移除 Asio](plans/standard-thread-backends.md)，延期扩展验证见
 [Tasks 计划](plans/asio-task-redesign.md)。当前 API 见[tasks](reference/tasks.md)。
 优先级、阻塞等待、取消传播、timer/超时、任务图、work stealing 和平台异步 I/O 作为独立需求评估。
 Task SBO、operation allocator 和批量调度仅在独立实验及真实负载证明收益后实施。

@@ -75,7 +75,7 @@ build/windows-clang-benchmark/benchmarks/caors_scheduler_benchmarks
 个样本，输出 p50/p95、吞吐、显式 resource 分配和句柄大小。`context.lifecycle` 包含构造和销毁；
 `context.post_drain` 使用常驻 context；`pool.roundtrip` 使用常驻单 worker，并包含第二个屏障任务
 及线程同步成本。常驻执行环境自身使用系统 resource，分配统计只覆盖传入的 task resource，
-不覆盖 Asio 内部 operation、线程、全局分配和屏障任务。源码可在旧调度器版本中独立编译，
+历史 Asio 基线不覆盖其内部 operation、线程、全局分配和屏障任务；新后端需独立重测。源码可在旧调度器版本中独立编译，
 用于同机比较；基准不构成性能保证，也不作为测试门禁。
 
 

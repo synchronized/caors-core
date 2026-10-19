@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 TEST_CASE("tasks - thread pool executor drains submitted tasks on shutdown", "[tasks]") {
   std::atomic<int> total = 0;
@@ -150,3 +151,44 @@ TEST_CASE("tasks - thread pool executor remains safely invalid after pool destru
   CHECK(executor.post(caors::tasks::task{[] {}}) ==
         caors::error{caors::error_domain::core, caors::errc::frozen});
 }
+
+TEST_CASE("tasks - standard pool accepts concurrent producers and concurrent close", "[tasks]") {
+  caors::tasks::thread_pool pool{3};
+  auto executor = pool.get_executor();
+  std::atomic<int> executed{0};
+  std::atomic<int> accepted{0};
+  std::atomic<bool> start{false};
+  std::vector<std::jthread> producers;
+  for (int index = 0; index < 4; ++index) {
+    producers.emplace_back([&] {
+      while (!start.load()) {
+        std::this_thread::yield();
+      }
+      for (int task_index = 0; task_index < 200; ++task_index) {
+        if (!executor.post(caors::tasks::task{[&] { ++executed; }})) {
+          ++accepted;
+        }
+      }
+    });
+  }
+  start.store(true);
+  std::jthread closer{[&] { pool.shutdown(); }};
+  pool.shutdown();
+  producers.clear();
+  closer.join();
+  CHECK(executed.load() == accepted.load());
+  CHECK(pool.pending() == 0);
+  CHECK_FALSE(executor.valid());
+}
+
+#if CAORS_HAS_EXCEPTIONS
+TEST_CASE("tasks - standard pool survives throwing task", "[tasks]") {
+  caors::tasks::thread_pool pool{1};
+  std::atomic<int> executed{0};
+  auto executor = pool.get_executor();
+  REQUIRE_FALSE(executor.post(caors::tasks::task{[] { throw 42; }}));
+  REQUIRE_FALSE(executor.post(caors::tasks::task{[&] { ++executed; }}));
+  pool.shutdown();
+  CHECK(executed.load() == 1);
+}
+#endif
