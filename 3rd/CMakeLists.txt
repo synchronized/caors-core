@@ -53,6 +53,8 @@ if(NOT TARGET caors_asio_config)
         INTERFACE
             ASIO_STANDALONE
             ASIO_NO_DEPRECATED
+            # 禁止 Asio 头主动恢复 default visibility，保持 CAORS 的私有符号边界。
+            ASIO_DISABLE_VISIBILITY
             $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>
             $<$<PLATFORM_ID:Windows>:WINVER=0x0A00>
     )
