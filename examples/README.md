@@ -41,7 +41,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 - `object/`：对象注册、对象创建、生命周期管理器和销毁。
 - `serialization/`：meta 属性序列化、普通类多态 wrapper、factory 和内存资源上下文。
 
-具体示例以各主题目录下的 `*.cpp` 文件为准。
+具体示例以各主题目录下的 `*.cpp` 文件为准。异步来源快照与范围读取示例见 [beta 示例](beta/README.md)。
 
 ## 新增示例
 

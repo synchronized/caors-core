@@ -552,3 +552,117 @@ TEST_CASE("assets - preload failure cancels remaining I/O without cancelling sta
   REQUIRE(f.completion.drain() == 1);
   CHECK(independent.loaded());
 }
+
+namespace {
+std::string snapshot_text(const caors::resources::async_load_context& context,
+                          caors::resource_guid guid) {
+  REQUIRE(context.sources);
+  auto file = context.sources->resolve(guid);
+  REQUIRE(file);
+  auto bytes = file->backend->read_all(file->path);
+  REQUIRE(bytes);
+  return {reinterpret_cast<const char*>(bytes->data()), bytes->size()};
+}
+std::shared_ptr<caors::io::memory_file_system> snapshot_files(std::string_view text) {
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(files->write_all("data", text));
+  return files;
+}
+}
+TEST_CASE("assets - first GUID operation freezes source before worker and remount",
+          "[assets][vfs]") {
+  fixture f;
+  auto router = std::make_shared<caors::io::mount_file_system>();
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
+  caors::resources::file_source source{router};
+  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  auto first = f.assets.request_load<texture>(test_guid_a);
+  router->clear();
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
+  auto shared = f.assets.request_load<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK(snapshot_text(f.loader.pending.front().context, test_guid_a) == "old");
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(first.loaded());
+  CHECK(shared.loaded());
+  auto reloaded = f.assets.request_reload<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  CHECK(snapshot_text(f.loader.pending.front().context, test_guid_a) == "new");
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(reloaded.loaded());
+}
+TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[assets][vfs]") {
+  fixture f;
+  auto router = std::make_shared<caors::io::mount_file_system>();
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
+  caors::resources::file_source source{router};
+  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(f.assets.provider().bind(test_guid_b, source, "assets/data"));
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
+  REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
+  auto batch = GENERATE(false, true) ? f.assets.request_preload(test_guid_a)
+                                     : f.assets.request_preload<texture>(test_guid_a);
+  REQUIRE(f.worker.poll_one() == 1);
+  router->clear();
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 2);
+  CHECK(f.loader.pending[0].context.sources == f.loader.pending[1].context.sources);
+  for (auto& op : f.loader.pending)
+    CHECK(snapshot_text(op.context, op.context.guid) == "old");
+  f.assets.provider().clear();
+  CHECK(snapshot_text(f.loader.pending.front().context, test_guid_a) == "old");
+  f.loader.finish();
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 2);
+  CHECK(batch.loaded());
+}
+
+TEST_CASE("assets - configured builtins expose owning snapshots after manager destruction",
+          "[assets][vfs]") {
+  std::shared_ptr<const caors::resources::provider_snapshot> snapshot;
+  {
+    caors::assets::asset_manager assets;
+    caors::assets::project_config config;
+    auto json = R"({"file_systems":[{"name":"memory","type":"memory_file_system"},
+      {"name":"vfs","type":"resolver","routes":[{"prefix":"caors://assets","target":"memory"}]}],
+      "sources":[{"name":"assets","file_system":"vfs"}]})";
+    REQUIRE_FALSE(caors::assets::json::load_project_config(config, json));
+    REQUIRE_FALSE(assets.build(config));
+    auto* memory = assets.find_file_system(caors::string_name{"memory"});
+    REQUIRE(memory);
+    REQUIRE_FALSE(memory->write_all("data", std::string_view{"factory"}));
+    auto* source = assets.find_source(caors::string_name{"assets"});
+    REQUIRE(source);
+    REQUIRE_FALSE(assets.provider().bind(test_guid_a, *source, "caors://assets/data"));
+    snapshot = assets.provider().snapshot();
+  }
+  auto file = snapshot->resolve(test_guid_a);
+  REQUIRE(file);
+  auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
+  REQUIRE(opened);
+  REQUIRE(opened->result());
+  REQUIRE(*opened->result());
+  auto stream = opened->result()->value;
+  auto read = caors::io::read_all_bounded(stream, 7, caors::tasks::inline_executor());
+  REQUIRE(read);
+  REQUIRE(read->result());
+  REQUIRE(*read->result());
+  CHECK(read->result()->value.size() == 7);
+  auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
+  REQUIRE(closed);
+  REQUIRE(closed->result());
+  CHECK(*closed->result());
+}
+TEST_CASE("assets - configured owning route cycles fail before publishing edges", "[assets][vfs]") {
+  caors::assets::asset_manager assets;
+  caors::assets::project_config config;
+  REQUIRE_FALSE(caors::assets::json::load_project_config(config, R"({"file_systems":[
+    {"name":"a","type":"mount_file_system","routes":[{"prefix":"a","target":"b"}]},
+    {"name":"b","type":"mount_file_system","routes":[{"prefix":"b","target":"a"}]}]})"));
+  CHECK(assets.build(config).value() == caors::errc::cycle_detected);
+}

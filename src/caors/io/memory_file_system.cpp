@@ -10,6 +10,29 @@
 namespace caors::io {
 namespace {
 
+class memory_reader final : public random_access_reader {
+public:
+  explicit memory_reader(std::shared_ptr<const byte_buffer> bytes) : bytes_(std::move(bytes)) {}
+  std::uint64_t size() const noexcept override { return bytes_->size(); }
+  io_result<std::size_t> read_at(std::uint64_t offset, std::span<std::byte> buffer) override {
+    if (closed_)
+      return io_failure<std::size_t>({io_errc::closed});
+    if (offset > bytes_->size())
+      return io_failure<std::size_t>({io_errc::out_of_range});
+    const auto count = (std::min)(buffer.size(), bytes_->size() - static_cast<std::size_t>(offset));
+    std::copy_n(bytes_->begin() + static_cast<std::size_t>(offset), count, buffer.begin());
+    return {{}, count};
+  }
+  io_error close() override {
+    closed_ = true;
+    return {};
+  }
+
+private:
+  std::shared_ptr<const byte_buffer> bytes_;
+  bool closed_ = false;
+};
+
 [[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
   return {value.data(), value.size()};
 }
@@ -103,7 +126,7 @@ file_status_result memory_file_system::status(path_view path) const {
   if (found != files_.end()) {
     file_status result{};
     result.kind = file_kind::file;
-    result.size = static_cast<std::uint64_t>(found->second.size());
+    result.size = static_cast<std::uint64_t>(found->second->size());
     result.has_size = true;
     return ok(result);
   }
@@ -176,7 +199,7 @@ byte_buffer_result memory_file_system::read_all(path_view path, memory_resource*
   }
 
   byte_buffer bytes = make_byte_buffer(result_resource);
-  bytes.assign(found->second.begin(), found->second.end());
+  bytes.assign(found->second->begin(), found->second->end());
   return ok(std::move(bytes));
 }
 
@@ -191,12 +214,35 @@ error memory_file_system::write_all(path_view path, std::span<const std::byte> b
   const core::string key = key_for(path);
   auto found = files_.find(key);
   if (found != files_.end()) {
-    found->second = std::move(stored);
+    found->second =
+        std::allocate_shared<byte_buffer>(allocator<byte_buffer>{resource_}, std::move(stored));
     return {};
   }
 
-  files_.emplace(key, std::move(stored));
+  files_.emplace(
+      key, std::allocate_shared<byte_buffer>(allocator<byte_buffer>{resource_}, std::move(stored)));
   return {};
+}
+
+io_error memory_file_system::start_open(resolved_file location, memory_resource* resource,
+                                        io_completion<std::shared_ptr<async_file>> completion) {
+  auto reader = open_random_read(location.path, resource);
+  if (!reader)
+    return reader.error();
+  auto file = make_worker_file(std::move(reader.value), tasks::inline_executor(), location.backend);
+  (void)completion.complete({{}, std::move(file)});
+  return {};
+}
+
+io_result<std::shared_ptr<random_access_reader>>
+memory_file_system::open_random_read(path_view path, memory_resource* resource) {
+  if (path.empty())
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::invalid_argument});
+  const auto found = files_.find(key_for(path));
+  if (found == files_.end())
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::not_found});
+  return {{},
+          std::allocate_shared<memory_reader>(allocator<memory_reader>{resource}, found->second)};
 }
 
 core::string memory_file_system::key_for(path_view path) const {

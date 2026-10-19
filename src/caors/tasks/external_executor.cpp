@@ -29,6 +29,8 @@ error post_external(detail::executor_control_block* base, task next) {
 #endif
     return context ? context->post(std::move(next)) : error{error_domain::core, errc::frozen};
 #if CAORS_HAS_EXCEPTIONS
+  } catch (const std::bad_alloc&) {
+    return {error_domain::core, errc::out_of_memory};
   } catch (...) {
     return {error_domain::core, errc::backend_failure};
   }

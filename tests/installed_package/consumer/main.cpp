@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/io.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
 #include "caors/serialization.h"
 #include "caors/version.h"
 
 #include <iostream>
+#include <memory>
 #include <optional>
 
 namespace {
@@ -23,6 +25,29 @@ struct consumer_record {
 
   std::cerr << step << " 失败，错误码：" << static_cast<int>(status.value()) << '\n';
   return false;
+}
+
+[[nodiscard]] bool check_owned_io() {
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  if (!check(files->write_all("data", std::string_view{"payload"}), "准备 IO 数据")) {
+    return false;
+  }
+  std::weak_ptr<caors::io::memory_file_system> weak = files;
+  auto mounts = std::make_shared<caors::io::mount_file_system>();
+  if (!check(mounts->mount("assets", std::move(files)), "拥有式路径挂载")) {
+    return false;
+  }
+  caors::io::file_system_resolver resolver;
+  if (!check(resolver.mount("caors://assets", std::move(mounts), "assets"), "拥有式 URI 挂载")) {
+    return false;
+  }
+  const auto bytes = resolver.read_all("caors://assets/data");
+  if (!bytes || bytes->size() != 7 || weak.expired()) {
+    std::cerr << "安装包拥有式挂载读取失败\n";
+    return false;
+  }
+  resolver.clear();
+  return weak.expired();
 }
 
 [[nodiscard]] bool register_consumer_record() {
@@ -45,7 +70,7 @@ int main() {
     return 1;
   }
 
-  if (!register_consumer_record()) {
+  if (!check_owned_io() || !register_consumer_record()) {
     return 1;
   }
 

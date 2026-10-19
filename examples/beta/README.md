@@ -33,6 +33,9 @@ beta 前资源路径按下面公式收敛：
 `asset_manager::register_typed_*_factory<Options, Create>()` 注册。asset manager 会读取 DOM、应用属性默认值、
 拒绝未知字段并执行 `validate_config()`；raw factory 只做手动读取，不提供内置 schema 校验。
 
+`assets_async_vfs.cpp` 演示 manager → 来源快照 → 原生内存打开 → 有界范围读取 → 显式关闭 → cache 提交。
+它使用主动 pump，不代表 libuv 联合接入；取消转交 worker，真实宿主还需提供 loop 寿命和全局预算。
+
 ## 构建目标
 
 ```sh
@@ -41,5 +44,6 @@ cmake --build --preset windows-clang-debug --target caors_example_beta_assets_as
 cmake --build --preset windows-clang-debug --target caors_example_beta_resource_reload
 cmake --build --preset windows-clang-debug --target caors_example_beta_asset_pipeline
 cmake --build --preset windows-clang-debug --target caors_example_beta_config_schema
+cmake --build --preset windows-clang-debug --target caors_example_beta_assets_async_vfs
 cmake --build --preset windows-clang-debug --target caors_example_beta_assets_native_async
 ```

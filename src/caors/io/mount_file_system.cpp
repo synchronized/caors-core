@@ -4,9 +4,17 @@
 #include "caors/io/mount_file_system.h"
 
 #include <algorithm>
+#include <atomic>
+#include <utility>
 
 namespace caors::io {
 namespace {
+
+// 将后端与宿主凭据放入同一控制块，保证 erase/move 也先释放后端，再释放模块 pin。
+struct owned_backend {
+  std::shared_ptr<void> lifetime;
+  std::shared_ptr<file_system> target;
+};
 
 [[nodiscard]] bool is_separator(char value) noexcept { return value == '/' || value == '\\'; }
 
@@ -143,51 +151,84 @@ void add_or_update_entry(directory_entry_list& entries, std::string_view name, p
 } // namespace
 
 mount_file_system::mount_file_system(memory_resource* resource)
-    : mounts_{allocator<mount_entry>{resource}} {}
+    : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+      mounts_(std::allocate_shared<route_table>(allocator<route_table>{resource_})) {}
 
-memory_resource* mount_file_system::resource() const noexcept {
-  return mounts_.get_allocator().resource();
-}
+memory_resource* mount_file_system::resource() const noexcept { return resource_; }
 
 error mount_file_system::mount(path_view prefix, file_system& target, path_view target_prefix) {
-  core::string normalized_prefix = normalize_prefix(prefix, resource());
-  if (std::any_of(mounts_.begin(), mounts_.end(),
-                  [&](const mount_entry& entry) { return entry.prefix == normalized_prefix; })) {
-    return {error_domain::io, errc::already_exists};
-  }
+  return mount_owned(prefix, target, target_prefix, {});
+}
 
-  mount_entry entry{
-      std::move(normalized_prefix),
-      &target,
-      trim_target_prefix(target_prefix, resource()),
-  };
-  mounts_.push_back(std::move(entry));
-  return {};
+error mount_file_system::mount_owned(path_view prefix, file_system& target, path_view target_prefix,
+                                     std::shared_ptr<void> owner) {
+  core::string normalized_prefix = normalize_prefix(prefix, resource());
+  auto previous = mounts_.load();
+  for (;;) {
+    auto next = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *previous);
+    auto& mounts = *next;
+    if (std::any_of(mounts.begin(), mounts.end(),
+                    [&](const mount_entry& entry) { return entry.prefix == normalized_prefix; })) {
+      return {error_domain::io, errc::already_exists};
+    }
+
+    mount_entry entry{
+        owner,
+        detail::next_route_id(),
+        normalized_prefix,
+        &target,
+        trim_target_prefix(target_prefix, resource()),
+    };
+    mounts.push_back(std::move(entry));
+    std::shared_ptr<const route_table> desired = std::move(next);
+    if (mounts_.compare_exchange_strong(previous, desired))
+      return {};
+  }
+}
+
+error mount_file_system::mount(path_view prefix, std::shared_ptr<file_system> target,
+                               path_view target_prefix, std::shared_ptr<void> lifetime) {
+  if (!target) {
+    return {error_domain::io, errc::invalid_argument};
+  }
+  auto* backend = target.get();
+  auto owner = std::allocate_shared<owned_backend>(
+      allocator<owned_backend>{resource()}, owned_backend{std::move(lifetime), std::move(target)});
+  return mount_owned(prefix, *backend, target_prefix, std::move(owner));
 }
 
 bool mount_file_system::unmount(path_view prefix) {
   const core::string normalized_prefix = normalize_prefix(prefix, resource());
-  const auto found = std::find_if(mounts_.begin(), mounts_.end(), [&](const mount_entry& entry) {
-    return entry.prefix == normalized_prefix;
-  });
-  if (found == mounts_.end()) {
-    return false;
+  auto previous = mounts_.load();
+  for (;;) {
+    auto next = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *previous);
+    const auto found = std::find_if(next->begin(), next->end(), [&](const mount_entry& entry) {
+      return entry.prefix == normalized_prefix;
+    });
+    if (found == next->end())
+      return false;
+    next->erase(found);
+    std::shared_ptr<const route_table> desired = std::move(next);
+    if (mounts_.compare_exchange_strong(previous, desired))
+      return true;
   }
-
-  mounts_.erase(found);
-  return true;
 }
 
-void mount_file_system::clear() { mounts_.clear(); }
+void mount_file_system::clear() {
+  auto empty = std::allocate_shared<route_table>(allocator<route_table>{resource()});
+  mounts_.store(std::move(empty));
+}
 
-std::size_t mount_file_system::mount_count() const noexcept { return mounts_.size(); }
+std::size_t mount_file_system::mount_count() const noexcept { return mounts_.load()->size(); }
 
 file_system_capabilities mount_file_system::capabilities() const noexcept {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   file_system_capabilities result{};
-  result.status = !mounts_.empty();
-  result.list = !mounts_.empty();
+  result.status = !mounts.empty();
+  result.list = !mounts.empty();
 
-  for (const mount_entry& entry : mounts_) {
+  for (const mount_entry& entry : mounts) {
     if (entry.target == nullptr) {
       continue;
     }
@@ -205,17 +246,21 @@ file_system_capabilities mount_file_system::capabilities() const noexcept {
 }
 
 bool mount_file_system::exists(path_view path) const {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   if (path.empty()) {
     return false;
   }
 
   const core::string normalized_path = normalize_mount_path(path, resource());
-  const mount_entry* entry = find_mount(path_view{normalized_path});
+  const mount_entry* entry = find_mount(mounts, path_view{normalized_path});
   return entry != nullptr && entry->target != nullptr &&
          entry->target->exists(resolve_path(*entry, path_view{normalized_path}));
 }
 
 file_status_result mount_file_system::status(path_view path) const {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   const core::string normalized_path = normalize_mount_path(path, resource());
   const std::string_view path_text = string_view_of(normalized_path);
   if (path_text.empty()) {
@@ -224,7 +269,7 @@ file_status_result mount_file_system::status(path_view path) const {
 
   error target_status{};
   bool has_target_status = false;
-  const mount_entry* entry = find_mount(path_view{normalized_path});
+  const mount_entry* entry = find_mount(mounts, path_view{normalized_path});
   if (entry != nullptr && entry->target != nullptr) {
     file_status_result result =
         entry->target->status(resolve_path(*entry, path_view{normalized_path}));
@@ -236,7 +281,7 @@ file_status_result mount_file_system::status(path_view path) const {
     has_target_status = true;
   }
 
-  for (const mount_entry& mounted : mounts_) {
+  for (const mount_entry& mounted : mounts) {
     if (is_mount_directory(path_text, string_view_of(mounted.prefix))) {
       return ok(file_status{file_kind::directory});
     }
@@ -250,6 +295,8 @@ file_status_result mount_file_system::status(path_view path) const {
 
 directory_entry_list_result mount_file_system::list(path_view directory,
                                                     memory_resource* result_resource) {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   const core::string normalized_directory = normalize_mount_path(directory, this->resource());
   const std::string_view directory_text = string_view_of(normalized_directory);
   directory_entry_list entries{allocator<directory_entry>{result_resource}};
@@ -257,7 +304,7 @@ directory_entry_list_result mount_file_system::list(path_view directory,
   error target_status{};
   bool has_target_status = false;
   bool target_succeeded = false;
-  const mount_entry* entry = find_mount(path_view{normalized_directory});
+  const mount_entry* entry = find_mount(mounts, path_view{normalized_directory});
   if (entry != nullptr && entry->target != nullptr) {
     directory_entry_list_result target_entries =
         entry->target->list(resolve_path(*entry, path_view{normalized_directory}), result_resource);
@@ -279,7 +326,7 @@ directory_entry_list_result mount_file_system::list(path_view directory,
     }
   }
 
-  for (const mount_entry& mounted : mounts_) {
+  for (const mount_entry& mounted : mounts) {
     std::string_view suffix;
     if (!mount_child_suffix(directory_text, string_view_of(mounted.prefix), suffix)) {
       continue;
@@ -306,12 +353,14 @@ directory_entry_list_result mount_file_system::list(path_view directory,
 }
 
 byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* result_resource) {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   if (path.empty()) {
     return fail<byte_buffer>({error_domain::io, errc::invalid_argument});
   }
 
   const core::string normalized_path = normalize_mount_path(path, this->resource());
-  const mount_entry* entry = find_mount(path_view{normalized_path});
+  const mount_entry* entry = find_mount(mounts, path_view{normalized_path});
   if (entry == nullptr || entry->target == nullptr) {
     return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
@@ -320,12 +369,14 @@ byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* 
 }
 
 error mount_file_system::write_all(path_view path, std::span<const std::byte> bytes) {
+  const auto table = mounts_.load();
+  const auto& mounts = *table;
   if (path.empty()) {
     return {error_domain::io, errc::invalid_argument};
   }
 
   const core::string normalized_path = normalize_mount_path(path, resource());
-  const mount_entry* entry = find_mount(path_view{normalized_path});
+  const mount_entry* entry = find_mount(mounts, path_view{normalized_path});
   if (entry == nullptr || entry->target == nullptr) {
     return {error_domain::io, errc::not_found};
   }
@@ -334,10 +385,10 @@ error mount_file_system::write_all(path_view path, std::span<const std::byte> by
 }
 
 const mount_file_system::mount_entry*
-mount_file_system::find_mount(path_view value) const noexcept {
+mount_file_system::find_mount(const route_table& entries, path_view value) const noexcept {
   const std::string_view path = value.string_view();
   const mount_entry* result = nullptr;
-  for (const mount_entry& entry : mounts_) {
+  for (const mount_entry& entry : entries) {
     if (matches_prefix(string_view_of(entry.prefix), path) &&
         (result == nullptr || entry.prefix.size() > result->prefix.size())) {
       result = &entry;
@@ -366,6 +417,51 @@ core::string mount_file_system::resolve_path(const mount_entry& entry, path_view
   result.push_back('/');
   result.append(suffix.begin(), suffix.end());
   return result;
+}
+
+result<resolved_file> mount_file_system::resolve_owned(path_view location) const {
+  const auto table = mounts_.load();
+  const auto normalized = normalize_mount_path(location, resource());
+  const path_view parsed{normalized};
+  const auto* entry = find_mount(*table, parsed);
+  if (!entry)
+    return fail<resolved_file>({error_domain::io, errc::not_found});
+  if (!entry->owner)
+    return fail<resolved_file>({error_domain::io, errc::unsupported});
+  auto target_path = resolve_path(*entry, parsed);
+  if (entry->target->routes_paths()) {
+    auto nested = entry->target->resolve_owned(target_path);
+    if (!nested)
+      return nested;
+    auto owner = std::allocate_shared<owned_backend>(allocator<owned_backend>{resource()},
+                                                     owned_backend{entry->owner, nested->backend});
+    nested->backend = std::shared_ptr<file_system>{owner, owner->target.get()};
+    return nested;
+  }
+  return ok(resolved_file{std::shared_ptr<file_system>{entry->owner, entry->target},
+                          path{path_view{target_path}, resource()}, entry->source_id});
+}
+
+result<std::shared_ptr<file_system>>
+mount_file_system::freeze_routes(detail::snapshot_context& context, std::shared_ptr<void>) const {
+  const auto table = mounts_.load();
+  auto frozen =
+      std::allocate_shared<mount_file_system>(allocator<mount_file_system>{resource()}, resource());
+  auto entries = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *table);
+  for (auto& entry : *entries) {
+    // 借用边先拒绝，捕获过程中不触碰没有寿命凭据的后端。
+    if (!entry.owner)
+      return fail<std::shared_ptr<file_system>>({error_domain::io, errc::unsupported});
+    auto child = context.capture(*entry.target, entry.owner);
+    if (!child)
+      return fail<std::shared_ptr<file_system>>(child.error());
+    auto owner = std::allocate_shared<owned_backend>(
+        allocator<owned_backend>{resource()}, owned_backend{entry.owner, std::move(child.value)});
+    entry.target = owner->target.get();
+    entry.owner = std::move(owner);
+  }
+  frozen->mounts_.store(std::move(entries));
+  return ok(std::static_pointer_cast<file_system>(std::move(frozen)));
 }
 
 } // namespace caors::io

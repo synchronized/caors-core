@@ -9,8 +9,10 @@
 #include "caors/io/native_file_system.h"
 #include "caors/io/uri.h"
 
+#include <algorithm>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace caors::assets {
 namespace {
@@ -45,68 +47,104 @@ void set_build_failure(asset_build_result& result, asset_build_stage stage, std:
   }
 }
 
+[[nodiscard]] error validate_route_graph(const project_config& config) {
+  std::vector<core::string_name> active;
+  std::vector<core::string_name> done;
+  auto visit = [&](auto&& self, core::string_name name) -> error {
+    if (std::find(active.begin(), active.end(), name) != active.end())
+      return {error_domain::resources, errc::cycle_detected};
+    if (std::find(done.begin(), done.end(), name) != done.end())
+      return {};
+    if (active.size() >= 256)
+      return {error_domain::resources, errc::recursion_limit};
+    active.push_back(name);
+    for (const auto& entry : config.file_systems) {
+      if (entry.name != name)
+        continue;
+      for (const auto& route : entry.routes) {
+        if (auto status = self(self, route.target))
+          return status;
+      }
+    }
+    active.pop_back();
+    done.push_back(name);
+    return {};
+  };
+  for (const auto& entry : config.file_systems) {
+    if (auto status = visit(visit, entry.name))
+      return status;
+  }
+  return {};
+}
+
 } // namespace
 
 error asset_manager::make_memory_file_system(file_system_factory_context& context,
                                              const project_file_system_config& config,
                                              void* user_data) {
   (void)user_data;
-  auto* file_system = context.manager.create_owned<io::memory_file_system>(context.resource);
+  auto file_system = std::allocate_shared<io::memory_file_system>(
+      allocator<io::memory_file_system>{context.resource}, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *file_system);
+  return context.manager.bind_file_system(config.name, file_system);
 }
 
 error asset_manager::make_native_file_system(file_system_factory_context& context,
                                              const project_file_system_config& config,
                                              void* user_data) {
   (void)user_data;
-  auto* file_system =
+  auto file_system =
       config.root.empty()
-          ? context.manager.create_owned<io::native_file_system>(context.resource)
-          : context.manager.create_owned<io::native_file_system>(config.root, context.resource);
+          ? std::allocate_shared<io::native_file_system>(
+                allocator<io::native_file_system>{context.resource}, context.resource)
+          : std::allocate_shared<io::native_file_system>(
+                allocator<io::native_file_system>{context.resource}, config.root, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *file_system);
+  return context.manager.bind_file_system(config.name, file_system);
 }
 
 error asset_manager::make_resolver_file_system(file_system_factory_context& context,
                                                const project_file_system_config& config,
                                                void* user_data) {
   (void)user_data;
-  auto* file_system = context.manager.create_owned<io::file_system_resolver>(context.resource);
+  auto file_system = std::allocate_shared<io::file_system_resolver>(
+      allocator<io::file_system_resolver>{context.resource}, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *file_system);
+  return context.manager.bind_file_system(config.name, file_system);
 }
 
 error asset_manager::make_mount_file_system(file_system_factory_context& context,
                                             const project_file_system_config& config,
                                             void* user_data) {
   (void)user_data;
-  auto* file_system = context.manager.create_owned<io::mount_file_system>(context.resource);
+  auto file_system = std::allocate_shared<io::mount_file_system>(
+      allocator<io::mount_file_system>{context.resource}, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *file_system);
+  return context.manager.bind_file_system(config.name, file_system);
 }
 
 error asset_manager::make_memory_file_source(source_factory_context& context,
                                              const project_source_config& config, void* user_data) {
   (void)user_data;
-  auto* file_system = context.manager.create_owned<io::memory_file_system>(context.resource);
+  auto file_system = std::allocate_shared<io::memory_file_system>(
+      allocator<io::memory_file_system>{context.resource}, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
+  auto* source = context.manager.create_owned<resources::file_source>(file_system);
   if (source == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
@@ -117,15 +155,17 @@ error asset_manager::make_memory_file_source(source_factory_context& context,
 error asset_manager::make_native_file_source(source_factory_context& context,
                                              const project_source_config& config, void* user_data) {
   (void)user_data;
-  auto* file_system =
+  auto file_system =
       config.root.empty()
-          ? context.manager.create_owned<io::native_file_system>(context.resource)
-          : context.manager.create_owned<io::native_file_system>(config.root, context.resource);
+          ? std::allocate_shared<io::native_file_system>(
+                allocator<io::native_file_system>{context.resource}, context.resource)
+          : std::allocate_shared<io::native_file_system>(
+                allocator<io::native_file_system>{context.resource}, config.root, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
+  auto* source = context.manager.create_owned<resources::file_source>(file_system);
   if (source == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
@@ -142,7 +182,9 @@ error asset_manager::make_bound_file_source(source_factory_context& context,
     return {error_domain::resources, errc::not_found};
   }
 
-  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
+  auto owner = context.manager.find_owned_file_system(file_system_name);
+  auto* source = owner ? context.manager.create_owned<resources::file_source>(std::move(owner))
+                       : context.manager.create_owned<resources::file_source>(*file_system);
   if (source == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
@@ -237,8 +279,40 @@ error asset_manager::bind_file_system(core::string_name name, io::file_system& f
     return {};
   }
 
-  file_systems_.emplace(name, file_system_binding{&file_system, building_config_runtime_});
+  file_systems_.emplace(name, file_system_binding{{}, &file_system, building_config_runtime_});
   return {};
+}
+
+error asset_manager::bind_file_system(core::string_name name,
+                                      std::shared_ptr<io::file_system> file_system,
+                                      std::shared_ptr<void> lifetime) {
+  if (!name || !file_system)
+    return {error_domain::resources, errc::invalid_argument};
+  struct held_backend {
+    std::shared_ptr<void> lifetime;
+    std::shared_ptr<io::file_system> target;
+  };
+  auto held =
+      std::allocate_shared<held_backend>(allocator<held_backend>{resource_},
+                                         held_backend{std::move(lifetime), std::move(file_system)});
+  auto owner = std::shared_ptr<io::file_system>{held, held->target.get()};
+  const auto found = file_systems_.find(name);
+  if (found != file_systems_.end()) {
+    if (found->second.file_system != owner.get())
+      return {error_domain::resources, errc::already_exists};
+    found->second.owner = std::move(owner);
+    return {};
+  }
+  auto* backend = owner.get();
+  file_systems_.emplace(name,
+                        file_system_binding{std::move(owner), backend, building_config_runtime_});
+  return {};
+}
+
+std::shared_ptr<io::file_system>
+asset_manager::find_owned_file_system(core::string_name name) const {
+  const auto found = file_systems_.find(name);
+  return found == file_systems_.end() ? std::shared_ptr<io::file_system>{} : found->second.owner;
 }
 
 bool asset_manager::unbind_file_system(core::string_name name) {
@@ -352,6 +426,13 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
                         file_system_config.name, file_system_config.type, {}, {});
       return result;
     }
+  }
+
+  status = validate_route_graph(config);
+  if (status) {
+    set_build_failure(result, asset_build_stage::file_system, asset_build_result::npos, status, {},
+                      {}, {}, "file_system 路由存在循环或超出递归深度");
+    return result;
   }
 
   for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
@@ -482,8 +563,10 @@ error asset_manager::configure_file_system_from_config(const project_file_system
         return {error_domain::resources, errc::not_found};
       }
 
+      auto owner = find_owned_file_system(route.target);
       const error status =
-          resolver->mount(io::uri_view{route.prefix}, *target, route.target_prefix);
+          owner ? resolver->mount(io::uri_view{route.prefix}, std::move(owner), route.target_prefix)
+                : resolver->mount(io::uri_view{route.prefix}, *target, route.target_prefix);
       if (status) {
         return status;
       }
@@ -506,7 +589,9 @@ error asset_manager::configure_file_system_from_config(const project_file_system
         return {error_domain::resources, errc::not_found};
       }
 
-      const error status = mount->mount(route.prefix, *target, route.target_prefix);
+      auto owner = find_owned_file_system(route.target);
+      const error status = owner ? mount->mount(route.prefix, std::move(owner), route.target_prefix)
+                                 : mount->mount(route.prefix, *target, route.target_prefix);
       if (status) {
         return status;
       }

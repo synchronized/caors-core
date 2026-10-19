@@ -6,10 +6,17 @@
 #include "caors/io/location.h"
 
 #include <algorithm>
+#include <atomic>
 #include <utility>
 
 namespace caors::io {
 namespace {
+
+// 将后端与宿主凭据放入同一控制块，保证 erase/move 也先释放后端，再释放模块 pin。
+struct owned_backend {
+  std::shared_ptr<void> lifetime;
+  std::shared_ptr<file_system> target;
+};
 
 [[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
   return {value.data(), value.size()};
@@ -72,13 +79,17 @@ void add_or_update_entry(directory_entry_list& entries, std::string_view name,
 } // namespace
 
 file_system_resolver::file_system_resolver(memory_resource* resource)
-    : routes_{allocator<route_entry>{resource}} {}
+    : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+      routes_(std::allocate_shared<route_table>(allocator<route_table>{resource_})) {}
 
-memory_resource* file_system_resolver::resource() const noexcept {
-  return routes_.get_allocator().resource();
-}
+memory_resource* file_system_resolver::resource() const noexcept { return resource_; }
 
 error file_system_resolver::mount(uri_view prefix, file_system& target, path_view target_prefix) {
+  return mount_owned(prefix, target, target_prefix, {});
+}
+
+error file_system_resolver::mount_owned(uri_view prefix, file_system& target,
+                                        path_view target_prefix, std::shared_ptr<void> owner) {
   const core::string scheme = make_string(prefix.scheme(), resource());
   const core::string authority = make_string(prefix.authority(), resource());
   const core::string path_prefix = normalize_route_path(prefix.path(), resource());
@@ -86,23 +97,43 @@ error file_system_resolver::mount(uri_view prefix, file_system& target, path_vie
     return {error_domain::io, errc::invalid_argument};
   }
 
-  const auto duplicate =
-      std::find_if(routes_.begin(), routes_.end(), [&](const route_entry& entry) {
-        return entry.scheme == scheme && entry.authority == authority &&
-               entry.path_prefix == path_prefix;
-      });
-  if (duplicate != routes_.end()) {
-    return {error_domain::io, errc::already_exists};
-  }
+  auto previous = routes_.load();
+  for (;;) {
+    auto next = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *previous);
+    auto& routes = *next;
+    const auto duplicate =
+        std::find_if(routes.begin(), routes.end(), [&](const route_entry& entry) {
+          return entry.scheme == scheme && entry.authority == authority &&
+                 entry.path_prefix == path_prefix;
+        });
+    if (duplicate != routes.end()) {
+      return {error_domain::io, errc::already_exists};
+    }
 
-  routes_.push_back(route_entry{
-      scheme,
-      authority,
-      path_prefix,
-      &target,
-      trim_target_prefix(target_prefix, resource()),
-  });
-  return {};
+    routes.push_back(route_entry{
+        owner,
+        detail::next_route_id(),
+        scheme,
+        authority,
+        path_prefix,
+        &target,
+        trim_target_prefix(target_prefix, resource()),
+    });
+    std::shared_ptr<const route_table> desired = std::move(next);
+    if (routes_.compare_exchange_strong(previous, desired))
+      return {};
+  }
+}
+
+error file_system_resolver::mount(uri_view prefix, std::shared_ptr<file_system> target,
+                                  path_view target_prefix, std::shared_ptr<void> lifetime) {
+  if (!target) {
+    return {error_domain::io, errc::invalid_argument};
+  }
+  auto* backend = target.get();
+  auto owner = std::allocate_shared<owned_backend>(
+      allocator<owned_backend>{resource()}, owned_backend{std::move(lifetime), std::move(target)});
+  return mount_owned(prefix, *backend, target_prefix, std::move(owner));
 }
 
 bool file_system_resolver::unmount(uri_view prefix) {
@@ -110,33 +141,44 @@ bool file_system_resolver::unmount(uri_view prefix) {
   const core::string authority = make_string(prefix.authority(), resource());
   const core::string path_prefix = normalize_route_path(prefix.path(), resource());
 
-  const auto found = std::find_if(routes_.begin(), routes_.end(), [&](const route_entry& entry) {
-    return entry.scheme == scheme && entry.authority == authority &&
-           entry.path_prefix == path_prefix;
-  });
-  if (found == routes_.end()) {
-    return false;
+  auto previous = routes_.load();
+  for (;;) {
+    auto next = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *previous);
+    const auto found = std::find_if(next->begin(), next->end(), [&](const route_entry& entry) {
+      return entry.scheme == scheme && entry.authority == authority &&
+             entry.path_prefix == path_prefix;
+    });
+    if (found == next->end())
+      return false;
+    next->erase(found);
+    std::shared_ptr<const route_table> desired = std::move(next);
+    if (routes_.compare_exchange_strong(previous, desired))
+      return true;
   }
-
-  routes_.erase(found);
-  return true;
 }
 
-void file_system_resolver::clear() { routes_.clear(); }
+void file_system_resolver::clear() {
+  auto empty = std::allocate_shared<route_table>(allocator<route_table>{resource()});
+  routes_.store(std::move(empty));
+}
 
-std::size_t file_system_resolver::mount_count() const noexcept { return routes_.size(); }
+std::size_t file_system_resolver::mount_count() const noexcept { return routes_.load()->size(); }
 
 bool file_system_resolver::exists(path_view location) const {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   return entry != nullptr && entry->target != nullptr &&
          entry->target->exists(resolve_path(*entry, parsed));
 }
 
 file_system_capabilities file_system_resolver::capabilities() const noexcept {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   file_system_capabilities result{};
 
-  for (const route_entry& entry : routes_) {
+  for (const route_entry& entry : routes) {
     if (entry.target == nullptr) {
       continue;
     }
@@ -154,8 +196,10 @@ file_system_capabilities file_system_resolver::capabilities() const noexcept {
 }
 
 file_status_result file_system_resolver::status(path_view location) const {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<file_status>({error_domain::io, errc::not_found});
   }
@@ -165,8 +209,10 @@ file_status_result file_system_resolver::status(path_view location) const {
 
 directory_entry_list_result file_system_resolver::list(path_view directory,
                                                        memory_resource* result_resource) {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{directory};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<directory_entry_list>({error_domain::io, errc::not_found});
   }
@@ -195,8 +241,10 @@ directory_entry_list_result file_system_resolver::list(path_view directory,
 
 byte_buffer_result file_system_resolver::read_all(path_view location,
                                                   memory_resource* result_resource) {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
@@ -206,8 +254,10 @@ byte_buffer_result file_system_resolver::read_all(path_view location,
 
 input_stream_result file_system_resolver::open_read(path_view location,
                                                     memory_resource* result_resource) {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<input_stream_ptr>({error_domain::io, errc::not_found});
   }
@@ -217,8 +267,10 @@ input_stream_result file_system_resolver::open_read(path_view location,
 
 output_stream_result file_system_resolver::open_write(path_view location,
                                                       memory_resource* result_resource) {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return fail<output_stream_ptr>({error_domain::io, errc::not_found});
   }
@@ -227,8 +279,10 @@ output_stream_result file_system_resolver::open_write(path_view location,
 }
 
 error file_system_resolver::write_all(path_view location, std::span<const std::byte> bytes) {
+  const auto table = routes_.load();
+  const auto& routes = *table;
   const uri_view parsed{location};
-  const route_entry* entry = find_route(parsed);
+  const route_entry* entry = find_route(routes, parsed);
   if (entry == nullptr || entry->target == nullptr) {
     return {error_domain::io, errc::not_found};
   }
@@ -236,13 +290,14 @@ error file_system_resolver::write_all(path_view location, std::span<const std::b
   return entry->target->write_all(resolve_path(*entry, parsed), bytes);
 }
 
-const file_system_resolver::route_entry* file_system_resolver::find_route(uri_view location) const {
+const file_system_resolver::route_entry*
+file_system_resolver::find_route(const route_table& entries, uri_view location) const {
   const core::string normalized_path =
       normalize_path(location.path(), resource()).to_string(resource());
   const std::string_view path = string_view_of(normalized_path);
 
   const route_entry* result = nullptr;
-  for (const route_entry& entry : routes_) {
+  for (const route_entry& entry : entries) {
     if (string_view_of(entry.scheme) != location.scheme() ||
         string_view_of(entry.authority) != location.authority() ||
         !matches_path_prefix(string_view_of(entry.path_prefix), path)) {
@@ -284,6 +339,51 @@ core::string file_system_resolver::resolve_path(const route_entry& entry, uri_vi
   result.push_back('/');
   result.append(suffix.begin(), suffix.end());
   return result;
+}
+
+result<resolved_file> file_system_resolver::resolve_owned(path_view location) const {
+  const auto table = routes_.load();
+  const uri_view parsed{location};
+  const auto* entry = find_route(*table, parsed);
+  if (!entry)
+    return fail<resolved_file>({error_domain::io, errc::not_found});
+  if (!entry->owner)
+    return fail<resolved_file>({error_domain::io, errc::unsupported});
+  auto target_path = resolve_path(*entry, parsed);
+  if (entry->target->routes_paths()) {
+    auto nested = entry->target->resolve_owned(target_path);
+    if (!nested)
+      return nested;
+    auto owner = std::allocate_shared<owned_backend>(allocator<owned_backend>{resource()},
+                                                     owned_backend{entry->owner, nested->backend});
+    nested->backend = std::shared_ptr<file_system>{owner, owner->target.get()};
+    return nested;
+  }
+  return ok(resolved_file{std::shared_ptr<file_system>{entry->owner, entry->target},
+                          path{path_view{target_path}, resource()}, entry->source_id});
+}
+
+result<std::shared_ptr<file_system>>
+file_system_resolver::freeze_routes(detail::snapshot_context& context,
+                                    std::shared_ptr<void>) const {
+  const auto table = routes_.load();
+  auto frozen = std::allocate_shared<file_system_resolver>(
+      allocator<file_system_resolver>{resource()}, resource());
+  auto entries = std::allocate_shared<route_table>(allocator<route_table>{resource()}, *table);
+  for (auto& entry : *entries) {
+    // 借用边先拒绝，捕获过程中不触碰没有寿命凭据的后端。
+    if (!entry.owner)
+      return fail<std::shared_ptr<file_system>>({error_domain::io, errc::unsupported});
+    auto child = context.capture(*entry.target, entry.owner);
+    if (!child)
+      return fail<std::shared_ptr<file_system>>(child.error());
+    auto owner = std::allocate_shared<owned_backend>(
+        allocator<owned_backend>{resource()}, owned_backend{entry.owner, std::move(child.value)});
+    entry.target = owner->target.get();
+    entry.owner = std::move(owner);
+  }
+  frozen->routes_.store(std::move(entries));
+  return ok(std::static_pointer_cast<file_system>(std::move(frozen)));
 }
 
 } // namespace caors::io

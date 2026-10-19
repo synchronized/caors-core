@@ -31,6 +31,7 @@ typedef struct caors_plugin_protocol_capability {
 
 #ifdef __cplusplus
 
+#include "caors/io/file_system.h"
 #include "caors/meta/proxy.h"
 #include "caors/resources/handle.h"
 
@@ -38,6 +39,7 @@ typedef struct caors_plugin_protocol_capability {
 struct caors_native_resource_test_extension {
   caors::resource_handle<caors::resource> (*create)(int* destroyed, int* deallocated);
   void (*watch_unload)(int* unloaded);
+  std::shared_ptr<caors::io::file_system> (*create_io)(int* destroyed);
 };
 
 CAORS_META_DEF_MEM_DISPATCH(caors_plugin_protocol_proxy_value, proxy_value);

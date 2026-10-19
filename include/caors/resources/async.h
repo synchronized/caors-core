@@ -1582,8 +1582,8 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
                                  resource_guid guid, const tasks::executor& worker,
                                  const tasks::executor& completion_executor, bool replace,
                                  load_request_table<T>* requests = nullptr,
-                                 load_request<T> request = {},
-                                 std::shared_ptr<void> activity = {}) {
+                                 load_request<T> request = {}, std::shared_ptr<void> activity = {},
+                                 std::shared_ptr<const provider_snapshot> sources = {}) {
 #if CAORS_HAS_EXCEPTIONS
   try {
 #endif
@@ -1610,6 +1610,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
                         load_request_access<T>::report_progress(
                             static_cast<progress_state*>(value)->state, update);
                       }}};
+    context.sources = std::move(sources);
     error status;
 #if CAORS_HAS_EXCEPTIONS
     try {
@@ -1639,11 +1640,14 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 }
 
 template <typename T>
-[[nodiscard]] load_request<T> request_load_into_impl(
-    cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
-    const tasks::executor& completion_executor, load_request_table<T>* requests,
-    bool commit_unconditionally = true, std::shared_ptr<preload_request_state> preload_state = {},
-    preload_item preload_observer_item = {}, std::shared_ptr<void> activity = {}) {
+[[nodiscard]] load_request<T>
+request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
+                       const tasks::executor& executor, const tasks::executor& completion_executor,
+                       load_request_table<T>* requests, bool commit_unconditionally = true,
+                       std::shared_ptr<preload_request_state> preload_state = {},
+                       preload_item preload_observer_item = {}, std::shared_ptr<void> activity = {},
+                       std::shared_ptr<const provider_snapshot> sources = {},
+                       const provider* snapshot_provider = nullptr) {
   if (!guid) {
     load_request<T> request = load_request<T>::failed(
         {error_domain::resources, errc::invalid_argument}, target.resource());
@@ -1668,6 +1672,9 @@ template <typename T>
     }
   }
 
+  if (!sources && snapshot_provider)
+    sources = snapshot_provider->snapshot();
+
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
   auto subscriber = load_request_access<T>::subscribe(
@@ -1685,9 +1692,9 @@ template <typename T>
   error submit_status = executor.post(tasks::task{
       target.resource(),
       [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
-       abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+       sources, abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
         load_resource_in_background(state, target, source, guid, executor, completion_executor,
-                                    false, requests, request, activity);
+                                    false, requests, request, activity, sources);
         abandoned.release();
       }});
   if (!submit_status) {
@@ -1705,11 +1712,11 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] load_request<T>
-request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                         const tasks::executor& executor,
-                         const tasks::executor& completion_executor,
-                         load_request_table<T>* requests, std::shared_ptr<void> activity = {}) {
+[[nodiscard]] load_request<T> request_reload_into_impl(
+    cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
+    const tasks::executor& completion_executor, load_request_table<T>* requests,
+    std::shared_ptr<void> activity = {}, std::shared_ptr<const provider_snapshot> sources = {},
+    const provider* snapshot_provider = nullptr) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
@@ -1727,6 +1734,9 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
     }
   }
 
+  if (!sources && snapshot_provider)
+    sources = snapshot_provider->snapshot();
+
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
   auto subscriber = load_request_access<T>::subscribe(request, true);
@@ -1743,9 +1753,9 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
   error submit_status = executor.post(tasks::task{
       target.resource(),
       [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
-       abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+       sources, abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
         load_resource_in_background(state, target, source, guid, executor, completion_executor,
-                                    true, requests, request, activity);
+                                    true, requests, request, activity, sources);
         abandoned.release();
       }});
   if (!submit_status) {

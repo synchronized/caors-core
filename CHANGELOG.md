@@ -9,7 +9,10 @@
 
 ## Unreleased
 
-暂无条目。
+- resolver/mount 新增拥有式挂载、不可变并发路由及嵌套快照，旧快照在 unmount/remount 后保留来源；原同步借用接口保留。
+- 新增拥有式异步文件、精确范围读取、明确预算、取消/完成通知/关闭协议；原生可选能力默认 unsupported，显式 worker 适配无整文件回退，不引入 libuv 依赖。
+- provider/source 向使用 `context.sources` 的 loader 传递同次加载来源快照，依赖预加载共用来源，同 GUID 继续复用首次操作；配置工厂提供拥有式后端和循环检查。
+- 新增异步 VFS 端到端示例；公共虚表与状态布局变化，升级须统一重编译库、宿主与插件。验收与发布状态见 [v0.4.0](docs/versions/v0.4.0.md)。
 
 ## v0.3.0 — 2026-10-19（alpha，已发布）
 

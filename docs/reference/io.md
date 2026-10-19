@@ -210,7 +210,7 @@ fs.mount("caors://assets", project, "assets");
 
 规则：
 
-- resolver 不拥有被挂载的文件系统。
+- `mount(prefix, file_system&, target_prefix)` 借用目标；拥有式重载见下文[拥有式挂载](#拥有式挂载)。
 - 路由按 scheme、authority 和路径前缀匹配，使用最长匹配。
 - 未命中路由返回 `errc::not_found`。
 - `list()` 返回的 `directory_entry::path` 会回到调用方使用的 URI 空间。
@@ -312,7 +312,7 @@ scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_res
 
 规则：
 
-- 挂载表不拥有目标 `file_system`，调用方需要保证目标生命周期。
+- 借用重载不拥有目标 `file_system`，调用方需要保证目标生命周期；另提供[拥有式挂载](#拥有式挂载)。
 - 虚拟路径使用 `/` 作为分隔符，开头的 `/` 会被忽略。
 - 常规物理根目录应放在目标 `file_system` 内，例如 `native_file_system{"D:/game/assets"}`。
 - `target_prefix` 只用于目标文件系统内部的子路径重映射，不应承担后端物理根目录职责。
@@ -324,3 +324,85 @@ scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_res
 - 目标路径语义仍由被挂载的具体文件系统决定。
 
 相关测试位于 `tests/io/`，测试组织规则见 [tests/README.md](../../tests/README.md)。
+
+## 拥有式挂载
+
+resolver 和 mount 均增加 `mount(prefix, shared_ptr<file_system>, target_prefix, lifetime)` 重载。
+挂载持有后端；`lifetime` 是可选的拥有式宿主凭据，例如模块 pin，其释放晚于本挂载持有的后端所有权。
+路由表扩容、删除、清空和销毁均遵循该顺序；空后端返回 invalid_argument，重复前缀返回 already_exists，
+不替换已有路由，也不继续持有被拒绝的候选。分配失败可抛出 bad_alloc，并保留已有挂载。
+
+调用方若在挂载之外独立持有后端，必须自行保证相应实现代码和 allocator 的寿命；
+路由器自身的 memory_resource 必须覆盖路由器、已捕获快照及所有相关控制块；并发使用要求 allocator 支持并发调用。
+不要用拥有式嵌套挂载形成 shared_ptr 强引用环；快照捕获会诊断循环，但不会替宿主拆除已有所有权环。
+配置创建的挂载图在发布拥有式边之前拒绝循环，手工挂载仍须遵守无强引用环的前置条件。
+原 `mount(prefix, file_system&, target_prefix)` 的借用行为保持不变。
+
+## 不可变路由快照
+
+`router.snapshot()` 捕获 resolver/mount 及嵌套路由的稳定副本；`route_snapshot::capture(shared_ptr<file_system>, lifetime)`
+也可捕获拥有式叶根。调用 `snapshot.resolve(location)` 得到 `resolved_file`，其中 `backend` 持有后端与宿主凭据，
+`path` 拥有字符串，`source_id` 是进程内挂载实例标记；无挂载的叶根使用后端实例标记。
+解析本身不证明文件存在，也不冻结外部文件的内容或修订。
+
+- 叶后端的配置（例如 native root）应在操作期间保持稳定；切换来源应新建后端并 remount。
+- 同步调用和快照读取来自同一权威挂载表。更新以不可变表发布；读操作持有当时的表，在内部同步之外调用后端和析构旧所有者。
+- mount/unmount/clear、数量查询、快照捕获及同步路由查询可并发；后端数据、allocator 和路由器析构的并发约束独立成立。
+- unmount/remount 只影响后续路由。旧快照和解析结果可在路由器销毁后使用；不会自动清资源缓存或取消旧读取。
+- 捕获时遍历全部可达路由，任一借用边返回 unsupported；不能只验证当前命中的路径而忽略后续依赖。
+- 同一次捕获中共用嵌套节点，不在后续解析时查询实时嵌套路由。各节点捕获是短时观察，不提供多路由器更新的全局事务。
+- 循环返回 cycle_detected，超过 256 层返回 recursion_limit。快照只读解析不修改挂载表。
+- 自定义转发后端必须声明 `routes_paths()` 并覆盖 `freeze_routes()`，通过上下文递归；默认路由扩展返回 unsupported。
+  普通叶后端可使用默认捕获实现，但必须有完整拥有者，不能把内部可变路由伪装成叶后端。
+
+宿主 loop 适配步骤见[接入指南](../guides/async-vfs-integration.md)。
+
+## 异步文件与精确范围
+
+原生异步能力是 `file_system::start_open(resolved_file, resource, io_completion<shared_ptr<async_file>>)`；
+默认 unsupported。先解析拥有式路径，再使用 `request_open()`。结果文件自动保留解析来源的寿命与 source_id，
+宿主操作仍须正确持有其 loop、原生句柄和 allocator 至真实清理。完整加载示例见
+[assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。
+
+| 入口 | 行为 |
+| --- | --- |
+| request_open | 调用后端原生异步能力，无同步回退；内存后端可立即提供结果 |
+| request_open_on_worker | 显式占用 worker，仅调用可选 open_random_read；不使用 open_read/read_all 默认实现 |
+| request_read | 按 offset/length 精确读取独立范围，成功结果必须恰好等于 length |
+| read_all_bounded | 从 0 读取打开时长度，沿用范围与单请求预算，不绕过总结果上限 |
+| request_close | 发起或订阅异步关闭，关闭错误通过请求结果查询 |
+
+范围为 uint64；分配前检查打开长度、整数边界、size_t/ptrdiff_t、后端单次上限及明确的 `max_bytes`。
+零长度可位于 EOF，超出 EOF 仍失败；文件增长不扩大打开长度，提前 EOF 返回 short_read，不返回伪完整缓冲。
+结果字节缓冲由操作拥有，使用指定 resource；取消不能提前释放底层仍在使用的缓冲。
+预算只限制单次结果字节数；控制块、任务开销、全局在途字节/数量/排队/优先级由宿主管理。
+
+`native_file_system` 提供真实随机输入句柄，必须显式选用 worker 适配器；内存句柄共享打开时的不可变存储，
+不为小范围先复制整个文件。内存文件系统配置/写入仍要求外部同步；已打开句柄独立持有存储。
+worker 适配器累积短段，内部串行 seek/read，允许多个范围在途但不宣称并行或内核非阻塞。
+原生宿主可以实现 `async_file`，其 offset 定位、缓冲和关闭约束由后端协议明确承担。
+
+关闭开始后拒绝新读，已接受操作真实清理后仅关闭一次，重复关闭复用关闭结果，各自拥有通知请求。
+worker 适配器析构投递不等待的清理任务；队列拒绝/丢弃或分配失败时，由 reader 的 RAII 析构兜底。
+析构没有错误接收者，观察关闭错误必须显式 request_close；宿主必须维持 loop/worker 至关闭结束。
+
+## 请求、取消与错误
+
+`io_request<T>` 为 move-only；必须持有至需要的结果交付完毕，最后句柄析构只协作请求停止，不等待。
+`result()` 在 pending 时为空，终态返回拥有寿命的只读 `io_result<T>`；结果可独立持有。
+这与资源层普通 load_request 析构不自动取消的规则不同。取消不撤回已安排的通知，回调不得借用短寿命对象。
+
+后端接收 move-only `io_completion<T>`，完成或销毁凭证，销毁未完成凭证按取消收尾；重复完成返回 false。
+同一凭证允许并发 complete，但禁止与其移动/析构并发。后端启动拒绝直接返回诊断且不通知用户；
+提前完成与拒绝同时发生时以启动拒绝为准，拒绝后不得保留凭证继续操作。
+
+用户通知始终经过指定 completion executor，可能在发起函数返回前重入，调用前须准备回调状态。
+准备好的成功结果在通知任务开始时才与停止信号作终态裁决；取消不会撤销已确定的成功。
+停止是协作式：真实操作须完成或销毁凭证才会收尾，不能只停止 loop 后留下永久在途凭证。
+通知任务被拒绝/丢弃时，请求进入可查询的 completion_rejected，不在 I/O 线程补调用户代码。
+回调应不抛异常；任务执行异常约束沿用 tasks，已经裁决的终态不会因观察者异常改写。
+
+`io_error` 保留统一分类、进程内 backend_id 和原始 native_code，不借用临时错误字符串。
+范围/预算失败在启动前返回；底层失败通过接受请求的结果返回。后端诊断不被转换为临时文本。
+控制块或任务构造仍可能因分配失败抛出 bad_alloc；已接受操作的通知分配失败以 out_of_memory 收尾。
+不承诺稳定 C++ ABI，升级须统一重编译库、宿主和插件。

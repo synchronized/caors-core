@@ -31,6 +31,10 @@ public:
   source(source&&) = delete;
   source& operator=(source&&) = delete;
 
+  /** @brief 捕获可跨异步边界的来源路由；自定义非文件来源默认 unsupported。 */
+  [[nodiscard]] virtual result<std::shared_ptr<io::file_system>>
+  freeze_routes(io::detail::snapshot_context& context) const;
+
   /** @brief 判断指定位置是否存在。 */
   [[nodiscard]] virtual bool exists(io::location_view location) const = 0;
 
@@ -74,6 +78,11 @@ public:
   using source::write;
 
   explicit file_source(io::file_system& file_system) noexcept;
+  /** @brief 拥有底层文件系统和宿主凭据；空文件系统在读取/捕获时失败。 */
+  explicit file_source(std::shared_ptr<io::file_system> file_system,
+                       std::shared_ptr<void> lifetime = {});
+  [[nodiscard]] result<std::shared_ptr<io::file_system>>
+  freeze_routes(io::detail::snapshot_context& context) const override;
 
   /** @brief 返回底层文件系统。 */
   [[nodiscard]] io::file_system& file_system() const noexcept;
@@ -88,6 +97,7 @@ public:
                                                     memory_resource* resource = nullptr) override;
 
 private:
+  std::shared_ptr<io::file_system> owner_;
   io::file_system* file_system_ = nullptr;
 };
 
@@ -103,6 +113,27 @@ struct source_location {
   [[nodiscard]] explicit operator bool() const noexcept {
     return source != nullptr && !location.empty();
   }
+};
+
+/**
+ * @brief GUID 绑定与全部文件路由的一次不可变快照；解析不访问原 provider/source。
+ * @note 不支持快照的来源按条目保留 unsupported；旧同步 loader 可继续使用原 provider。
+ */
+class CAORS_API provider_snapshot {
+public:
+  explicit provider_snapshot(memory_resource* resource = nullptr);
+  /** @brief 返回拥有式后端/路径和来源标记；失败保留捕获时诊断。 */
+  [[nodiscard]] result<io::resolved_file> resolve(resource_guid guid) const;
+
+private:
+  friend class provider;
+  struct entry {
+    std::shared_ptr<io::file_system> root;
+    io::path location{};
+    error status{};
+  };
+  using location_map = core::hash_map<resource_guid, entry, resource_guid_hash>;
+  location_map locations_;
 };
 
 /**
@@ -122,6 +153,9 @@ public:
 
   /** @brief 返回内部索引使用的内存资源。 */
   [[nodiscard]] memory_resource* resource() const noexcept;
+
+  /** @brief 复制 GUID/位置并冻结所有来源的嵌套路由；调用时禁止并发修改 provider/source 配置。 */
+  [[nodiscard]] std::shared_ptr<const provider_snapshot> snapshot() const;
 
   /** @brief 绑定 GUID 到指定来源和位置。 */
   [[nodiscard]] error bind(resource_guid guid, resources::source& source,

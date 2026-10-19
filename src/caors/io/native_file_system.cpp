@@ -4,10 +4,12 @@
 #include "caors/io/native_file_system.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -79,6 +81,44 @@ to_system_clock_time(std::filesystem::file_time_type value) {
 [[nodiscard]] error validate_path(path_view path) noexcept {
   return path.empty() ? error{error_domain::io, errc::invalid_argument} : error{};
 }
+
+class native_random_reader final : public random_access_reader {
+public:
+  native_random_reader(std::ifstream input, std::uint64_t size)
+      : input_(std::move(input)), size_(size) {}
+  std::uint64_t size() const noexcept override { return size_; }
+  io_result<std::size_t> read_at(std::uint64_t offset, std::span<std::byte> buffer) override {
+    if (!input_.is_open())
+      return io_failure<std::size_t>({io_errc::closed});
+    if (offset > size_ ||
+        offset > static_cast<std::uint64_t>((std::numeric_limits<std::streamoff>::max)()))
+      return io_failure<std::size_t>({io_errc::out_of_range});
+    input_.clear();
+    input_.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+    if (!input_)
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    auto count =
+        (std::min)(buffer.size(),
+                   static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()));
+    if (count == 0)
+      return {{}, 0};
+    input_.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(count));
+    if (input_.bad())
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    return {{}, static_cast<std::size_t>(input_.gcount())};
+  }
+  io_error close() override {
+    if (!input_.is_open())
+      return {};
+    input_.clear();
+    input_.close();
+    return input_.fail() ? io_error{io_errc::backend_failure, 1, errno} : io_error{};
+  }
+
+private:
+  std::ifstream input_;
+  const std::uint64_t size_;
+};
 
 class native_input_stream final : public input_stream {
 public:
@@ -323,6 +363,27 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
   }
 
   return ok(std::move(bytes));
+}
+
+io_result<std::shared_ptr<random_access_reader>>
+native_file_system::open_random_read(path_view path, memory_resource* resource) {
+  if (path.empty())
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::invalid_argument});
+  std::ifstream input{native_path(root(), path), std::ios::binary | std::ios::ate};
+  if (!input) {
+    const auto code = errno;
+    const auto kind = code == ENOENT   ? io_errc::not_found
+                      : code == EACCES ? io_errc::permission_denied
+                                       : io_errc::backend_failure;
+    return io_failure<std::shared_ptr<random_access_reader>>({kind, 1, code});
+  }
+  const auto end = input.tellg();
+  if (end < std::streampos{0})
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::backend_failure, 1, errno});
+  return {{},
+          std::allocate_shared<native_random_reader>(allocator<native_random_reader>{resource},
+                                                     std::move(input),
+                                                     static_cast<std::uint64_t>(end))};
 }
 
 input_stream_result native_file_system::open_read(path_view path,
