@@ -1,44 +1,38 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# CAORS 文档
+# CAORS 文档中心
 
-本目录存放 CAORS 的专题文档。这里仅作为文档索引，项目介绍和快速开始见 [README.md](../README.md)。
+文档按实际职责存放，规范见[项目文档规范](../DOCUMENTATION_GUIDE.md)。
+当前 API、实施计划和历史证据分别维护，计划中的能力不代表已经可用。
 
-## 项目文档
+## 推荐阅读顺序
 
-- [build.md](build.md)：环境要求、CMake preset、构建、测试、安装和 CMake 选项。
-- [benchmarking.md](benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
-- [plans/README.md](plans/README.md)：重构、迁移和架构调整的开发计划索引。
-- [beta.md](beta.md)：beta 前推荐稳定主入口、质量门槛和实验性能力清单。
-- [api_stability.md](api_stability.md)：当前 alpha 阶段 API 稳定性草案、beta gate 和公开边界扫描规则。
-- [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
-- [development.md](development.md)：目录结构、代码规范、格式化、静态检查和新增模块规则。
-- [dll-plugins.md](dll-plugins.md)：共享 runtime、类型身份、ABI、注册和插件卸载约束。
-- [module-boundary.md](module-boundary.md)：跨 EXE、DLL、插件和静态库的 runtime 唯一性、视图传递和 ABI 风险边界。
-- [roadmap.md](roadmap.md)：项目路线图。
-- [registration.md](registration.md)：类型、对象、meta 属性/方法和序列化的推荐注册顺序与初始化策略。
-- [traits.md](traits.md)：底层 traits 扩展点、adapters 边界和用户特化规则。
+- 初次接入：[构建安装](guides/build.md) → [运行示例](../examples/README.md) →
+  [模块参考](reference/README.md) → [稳定性政策](reference/api-stability.md)。
+- 参与开发：[开发规范](guides/development.md) → [文档规范](../DOCUMENTATION_GUIDE.md) →
+  [路线图](roadmap.md) → [相关计划](plans/README.md) → [测试组织](../tests/README.md)。
 
-## 主题文档
+## 当前版本规划
 
-- [assets.md](assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
-- [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
-- [error.md](error.md)：统一错误码、错误来源域和 `std::error_code` 适配。
-- [events.md](events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher、连接句柄和事件系统边界。
-- [io.md](io.md)：虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
-- [math.md](math.md)：基础数学值类型，包含向量、矩阵、四元数、矩形和 AABB。
-- [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
-- [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry`、metadata 和 capability data。
-- [object.md](object.md)：对象基类、对象类型 API 和对象创建销毁入口。
-- [meta-properties.md](meta-properties.md)：meta 内建字段/方法能力和手写注册入口。
-- [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、
-  provider、loader/saver、非拥有 database 编排入口、同步 reload 通知、异步加载请求和资源引用 resolver。
-- [serialization.md](serialization.md)：序列化元信息、注册表、JSON/文本读写、codec、资源引用和多态读写边界。
-- [tasks.md](tasks.md)：move-only task、executor 抽象、同步 inline executor、固定线程池和主线程 completion queue。
-- [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
+下一目标为 [v0.2.0：宿主集成与生命周期契约](versions/v0.2.0.md)，正在实施与验收；
+实施方案由[计划索引](plans/README.md)导航，规划内容不代表当前 API 已实现。
 
-## 相关入口
+## 分类入口
 
-- [examples/README.md](../examples/README.md)：示例构建、运行和新增规则。
-- [tests/README.md](../tests/README.md)：测试组织、运行和新增规则。
+| 目录 | 主要问题 | 入口 |
+| --- | --- | --- |
+| guides | 如何构建、接入、注册、测量和参与开发 | [操作与开发指南](guides/README.md) |
+| reference | 当前 API、格式、配置与行为契约 | [模块与政策参考](reference/README.md) |
+| concepts | runtime、模块协作和 ABI 原理 | [架构与原理](concepts/README.md) |
+| checklists | 如何重复执行检查，哪些条件必须满足 | [验收清单](checklists/README.md) |
+| plans | 单项工作怎样设计、实施和验收 | [计划索引](plans/README.md) |
+| records | 实际执行、审计与历史证据 | [记录索引](records/README.md) |
+| versions | 单次版本的固定范围、依赖与出口 | [版本规划](versions/README.md) |
+| templates | 创建版本与验收文档需要哪些字段 | [文档模板](templates/README.md) |
+
+全局方向见[路线图](roadmap.md)；可运行程序见[示例目录](../examples/README.md)，
+行为测试见[测试目录](../tests/README.md)，测量数据见[性能结果](../benchmarks/results/README.md)。
+分类目录 README 管理具体条目，本页不再重复完整清单。
+
+用户可见变化见[CHANGELOG](../CHANGELOG.md)，维护者发布步骤见[发布流程](guides/release.md)。

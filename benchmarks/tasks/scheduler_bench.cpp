@@ -64,7 +64,7 @@ int main() {
   auto post = [](auto& target, caors::tasks::task next) { return target.post(std::move(next)); };
   using context_type = caors::tasks::execution_context;
   using pool_type = caors::tasks::thread_pool;
-  std::cout << "backend=asio\n";
+  std::cout << "backend=std-thread\n";
 #else
   caors::tasks::inline_executor inline_target;
   auto post = [](auto& target, caors::tasks::task next) { return target.submit(std::move(next)); };

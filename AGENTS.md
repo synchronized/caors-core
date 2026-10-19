@@ -37,6 +37,16 @@ CAORS 是一个 C++20 基础设施库，目标能力包括自定义内存分配�
 - `.cpp` 实现文件不要求为每个函数添加注释；仅在逻辑不直观、涉及跨平台差异、内存对齐、生命周期约束或复杂算法时说明“为什么这样做”。
 - 私有函数和内部细节如果可由命名和类型清晰表达，避免添加重复代码含义的注释。
 
+## 文档规范
+
+- 修改自有文档前阅读并遵守 [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)。
+- 文档入口、指南、参考、概念、路线图、计划、决策和执行记录按职责维护。
+- 同一事实只保留一个维护入口，其他位置使用简短摘要与相对链接。
+- 当前行为、未来方案和历史证据分开；详细验收与性能数据不持续堆入计划正文。
+- 文档正文必须归入对应职责目录；`docs/` 根目录仅保留 `README.md` 和 `roadmap.md`。
+- 新增文档接入分类索引和文档中心，不在根 README 维护完整清单；文件名使用明确主题与英文小写连字符。
+- 延期事项必须明确未完成范围、原因、恢复条件和是否阻塞验收，不得记为已验证通过。
+
 ## CMake 规范
 
 - 使用现代 target-based CMake。
@@ -108,3 +118,11 @@ ctest --preset linux-clang-debug
    应主动运行完整 CI；低风险局部修改可依据本机相关测试决定是否运行。纯文档变更不触发完整 CI。
 9. 未经用户明确授权，不绕过失败检查或强制合并 Pull Request。
 10. 在总结中说明分支、提交、Pull Request、验证结果和剩余风险。
+
+## 版本准备与发布
+
+- 日常开发与短期分支遵循 [开发流程](docs/guides/development.md)，验证选择见 [CI 策略](docs/guides/ci.md)。
+- Feature/fix 先进入 main；release 分支只承载版本元数据和发布收口，不作为第二个功能集成分支。
+- 工程版本以 `cmake/caors_version.cmake` 为唯一来源；版本范围、用户可见变更与实际验收分别由 Version、CHANGELOG 和 Record 维护。
+- 发布前执行 [发布流程](docs/guides/release.md) 和 [发布清单](docs/checklists/release-readiness.md)，固定最终 SHA，失败不得跳过；已公开标签和制品不静默覆盖。
+- 当前未实现 release/publish 脚本和 Release workflow，文档模板不代表版本已经验证或发布；实际发布任务需明确版本和交付范围。

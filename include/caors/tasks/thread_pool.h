@@ -20,7 +20,7 @@ enum class shutdown_mode {
   cancel,
 };
 
-/** @brief 固定线程数的 Asio 后台执行环境。 */
+/** @brief 基于标准库线程的固定线程数后台执行环境。 */
 class CAORS_API thread_pool final {
 public:
   [[nodiscard]] static std::size_t default_thread_count() noexcept;

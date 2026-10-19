@@ -2,8 +2,9 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/memory/tracking.h"
-#include "caors/tasks/asio.h"
+#include "caors/tasks/coroutine.h"
 #include "caors/tasks/execution_context.h"
+#include "caors/tasks/external_executor.h"
 #include "caors/tasks/thread_pool.h"
 
 #include <catch2/catch_all.hpp>
@@ -59,7 +60,7 @@ probe_coroutine switch_to(caors::tasks::executor executor, std::thread::id* obse
 
 } // namespace
 
-TEST_CASE("tasks - schedule resumes on execution context", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - schedule resumes on execution context", "[tasks][coroutine]") {
   caors::tasks::execution_context context;
   probe_coroutine operation = switch_to(context.get_executor());
 
@@ -69,7 +70,7 @@ TEST_CASE("tasks - schedule resumes on execution context", "[tasks][asio][corout
   CHECK_FALSE(operation.result());
 }
 
-TEST_CASE("tasks - schedule resumes on thread pool worker", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - schedule resumes on thread pool worker", "[tasks][coroutine]") {
   caors::tasks::thread_pool pool{1};
   const std::thread::id caller = std::this_thread::get_id();
   std::thread::id observed;
@@ -82,7 +83,7 @@ TEST_CASE("tasks - schedule resumes on thread pool worker", "[tasks][asio][corou
 }
 
 TEST_CASE("tasks - schedule reports invalid executor without suspending",
-          "[tasks][asio][coroutine]") {
+          "[tasks][coroutine]") {
   probe_coroutine operation = switch_to({});
 
   CHECK(operation.done());
@@ -90,7 +91,7 @@ TEST_CASE("tasks - schedule reports invalid executor without suspending",
 }
 
 TEST_CASE("tasks - schedule resumes frozen when context discards pending work",
-          "[tasks][asio][coroutine]") {
+          "[tasks][coroutine]") {
   probe_coroutine operation = [&] {
     caors::tasks::execution_context context;
     return switch_to(context.get_executor());
@@ -101,7 +102,7 @@ TEST_CASE("tasks - schedule resumes frozen when context discards pending work",
 }
 
 TEST_CASE("tasks - schedule tolerates coroutine frame destruction while pending",
-          "[tasks][asio][coroutine]") {
+          "[tasks][coroutine]") {
   caors::tasks::execution_context context;
   {
     probe_coroutine operation = switch_to(context.get_executor());
@@ -111,7 +112,7 @@ TEST_CASE("tasks - schedule tolerates coroutine frame destruction while pending"
   CHECK(context.poll() == 1);
 }
 
-TEST_CASE("tasks - schedule coordinates fast concurrent completion", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - schedule coordinates fast concurrent completion", "[tasks][coroutine]") {
   caors::tasks::thread_pool pool{2};
   std::vector<probe_coroutine> operations;
   operations.reserve(256);
@@ -127,7 +128,7 @@ TEST_CASE("tasks - schedule coordinates fast concurrent completion", "[tasks][as
   }
 }
 
-TEST_CASE("tasks - schedule state uses executor long lived resource", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - schedule state uses executor long lived resource", "[tasks][coroutine]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
   caors::tasks::execution_context context{&tracking};
   const std::size_t baseline = tracking.statistics().bytes_in_use;
@@ -140,4 +141,24 @@ TEST_CASE("tasks - schedule state uses executor long lived resource", "[tasks][a
   }
 
   CHECK(tracking.statistics().bytes_in_use == baseline);
+}
+
+TEST_CASE("tasks - early completion still resumes on the external target thread",
+          "[tasks][coroutine]") {
+  class joined_context final : public caors::tasks::external_executor_context {
+  public:
+    caors::error post(caors::tasks::task next) override {
+      std::thread worker{[next = std::move(next)]() mutable { (void)next.run(); }};
+      worker.join();
+      return {};
+    }
+    void close() noexcept override {}
+  };
+  caors::tasks::external_executor target{std::make_shared<joined_context>()};
+  const auto caller = std::this_thread::get_id();
+  std::thread::id observed;
+  auto operation = switch_to(target.get_executor(), &observed);
+  CHECK(operation.done());
+  CHECK_FALSE(operation.result());
+  CHECK(observed != caller);
 }

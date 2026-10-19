@@ -23,7 +23,7 @@ target_sources(
           memory/pool_bench.cpp
           memory/allocation_samples.cpp)
 target_compile_features(caors_benchmarks PRIVATE cxx_std_20)
-target_compile_warnings(caors_benchmarks)
+caors_target_compile_warnings(caors_benchmarks)
 target_include_directories(caors_benchmarks PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(caors_benchmarks PRIVATE caors::caors ctrack::ctrack)
 
@@ -31,6 +31,6 @@ set_target_properties(caors_benchmarks PROPERTIES FOLDER "Benchmarks")
 
 add_executable(caors_scheduler_benchmarks tasks/scheduler_bench.cpp)
 target_compile_features(caors_scheduler_benchmarks PRIVATE cxx_std_20)
-target_compile_warnings(caors_scheduler_benchmarks)
+caors_target_compile_warnings(caors_scheduler_benchmarks)
 target_link_libraries(caors_scheduler_benchmarks PRIVATE caors::caors)
 set_target_properties(caors_scheduler_benchmarks PROPERTIES FOLDER "Benchmarks")

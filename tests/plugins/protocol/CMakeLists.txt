@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 CAORS contributors
 
-if(NOT BUILD_SHARED_LIBS)
-  message(STATUS "跳过 plugin protocol 测试：该测试要求 BUILD_SHARED_LIBS=ON")
+if(NOT CAORS_BUILD_SHARED)
+  message(STATUS "跳过 plugin protocol 测试：该测试要求 CAORS_BUILD_SHARED=ON")
   return()
 endif()
 
@@ -28,7 +28,7 @@ add_library(caors_plugin_protocol_missing_build_extension SHARED
 
 foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
   target_compile_features(${PLUGIN_TARGET} PRIVATE cxx_std_20)
-  target_compile_warnings(${PLUGIN_TARGET})
+  caors_target_compile_warnings(${PLUGIN_TARGET})
   target_link_libraries(${PLUGIN_TARGET} PRIVATE caors::caors)
   set_target_properties(${PLUGIN_TARGET} PROPERTIES FOLDER "Tests/Plugins")
 endforeach()
@@ -45,7 +45,7 @@ endif()
 
 add_executable(caors_plugins_protocol_test plugin_binary_test.cpp)
 target_compile_features(caors_plugins_protocol_test PRIVATE cxx_std_20)
-target_compile_warnings(caors_plugins_protocol_test)
+caors_target_compile_warnings(caors_plugins_protocol_test)
 target_link_libraries(caors_plugins_protocol_test PRIVATE caors::caors)
 if(MSVC)
   set_property(
@@ -78,3 +78,20 @@ add_test(
     $<TARGET_FILE:caors_plugin_protocol_incompatible_build>
     $<TARGET_FILE:caors_plugin_protocol_missing_build_extension>
 )
+
+add_executable(caors_plugins_resource_lifetime_test resource_lifetime_test.cpp)
+target_compile_features(caors_plugins_resource_lifetime_test PRIVATE cxx_std_20)
+caors_target_compile_warnings(caors_plugins_resource_lifetime_test)
+if(MSVC)
+  set_property(TARGET caors_plugins_resource_lifetime_test PROPERTY MSVC_RUNTIME_LIBRARY
+    "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+target_link_libraries(caors_plugins_resource_lifetime_test PRIVATE caors::caors)
+add_dependencies(caors_plugins_resource_lifetime_test caors_plugin_protocol_good)
+if(WIN32)
+  add_custom_command(TARGET caors_plugins_resource_lifetime_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:caors>
+      $<TARGET_FILE_DIR:caors_plugins_resource_lifetime_test>)
+endif()
+add_test(NAME caors.plugins.resource_lifetime
+  COMMAND caors_plugins_resource_lifetime_test $<TARGET_FILE:caors_plugin_protocol_good>)

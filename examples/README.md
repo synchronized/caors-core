@@ -34,6 +34,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 - `beta/`：beta 前主路径示例，包括资源同步加载、异步加载、同步重载、资源管线和 typed factory options；
   阅读顺序见 [beta/README.md](beta/README.md)。
 - `version/`：版本信息 API。
+- `tasks/`：宿主队列适配为外部 executor 的基础用法。
 - `memory/`：内存资源、分配器、策略资源和调试跟踪。
 - `meta/`：类型级 capability facade、运行期值和静态类型数据能力查询。
 - `math/`：基础向量、矩阵、变换、相机 view/projection、frustum 裁剪、project/unproject 和 math 字段序列化。

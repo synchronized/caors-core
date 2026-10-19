@@ -55,6 +55,7 @@ private:
 
   detail::executor_control_block* control_ = nullptr;
 
+  friend class external_executor;
   friend class execution_context;
   friend class thread_pool;
   friend CAORS_API executor inline_executor() noexcept;

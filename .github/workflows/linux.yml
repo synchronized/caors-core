@@ -89,7 +89,6 @@ jobs:
       - name: 测试
         run: ctest --preset "${{ matrix.preset }}"
       - name: 验证 Static 安装包
-        if: matrix.preset == 'linux-clang-release'
         run: >
           cmake
           -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
@@ -97,9 +96,9 @@ jobs:
           -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-static-consumer
           -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-static-relocated-prefix
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-static-relocated-consumer
-          -DCAORS_BUILD_CONFIG=Release
+          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
           -DCAORS_SHARED=OFF
-          -P cmake/VerifyInstalledPackage.cmake
+          -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -130,8 +129,16 @@ jobs:
         run: cmake --build --preset "${{ matrix.preset }}"
       - name: 测试
         run: ctest --preset "${{ matrix.preset }}"
+      - name: 审计动态库符号与依赖
+        run: python3 scripts/verify_shared_symbols.py build/${{ matrix.preset }}/src/libcaors.so build/symbol-audit
+      - name: 上传符号与依赖证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}-symbols
+          path: build/symbol-audit/
+          if-no-files-found: warn
       - name: 验证 Shared 安装包
-        if: matrix.preset == 'linux-clang-shared-release'
         run: >
           cmake
           -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
@@ -139,9 +146,9 @@ jobs:
           -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-consumer
           -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-shared-relocated-prefix
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-relocated-consumer
-          -DCAORS_BUILD_CONFIG=Release
+          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
           -DCAORS_SHARED=ON
-          -P cmake/VerifyInstalledPackage.cmake
+          -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4

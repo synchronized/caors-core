@@ -1,47 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# CAORS benchmarks
+# CAORS 基准目录
 
-本目录存放 CAORS 基准程序。benchmark 默认不参与普通构建，需要显式启用：
+本目录保存基准源码；目标通过 `CAORS_BUILD_BENCHMARKS=ON` 启用。
+构建命令、目标、用例清单和统计范围统一由[Benchmark 指南](../docs/guides/benchmarking.md)维护。
 
-```sh
-cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
-cmake --build --preset windows-clang-debug --target caors_benchmarks
-build/benchmarks/caors_benchmarks 100000
-```
+- `main.cpp`：聚合基准入口；`tasks/scheduler_bench.cpp`：独立调度器基准入口。
+- `core/`、`meta/`、`math/`、`serialization/`、`resources/`、`tasks/`、`memory/`：各主题源码。
+- `support/`：跨主题 fixture、输入和辅助函数。
+- [results/README.md](results/README.md)：性能结果记录规则；具体测量摘要保存在同目录。
 
-正式比较建议使用独立 release benchmark preset，避免和日常 Debug 构建目录混用：
-
-```sh
-cmake --preset windows-clang-benchmark
-cmake --build --preset windows-clang-benchmark --target caors_benchmarks
-build/windows-clang-benchmark/benchmarks/caors_benchmarks 100000
-```
-
-Debug benchmark 只用于冒烟和粗略观察。正式比较性能时应使用 release preset，并保持同一机器、
-同一迭代次数重复运行，详细规则见 `docs/benchmarking.md`。
-
-benchmark 源码按主题拆分在 `core/`、`meta/`、`math/`、`serialization/`、`resources/`、`memory/`
-等子目录中，跨主题 fixture 和公共辅助函数放在 `support/`。聚合目标
-`caors_benchmarks` 方便一次运行观察不同模块的相对成本。
-
-独立目标 `caors_scheduler_benchmarks` 用于调度器对比：构建该目标后直接运行
-`build/windows-clang-benchmark/benchmarks/caors_scheduler_benchmarks`。每个场景采集 10,000
-个样本，输出 p50/p95、吞吐、显式 resource 分配和句柄大小。`context.lifecycle` 包含构造和销毁；
-`context.post_drain` 使用常驻 context；`pool.roundtrip` 使用常驻单 worker，并包含第二个屏障任务
-及线程同步成本。常驻执行环境自身使用系统 resource，分配统计只覆盖传入的 task resource，
-不覆盖 Asio 内部 operation、线程、全局分配和屏障任务。源码可在旧调度器版本中独立编译，
-用于同机比较；基准不构成性能保证，也不作为测试门禁。
-
-当前 benchmark 覆盖 `string_name`、`small_vector` 内联/溢出工作集、meta 类型查询、属性读写、方法调用、`any` / `any_ref`、
-math 向量/矩阵/四元数/投影纯计算路径、序列化到 `variant` / JSON 文本、schema 查找、property 查找、反射字段读取、手动 DOM 构造、DOM 写 JSON、
-直接 JSON writer、JSON parse / DOM 读回，以及资源 cache / provider / JSON loader 主路径。方法调用会同时测
-直接 C++ 调用、`method::invoke_result_of()`、`method::invoke()`、
-`instance::call()` 和 `instance::call_any()`；属性读写会同时测 typed、`meta::value` 和 `any`
-路径。内存基准比较系统资源、手工 fixed pools、CAORS size class pool 和标准 PMR pool 的混合尺寸批次，
-并输出 size class 内部碎片、保留容量和回退次数。registry 资源基准还会在隔离 layer 中对比 system、
-monotonic 和 size class pool 的注册、查询、卸载及释放前后内存占用。程序末尾还会输出若干分配统计样本，用于判断是否存在
-明显的临时对象或 buffer 分配热点。资源协程基准覆盖请求已完成、单等待者和四等待者路径，并输出请求资源
-分配统计及 p50/p95 延迟；任务协程基准以相同口径覆盖共享 request 的 ready、单等待者和四等待者路径。
-异步请求、磁盘文件系统和网络相关能力更适合后续单独拆专项用例，避免与基础运行期 API 的耗时混在一起。
+用法与行为说明不在本目录重复维护；测量结果不作为测试门禁或性能保证。

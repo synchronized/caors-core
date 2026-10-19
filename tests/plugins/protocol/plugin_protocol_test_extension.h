@@ -32,6 +32,13 @@ typedef struct caors_plugin_protocol_capability {
 #ifdef __cplusplus
 
 #include "caors/meta/proxy.h"
+#include "caors/resources/handle.h"
+
+// 测试专用 native C++ 扩展，要求与宿主共用 runtime 和完全兼容 ABI。
+struct caors_native_resource_test_extension {
+  caors::resource_handle<caors::resource> (*create)(int* destroyed, int* deallocated);
+  void (*watch_unload)(int* unloaded);
+};
 
 CAORS_META_DEF_MEM_DISPATCH(caors_plugin_protocol_proxy_value, proxy_value);
 

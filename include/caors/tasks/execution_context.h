@@ -27,7 +27,7 @@ public:
 
   /** @brief 运行任务，直到没有工作或 context 被停止。 */
   [[nodiscard]] std::size_t run();
-  /** @brief 至多运行一个任务，可以阻塞等待工作。 */
+  /** @brief 至多运行一个任务；队列为空时立即返回并进入停止状态。 */
   [[nodiscard]] std::size_t run_one();
   /** @brief 非阻塞运行调用开始时已经等待的任务，不执行本轮重入投递的任务。 */
   [[nodiscard]] std::size_t poll();

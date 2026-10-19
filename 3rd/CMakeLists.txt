@@ -39,51 +39,45 @@ MESSAGE(STATUS "===========================")
 set(third_party_folder "ThirdParty")
 set(THIRD_PARTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# standalone Asio 仅作为 CAORS 私有实现依赖。集中配置可以避免不同目标使用不一致的宏。
-if(NOT TARGET caors_asio_config)
-    add_library(caors_asio_config INTERFACE)
-    target_include_directories(
-        caors_asio_config
-        SYSTEM INTERFACE
-            "${THIRD_PARTY_ROOT}/asio-1.38.2/include"
-    )
-    target_compile_features(caors_asio_config INTERFACE cxx_std_20)
-    target_compile_definitions(
-        caors_asio_config
-        INTERFACE
-            ASIO_STANDALONE
-            ASIO_NO_DEPRECATED
-            $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>
-            $<$<PLATFORM_ID:Windows>:WINVER=0x0A00>
-    )
-    set_target_properties(caors_asio_config PROPERTIES FOLDER "${third_party_folder}/Asio")
+# 只在使用方启用时配置测试和性能依赖。
+if(CAORS_BUILD_TESTING AND BUILD_TESTING)
+    if(TARGET Catch2::Catch2)
+        if(NOT TARGET Catch2::Catch2WithMain)
+            message(FATAL_ERROR "已有 Catch2::Catch2，但缺少 Catch2::Catch2WithMain；请提供完整 Catch2 targets")
+        endif()
+        if(NOT DEFINED Catch2_VERSION)
+            find_package(Catch2 3.15.0 EXACT CONFIG QUIET)
+        endif()
+        if(NOT DEFINED Catch2_VERSION OR NOT Catch2_VERSION VERSION_EQUAL "3.15.0")
+            message(FATAL_ERROR "复用外部 Catch2 需要已验证版本 3.15.0；请通过 Catch2_VERSION 提供实际版本")
+        endif()
+    else()
+        if(TARGET Catch2::Catch2WithMain)
+            message(FATAL_ERROR "已有 Catch2WithMain 但缺少 Catch2::Catch2")
+        endif()
+        set(CATCH_INCLUDE_DIR ${THIRD_PARTY_ROOT}/catch-v3.15.0)
+        add_library(caors_catch INTERFACE)
+        add_library(Catch2::Catch2 ALIAS caors_catch)
+        target_include_directories(caors_catch INTERFACE ${CATCH_INCLUDE_DIR})
+        add_library(caors_catch_main STATIC ${CATCH_INCLUDE_DIR}/catch2/catch_amalgamated.cpp)
+        add_library(Catch2::Catch2WithMain ALIAS caors_catch_main)
+        target_compile_features(caors_catch_main PUBLIC cxx_std_20)
+        target_link_libraries(caors_catch_main PUBLIC Catch2::Catch2)
+    endif()
 endif()
 
-# Find Catch2
-if(NOT TARGET Catch2::Catch2)
-    set(CATCH_INCLUDE_DIR ${THIRD_PARTY_ROOT}/catch-v3.15.0)
-    add_library(Catch2 INTERFACE)
-    add_library(Catch2::Catch2 ALIAS Catch2)
-    target_include_directories(Catch2 INTERFACE ${CATCH_INCLUDE_DIR})
-    target_compile_features(Catch2 INTERFACE cxx_std_20)
-    set_target_properties(Catch2 PROPERTIES FOLDER "${third_party_folder}/Catch2")
-
-    add_library(Catch2WithMain STATIC ${CATCH_INCLUDE_DIR}/catch2/catch_amalgamated.cpp)
-    add_library(Catch2::Catch2WithMain ALIAS Catch2WithMain)
-    target_compile_features(Catch2WithMain PUBLIC cxx_std_20)
-    target_link_libraries(Catch2WithMain PUBLIC Catch2::Catch2)
-    set_target_properties(Catch2WithMain PROPERTIES FOLDER "${third_party_folder}/Catch2")
-endif()
-
-# Find ctrack
-if(NOT TARGET ctrack::ctrack)
-    set(CTRACK_INCLUDE_DIR ${THIRD_PARTY_ROOT}/ctrack-1.1.0/include)
-    add_library(ctrack INTERFACE)
-    add_library(ctrack::ctrack ALIAS ctrack)
-    target_include_directories(ctrack INTERFACE ${CTRACK_INCLUDE_DIR})
-    target_compile_features(ctrack INTERFACE cxx_std_20)
-    target_compile_definitions(ctrack INTERFACE CTRACK_DISABLE_EXECUTION_POLICY)
-    set_target_properties(ctrack PROPERTIES FOLDER "${third_party_folder}/ctrack")
+if(CAORS_BUILD_BENCHMARKS)
+    if(TARGET ctrack::ctrack)
+        if(NOT DEFINED ctrack_VERSION OR NOT ctrack_VERSION VERSION_EQUAL "1.1.0")
+            message(FATAL_ERROR "复用外部 ctrack 需要已验证版本 1.1.0；请设置 ctrack_VERSION")
+        endif()
+    else()
+        add_library(caors_ctrack INTERFACE)
+        add_library(ctrack::ctrack ALIAS caors_ctrack)
+        target_include_directories(caors_ctrack INTERFACE ${THIRD_PARTY_ROOT}/ctrack-1.1.0/include)
+        target_compile_features(caors_ctrack INTERFACE cxx_std_20)
+        target_compile_definitions(caors_ctrack INTERFACE CTRACK_DISABLE_EXECUTION_POLICY)
+    endif()
 endif()
 
 MESSAGE(STATUS "Finished finding 3rd party libs!")

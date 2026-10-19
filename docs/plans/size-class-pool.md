@@ -205,7 +205,7 @@ size_class_pool_resource
 - [x] Linux Clang/GCC Debug、Release；
 - [x] Linux Clang Shared ASan 全量与重复压力验证；
 - [ ] Linux UBSan 验证，等待固定 Linux 环境搭建完成；
-- [x] 更新 `docs/memory.md`、`docs/roadmap.md` 和计划状态索引。
+- [x] 更新 `docs/reference/memory.md`、`docs/roadmap.md` 和计划状态索引。
 
 ## 完成标准
 

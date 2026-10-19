@@ -24,9 +24,9 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "USE_DEBUG_OUTPUT": true,
-        "USE_LOG": true,
-        "USE_LOG_SEVERITY": "0"
+        "CAORS_USE_DEBUG_OUTPUT": true,
+        "CAORS_USE_LOG": true,
+        "CAORS_USE_LOG_SEVERITY": "0"
       }
     },
     {
@@ -34,8 +34,8 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "USE_DEBUG_OUTPUT": false,
-        "USE_LOG": false
+        "CAORS_USE_DEBUG_OUTPUT": false,
+        "CAORS_USE_LOG": false
       }
     },
     {
@@ -172,9 +172,9 @@
       "displayName": "Windows x64 Visual Studio 2022 Debug",
       "inherits": "generator-vs2022",
       "cacheVariables": {
-        "USE_DEBUG_OUTPUT": true,
-        "USE_LOG": true,
-        "USE_LOG_SEVERITY": "0"
+        "CAORS_USE_DEBUG_OUTPUT": true,
+        "CAORS_USE_LOG": true,
+        "CAORS_USE_LOG_SEVERITY": "0"
       }
     },
     {
@@ -182,8 +182,8 @@
       "displayName": "Windows x64 Visual Studio 2022 Release",
       "inherits": "generator-vs2022",
       "cacheVariables": {
-        "USE_DEBUG_OUTPUT": false,
-        "USE_LOG": false
+        "CAORS_USE_DEBUG_OUTPUT": false,
+        "CAORS_USE_LOG": false
       }
     },
     {

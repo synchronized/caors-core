@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/memory/tracking.h"
-#include "caors/tasks/asio.h"
+#include "caors/tasks/coroutine.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
 
@@ -18,7 +18,7 @@ caors::tasks::async_operation wait_and_record(caors::tasks::request source,
 
 } // namespace
 
-TEST_CASE("tasks - multiple coroutines await one shared request", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - multiple coroutines await one shared request", "[tasks][coroutine]") {
   caors::tasks::execution_context source_context;
   caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source =
@@ -40,7 +40,7 @@ TEST_CASE("tasks - multiple coroutines await one shared request", "[tasks][asio]
   CHECK_FALSE(second_status);
 }
 
-TEST_CASE("tasks - async wait preserves source failure", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - async wait preserves source failure", "[tasks][coroutine]") {
   caors::tasks::execution_context source_context;
   caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::submit_request(
@@ -56,7 +56,7 @@ TEST_CASE("tasks - async wait preserves source failure", "[tasks][asio][coroutin
   CHECK(observed == caors::error{caors::error_domain::core, caors::errc::unsupported});
 }
 
-TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][coroutine]") {
   caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make();
   caors::error observed;
@@ -67,7 +67,7 @@ TEST_CASE("tasks - async wait resumes when source is cancelled", "[tasks][asio][
   CHECK(observed == caors::error{caors::error_domain::core, caors::errc::cancelled});
 }
 
-TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][coroutine]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
   caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make_completed(&tracking);
@@ -80,7 +80,7 @@ TEST_CASE("tasks - async wait does not suspend for terminal request", "[tasks][a
   CHECK(tracking.statistics().allocation_count == baseline.allocation_count);
 }
 
-TEST_CASE("tasks - async wait state uses request long lived resource", "[tasks][asio][coroutine]") {
+TEST_CASE("tasks - async wait state uses request long lived resource", "[tasks][coroutine]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
   caors::tasks::executor start = caors::tasks::inline_executor();
   caors::tasks::request source = caors::tasks::request::make(&tracking);

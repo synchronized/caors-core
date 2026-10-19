@@ -35,7 +35,25 @@ add_executable(caors_installed_resources_coroutine_consumer resources_coroutine.
 target_compile_features(caors_installed_resources_coroutine_consumer PRIVATE cxx_std_20)
 target_link_libraries(caors_installed_resources_coroutine_consumer PRIVATE caors::caors)
 
+# 静态安装包需要能够私有并入另一个共享库。
+add_library(caors_installed_shared_host SHARED shared_host.cpp)
+target_link_libraries(caors_installed_shared_host PRIVATE caors::caors)
+add_executable(caors_installed_shared_host_consumer shared_host_main.cpp)
+target_compile_features(caors_installed_shared_host_consumer PRIVATE cxx_std_20)
+get_target_property(CAORS_CONSUMER_INCLUDE_DIRS caors::caors INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(caors_installed_shared_host_consumer PRIVATE ${CAORS_CONSUMER_INCLUDE_DIRS})
+target_link_libraries(caors_installed_shared_host_consumer PRIVATE caors_installed_shared_host)
+
+add_library(caors_installed_static_host STATIC shared_host.cpp)
+target_link_libraries(caors_installed_static_host PRIVATE caors::caors)
+add_executable(caors_installed_static_host_consumer shared_host_main.cpp)
+target_compile_features(caors_installed_static_host_consumer PRIVATE cxx_std_20)
+target_include_directories(caors_installed_static_host_consumer PRIVATE ${CAORS_CONSUMER_INCLUDE_DIRS})
+target_link_libraries(caors_installed_static_host_consumer PRIVATE caors_installed_static_host)
+
 enable_testing()
+add_test(NAME caors.installed_static_host_consumer COMMAND caors_installed_static_host_consumer)
+add_test(NAME caors.installed_shared_host_consumer COMMAND caors_installed_shared_host_consumer)
 add_test(NAME caors.installed_consumer COMMAND caors_installed_consumer)
 add_test(NAME caors.installed_tasks_consumer COMMAND caors_installed_tasks_consumer)
 add_test(NAME caors.installed_coroutine_consumer COMMAND caors_installed_coroutine_consumer)
@@ -64,6 +82,8 @@ if(CAORS_INSTALLED_SHARED)
       caors.installed_tasks_consumer
       caors.installed_coroutine_consumer
       caors.installed_resources_coroutine_consumer
+      caors.installed_shared_host_consumer
+      caors.installed_static_host_consumer
   )
     set_property(
       TEST ${CONSUMER_TEST}

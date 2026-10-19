@@ -261,7 +261,7 @@ detachable layer 调用 guard。
 - [x] 对比加锁查询与 frozen fast path 的 benchmark 用例；
 - [x] 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
 - [x] 使用 Linux Clang/GCC Static、Clang Shared 与 ASan 覆盖 registry 和插件卸载回归；
-- [x] 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
+- [x] 文档更新 `module-boundary.md`、`plugin-integration.md` 和 `meta.md`。
 
 当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
 `frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`、
@@ -273,23 +273,9 @@ Linux 基础矩阵与独立 ASan 插件压力验证结果记录在
 
 ## Benchmark 摘要
 
-`windows-clang-benchmark`、提交 `7015a59`、`100000` 次迭代的快速样本显示：
-
-| case | time acc | per iter |
-| --- | ---: | ---: |
-| `meta.registry.locked_find_type_id` | 4.71 ms | 47.10 ns |
-| `meta.registry.frozen_find_type_id` | 3.70 ms | 37.00 ns |
-| `meta.registry.layer_find_type_id` | 3.70 ms | 37.00 ns |
-| `meta.registry.locked_schema_lookup` | 6.08 ms | 60.80 ns |
-| `meta.registry.frozen_schema_lookup` | 4.65 ms | 46.50 ns |
-| `meta.registry.layer_schema_lookup` | 4.62 ms | 46.20 ns |
-| `meta.registry.frozen_contains` | 2.83 ms | 28.30 ns |
-| `meta.registry.frozen_property_lookup` | 9.22 ms | 92.20 ns |
-| `meta.registry.frozen_method_lookup` | 1.14 ms | 11.40 ns |
-
-该结果只作为同机同 preset 的趋势记录。当前数据说明 frozen primary 和已发布 layer 的只读查询成本低于
-默认 locked primary；schema 查询也能走同一套 snapshot/frozen fast path。完整摘要见
-`benchmarks/results/2026-07-27-windows-clang-benchmark-7015a59.md`。
+提交 `7015a59` 的单轮趋势测量与限制统一见
+[Registry 查询快路径结果](../../benchmarks/results/2026-07-27-windows-clang-benchmark-7015a59.md)。
+本计划不维护第二份性能表，也不把该单轮历史样本作为当前提交的性能保证。
 
 ## 风险
 

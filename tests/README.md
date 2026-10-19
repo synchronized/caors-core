@@ -22,6 +22,12 @@ cmake --preset windows-clang-debug -DCAORS_BUILD_TESTING=OFF
 
 测试框架使用仓库内置的 Catch2，目前位于 `3rd/catch-v3.15.0/`。
 
+## CMake 集成检查
+
+`caors.cmake.parent_project` 通过独立父工程配置验证 `add_subdirectory()` 接入：父工程同名通用函数
+和工程版本保持有效，CAORS 警告选项不向下游传播，生成头与安装包版本使用同一版本来源。
+该用例仅运行 CMake 配置，不编译父工程探针。
+
 ## 目录与发现规则
 
 `tests/CMakeLists.txt` 会扫描 `tests/` 下的主题目录。普通目录按叶子目录生成测试目标；如果某个目录
@@ -75,3 +81,9 @@ include 路径。
 
 `tests/headers/` 除了生成所有公开头文件的自包含编译测试，也可以放置手写 include 边界测试。
 这类测试应使用公开 API，验证细粒度头只暴露约定能力，避免模块重新依赖隐式包含。
+
+## 文件命名与拆分
+
+- 文件名使用小主题，例如 `vector_test.cpp`、`registration_test.cpp`、`object_ref_test.cpp`，详细场景写在 TEST_CASE 名称中。
+- 不重复父目录已有的主题前缀；保持名称简短，避免 Windows/CMake/Ninja 对象路径长度问题。
+- 同一主题可包含多个 TEST_CASE；当文件过大或 helper 冲突时再拆分，不按每个用例机械创建文件。

@@ -4,6 +4,7 @@
 #include "plugin_identity_test_support.h"
 #include "shared_capability_adapter.h"
 
+#include "caors/core/string_name.h"
 #include "caors/meta/type_id.h"
 #include "caors/registration/type_builder.h"
 
@@ -32,4 +33,18 @@ CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_a_register_consistent_type() noex
 CAORS_TEST_PLUGIN_EXPORT std::uint64_t caors_test_plugin_a_capability_key() noexcept {
   return caors::meta::capability_key_of<caors::tests::plugin_identity::shared_static_capability>()
       .value();
+}
+
+CAORS_TEST_PLUGIN_EXPORT caors::string_name caors_test_plugin_a_name() {
+  return caors::string_name{"caors.identity.shared.name"};
+}
+
+CAORS_TEST_PLUGIN_EXPORT void* caors_test_plugin_a_create() {
+  return new caors::tests::plugin_identity::shared_plugin_type{42};
+}
+CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_a_destroy(void* object) noexcept {
+  auto* value = static_cast<caors::tests::plugin_identity::shared_plugin_type*>(object);
+  const int result = value->value;
+  delete value;
+  return result;
 }

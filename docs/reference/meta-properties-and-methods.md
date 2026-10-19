@@ -1,0 +1,856 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 CAORS contributors -->
+
+# Meta 属性与方法
+
+本文档说明 CAORS meta 属性和成员方法能力的当前设计边界。属性和成员方法元信息统一保存在
+`meta` 类型记录里，由 `meta::registry` 管理；项目不再提供独立 `caors::reflection` 模块，
+也暂不提供独立属性系统或代码生成。
+
+## 设计目标
+
+属性/方法第一阶段解决几件事：
+
+- 直接使用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
+- 在 `meta::registry` 的类型记录上保存属性和成员方法数据。
+- 通过 RTTR 风格 builder 描述属性和成员方法。
+- 提供按类型 id、类型名和稳定 GUID 查询 meta 类型；新代码直接使用 `meta::find()`。
+- 提供 append-only primary layer、可整体 detach 的插件 layer，以及带 layer lease 的类型、属性和方法视图。
+- 提供属性基础读写入口和运行期值拷贝。
+- 提供 getter / setter 属性、只读 getter 属性和成员方法基础调用入口。
+- 提供同名成员方法重载集合，并按运行期 `argument` 参数精确匹配唯一重载。
+- 提供 module 级全局属性和全局函数入口；静态成员变量和静态成员函数也按 module 级入口注册。
+- 保持属性和方法视图为通用 meta 能力；对象指针、资源引用等领域专用访问放在对应模块适配层。
+
+当前不会包含：
+
+- 独立于 `meta::property` 的另一套属性系统。
+- 隐式类型转换和复杂类型转换规则。
+- lambda 或函数对象直接注册为 module 函数。
+- 自动代码扫描或代码生成。
+- 动态多态类型记录和复杂类型转换规则。
+
+## 核心概念
+
+### 命名空间
+
+属性和方法的主类型位于 `caors::meta` 命名空间，例如 `meta::property`、`meta::method` 和
+`meta::type`。属性和方法是 `meta::type` 的一部分，不再通过 `caors::reflection`
+命名空间访问。
+
+### 属性注册
+
+推荐使用 `registration::type_<T>(name)` builder 注册类型、属性和成员方法。builder 通过成员指针推导偏移、
+属性类型和可写性，底层属性数据只保存在注册表内部，对外通过 `meta::property` 视图查询。
+
+```cpp
+struct actor {
+  int id = 0;
+  float health = 100.0F;
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("id", &actor::id)
+    .property("health", &actor::health)
+    .commit();
+```
+
+getter / setter 属性使用成员函数指针注册。只提供 getter 时使用 `property_readonly()`：
+
+```cpp
+struct actor {
+  int health() const { return health_; }
+  void set_health(int value) { health_ = value; }
+
+private:
+  int health_ = 100;
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("health", &actor::health, &actor::set_health)
+    .commit();
+```
+
+属性类型推导规则：
+
+- 普通业务属性如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
+  `registration::type_<Field>("name")` 显式注册。未注册属性不会拥有这些元信息，但只要能生成有效
+  `meta::type`，仍可作为属性注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
+- 对内置基础类型和能由 traits 推导名称的结构类型，`property::get_type().name()` 会在没有 meta 注册时
+  回退到默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
+- 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由 `meta::type` 能力描述，不要求每一种
+  模板组合都显式注册到 meta。
+- 如果属性类型满足 `traits::sequence_traits<T>::is_sequence`，属性类型能力会同步记录元素类型语义。
+  内置特化支持 `caors::vector<T>`、
+  `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>`、`std::deque<T, Allocator>`、
+  `std::array<T, N>` 和 `std::span<T, Extent>`。
+- 如果属性类型满足 `traits::set_traits<T>::is_set`，属性类型能力会同步记录元素类型语义。内置特化支持 `caors::hash_set<T>`、
+  `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
+- 如果属性类型满足 `traits::associative_traits<T>::is_associative`，属性类型能力会同步记录 key/value 类型语义。内置特化支持
+  `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
+- 如果属性类型满足 `traits::pair_traits<T>::is_pair`，属性类型能力会同步记录 first/value 类型语义。
+  内置特化支持 `std::pair<T, U>`。
+- 如果属性类型满足 `traits::tuple_traits<T>::is_tuple`，属性类型能力会同步记录每个元素类型语义。
+  内置特化支持 `std::tuple<Ts...>`。
+- 如果属性类型满足 `traits::variant_traits<T>::is_variant`，属性类型能力会同步记录每个候选类型语义。
+  内置特化支持 `std::variant<Ts...>`。
+- 属性类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
+  `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
+
+属性形态规则：
+
+- `T`：`meta::type_kind::value`，`value_type` 为 `T`。
+- `enum`：`meta::type_kind::enumeration`，`value_type` 为枚举类型。
+- `T*`：`meta::type_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `traits::wrapper_semantics` 为 `inline_value`。
+- `std::unique_ptr<T>` / `caors::memory::unique_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `traits::wrapper_semantics` 为 `inline_value`。
+- `std::shared_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `traits::wrapper_semantics` 为 `inline_value`。
+- `std::weak_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `traits::wrapper_semantics` 为 `unsupported`，不默认展开内部值。
+- `std::optional<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `traits::wrapper_semantics` 为 `inline_value`。
+- `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
+  `traits::wrapper_semantics` 为 `inline_value`。
+- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 `meta::type` 静态能力查询，
+  并优先使用 `any_ref::get_capability<objects::ptr_capability>()` 查询；`objects::make_ptr_view(any_ref)`
+  是高级适配层使用的显式 view 工厂。
+- `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
+  是对外语义别名。属性视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
+  `caors.vector<T>` 类型名。
+- `traits::set_traits<T>` 集合容器：`meta::type_kind::set`，value 类型为元素类型；`get_element_type()` 是对外语义别名。内置
+  `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
+- `traits::associative_traits<T>` 关联容器：`meta::type_kind::associative`，`key_type` 为 key 类型，`value_type` 为
+  mapped/value 类型；`get_mapped_type()` 是对外语义别名。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
+- `traits::pair_traits<T>` 二元组：`meta::type_kind::pair`，`key_type` 为 first 类型，`value_type` 为 second 类型；
+  `get_first_type()` / `get_second_type()` 是对外语义别名。内置 `std::pair<T, U>` 会生成 `std.pair<T,U>` 类型名。
+- `traits::tuple_traits<T>` tuple-like 类型：`meta::type_kind::tuple`，元素类型由 `tuple_view::get_element_type(index)` 查询。
+  内置 `std::tuple<Ts...>` 会生成 `std.tuple<Ts...>` 类型名。
+- `traits::variant_traits<T>` variant-like 类型：`meta::type_kind::variant`，候选类型由
+  `variant_view::get_alternative_type(index)` 查询，当前值类型由 `variant_view::get_value_type()` 查询。
+  内置 `std::variant<Ts...>` 会生成 `std.variant<Ts...>` 类型名。
+
+`inline_value` 只表示运行期可以通过属性 view 访问内部 `T`，不表示序列化层拥有对象图身份信息。
+序列化裸指针、引用 wrapper 或普通 wrapper 时会按内部值递归展开；父指针、自环和共享对象图需要调用方
+跳过对应属性，或改用对象/资源引用语义。
+
+STL 智能指针和裸指针只作为外部属性类型被 meta 描述。CAORS 不根据这些属性接管对象生命周期；
+用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
+引用计数或分配器类型会作为独立 wrapper 接入反射规则。
+
+### 方法注册
+
+`registration::type_<T>(name)` 也可以注册成员函数指针：
+
+```cpp
+struct actor {
+  int health = 100;
+
+  void damage(int amount) { health -= amount; }
+  int score() const { return health * 2; }
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("health", &actor::health)
+    .method("damage", &actor::damage)
+    .method("score", &actor::score)
+    .commit();
+```
+
+当前方法能力的边界：
+
+- 只支持成员函数指针，包括 `const` 成员函数。
+- 参数通过 `std::span<const caors::meta::argument>` 传入，类型必须和注册时的方法参数精确匹配。
+- 已有 `any_ref` 需要通过 `caors::arg(ref)` 包装成 `argument`；非 const 左值引用参数要求底层引用可写。
+- 右值引用参数需要显式使用 `meta::move_arg(...)`，避免反射调用隐式 move 外部对象。
+- 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
+- `invoke_result_of()` 返回 `meta::invoke_result`，可以区分调用失败、`void` 成功、拥有值返回和
+  `any_ref` 引用返回。`T&` / `const T&` 返回值会保留为引用，调用方必须保证原对象生命周期覆盖引用使用期。
+  不可拷贝但可移动的 by-value 返回值会由 `invoke_result` 持有为拥有值；既不可复制也不可移动的
+  by-value 返回值仍会调用失败。
+- 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
+  `method_set::invoke_result_of(...)`。
+- 需要区分匹配失败原因时使用 `method_set::match(args, options)`。返回的 `method_match_result`
+  可以区分未匹配、精确匹配、转换匹配和歧义匹配；旧 `resolve()` 仍保持只返回唯一匹配方法视图。
+- 方法可以显式注册参数名。默认调用和 `resolve(args)` 只按位置匹配；只有传入
+  `meta::argument_match_options` 并开启 `allow_named_arguments` 时，才会用命名参数按已注册参数名重排。
+- 方法可以显式注册尾部默认参数。默认调用和 `resolve(args)` 仍保持精确参数数量匹配；只有传入
+  `meta::argument_match_options` 并开启 `allow_default_arguments` 时，才会用已注册的尾部默认参数补齐缺失参数。
+  默认参数按从最右侧参数向左的顺序追加。
+- 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
+  `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
+- `argument_match_options::conversion_policy` 默认是 `exact_only`。显式设置为 `numeric_safe` 时，
+  方法匹配允许安全数值 widening，例如 `int -> long long`、`unsigned int -> unsigned long long`、
+  `float -> double`，以及能完整表示来源整数精度的整数到浮点转换；窄化、浮点到整数、
+  有符号到无符号、可能丢失取值范围的转换和字符串解析都不会隐式发生。
+- 显式设置为 `string_parse` 时，方法匹配允许把 `core::string`、`core::string_name` 或
+  `std::string_view` 解析为布尔、整数、浮点、`core::string_name`、`core::string`、`std::string`、
+  `guid`、`type_guid` 和枚举值。枚举优先按已注册枚举项名称匹配，未命中时再按底层整数文本解析。
+  解析要求完整消费输入；解析失败、溢出或非有限浮点值都视为参数不匹配。该策略不包含
+  `numeric_safe` 的数值 widening。
+- 开启转换策略后，重载解析仍优先选择精确匹配；如果多个重载只能通过同等级转换匹配，则视为歧义并返回失败。
+- `argument_match_options::allow_custom_conversions` 默认关闭。开启后，匹配会查询来源类型注册的
+  `meta::argument_conversion_ops` capability；该能力只负责把来源参数转换成目标参数类型，转换结果仍必须精确匹配目标类型。
+- 转换产生的临时值由内部 `argument` 持有，生命周期覆盖本次 `invoke_result_of()` 调用。
+  `argument_match_options::scratch_resource` 可显式指定参数补全、重排和内建转换使用的临时资源；
+  为空时使用当前线程临时资源。传入 `stack_resource` 时，调用入口会建立嵌套作用域，并在临时对象
+  完成析构后统一回滚；返回的 `invoke_result` 不引用该临时资源。
+- 暂不支持泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
+
+```cpp
+struct actor {
+  int add(int left, int right) { return left + right; }
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .method("add", &actor::add,
+            caors::meta::registration::parameter_name("left"),
+            caors::meta::registration::parameter_name("right"),
+            caors::meta::registration::default_argument(8))
+    .commit();
+
+actor instance{};
+int left = 5;
+std::array<caors::meta::named_argument, 1> args{
+    caors::meta::narg("left", left),
+};
+
+caors::meta::argument_match_options options{};
+options.allow_default_arguments = true;
+options.allow_named_arguments = true;
+options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
+
+auto result = caors::meta::find<actor>()
+                  .find_method("add")
+                  .invoke_result_of(caors::meta::view(instance), args, options);
+```
+
+wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
+
+```cpp
+namespace caors::traits {
+
+template <typename T>
+struct wrapper_traits<my_box<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = false;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  using wrapped_type = T;
+};
+
+template <typename T>
+struct wrapper_access<my_box<T>> {
+  using wrapped_type = T;
+
+  static const wrapped_type* value(const my_box<T>& source) noexcept;
+  static wrapped_type* mutable_value(my_box<T>& source) noexcept;
+  static bool has_value(const my_box<T>& source) noexcept;
+  static bool reset(my_box<T>& source) noexcept;
+};
+
+} // namespace caors::traits
+```
+
+`traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
+`any_ref::get_capability<meta::indirect_capability>()` 能访问内部值，则需要同时特化
+`traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
+`std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
+wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ptr<T>` 通过
+`any_ref::get_capability<objects::ptr_capability>()` 按对象指针语义访问，不再作为 wrapper 语义处理。
+
+顺序容器识别通过 `traits::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
+
+```cpp
+namespace caors::traits {
+
+template <typename T>
+struct sequence_traits<my_sequence<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = T;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.sequence"; }
+  static std::size_t size(const my_sequence<T>& value) noexcept;
+  static const element_type* element(const my_sequence<T>& value, std::size_t index) noexcept;
+  static element_type* mutable_element(my_sequence<T>& value, std::size_t index) noexcept;
+  static void clear(my_sequence<T>& value);
+  static bool resize(my_sequence<T>& value, std::size_t size);
+  static bool append(my_sequence<T>& value, const element_type& element);
+};
+
+}
+```
+
+`resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型应额外提供
+`static constexpr bool can_read = false`，避免序列化层默认读回到不受它管理的 backing storage；如果后续有明确属性策略，
+可再通过显式 opt-in 配合 `read_in_place` 做原地读入。
+调用方通过 `meta::property` 或兼容 `meta::property` 操作 sequence 属性时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
+`std::forward_list<T>`、`std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
+`std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
+类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`。两者默认只用于
+反射访问和序列化写出；调用方在序列化 context 中显式允许缓冲区写入后，可将等长数组事务式读入可写 span，
+任一元素失败时保持原缓冲区不变。`std::span<const T>` 始终禁止读回。
+
+集合容器识别通过 `traits::set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
+反序列化时遇到重复元素会返回失败：
+
+```cpp
+namespace caors::traits {
+
+template <typename T>
+struct set_traits<my_set<T>> {
+  static constexpr bool is_set = true;
+  using element_type = T;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.set"; }
+  static std::size_t size(const my_set<T>& value) noexcept;
+
+  template <typename Visitor>
+  static void for_each(const my_set<T>& value, Visitor&& visitor);
+
+  static void clear(my_set<T>& value);
+  static bool insert(my_set<T>& value, element_type element);
+};
+
+}
+```
+
+关联容器识别通过 `traits::associative_traits<T>` 扩展。traits 用于描述 key/value 类型、生成容器类型名，
+并为通用 serialization codec 提供遍历和插入入口：
+
+```cpp
+namespace caors::traits {
+
+template <typename K, typename V>
+struct associative_traits<my_map<K, V>> {
+  static constexpr bool is_associative = true;
+  using key_type = K;
+  using mapped_type = V;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.map"; }
+  static std::size_t size(const my_map<K, V>& value) noexcept;
+
+  template <typename Visitor>
+  static void for_each(const my_map<K, V>& value, Visitor&& visitor);
+
+  static void clear(my_map<K, V>& value);
+  static bool insert(my_map<K, V>& value, key_type key, mapped_type mapped);
+};
+
+}
+```
+
+二元组识别通过 `traits::pair_traits<T>` 扩展。traits 用于描述 first/second 类型、生成类型名，并给
+`pair_view` 和序列化层提供访问入口：
+
+```cpp
+namespace caors::traits {
+
+template <typename A, typename B>
+struct pair_traits<my_pair<A, B>> {
+  static constexpr bool is_pair = true;
+  using first_type = A;
+  using second_type = B;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.pair"; }
+  static const first_type* first(const my_pair<A, B>& value) noexcept;
+  static first_type* mutable_first(my_pair<A, B>& value) noexcept;
+  static const second_type* second(const my_pair<A, B>& value) noexcept;
+  static second_type* mutable_second(my_pair<A, B>& value) noexcept;
+};
+
+}
+```
+
+内置适配已覆盖 `std::pair<T, U>`。pair 默认按二元素数组 `[first, second]` 序列化；反序列化时数组长度必须为 2。
+
+tuple-like 类型识别通过 `traits::tuple_traits<T>` 扩展。traits 用于描述元素数量、元素类型、生成类型名，并给
+`tuple_view` 和序列化层提供按下标访问入口：
+
+```cpp
+namespace caors::traits {
+
+template <typename... Ts>
+struct tuple_traits<my_tuple<Ts...>> {
+  static constexpr bool is_tuple = true;
+  static constexpr std::size_t size = sizeof...(Ts);
+
+  template <std::size_t Index>
+  using element_type = /* 第 Index 个元素类型 */;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.tuple"; }
+
+  template <std::size_t Index>
+  static const element_type<Index>* element(const my_tuple<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static element_type<Index>* mutable_element(my_tuple<Ts...>& value) noexcept;
+};
+
+}
+```
+
+内置适配已覆盖 `std::tuple<Ts...>`。tuple 默认按数组 `[v0, v1, ...]` 序列化；反序列化时数组长度必须等于 tuple 元素数量。
+
+variant-like 类型识别通过 `traits::variant_traits<T>` 扩展。traits 用于描述候选类型、生成类型名，并给
+`variant_view` 和序列化层提供当前候选访问与切换入口：
+
+```cpp
+namespace caors::traits {
+
+template <typename... Ts>
+struct variant_traits<my_variant<Ts...>> {
+  static constexpr bool is_variant = true;
+  static constexpr std::size_t size = sizeof...(Ts);
+
+  template <std::size_t Index>
+  using alternative_type = /* 第 Index 个候选类型 */;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.variant"; }
+  static std::size_t index(const my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static const alternative_type<Index>* alternative(const my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static alternative_type<Index>* mutable_alternative(my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static bool emplace(my_variant<Ts...>& value);
+};
+
+}
+```
+
+内置适配已覆盖 `std::variant<Ts...>`。variant 默认按 tagged union 数组 `[index, value]` 序列化；
+反序列化时数组长度必须等于 2，`index` 必须落在候选类型范围内。切换到某个候选类型时，候选类型需要支持默认构造。
+
+`traits::wrapper_semantics` 当前含义：
+
+- `none`：不是 wrapper，也不是需要特殊处理的指针。
+- `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
+  默认都属于该语义。
+- `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
+
+推荐通过 `meta::property` 读写属性；普通动态路径优先使用 `meta::value`：
+
+```cpp
+actor instance{};
+
+auto reflected = caors::meta::find("game.actor");
+auto id = reflected.find_property("id");
+id.try_set_value(caors::meta::view(instance), caors::meta::value{42});
+
+caors::meta::value value = id.get_value(caors::meta::view(instance));
+```
+
+`get_value()` 会返回高层动态值，`try_set_value()` 在对象为空、类型不匹配或属性不可写时返回
+`false`。需要静态类型便利接口时也可以使用 `try_get<T>()` / `try_set<T>()`；它们在对象为空或
+类型不匹配时分别返回 `std::nullopt` / `false`。
+
+`try_set_value()` 默认只走现有 tagged value / exact any 写入路径，不做字符串解析或自定义转换。
+需要从文本写入标量、GUID 或枚举属性时，调用方必须显式传入 `meta::property_write_options`：
+
+```cpp
+caors::meta::property_write_options options{};
+options.conversion_policy = caors::meta::argument_conversion_policy::string_parse;
+
+id.try_set_value(caors::meta::view(instance), caors::meta::value{caors::string{"42"}}, options);
+```
+
+带 options 的重载仍会先尝试默认写入；只有默认路径失败且 options 开启转换时，才进入字符串解析、
+数值转换或自定义转换慢路径。`string_parse` 支持的目标类型与方法参数一致，但 `std::string_view`
+只建议走精确匹配路径，避免把临时文本视图写入长期存活的属性。
+
+也可以通过 `get_any()` 获取精确 C++ 运行期值拷贝：
+
+```cpp
+caors::any value = id.get_any(caors::meta::view(instance));
+
+if (const int* current = value.try_get<int>()) {
+  // 使用 current 读取属性值。
+}
+
+value.try_set(7);
+```
+
+`get_any()` 返回的是属性值拷贝，修改该 `any` 不会自动修改原对象。`try_set_any()`
+可以从同类型 `any` 显式写回属性：
+
+```cpp
+int source = 42;
+id.try_set_any(caors::meta::view(instance), caors::any::from(source));
+```
+
+高层动态调用优先使用 `meta::value`：
+
+```cpp
+caors::meta::value dynamic_value = id.get_value(caors::meta::view(instance));
+id.try_set_value(caors::meta::view(instance), caors::meta::value::from_any(7));
+```
+
+如果只需要访问属性本体，或者属性不可拷贝，可以使用 `get_ref()` 获取运行期引用。传入
+`const void*` 时返回只读引用，传入 `void*` 时返回可写引用：
+
+```cpp
+caors::any_ref ref = id.get_ref(caors::meta::view(instance));
+
+if (int* current = ref.try_get_mutable<int>()) {
+  *current = 7;
+}
+
+ref.try_set(9);
+```
+
+`any_ref` 不拥有对象，也不会延长属性所属对象生命周期。调用方必须保证原对象在引用使用期间仍然存活。
+`get_ref(meta::instance)` 根据实例可写性返回只读或可写引用；只读实例始终返回只读引用。
+
+### any
+
+`any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 `meta::type` 视图。
+静态 `type_record` 节点通过 layout、value ops、type semantics 和固定运行期能力集合记录大小、对齐、默认构造、复制、析构、
+赋值和可创建的运行期视图；如果值来自只按 `type_id` 构造的已注册业务类型，则会回退到同一 `type_id`
+的 meta 类型信息。
+它不引用原对象，因此可以安全地脱离属性所属对象生命周期使用。
+
+`any` 当前提供：
+
+- `valid()`：判断值是否有效。
+- `get_type()`：查询运行期类型身份；需要 id 或名称时读取 `id()` / `name()`。
+- `matches_type<T>()`：判断是否匹配指定 C++ 类型。
+- `try_get<T>()`：获取只读指针。
+- `try_get_mutable<T>()`：获取可写指针。
+- `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
+- `try_set(any)`：从同类型运行期值写入当前 `any`。
+- `get_capability<meta::sequence_capability>()`：如果类型能力描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果类型能力描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果类型能力描述了关联容器，则创建可写或只读关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果类型能力描述了指针或 wrapper，则创建内部值视图。
+
+第一版 `any` 只支持可拷贝类型；不可拷贝属性调用 `get_any()` 会返回无效 `any`。
+
+### any_ref
+
+`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和 `meta::type`。
+它不拥有对象，不复制对象，也不析构对象，适合零拷贝访问属性和不可拷贝属性。
+无显式类型名的 `any_ref::from<T>()` 不要求 `T` 已注册到 meta；显式类型名重载仍要求类型已注册且名称匹配。
+
+`any_ref` 当前提供：
+
+- `valid()`：判断引用是否有效。
+- `writable()`：判断是否允许通过该引用写入。
+- `get_type()`：查询运行期类型身份；需要 id 或名称时读取 `id()` / `name()`。
+- `matches_type<T>()`：判断是否匹配指定 C++ 类型。
+- `try_get<T>()`：获取只读指针。
+- `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
+- `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
+- `get_capability<meta::sequence_capability>()`：如果类型能力描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果类型能力描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果类型能力描述了关联容器，则创建关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果类型能力描述了指针或 wrapper，则创建内部值视图。
+
+### meta::type、meta::property、meta::method_set 和 meta::method
+
+`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method`
+是外部查询属性和方法信息的推荐入口。`find_method()` 返回同名方法集合；如果该名称只有一个重载，可以通过
+`single()` 取得具体 `meta::method`，否则使用 `resolve(args)` 或直接在集合上 `invoke_result_of()`：
+
+```cpp
+auto reflected = caors::meta::find("game.actor");
+auto field = reflected.find_property("health");
+
+actor instance{};
+field.try_set<float>(caors::meta::view(instance), 75.0F);
+
+auto damage = reflected.find_method("damage");
+int amount = 10;
+std::array<caors::meta::argument, 1> args{caors::meta::arg(amount)};
+damage.invoke_result_of(caors::meta::view(instance), args);
+```
+
+需要调用 `T&&` 参数时，使用拥有值右值参数：
+
+```cpp
+auto take = reflected.find_method("take").single();
+std::array<caors::meta::argument, 1> args{
+    caors::meta::move_arg(caors::any::from(42)),
+};
+take.invoke_result_of(caors::meta::view(instance), args);
+```
+
+`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用
+`meta::registry` layer 保存的属性和方法数据。primary layer 是进程级 append-only 注册层，其有效
+视图可以在进程生命周期内稳定使用。插件 draft layer 发布后同样不可变；detachable layer 从新
+snapshot 移除后，旧视图立即失效，但 layer lease 会继续保活底层记录和动态库。
+
+属性和方法视图的稳定性依赖“发布后冻结”约束：已发布类型不会再追加、删除或替换成员。当前插件卸载
+只整体 detach layer，不原地修改成员存储；脚本热替换或类型 record 原地 replace 仍需要独立设计。
+
+`meta::type` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `info()` / `id()` / `name()` / `guid()`：查询类型身份。
+- `property_count()` / `property_at()`：按索引遍历属性；索引越界时返回无效 `meta::property`。
+- `find_property(name, search)`：按属性名查询属性视图；未命中时返回无效 `meta::property`。
+  `search` 默认是 `meta::member_search::local_only`，只查当前类型；传入
+  `meta::member_search::include_bases` 时会沿父类链查询，子类同名属性优先。
+  这里的名称只使用 meta 注册属性名；序列化 schema 的 `serialized_name`、legacy name 或字段 id
+  不会作为 `find_property()` 别名。
+- `method_count()` / `method_at()`：按索引遍历同名方法集合；索引越界时返回无效 `meta::method_set`。
+- `find_method(name, search)`：按方法名查询同名方法集合；未命中时返回无效 `meta::method_set`。
+  `search` 默认只查当前类型；传入 `include_bases` 时会沿父类链查询，子类同名方法集合优先。
+
+父类查询只影响按名称查询，不改变 `property_count()` / `property_at()` 和
+`method_count()` / `method_at()` 的本地遍历语义。这样工具和序列化层可以明确区分“本类型声明的成员”和
+“继承链可访问的成员”。当前 `include_bases` 查询遇到子类和父类同名方法时返回子类方法集合，不会自动把父类
+overload 合并进同一个 `method_set`。
+
+`meta::property` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `name()` / `get_type()`：查询属性声明类型信息。`get_type()` 返回 `meta::type`。
+- `get_value_type()`：查询统一 value 类型。对普通值是属性自身类型；对指针和 wrapper
+  是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型；对 pair 是
+  second 类型。
+- `get_element_type()`：查询 sequence/set 属性的元素类型信息，是 `get_value_type()` 的语义别名。
+- `get_key_type()`：查询 associative 属性的 key 类型信息；pair
+  属性内部也复用它保存 first 类型。
+- `get_first_type()`：查询 pair 属性的 first 类型信息。
+- `get_mapped_type()`：查询 associative 属性的 mapped/value 类型信息，是 `get_value_type()` 的语义别名。
+- `get_second_type()`：查询 pair 属性的 second 类型信息，是 `get_value_type()` 的语义别名。
+- `kind()` / `wrapper_semantics()` / `indirect()` / `nullable()`：查询属性形态语义。
+- `offset()` / `size()` / `alignment()` / `writable()`：查询属性布局和可写性。
+- `metadata()` / `find_metadata()`：查询属性附加 metadata。普通属性访问不依赖 metadata；
+  配置校验、编辑器提示和导入管线可以按约定键读取。
+- `try_get<T>()` / `try_set<T>()`：按静态类型读写属性。
+- `get_any()` / `try_set_any()`：按精确 C++ 运行期 `any` 读写属性。
+- `get_value()` / `try_set_value(meta::value)`：按高层动态 `meta::value` 读写属性；需要文本解析或自定义
+  转换时使用带 `property_write_options` 的重载。
+- `get_ref(meta::instance)`：按运行期 `any_ref` 引用属性，权限由实例可写性决定。
+- 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
+  `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
+- `meta::property` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
+  应由 `objects`、`resources` 或序列化上下文中的 resolver 处理。
+- `is_sequence()`：判断属性是否是顺序容器属性。
+- `is_set()`：判断属性是否是集合容器属性。
+- `is_associative()`：判断属性是否是关联容器属性。
+- `is_pair()`：判断属性是否是二元组属性。
+- `is_tuple()`：判断属性是否是 tuple-like 属性。
+- `is_variant()`：判断属性是否是 variant-like 属性。
+
+`meta::method` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `name()`：查询方法名。
+- `get_return_type()`：查询返回值类型；`void` 返回值返回无效 `meta::type`。
+- `parameter_count()` / `get_parameter_type()`：查询参数列表。
+- `get_parameter_name()`：查询已注册参数名；未注册参数名或下标越界返回空名称。
+- `default_argument_count()`：查询已注册的尾部默认参数数量。
+- `const_method()`：判断是否是 `const` 成员函数。
+- `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
+- `matches_arguments(args, options)`：按参数列表检查该具体方法是否可调用。
+- `invoke_result_of(instance, args, options)`：在实例上调用成员方法，并返回 `meta::invoke_result`。
+- `invoke_result_of(args, options)`：调用全局函数，并返回 `meta::invoke_result`。
+- `try_invoke<T>()`：调用方法并按指定类型读取返回值。
+- `args` 使用 `span<const meta::argument>`；已有 `any_ref` 需要先通过 `caors::arg(ref)` 包装成参数。
+- 命名调用使用 `span<const meta::named_argument>`，并且必须显式开启
+  `argument_match_options::allow_named_arguments`。
+
+`meta::invoke_result` 当前提供：
+
+- `succeeded()` / `operator bool()`：判断调用是否成功。`void` 成功也会返回 true。
+- `kind()`：返回 `failed`、`void_value`、`value` 或 `reference`。
+- `failure_reason()`：调用失败时返回 `invalid_method`、`invalid_object`、`const_violation`、
+  `argument_mismatch`、`ambiguous_overload`、`invocation_failed` 或
+  `unsupported_return_value`；成功结果返回 `none`。`unsupported_return_value` 表示 C++ 方法已调用，
+  但 by-value 返回值既不可复制也不可移动，无法放入 `invoke_result` 或 `meta::value`。
+- `value()` / `mutable_value()`：读取拥有值返回。
+- `ref()`：读取引用返回。
+- `try_get<T>()` / `try_get_mutable<T>()`：同时支持从拥有值或引用结果按类型读取。
+
+`meta::method_set` 当前提供：
+
+- `valid()`：判断同名方法集合是否有效。
+- `name()`：查询方法名。
+- `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
+- `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
+- `match(args, options)`：返回结构化 `meta::method_match_result`，区分未匹配、精确匹配、转换匹配和歧义匹配。
+- `resolve(args, options)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。开启默认参数或
+  命名参数后，如果多个重载都能匹配，也会返回无效视图。
+- `invoke_result_of(instance, args, options)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。
+- `invoke_result_of(args, options)`：调用全局函数重载，并保留完整调用结果语义。
+
+`sequence_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `get_value_type()`：查询元素类型信息。
+- `get_element_type()`：查询元素类型信息，是 `get_value_type()` 的语义别名。
+- `size()` / `element_ref()` / `begin()` / `end()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
+- `clear()` / `resize()` / `append_value()`：通过 `traits::sequence_traits` 修改顺序容器。只有可写视图允许修改。
+
+`set_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `get_value_type()`：查询元素类型信息。
+- `get_element_type()`：查询元素类型信息，是 `get_value_type()` 的语义别名。
+- `size()` / `begin()` / `end()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
+- `clear()` / `insert_value()`：通过 `traits::set_traits` 修改集合。只有可写视图允许修改。
+
+`associative_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `get_key_type()` / `get_value_type()`：查询 key/value 类型信息。
+- `get_mapped_type()`：查询 mapped/value 类型信息，是 `get_value_type()` 的语义别名。
+- `size()` / `begin()` / `end()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
+- `clear()` / `insert_value()`：通过 `traits::associative_traits` 修改关联容器。只有可写视图允许修改；插入时
+  key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
+
+`set_view` 和 `associative_view` 的 iterator 不拥有底层容器，也不延长 view 或容器对象生命周期。
+保存 iterator 时，调用方需要保证对应 view 和容器仍然有效；如果类型擦除 iterator 创建失败，遍历会安全退化为空 range。
+
+`pair_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `get_first_type()`：查询 first 类型信息。
+- `get_value_type()`：查询 second 的统一 value 类型信息。
+- `get_second_type()`：查询 second 类型信息，是 `get_value_type()` 的语义别名。
+- `first_ref()` / `second_ref()` / `value_ref()`：获取 first 或 second 的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
+- `set_first()` / `set_second()`：用同类型 `any` 写入 first 或 second。只有可写视图允许修改。
+
+`tuple_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `size()`：查询 tuple 元素数量。
+- `get_element_type(index)`：查询指定下标的元素类型信息。
+- `element_ref(index)`：获取指定元素的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
+- `set_element(index, value)`：用同类型 `any` 写入指定元素。只有可写视图允许修改。
+
+`variant_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `size()`：查询候选类型数量。
+- `index()`：查询当前候选下标；如果底层 variant 处于无值状态则返回空。
+- `get_alternative_type(index)`：查询指定候选类型信息。
+- `get_value_type()`：查询当前候选值类型信息。
+- `value_ref()`：获取当前候选值的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
+- `emplace(index)`：切换当前候选。只有可写视图允许修改，目标候选需要支持默认构造。
+- `set_value(value)`：用同类型 `any` 写入当前候选值。只有可写视图允许修改。
+
+`indirect_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `get_value_type()`：查询内部值类型。
+- `get_dynamic_value_type()`：查询内部值的真实运行期类型；普通非多态值返回声明的
+  value 类型。
+- `has_value()`：判断指针或 wrapper 当前是否持有内部值。
+- `value_ref()`：获取内部值 `any_ref`。只读视图返回只读引用；可写视图在 wrapper 支持时返回可写引用。
+- `reset()`：把裸指针或 nullable wrapper 置空。只有可写视图允许重置。
+
+`indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
+指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
+
+内部容器类型能力保存 value/key、元素或候选类型的 `meta::type` 查询函数和容器操作函数。
+`get_*_type()` 会优先返回已注册 meta 类型，未注册时返回未注册 C++ 类型视图；名称查询也会回退到默认显示名。
+
+容器、指针、wrapper、pair、tuple 和 variant 这类结构类型不要求自身注册到 `meta::registry`。
+业务对象、枚举、标量命名类型等需要被名称、GUID、反射属性或多态构造策略稳定识别的类型仍应显式注册。
+
+容器、pair、tuple 和 variant 视图不要求值一定来自反射属性。反射属性场景可以先通过 `get_ref()` 创建 `any_ref`，
+再调用对应的 `get_capability<Capability>()`；普通 `any` / `any_ref` 也可以直接创建视图：
+
+如果只包含细粒度 value 头文件，并且需要按值使用 `associative_entry_ref`，应显式包含
+`caors/meta/value/associative_entry_ref.h`；包含总入口 `caors/meta/value.h` 时不需要额外处理。
+
+```cpp
+caors::meta::sequence_view field_sequence =
+    field.get_ref(caors::meta::view(instance)).get_capability<caors::meta::sequence_capability>();
+caors::meta::associative_view field_map =
+    field.get_ref(caors::meta::view(instance)).get_capability<caors::meta::associative_capability>();
+
+caors::hash_map<int, int> values;
+caors::any_ref ref = caors::any_ref::from(values);
+caors::meta::associative_view map = ref.get_capability<caors::meta::associative_capability>();
+map.insert_value(caors::any::from(1), caors::any::from(2));
+
+for (caors::meta::associative_entry_ref entry : map) {
+  caors::any_ref key = entry.key();
+  caors::any_ref value = entry.value();
+}
+```
+
+### 全局注册表
+
+反射属性和方法使用进程级全局 `meta::registry` 保存。普通代码优先通过
+`registration::type_<T>("name")` 注册并通过 `meta::find()` / `meta::type` 查询，不需要创建 registry 对象：
+
+```cpp
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("id", &actor::id)
+    .commit();
+
+auto reflected = caors::meta::find("game.actor");
+```
+
+`registration::type_<T>(name)`、`meta::find()` 和 `meta::type` 不维护第二套注册表，而是读写同一个
+`meta::registry` 中的属性和方法数据。
+
+属性/方法注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
+`init_registry()` 不会冻结注册表；如果后续继续注册属性或方法，调用方需要自行保证没有并发读取依赖中的半成品类型。
+如果应用进入主循环后不再允许 primary registry 写入，可以调用 `meta::freeze_registry()`；冻结后新的属性/方法注册会返回
+`errc::frozen`，插件或模块热加载应通过 registry layer 发布。
+
+`meta::registry` 由库内部管理；注册后不提供清理和撤销入口。
+
+注册失败会返回 `caors::error`，`domain()` 为 `error_domain::meta`，`value()` 为明确的通用错误码：
+
+- `errc::invalid_type`：类型描述无效。
+- `errc::invalid_field`：属性描述无效。
+- `errc::duplicate_id`：同一个运行期类型 id 已注册。
+- `errc::duplicate_name`：同一个名称已注册。
+- `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
+- `errc::duplicate_field`：同一个类型内存在重复属性名。
+- `errc::duplicate_method`：同一个类型内存在重复方法名。
+- `errc::inconsistent_type`：目标类型已存在，但 meta 类型信息不一致。
+- `errc::missing_parent`：父类型未注册。
+
+重复注册同一个类型时，如果 meta 类型信息一致通常返回 `duplicate_id` 或成功保留已有数据；
+如果属性或方法名重复，会返回 `duplicate_field` / `duplicate_method`；如果同名、同 GUID
+或同运行期类型 id 对应的 meta 类型信息不一致，会返回 `inconsistent_type` 或对应的重复错误。
+
+## 当前已实现能力
+
+- `any`：运行期 C++ 类型值拷贝。
+- `any_ref`：运行期 C++ 类型非拥有引用。
+- `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
+- 属性声明类型的布局、值操作、类型语义和固定运行期能力集合通过 `meta::type` 提供。
+- `meta::type` / `meta::property` / `meta::method`：全局属性和方法数据的推荐查询入口。
+- `registration::type_<T>("name")`：推荐的跨模块链式注册入口，属性和方法通过 `.meta()` 段写入。
+- `meta::registry`：全局 meta 注册表 facade。
+- `meta::find()` / `meta::get_registry().contains()`：类型查询入口。
+
+## 相关入口
+
+- 推荐公共头文件位于 `include/caors/meta/`：
+  - `property.h`：属性元信息和属性访问。
+  - `method.h`：成员方法元信息和运行期调用。
+  - `registration/type_builder.h`：`registration::type_<T>("name")` 的属性/方法注册段。
+- `include/caors/meta.h` 是推荐 umbrella 头，包含属性和方法注册、查询入口。
+- `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
+- `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
+  `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和显式 `objects::make_ptr_view(any_ref)`
+  工厂；普通访问优先使用 `any_ref::get_capability<objects::ptr_capability>()`。
+- `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
+  `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
+- `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
+- `include/caors/meta/value.h` 是 meta value umbrella 头，提供 `any`、各类运行期 view 和
+  `caors::variant` DOM 值；具体 view 头位于 `include/caors/meta/value/`。
+- 相关可运行示例位于 `examples/meta/` 和 `examples/serialization/`，示例组织规则见
+  [examples/README.md](../../examples/README.md)。
+- 行为测试按 meta 能力主题位于 `tests/meta/property/`、`tests/meta/method/`、`tests/meta/value/`
+  等目录，测试组织规则见 [tests/README.md](../../tests/README.md)。

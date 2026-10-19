@@ -170,7 +170,7 @@ Windows Clang Static/Shared Debug 的原前缀和迁移前缀均为 3/3 通过�
 - [x] 完成 Windows Clang Shared Release；
 - [x] 完成安装前缀移动后的重新消费验证。
 
-`cmake/VerifyInstalledPackage.cmake` 从 producer cache 复用生成器与编译器，并校验配置和
+`cmake/caors_verify_installed_package.cmake` 从 producer cache 复用生成器与编译器，并校验配置和
 `BUILD_SHARED_LIBS`。脚本只清理工作区 `build/` 下显式传入、彼此不嵌套的输出目录；Static/Shared
 均已完成原前缀与迁移前缀两轮全新 consumer configure/build/run。Shared 测试的 DLL 搜索路径只对
 CTest 子进程生效。
@@ -187,7 +187,7 @@ workflow `30609769822` 的 7 个 job 全部通过，其中 Static/Shared Release
 
 ### 阶段 4：文档收尾
 
-- [x] 回写 `docs/build.md` 的验证保证与故障排查；
+- [x] 回写 `docs/guides/build.md` 的验证保证与故障排查；
 - [x] 记录 Static/Shared、运行时库查找和可重定位边界；
 - [x] 将计划状态改为完成。
 

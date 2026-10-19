@@ -5,39 +5,34 @@
 
 #include "caors/config.h"
 #include "executor_control_block.h"
+#include "task_queue.h"
 
-#include <asio/io_context.hpp>
-#include <asio/post.hpp>
-
-#include <atomic>
 #include <mutex>
 #include <utility>
 
 namespace caors::tasks {
-
 namespace {
 
 struct context_control final : detail::executor_control_block {
-  explicit context_control(memory_resource* owner) {
+  using task_queue = detail::task_queue;
+
+  explicit context_control(memory_resource* owner) : queue(owner) {
     resource = owner;
     post = &post_task;
     valid = &is_valid;
     destroy = &destroy_control;
-    backend = caors::make<asio::io_context>(resource);
   }
 
   static error post_task(detail::executor_control_block* base, task next) {
     auto* control = static_cast<context_control*>(base);
-    std::lock_guard lock{control->mutex};
-    if (!control->accepting || control->backend == nullptr) {
-      return {error_domain::core, errc::frozen};
-    }
-
-    control->pending.fetch_add(1, std::memory_order_relaxed);
 #if CAORS_HAS_EXCEPTIONS
     try {
 #endif
-      asio::post(*control->backend, scheduled_task{control, std::move(next)});
+      std::lock_guard lock{control->mutex};
+      if (!control->accepting) {
+        return {error_domain::core, errc::frozen};
+      }
+      control->queue.push_back(std::move(next));
       return {};
 #if CAORS_HAS_EXCEPTIONS
     } catch (...) {
@@ -49,7 +44,7 @@ struct context_control final : detail::executor_control_block {
   static bool is_valid(const detail::executor_control_block* base) noexcept {
     const auto* control = static_cast<const context_control*>(base);
     std::lock_guard lock{control->mutex};
-    return control->accepting && control->backend != nullptr;
+    return control->accepting;
   }
 
   static void destroy_control(detail::executor_control_block* base) noexcept {
@@ -58,50 +53,27 @@ struct context_control final : detail::executor_control_block {
     caors::destroy(control, owner);
   }
 
-  struct scheduled_task final {
-    scheduled_task(context_control* owner, task next_task)
-        : control(owner), next(std::move(next_task)) {
-      detail::retain_executor_control(control);
-    }
-
-    scheduled_task(const scheduled_task&) = delete;
-    scheduled_task& operator=(const scheduled_task&) = delete;
-
-    scheduled_task(scheduled_task&& other) noexcept
-        : control(std::exchange(other.control, nullptr)), next(std::move(other.next)),
-          started(std::exchange(other.started, true)) {}
-
-    ~scheduled_task() noexcept {
-      if (control != nullptr) {
-        if (!started) {
-          control->pending.fetch_sub(1, std::memory_order_relaxed);
-        }
-        detail::release_executor_control(control);
-      }
-    }
-
-    void operator()() {
-      started = true;
-      control->pending.fetch_sub(1, std::memory_order_relaxed);
-      (void)next.run();
-    }
-
-    context_control* control = nullptr;
+  std::size_t execute_one() {
     task next;
-    bool started = false;
-  };
-
-  ~context_control() noexcept {
-    if (backend != nullptr) {
-      backend->stop();
-      caors::destroy(backend, resource);
+    {
+      std::lock_guard lock{mutex};
+      if (is_stopped) {
+        return 0;
+      }
+      if (queue.empty()) {
+        is_stopped = true;
+        return 0;
+      }
+      next = queue.take_front();
     }
+    (void)next.run();
+    return 1;
   }
 
   mutable std::mutex mutex;
-  asio::io_context* backend = nullptr;
-  std::atomic_size_t pending{0};
+  task_queue queue;
   bool accepting = true;
+  bool is_stopped = false;
 };
 
 [[nodiscard]] context_control* as_context(detail::executor_control_block* control) noexcept {
@@ -116,73 +88,76 @@ execution_context::execution_context(memory_resource* resource) {
 }
 
 execution_context::~execution_context() noexcept {
-  context_control* control = as_context(control_);
-  asio::io_context* backend = nullptr;
+  auto* control = as_context(control_);
   {
     std::lock_guard lock{control->mutex};
     control->accepting = false;
-    backend = std::exchange(control->backend, nullptr);
   }
-
-  if (backend != nullptr) {
-    backend->stop();
-    caors::destroy(backend, control->resource);
-  }
+  clear();
   detail::release_executor_control(control_);
 }
 
 executor execution_context::get_executor() const noexcept { return executor{control_, true}; }
 
-std::size_t execution_context::run() { return as_context(control_)->backend->run(); }
-
-std::size_t execution_context::run_one() { return as_context(control_)->backend->run_one(); }
-
-std::size_t execution_context::poll() {
-  context_control* control = as_context(control_);
-  const std::size_t snapshot = control->pending.load(std::memory_order_acquire);
+std::size_t execution_context::run() {
   std::size_t executed = 0;
-  while (executed < snapshot) {
-    const std::size_t current = control->backend->poll_one();
-    if (current == 0) {
-      break;
-    }
-    executed += current;
+  while (run_one() != 0) {
+    ++executed;
   }
   return executed;
 }
 
-std::size_t execution_context::poll_one() { return as_context(control_)->backend->poll_one(); }
+std::size_t execution_context::run_one() { return as_context(control_)->execute_one(); }
+
+std::size_t execution_context::poll() {
+  const std::size_t snapshot = pending();
+  std::size_t executed = 0;
+  while (executed < snapshot && poll_one() != 0) {
+    ++executed;
+  }
+  return executed;
+}
+
+std::size_t execution_context::poll_one() { return as_context(control_)->execute_one(); }
 
 std::size_t execution_context::drain() {
-  if (stopped()) {
-    restart();
-  }
+  restart();
   return poll();
 }
 
 std::size_t execution_context::pending() const noexcept {
-  return as_context(control_)->pending.load(std::memory_order_relaxed);
+  auto* control = as_context(control_);
+  std::lock_guard lock{control->mutex};
+  return control->queue.size();
 }
 
 void execution_context::clear() {
-  context_control* control = as_context(control_);
-  asio::io_context* replacement = caors::make<asio::io_context>(control->resource);
-  asio::io_context* previous = nullptr;
+  auto* control = as_context(control_);
+  context_control::task_queue discarded{control->resource};
   {
     std::lock_guard lock{control->mutex};
-    previous = std::exchange(control->backend, replacement);
+    discarded.swap(control->queue);
+    control->is_stopped = false;
   }
-
-  previous->stop();
-  caors::destroy(previous, control->resource);
+  // 锁外销毁捕获对象，允许取消回调重新投递。
 }
 
-void execution_context::stop() noexcept { as_context(control_)->backend->stop(); }
+void execution_context::stop() noexcept {
+  auto* control = as_context(control_);
+  std::lock_guard lock{control->mutex};
+  control->is_stopped = true;
+}
 
-void execution_context::restart() { as_context(control_)->backend->restart(); }
+void execution_context::restart() {
+  auto* control = as_context(control_);
+  std::lock_guard lock{control->mutex};
+  control->is_stopped = false;
+}
 
 bool execution_context::stopped() const noexcept {
-  return as_context(control_)->backend->stopped();
+  auto* control = static_cast<const context_control*>(control_);
+  std::lock_guard lock{control->mutex};
+  return control->is_stopped;
 }
 
 memory_resource* execution_context::resource() const noexcept { return control_->resource; }

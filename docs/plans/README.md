@@ -4,9 +4,29 @@
 # CAORS 开发计划
 
 本目录集中存放尚在讨论、实施或已经完成但需要保留设计依据的重构与迁移计划。
-面向使用者的稳定主题说明继续放在 `docs/` 根目录。
+当前 API 契约放在 `docs/reference/`，操作指南放在 `docs/guides/`，本目录仅维护实施方案与状态。
+
+计划是单项工作的范围、设计和待办状态维护入口；本页和路线图仅保留摘要与链接。
+新增或收尾计划遵循 [项目文档规范](../../DOCUMENTATION_GUIDE.md)：详细执行证据写入独立记录，
+性能数据保存在 `benchmarks/results/`，已验证的长期行为更新到对应专题文档。
+延期复验应注明剩余范围、原因、恢复条件及是否阻塞本次验收，不能将延期写成已验证通过。
 
 ## 状态索引
+
+### 版本集成待验收
+
+下一版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项实现已完成，正在执行完整版本验收；未标为全部通过：
+
+- [runtime 集成契约](runtime-integration-contracts.md)：C51-01，共享与私有 runtime 边界及跨模块验收。
+- [可嵌入 CMake](embedded-cmake-configuration.md)：C51-03，独立链接类型、依赖隔离与选项命名。
+- [库分发契约](library-distribution-contracts.md)：C51-04，PIC、导出符号、版本和安装扩展验证。
+- [资源模块寿命](resource-module-lifetime.md)：C51-02，强弱引用、allocator、异步回调与卸载。
+- [独立订阅取消](resource-request-subscriptions.md)：C51-05，共享加载与消费者终态隔离。
+- [外部 executor](external-executor-adapter.md)：C51-06，宿主投递、关闭与任务所有权。
+
+### 待实施
+
+- [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
 
 ### 进行中
 
@@ -32,6 +52,8 @@
 
 ### 已完成
 
+- [标准库调度后端](standard-thread-backends.md)：删除 Asio；Windows 八组、Linux 完整 CI、重复回归和安装迁移通过。
+
 - Tasks 与 Resources：`asio-task-redesign`、`resource-coroutine-pipeline` 的迁移验收；
   固定环境性能复验等扩展验证见上方延期复验。
 
@@ -50,6 +72,8 @@
 
 ## Runtime 与插件
 
+- [registry-overlay-safe-unload.md](registry-overlay-safe-unload.md)：插件 registry layer、动态库 lease、
+  覆盖与安全卸载的已完成设计和迁移依据。
 - [plugin-build-compatibility.md](plugin-build-compatibility.md)：host/plugin 编译器、CRT、
   STL ABI、架构和指针宽度的加载期兼容性校验计划。
 - [library-plugin-system.md](library-plugin-system.md)：跨平台动态库封装、稳定插件 ABI、
@@ -75,8 +99,6 @@
 
 - [memory-domain-redesign.md](memory-domain-redesign.md)：内部长期元数据、registry layer、同步临时
   工作区与用户结果内存的统一生命周期域计划。
-- [memory-domain-audit.md](memory-domain-audit.md)：全仓资源入口、owner、释放时机、线程与插件边界的
-  阶段 0 审计基线。
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
@@ -88,6 +110,8 @@
 
 ## Meta
 
+- [type-identity-state-redesign.md](type-identity-state-redesign.md)：运行期类型身份状态、静态类型模型、
+  注册表与 DLL 身份一致性的已完成迁移依据。
 - [detail-api-boundary-redesign.md](detail-api-boundary-redesign.md)：meta 内部 detail API
   分层与边界收敛计划。
 - [meta-type-data-redesign.md](meta-type-data-redesign.md)：静态类型数据与 registry 注册数据
@@ -119,3 +143,7 @@
   对象弱引用的显式反序列化条件。
 - [messagepack-backend.md](messagepack-backend.md)：零第三方依赖的标准 MessagePack
   writer、DOM parser 和 typed serialization 后端计划。
+
+## 相关证据
+
+重构前审计与历史验证由[记录索引](../records/README.md)维护，不再作为实施计划分类。
