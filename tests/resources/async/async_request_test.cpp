@@ -1271,3 +1271,22 @@ TEST_CASE("resources - discarded host work always reaches a terminal state", "[r
     CHECK_FALSE(cache.contains(test_guid_a));
   }
 }
+
+TEST_CASE("resources - request table lookup does not expose shared cancellation implicitly",
+          "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  holding_executor background;
+  caors::tasks::execution_context completion;
+  caors::resources::load_request_table<async_resource> table;
+  auto first = caors::resources::request_load_into(cache, loader, test_guid_a, background,
+                                                   completion.get_executor(), table);
+  auto second = table.find_pending(test_guid_a);
+  REQUIRE(second);
+  REQUIRE(second.cancel());
+  CHECK_FALSE(first.cancelled());
+  CHECK_FALSE(background.run_once());
+  CHECK(completion.drain() == 1);
+  CHECK(first.loaded());
+  CHECK(second.cancelled());
+}

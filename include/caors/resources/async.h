@@ -446,8 +446,17 @@ public:
   load_request_table(load_request_table&&) = delete;
   load_request_table& operator=(load_request_table&&) = delete;
 
-  /** @brief 查询进行中的请求；如果旧请求已经结束，会顺手清理并返回空请求。 */
+  /** @brief 为进行中的加载创建独立订阅；不存在进行中操作时返回空请求。 */
   [[nodiscard]] load_request<T> find_pending(resource_guid guid) {
+    auto operation = find_pending_operation(guid);
+    return operation ? detail::load_request_access<T>::subscribe(operation, true)
+                     : load_request<T>{};
+  }
+
+private:
+  friend class detail::load_request_access<T>;
+
+  [[nodiscard]] load_request<T> find_pending_operation(resource_guid guid) {
     if (!guid) {
       return {};
     }
@@ -479,6 +488,7 @@ public:
     return {};
   }
 
+public:
   /** @brief 保存进行中的请求。 */
   void store(resource_guid guid, load_request<T> request) {
     if (!guid || !request) {
@@ -812,6 +822,11 @@ public:
     }
     state->committing = true;
     return true;
+  }
+
+  [[nodiscard]] static request_type find_pending_operation(load_request_table<T>& table,
+                                                           resource_guid guid) {
+    return table.find_pending_operation(guid);
   }
 
   static void set_commit_unconditionally(const std::shared_ptr<state_type>& state, bool value) {
@@ -1535,7 +1550,7 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
   }
 
   if (requests != nullptr) {
-    if (load_request<T> pending = requests->find_pending(guid)) {
+    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid)) {
       return load_request_access<T>::subscribe(pending, commit_unconditionally,
                                                preload_observer_item, std::move(preload_state));
     }
@@ -1592,7 +1607,7 @@ template <typename T>
   }
 
   if (requests != nullptr) {
-    if (load_request<T> pending = requests->find_pending(guid)) {
+    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid)) {
       return load_request_access<T>::subscribe(pending, true);
     }
   }
