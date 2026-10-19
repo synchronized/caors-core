@@ -29,7 +29,7 @@
 
 ## 执行与事件
 
-- [Tasks](tasks.md)：任务、轻量 executor、标准库 context/pool、request 与显式协程适配。
+- [Tasks](tasks.md)：公共调度抽象、内置/外部后端的适用范围与限制，以及 request 和协程适配。
 - [Events](events.md)：delegate、signal、sink、连接和同步 dispatcher。
 
 ## 兼容政策

@@ -7,6 +7,38 @@
 公共接口提供 move-only `task`、轻量 `executor`、同步 `inline_executor()` 工厂、单线程
 `execution_context`、固定线程数 `thread_pool` 和轻量 `request` 状态句柄。
 
+## 定位与适用范围
+
+`executor` 是任务提交的公共抽象，与 `task`、request 和协程适配共同表达任务提交和完成。
+`executor` 不绑定内置线程池；资源异步流程也可使用宿主提供的调度上下文。公开接口仍遵循项目的
+[alpha 稳定性政策](api-stability.md)，这里的定位不构成 API 或 ABI 冻结承诺。
+
+内置 `thread_pool` 与 `execution_context` 定位为基础调度后端，提供一般后台工作与调用线程驱动的完成队列。
+当前尚未完成新后端的真实业务负载与长期运行验证；实际已执行的功能回归、并发与关闭测试见
+[实现验收记录](../records/2026-10-19-v0.2.0-host-integration.md#当前实现验收结论)。
+测试通过说明这些场景已有覆盖，不代表吞吐、尾延迟、容量或长期稳定性已经满足任意宿主的上线要求。
+旧 Asio 基线也不能作为当前标准库后端的性能结论。
+
+| 使用场景 | 选择与接入方式 |
+| --- | --- |
+| 一般后台计算或同步资源读取，任务数量与耗时可控 | 使用内置 `thread_pool`，按负载选择 worker 数量 |
+| 主线程或资源 cache 所属线程执行完成回调 | 使用 `execution_context`，由所属线程在适当时机主动 `drain()` |
+| 宿主已有线程池、作业系统或完成队列 | 优先通过[外部 executor](#外部-executor)适配，保持宿主的调度和关闭策略 |
+| 需要容量限制、背压、优先级或延迟约束 | 由宿主实现相应调度策略并验证，再通过外部 executor 接入 |
+
+正式业务采用内置后端时，应使用自己的任务规模、阻塞比例和回调节奏验证队列积压、内存占用、完成延迟与关闭耗时。
+内置后端作为现有公共能力维护，其正式业务适用性应由宿主实测确定。
+
+### 内置后端的调度限制
+
+- 队列没有可配置的容量上限或背压机制。持续投递快于消费时，等待任务及其捕获对象会持续占用内存，
+  最终可能分配失败；调用方需要控制在途任务量。
+- `thread_pool` 使用固定 worker 数量。长时间阻塞的任务会占用 worker，增加其后任务的等待时间；
+  需要隔离不同负载或控制优先级时，应使用宿主调度策略。
+- `execution_context` 不创建执行线程。所属线程未及时运行队列时，完成回调会积压；快照批次也不提供每帧耗时预算。
+- 不提供 work stealing、优先级、定时器或平台异步 I/O；也不承诺实时调度或确定的尾延迟。
+- 关闭、任务丢弃与生命周期仍须满足下文各接口契约；换用外部后端不会自动取消这些约束。
+
 ## 设计目标
 
 当前已覆盖：
@@ -28,7 +60,7 @@
 - 任务异常诊断保存。
 - 聚合 `execution_context::drain()` 中每个任务返回的错误。
 
-这些能力会在资源异步加载和资源热更新流程落地后继续扩展。
+是否扩展这些能力由具体需求和验证结果决定，不在此承诺实现时间。
 
 ## 第一阶段边界
 
@@ -42,7 +74,7 @@ scheduler，也不是完整作业系统：
 - 不做强制取消。`request::cancel()` 只改变请求状态，不中断正在运行的线程或 callable。
 
 后续只有在资源导入、热重载、编辑器工具或大量后台作业暴露出明确需求后，才会继续评估优先级、等待 API、
-进度聚合、任务图、协程适配或更复杂的线程池策略。
+进度聚合、任务图或更复杂的线程池策略。
 
 ## 命名空间和头文件
 
@@ -50,6 +82,7 @@ scheduler，也不是完整作业系统：
 
 - `tasks::task`
 - `tasks::executor`
+- `tasks::external_executor` / `tasks::external_executor_context`
 - `tasks::inline_executor()`
 - `tasks::execution_context`
 - `tasks::thread_pool`
@@ -65,6 +98,7 @@ scheduler，也不是完整作业系统：
 
 - `caors/tasks/task.h`
 - `caors/tasks/executor.h`
+- `caors/tasks/external_executor.h`
 - `caors/tasks/inline_executor.h`
 - `caors/tasks/execution_context.h`
 - `caors/tasks/thread_pool.h`
@@ -305,6 +339,7 @@ resources 和 assets 异步入口都接收后台 executor 与 completion executo
 
 ## 外部 executor
 
+宿主已有调度系统时，优先复用其工作队列与所属线程完成队列，避免额外维护一套独立线程池。
 `tasks::external_executor` 将共享拥有的 `external_executor_context` 适配为普通 executor。
 宿主实现 `post(task)` 和 `close()`，接口不绑定具体后端；可分别为宿主线程池和所属线程完成队列创建适配器。
 `post` 接管任务，成功后必须执行或销毁，拒绝后不得执行。`close` 必须封闭队列并排空/销毁已接受任务，
