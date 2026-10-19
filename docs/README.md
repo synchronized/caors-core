@@ -13,6 +13,11 @@
 - 参与开发：[开发规范](guides/development.md) → [文档规范](../DOCUMENTATION_GUIDE.md) →
   [路线图](roadmap.md) → [相关计划](plans/README.md) → [测试组织](../tests/README.md)。
 
+## 当前版本规划
+
+下一目标为 [v0.2.0：宿主集成与生命周期契约](versions/v0.2.0.md)，尚处规划阶段；
+实施方案由[计划索引](plans/README.md)导航，规划内容不代表当前 API 已实现。
+
 ## 分类入口
 
 | 目录 | 主要问题 | 入口 |

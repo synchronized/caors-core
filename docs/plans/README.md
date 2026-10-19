@@ -13,6 +13,17 @@
 
 ## 状态索引
 
+### 讨论中
+
+下一版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项尚未完成新增实施与验收：
+
+- [runtime 集成契约](runtime-integration-contracts.md)：C51-01，共享与私有 runtime 边界及跨模块验收。
+- [可嵌入 CMake](embedded-cmake-configuration.md)：C51-03，独立链接类型、依赖隔离与选项命名。
+- [库分发契约](library-distribution-contracts.md)：C51-04，PIC、导出符号、版本和安装扩展验证。
+- [资源模块寿命](resource-module-lifetime.md)：C51-02，强弱引用、allocator、异步回调与卸载。
+- [独立订阅取消](resource-request-subscriptions.md)：C51-05，共享加载与消费者终态隔离。
+- [外部 executor](external-executor-adapter.md)：C51-06，宿主投递、关闭与任务所有权。
+
 ### 待实施
 
 - [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
