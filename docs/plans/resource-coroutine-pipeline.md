@@ -5,8 +5,8 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 至阶段 3 已完成；
-- 前置条件：`asio-task-redesign` 阶段 0 到阶段 5 已完成；
+- 当前状态：阶段 0 至阶段 4 的迁移验收已完成；固定 Linux 环境正式性能复验延期，单独跟踪；
+- 前置条件：`asio-task-redesign` 迁移验收已完成；
 - 目标：让现有资源请求可安全 `co_await`，减少手工轮询，同时保持 cache 提交线程、共享请求和
   取消语义明确；
 - 首批范围：`load_request<T>`、`preload_request` 的多等待者支持、协程适配、内存资源、测试和文档；
@@ -183,10 +183,21 @@ owner/lease 边界。
   - [x] Windows MSVC Static Release：全量 86/86；
   - [x] Windows MSVC Shared Debug：全量 88/88；
   - [x] Windows MSVC Shared Release：全量 88/88；
-- [ ] Linux Clang/GCC Static/Shared、ASan；
+- [x] Linux Clang/GCC Static、Clang Shared、ASan；
 - [x] 记录无等待、单等待和多等待的分配次数与 p50/p95 延迟，结果见
   `benchmarks/results/2026-08-07-windows-clang-resource-coroutines.md`；
-- [ ] 固定 Linux 环境完成 UBSan 与正式性能复验。
+- [x] Ubuntu 24.04 CI 完成 Clang Shared UBSan；固定 Linux 环境正式性能复验延期，作为扩展验证跟踪。
+
+### 2026-10-19 收尾验收
+
+- Windows Clang/MSVC Static/Shared Debug/Release 八组全量复验通过，Static 各 86/86、Shared 各 88/88。
+  最后的 ready fast path 修改已重编译相关 coroutine 目标并执行回归。
+- [Linux 完整 CI](https://github.com/synchronized/caors-core/actions/runs/39194854028) 在
+  `73c0290` 全部通过，覆盖 Clang/GCC Static、Clang Shared、ASan 和新增 UBSan。
+- Windows Static Release / Shared Debug 及 Linux Static/Shared Release 安装包的四类 consumer
+  均通过原始与迁移前缀验证；普通 consumer 不需要包含 coroutine 适配头。
+- Windows Clang/MSVC 和 Linux Clang/GCC 的无异常公共头探针通过；完整无异常运行矩阵、
+  固定 Linux 环境正式性能数据与真实业务负载评估保留为后续扩展验证，不阻塞本次迁移验收。
 
 ## 完成标准
 

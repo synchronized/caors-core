@@ -10,15 +10,16 @@
 
 ### 进行中
 
-- [asio-task-redesign.md](asio-task-redesign.md)：引入 standalone Asio，统一 execution context、
-  轻量 executor、主线程 poll、线程池和可选 C++20 coroutine 适配。
-- [resource-coroutine-pipeline.md](resource-coroutine-pipeline.md)：让 resources 共享请求支持多 coroutine
-  等待，并分阶段收敛 assets 的执行目标与便利 API。
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
 
 ### 延期复验
+
+- [asio-task-redesign.md](asio-task-redesign.md)、
+  [resource-coroutine-pipeline.md](resource-coroutine-pipeline.md)：迁移、Windows 八组验证、Linux 完整
+  CI、ASan/UBSan、安装包及 Windows 调度/等待基准已完成；固定 Linux 环境正式性能复验、
+  真实业务负载和完整无异常运行矩阵保留为后续扩展验证。
 
 - [memory-domain-redesign.md](memory-domain-redesign.md)：四类内存域实现、正式文档及 Windows、
   Linux Clang/GCC/ASan 集成验证已完成；固定 Linux 环境 UBSan 延期执行。
@@ -30,6 +31,9 @@
   Linux Clang/GCC/ASan 验证已完成；固定 Linux 环境性能复验延期。
 
 ### 已完成
+
+- Tasks 与 Resources：`asio-task-redesign`、`resource-coroutine-pipeline` 的迁移验收；
+  固定环境性能复验等扩展验证见上方延期复验。
 
 - Runtime 与插件：`plugin-build-compatibility`、`library-plugin-system`、
   `registry-overlay-safe-unload`、`registry-query-fast-path`。
