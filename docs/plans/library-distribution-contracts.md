@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-状态：待验收，对应 C51-04，依赖 [runtime 契约](runtime-integration-contracts.md)和
+状态：已完成，对应 C51-04，依赖 [runtime 契约](runtime-integration-contracts.md)和
 [可嵌入构建](embedded-cmake-configuration.md)。版本范围见 [v0.2.0](../versions/v0.2.0.md)。
 现有安装、独立 consumer 和可重定位验证继续复用；本计划不重新打开已完成的
 [原安装包计划](installed-package-consumer-validation.md)。
@@ -37,7 +37,6 @@ alpha SONAME 使用 major.minor，包匹配采用 SameMinorVersion；静态库�
 
 ## 验收收口
 
-实现与设计任务已完成，完整版本矩阵仍在执行；状态“待验收”不表示全部平台已经通过。
-实际提交、失败修复、已执行结果和剩余门槛统一见
-[版本验收记录](../records/2026-10-19-v0.2.0-host-integration.md)。
-Windows 八组完整候选、最终 Linux 安装矩阵及版本元数据收口前，本计划不标为已完成。
+实现与契约验收已完成：标准库后端 Windows 八组完整测试、Linux 八组 CI、重复回归及安装迁移通过。
+实际源码提交、平台与适用限制统一见[版本验收记录](../records/2026-10-19-v0.2.0-host-integration.md)。
+版本元数据与发布收口由[版本页](../versions/v0.2.0.md)维护；本计划完成不表示已公开发布或 Gneiss 已接入。
