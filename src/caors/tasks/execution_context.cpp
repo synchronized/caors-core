@@ -115,13 +115,6 @@ std::size_t execution_context::poll() {
   while (executed < snapshot && poll_one() != 0) {
     ++executed;
   }
-  if (snapshot == 0) {
-    auto* control = as_context(control_);
-    std::lock_guard lock{control->mutex};
-    if (control->queue.empty()) {
-      control->is_stopped = true;
-    }
-  }
   return executed;
 }
 
