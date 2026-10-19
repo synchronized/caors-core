@@ -367,7 +367,8 @@ TEST_CASE("resources - async load commits through completion executor", "[resour
   CHECK_FALSE(request.cancel());
 }
 
-TEST_CASE("resources - async helpers poll single request through execution context", "[resources]") {
+TEST_CASE("resources - async helpers poll single request through execution context",
+          "[resources]") {
   caors::resource_cache<async_resource> cache;
   async_loader loader;
   loader.next_value = 19;
@@ -650,7 +651,7 @@ TEST_CASE("resources - database async load reuses pending request for same guid"
   CHECK(loader.load_count.load() == 1);
 }
 
-TEST_CASE("resources - database async load cancellation is shared by reused requests",
+TEST_CASE("resources - database async load cancellation is isolated between subscriptions",
           "[resources]") {
   require_async_resource_metadata();
 
@@ -669,12 +670,15 @@ TEST_CASE("resources - database async load cancellation is shared by reused requ
   CHECK(first.status() == caors::resources::request_status::queued);
   CHECK(second.status() == caors::resources::request_status::queued);
   REQUIRE(first.cancel());
-  CHECK(second.cancelled());
-  CHECK_FALSE(second.cancel());
-
+  CHECK_FALSE(second.cancelled());
+  auto first_copy = first;
+  CHECK(first_copy.cancelled());
   CHECK_FALSE(executor.run_once());
-  CHECK(loader.load_count.load() == 0);
-  CHECK_FALSE(cache.contains(test_guid_a));
+  CHECK(loader.load_count.load() == 1);
+  CHECK(completions.drain() == 1);
+  CHECK(second.loaded());
+  CHECK(first.cancelled());
+  CHECK(cache.contains(test_guid_a));
 }
 
 TEST_CASE("resources - database async load keeps newer request after cancelled task exits",
@@ -703,7 +707,7 @@ TEST_CASE("resources - database async load keeps newer request after cancelled t
   caors::resources::load_request<async_resource> third = database.request_load<async_resource>(
       test_guid_a, current_executor, completions.get_executor());
 
-  REQUIRE(second.cancel());
+  REQUIRE(second.cancel_shared());
   CHECK(third.cancelled());
 }
 
@@ -943,7 +947,7 @@ TEST_CASE("resources - database async preload observes shared load cancellation"
 
   CHECK(direct.status() == caors::resources::request_status::queued);
   CHECK(preload.status() == caors::resources::request_status::loading);
-  REQUIRE(direct.cancel());
+  REQUIRE(direct.cancel_shared());
   CHECK(preload.failed());
   CHECK(preload.error() == caors::error{caors::error_domain::resources, caors::errc::cancelled});
   CHECK(preload.failed_count() == 1);
@@ -1112,4 +1116,58 @@ TEST_CASE("resources - database async preload fails the batch when one item fail
   CHECK(result.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
   CHECK(contains_failure(result.failed_items, test_guid_a, material_manifest_type(),
                          {caors::error_domain::resources, caors::errc::not_found}));
+}
+
+TEST_CASE("resources - all subscriptions cancel without cache commit", "[resources]") {
+  require_async_resource_metadata();
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  holding_executor background;
+  caors::tasks::execution_context completions;
+  auto a =
+      database.request_load<async_resource>(test_guid_a, background, completions.get_executor());
+  auto b =
+      database.request_load<async_resource>(test_guid_a, background, completions.get_executor());
+  REQUIRE(a.cancel());
+  REQUIRE(b.cancel());
+  CHECK_FALSE(background.run_once());
+  CHECK(loader.load_count == 0);
+  CHECK(completions.drain() == 0);
+  CHECK_FALSE(cache.contains(test_guid_a));
+}
+
+TEST_CASE("resources - subscription cancellation races completion with one terminal notification",
+          "[resources]") {
+  require_async_resource_metadata();
+  for (int round = 0; round != 64; ++round) {
+    caors::resource_cache<async_resource> cache;
+    async_loader loader;
+    caors::resource_database database;
+    REQUIRE(database.register_type(cache, loader).succeeded());
+    caors::tasks::execution_context completions;
+    auto a = database.request_load<async_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                   completions.get_executor());
+    auto b = database.request_load<async_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                   completions.get_executor());
+    std::atomic<int> notifications{0};
+    REQUIRE(caors::resources::detail::load_request_access<async_resource>::add_waiter(
+        caors::resources::detail::load_request_access<async_resource>::state(a),
+        make_waiter_probe([&] { ++notifications; })));
+    std::atomic<bool> start{false};
+    std::thread canceller{[&] {
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      (void)a.cancel();
+    }};
+    start.store(true, std::memory_order_release);
+    CHECK(completions.drain() == 1);
+    canceller.join();
+    CHECK(notifications == 1);
+    CHECK(a.done());
+    CHECK(b.loaded());
+    CHECK(loader.load_count == 1);
+  }
 }

@@ -303,3 +303,18 @@ resources 和 assets 异步入口都接收后台 executor 与 completion executo
 `caors/resources/coroutine.h`。
 
 第一阶段不会让资源 cache、manifest、provider 或对象系统在后台线程被隐式修改。
+
+## 外部 executor
+
+`tasks::external_executor` 将共享拥有的 `external_executor_context` 适配为普通 executor。
+宿主实现 `post(task)` 和 `close()`，接口不含 Asio 类型；可分别为宿主线程池和所属线程完成队列创建适配器。
+`post` 接管任务，成功后必须执行或销毁，拒绝后不得执行。`close` 必须封闭队列并排空/销毁已接受任务，
+与投递并发时仍保证协议；不在自己的工作任务中阻塞等待自身关闭。允许同步 inline 执行，需支持重入。
+适配器不持锁调用宿主，投递异常在允许异常的构建中转换为 `backend_failure`。
+
+所有者关闭后，晚存活的 executor 返回 `frozen`。上下文由共享所有权保活，资源和模块必须覆盖其全部寿命。
+`submit_request()` 或资源加载的排队任务被丢弃时会进入失败终态，错误为 `cancelled`；
+这与显式取消后的 cancelled 状态有区别。拒绝投递保留原始错误，终态只通知一次。
+资源 cache 的提交线程约束保持有效；宿主应将 completion executor 绑定到 cache 所属线程。
+
+完整示例见 [external_executor.cpp](../../examples/tasks/external_executor.cpp)。

@@ -8,10 +8,14 @@
 
 ## 唯一 CAORS Runtime
 
-同一进程内只允许存在一个 CAORS runtime。宿主、插件和所有参与共享 CAORS 对象的动态库必须链接到
+参与交换 CAORS 对象的模块必须共用一个 CAORS runtime。宿主、插件和参与共享的动态库必须链接到
 同一个 `caors.dll` / `libcaors.so` / `libcaors.dylib` 实例。
+单模块可以私有静态使用 CAORS，前提是内部对象、allocator 和 runtime 身份不跨模块边界传播。
+多个完全隔离的 runtime 只能交换显式值协议，例如 GUID 字节、UTF-8 或序列化字节，不能直接互传 C++ DOM。
+普通动态链接不会执行插件加载期的构建环境检查；宿主负责统一工具链、CRT、配置和版本。
+当前 alpha 的动态库兼容标记按 major.minor 划分，包版本匹配只筛选版本，不证明 ABI 兼容。
 
-不支持下面这种拓扑：
+不支持下面这种拓扑中的 CAORS 对象互传：
 
 ```text
 host.exe ── static caors runtime A

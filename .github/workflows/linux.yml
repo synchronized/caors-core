@@ -130,6 +130,15 @@ jobs:
         run: cmake --build --preset "${{ matrix.preset }}"
       - name: 测试
         run: ctest --preset "${{ matrix.preset }}"
+      - name: 审计动态库符号与依赖
+        run: python3 scripts/verify_shared_symbols.py build/${{ matrix.preset }}/src/libcaors.so build/symbol-audit
+      - name: 上传符号与依赖证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}-symbols
+          path: build/symbol-audit/
+          if-no-files-found: warn
       - name: 验证 Shared 安装包
         if: matrix.preset == 'linux-clang-shared-release'
         run: >

@@ -339,10 +339,10 @@ auto request = database.request_load<texture>(texture_id, worker, completion);
 `database.request_load<T>()` 和 `database.request_reload<T>()` 会按资源类型和 GUID 复用进行中的请求：
 
 - cache 已经有同 GUID 资源时，`request_load<T>()` 立即返回 loaded 请求，不提交后台任务。
-- 同一个资源类型、同一个 GUID 的 queued/loading load 请求会返回同一个 `load_request<T>` 状态。
-- 同一个资源类型、同一个 GUID 的 queued/loading reload 请求会返回同一个 `load_request<T>` 状态。
+- 同一个资源类型、同一个 GUID 的 queued/loading load 复用一次底层加载，各次调用返回独立订阅。
+- 同一个资源类型、同一个 GUID 的 queued/loading reload 同样复用底层操作并返回独立订阅。
 - load 和 reload 使用独立请求表；同 GUID 的首次加载和重载不会互相复用。
-- 复用请求的任意一个句柄调用 `cancel()` 都会取消共享状态；后续同一请求句柄都会观察到 cancelled。
+- `cancel()` 只取消当前订阅；普通句柄复制共享该订阅，其他独立调用不受影响。`cancel_shared()` 显式取消底层操作的全部订阅。
 - 请求 loaded、failed 或 cancelled 后会从请求表移除，后续同 GUID 请求可以重新提交。
 
 依赖预加载也可以异步提交。模板入口适合同一资源类型闭包；无模板入口会先读取 manifest type，
@@ -410,8 +410,8 @@ caors::resources::preload_result preload_result =
 - 同一个共享请求可以注册多个等待者；请求进入终态后，在释放请求状态锁后恢复全部仍存活的等待者。
 - 默认由使请求进入终态的线程恢复。正常 commit 通常在 completion executor 线程恢复；后台加载失败
   可能在 worker 线程恢复。需要固定后续线程时，再显式 `co_await tasks::schedule(target)`。
-- 销毁等待 coroutine 只放弃该等待，不会取消共享资源请求；显式调用 request 的 `cancel()` 仍影响
-  观察同一共享状态的全部句柄。
+- 销毁等待 coroutine 只放弃该等待，不会取消共享资源请求；显式调用 request 的 `cancel()` 影响
+  同一订阅的普通副本，不影响另一次独立请求。
 - 每次等待的辅助状态使用 request 的长期 `memory_resource`；coroutine frame 仍由调用方所用 coroutine
   类型及编译器负责分配。
 - request 只延长共享请求状态，不拥有 database、cache、loader、provider 或 source。销毁这些服务前，
@@ -467,7 +467,7 @@ public:
 
 异步预加载会复用 database 级单资源请求表：
 
-- 同一个资源类型、同一个 GUID 的 direct load 和 preload load 共享同一个 queued/loading `load_request<T>` 状态。
+- 同一个资源类型、同一个 GUID 的 direct load 和 preload load 共享一次底层加载，订阅状态隔离。
 - 多个 preload 请求命中同一个资源时只提交一次后台 loader；每个 `preload_request` 都会观察共享请求的最终结果。
 - 计划阶段已经在 cache 中的资源会进入 `plan.already_loaded`，`total_count()` 不计入这些资源，也不会提交后台任务。
 - 计划后、提交前被其它路径写入 cache 的资源会立即标记该 preload item 完成。
@@ -1069,3 +1069,17 @@ provider + loader 加载，再把结果插入 cache。
 
 底层资源测试位于 `tests/resources/`，高层 assets 配置、JSON loader/saver 和 asset manager 测试位于
 `tests/assets/`。测试组织规则见 [tests/README.md](../../tests/README.md)。
+
+## 模块卸载与资源寿命
+
+资源句柄不自动持有动态库租约。宿主必须显式保留 `plugin_library_lease`，覆盖资源析构函数、
+最后弱控制块的 allocator、后台任务和完成回调；最后强引用释放不表示模块可以卸载。
+allocator 对象本身也必须存活，只有代码模块被 pin 并不能延长已被 shutdown 销毁的 allocator。
+资源尚在使用时，宿主卸载入口应拒绝或延迟请求；停止提交并排空工作后，再释放强引用、弱引用、
+回调和 allocator，最后释放模块 pin。pin 由宿主作用域持有，避免插件对象反向持有自己的宿主所有者。
+具体步骤见[插件集成指南](../guides/plugin-integration.md)。
+
+全部独立订阅取消后，未开始的加载或 cache 提交会跳过；已经进入提交临界点的 cache 写入不回滚。
+普通请求句柄析构不等于取消，进行中的操作会保留订阅状态至终态，调用方需要停止需求时显式取消。
+后台/完成队列接受任务后再销毁它，会使请求进入失败终态，错误为 `cancelled`；
+拒绝投递则保存 executor 的原始错误。通知发生在终态产生线程，协程恢复仍按指定 executor 投递。

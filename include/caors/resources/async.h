@@ -11,6 +11,7 @@
 #include "caors/resources/io.h"
 #include "caors/resources/preload.h"
 #include "caors/tasks.h"
+#include "caors/tasks/detail/abandon_guard.h"
 
 #include <cstddef>
 #include <limits>
@@ -296,8 +297,9 @@ public:
   /**
    * @brief 请求取消。
    *
-   * 只有 queued/loading 状态可以取消。取消不会强制中断已经开始执行的 loader，但会阻止后续
-   * completion executor commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
+   * 只取消本次订阅及其普通副本，不影响其他独立请求。全部订阅退出且缓存提交尚未开始时，
+   * 底层加载会合作取消；不强制中断 loader。提交已开始时不回滚 cache。
+   * 终态返回 false。等待者在状态锁释放后由终态发生线程通知，协程可另选恢复 executor。
    */
   [[nodiscard]] bool cancel() const {
     if (state_ == nullptr) {
@@ -305,6 +307,15 @@ public:
     }
 
     return detail::load_request_access<T>::cancel(*this);
+  }
+
+  /** @brief 显式取消同一底层加载的全部订阅；普通消费者应使用 cancel()。 */
+  [[nodiscard]] bool cancel_shared() const {
+    if (!state_) {
+      return false;
+    }
+    auto parent = state_->operation.lock();
+    return detail::load_request_access<T>::cancel(parent ? parent : state_);
   }
 
   /** @brief 非阻塞尝试返回加载完成后的强 handle。未完成或失败时返回空 handle。 */
@@ -390,8 +401,13 @@ private:
     explicit state_type(memory_resource* resource)
         : resource(resource), progress_stage(allocator<char>{resource}),
           preload_observers(allocator<preload_observer>{resource}),
-          waiters(allocator<detail::request_waiter>{resource}) {}
+          waiters(allocator<detail::request_waiter>{resource}),
+          subscribers(allocator<std::shared_ptr<state_type>>{resource}) {}
 
+    std::weak_ptr<state_type> operation;
+    bool subscription_operation = false;
+    bool abandoned = false;
+    bool committing = false;
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
     request_status status = request_status::queued;
@@ -402,6 +418,7 @@ private:
     bool commit_unconditionally = false;
     core::vector<preload_observer> preload_observers;
     core::vector<detail::request_waiter> waiters;
+    core::vector<std::shared_ptr<state_type>> subscribers;
   };
 
   explicit load_request(std::shared_ptr<state_type> state) noexcept : state_(std::move(state)) {}
@@ -410,7 +427,7 @@ private:
 };
 
 /**
- * @brief 按 GUID 复用进行中的异步加载请求。
+ * @brief 按 GUID 复用进行中的底层异步加载操作。
  *
  * 该表只保存 queued/loading 请求。完成、失败或取消的请求会在下一次查询或提交阶段被移除，
  * 因此不会阻止后续重新加载同一个 GUID。
@@ -700,6 +717,103 @@ public:
     return request.state_;
   }
 
+  [[nodiscard]] static request_type subscribe(const request_type& operation, bool unconditional,
+                                              preload_item item = {},
+                                              std::shared_ptr<preload_request_state> preload = {}) {
+    auto parent = state(operation);
+    auto child = make(parent->resource);
+    child.state_->operation = parent;
+    set_commit_unconditionally(child.state_, unconditional);
+    observe_preload(child, item, preload);
+    request_status status;
+    caors::error failure;
+    handle<T> value;
+    {
+      std::lock_guard lock{parent->mutex};
+      parent->subscription_operation = true;
+      parent->subscribers.emplace_back(child.state_);
+      status = parent->abandoned ? request_status::cancelled : parent->status;
+      failure = parent->status_error;
+      value = parent->value;
+    }
+    if (status == request_status::loaded) {
+      complete(child, std::move(value));
+    } else if (status == request_status::failed) {
+      fail(child, failure);
+    } else if (status == request_status::cancelled) {
+      (void)cancel(child);
+    } else if (status == request_status::loading) {
+      (void)loading(child.state_);
+    }
+    return child;
+  }
+
+  static void publish_subscribers(const std::shared_ptr<state_type>& state) {
+    core::vector<std::shared_ptr<state_type>> children{
+        allocator<std::shared_ptr<state_type>>{state->resource}};
+    request_status status;
+    caors::error failure;
+    handle<T> value;
+    {
+      std::lock_guard lock{state->mutex};
+      status = state->status;
+      failure = state->status_error;
+      value = state->value;
+      children = state->subscribers;
+    }
+    for (auto& child : children) {
+      if (status == request_status::loaded) {
+        (void)complete(child, value);
+      } else if (status == request_status::failed) {
+        fail(child, failure);
+      } else if (status == request_status::cancelled) {
+        (void)cancel(child);
+      }
+      notify_preload_observers(child);
+    }
+  }
+
+  static void cancel_if_unused(const std::shared_ptr<state_type>& parent) {
+    if (!parent) {
+      return;
+    }
+    {
+      std::lock_guard lock{parent->mutex};
+      if (parent->committing || !parent->subscription_operation) {
+        return;
+      }
+      for (auto& child : parent->subscribers) {
+        if (should_commit(child)) {
+          return;
+        }
+      }
+      parent->abandoned = true;
+    }
+    (void)cancel(parent);
+  }
+
+  [[nodiscard]] static bool begin_commit(const std::shared_ptr<state_type>& state) {
+    std::lock_guard lock{state->mutex};
+    if (state->abandoned || state->status == request_status::cancelled ||
+        state->status == request_status::failed) {
+      return false;
+    }
+    if (state->subscription_operation) {
+      bool needed = false;
+      for (auto& child : state->subscribers) {
+        if (should_commit(child)) {
+          needed = true;
+          break;
+        }
+      }
+      if (!needed) {
+        return false;
+      }
+    }
+    state->committing = true;
+    return true;
+  }
+
   static void set_commit_unconditionally(const std::shared_ptr<state_type>& state, bool value) {
     if (state == nullptr) {
       return;
@@ -714,7 +828,7 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
+    std::unique_lock lock{state->mutex};
     if (state->status == request_status::cancelled) {
       return false;
     }
@@ -727,6 +841,11 @@ public:
     state->value = {};
     state->progress = 0.0;
     state->progress_stage.clear();
+    auto children = state->subscribers;
+    lock.unlock();
+    for (auto& child : children) {
+      (void)loading(child);
+    }
     return true;
   }
 
@@ -755,6 +874,7 @@ public:
     }
 
     notify_request_waiters(waiters);
+    publish_subscribers(state);
     return true;
   }
 
@@ -784,6 +904,8 @@ public:
     }
 
     notify_request_waiters(waiters);
+    publish_subscribers(state);
+    notify_preload_observers(state);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -809,6 +931,8 @@ public:
 
     notify_request_waiters(waiters);
     notify_preload_observers(state);
+    publish_subscribers(state);
+    cancel_if_unused(state->operation.lock());
     return true;
   }
 
@@ -1145,6 +1269,8 @@ void load_request_access<T>::report_progress(const std::shared_ptr<state_type>& 
 
   using observer_type = typename state_type::preload_observer;
   core::vector<observer_type> observers{allocator<observer_type>{state->resource}};
+  core::vector<std::shared_ptr<state_type>> children{
+      allocator<std::shared_ptr<state_type>>{state->resource}};
   {
     std::lock_guard lock{state->mutex};
     if (state->status != request_status::queued && state->status != request_status::loading) {
@@ -1156,8 +1282,12 @@ void load_request_access<T>::report_progress(const std::shared_ptr<state_type>& 
       state->progress_stage.assign(update.stage.data(), update.stage.size());
     }
     observers = state->preload_observers;
+    children = state->subscribers;
   }
 
+  for (auto& child : children) {
+    report_progress(child, update);
+  }
   for (const observer_type& observer : observers) {
     const std::shared_ptr<preload_request_state> preload_state = observer.state.lock();
     preload_request_access::report_item_progress(preload_state, observer.item, update);
@@ -1198,6 +1328,14 @@ bool load_request_access<T>::should_commit(const std::shared_ptr<state_type>& st
 
   std::lock_guard lock{state->mutex};
   if (state->status == request_status::cancelled || state->status == request_status::failed) {
+    return false;
+  }
+  if (state->subscription_operation) {
+    for (auto& child : state->subscribers) {
+      if (should_commit(child)) {
+        return true;
+      }
+    }
     return false;
   }
   if (state->commit_unconditionally) {
@@ -1314,10 +1452,19 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       return;
     }
 
+    auto abandonment = std::allocate_shared<tasks::detail::abandonment>(
+        allocator<tasks::detail::abandonment>{target.resource()},
+        tasks::task{target.resource(), [state]() noexcept {
+                      load_request_access<T>::fail(state,
+                                                   {error_domain::resources, errc::cancelled});
+                      load_request_access<T>::notify_preload_observers(state);
+                    }});
     error push_status = completion_executor.post(tasks::task{
         target.resource(), [state, &target, guid, replace, requests, request,
-                            loaded_resource = std::move(loaded.value)]() mutable {
-          if (!load_request_access<T>::should_commit(state)) {
+                            loaded_resource = std::move(loaded.value),
+                            abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+          abandoned.release();
+          if (!load_request_access<T>::begin_commit(state)) {
             (void)load_request_access<T>::cancel(state);
             if (requests != nullptr) {
               requests->erase(guid, request);
@@ -1344,6 +1491,9 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
           load_request_access<T>::notify_preload_observers(state);
           return error{};
         }});
+    if (!push_status) {
+      abandonment->arm();
+    }
     if (push_status) {
       load_request_access<T>::fail(state, push_status);
       if (requests != nullptr) {
@@ -1386,28 +1536,35 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
 
   if (requests != nullptr) {
     if (load_request<T> pending = requests->find_pending(guid)) {
-      load_request_access<T>::set_commit_unconditionally(load_request_access<T>::state(pending),
-                                                         commit_unconditionally);
-      load_request_access<T>::observe_preload(pending, preload_observer_item,
-                                              std::move(preload_state));
-      return pending;
+      return load_request_access<T>::subscribe(pending, commit_unconditionally,
+                                               preload_observer_item, std::move(preload_state));
     }
   }
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
-  load_request_access<T>::set_commit_unconditionally(state, commit_unconditionally);
-  load_request_access<T>::observe_preload(request, preload_observer_item, std::move(preload_state));
+  auto subscriber = load_request_access<T>::subscribe(
+      request, commit_unconditionally, preload_observer_item, std::move(preload_state));
   if (requests != nullptr) {
     requests->store(guid, request);
   }
 
-  error submit_status = executor.post(
-      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
-                                      requests]() mutable {
-                    load_resource_in_background(state, target, source, guid, completion_executor,
-                                                false, requests, request);
+  auto abandonment = std::allocate_shared<tasks::detail::abandonment>(
+      allocator<tasks::detail::abandonment>{target.resource()},
+      tasks::task{target.resource(), [state]() noexcept {
+                    load_request_access<T>::fail(state, {error_domain::resources, errc::cancelled});
+                    load_request_access<T>::notify_preload_observers(state);
                   }});
+  error submit_status = executor.post(tasks::task{
+      target.resource(), [state, request, &target, &source, guid, completion_executor, requests,
+                          abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+        abandoned.release();
+        load_resource_in_background(state, target, source, guid, completion_executor, false,
+                                    requests, request);
+      }});
+  if (!submit_status) {
+    abandonment->arm();
+  }
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
     if (requests != nullptr) {
@@ -1416,7 +1573,7 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
     load_request_access<T>::notify_preload_observers(state);
   }
 
-  return request;
+  return subscriber;
 }
 
 template <typename T>
@@ -1436,25 +1593,33 @@ template <typename T>
 
   if (requests != nullptr) {
     if (load_request<T> pending = requests->find_pending(guid)) {
-      load_request_access<T>::set_commit_unconditionally(load_request_access<T>::state(pending),
-                                                         true);
-      return pending;
+      return load_request_access<T>::subscribe(pending, true);
     }
   }
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
-  load_request_access<T>::set_commit_unconditionally(state, true);
+  auto subscriber = load_request_access<T>::subscribe(request, true);
   if (requests != nullptr) {
     requests->store(guid, request);
   }
 
-  error submit_status = executor.post(
-      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
-                                      requests]() mutable {
-                    load_resource_in_background(state, target, source, guid, completion_executor,
-                                                true, requests, request);
+  auto abandonment = std::allocate_shared<tasks::detail::abandonment>(
+      allocator<tasks::detail::abandonment>{target.resource()},
+      tasks::task{target.resource(), [state]() noexcept {
+                    load_request_access<T>::fail(state, {error_domain::resources, errc::cancelled});
+                    load_request_access<T>::notify_preload_observers(state);
                   }});
+  error submit_status = executor.post(tasks::task{
+      target.resource(), [state, request, &target, &source, guid, completion_executor, requests,
+                          abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+        abandoned.release();
+        load_resource_in_background(state, target, source, guid, completion_executor, true,
+                                    requests, request);
+      }});
+  if (!submit_status) {
+    abandonment->arm();
+  }
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
     if (requests != nullptr) {
@@ -1462,7 +1627,7 @@ template <typename T>
     }
   }
 
-  return request;
+  return subscriber;
 }
 
 } // namespace detail

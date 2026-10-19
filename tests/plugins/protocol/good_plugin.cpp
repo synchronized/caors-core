@@ -66,6 +66,37 @@ struct plugin_instance {
 plugin_instance instance{};
 constexpr int extension_value = 42;
 
+class module_resource final : public caors::resource {
+public:
+  explicit module_resource(int* count) : destroyed_(count) {}
+  ~module_resource() override { ++*destroyed_; }
+
+private:
+  int* destroyed_;
+};
+class module_allocator final : public caors::memory_resource {
+public:
+  int* deallocated = nullptr;
+
+private:
+  void* do_try_allocate(std::size_t size, std::size_t alignment) noexcept override {
+    return caors::get_default_memory_resource()->try_allocate(size, alignment);
+  }
+  void do_deallocate(void* ptr, std::size_t size, std::size_t alignment) noexcept override {
+    ++*deallocated;
+    caors::get_default_memory_resource()->deallocate(ptr, size, alignment);
+  }
+  bool do_is_equal(const caors::memory_resource& other) const noexcept override {
+    return this == &other;
+  }
+};
+module_allocator resource_allocator;
+caors::resource_handle<caors::resource> create_native_resource(int* destroyed, int* deallocated) {
+  resource_allocator.deallocated = deallocated;
+  return caors::make_handle<module_resource>(&resource_allocator, destroyed);
+}
+const caors_native_resource_test_extension native_resource_extension{&create_native_resource};
+
 plugin_reflected_type::~plugin_reflected_type() {
   instance.destructions.fetch_add(1, std::memory_order_relaxed);
 }
@@ -213,6 +244,11 @@ const void* CAORS_PLUGIN_CALL get_extension(void*, const char* id, size_t id_siz
       id_size == sizeof(CAORS_PLUGIN_BUILD_EXTENSION_ID) - 1 &&
       std::memcmp(id, CAORS_PLUGIN_BUILD_EXTENSION_ID, id_size) == 0) {
     return &build;
+  }
+  constexpr char native_id[] = "caors.test.native-resource";
+  if (version == 1 && id_size == sizeof(native_id) - 1 &&
+      std::memcmp(id, native_id, id_size) == 0) {
+    return &native_resource_extension;
   }
   constexpr char extension_id[] = "caors.test.answer";
   if (version == 1 && id_size == sizeof(extension_id) - 1 &&

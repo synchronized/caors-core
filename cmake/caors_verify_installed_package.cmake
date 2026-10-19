@@ -181,13 +181,13 @@ endif()
 
 caors_read_cache_value("${PRODUCER_CACHE}" CMAKE_GENERATOR CAORS_VERIFY_GENERATOR)
 caors_read_cache_value("${PRODUCER_CACHE}" CMAKE_CXX_COMPILER CAORS_VERIFY_CXX_COMPILER)
-caors_read_cache_value("${PRODUCER_CACHE}" BUILD_SHARED_LIBS PRODUCER_SHARED)
+caors_read_cache_value("${PRODUCER_CACHE}" CAORS_BUILD_SHARED PRODUCER_SHARED)
 if(CAORS_VERIFY_SHARED)
   if(NOT PRODUCER_SHARED)
-    message(FATAL_ERROR "脚本要求 Shared，但 producer 的 BUILD_SHARED_LIBS=OFF")
+    message(FATAL_ERROR "脚本要求 Shared，但 producer 的 CAORS_BUILD_SHARED=OFF")
   endif()
 elseif(PRODUCER_SHARED)
-  message(FATAL_ERROR "脚本要求 Static，但 producer 的 BUILD_SHARED_LIBS=ON")
+  message(FATAL_ERROR "脚本要求 Static，但 producer 的 CAORS_BUILD_SHARED=ON")
 endif()
 file(
   STRINGS "${PRODUCER_CACHE}" CONFIGURATION_TYPES_LINE

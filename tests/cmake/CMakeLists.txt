@@ -18,3 +18,21 @@ if(CMAKE_GENERATOR_TOOLSET)
 endif()
 
 add_test(NAME caors.cmake.parent_project COMMAND ${CAORS_PARENT_PROJECT_TEST_COMMAND})
+
+foreach(CAORS_TEST_LIBRARY_TYPE IN ITEMS STATIC SHARED)
+  add_test(NAME caors.cmake.parent_${CAORS_TEST_LIBRARY_TYPE}
+    COMMAND ${CAORS_PARENT_PROJECT_TEST_COMMAND}
+      -B "${CMAKE_CURRENT_BINARY_DIR}/parent_${CAORS_TEST_LIBRARY_TYPE}"
+      "-DCAORS_TEST_LIBRARY_TYPE=${CAORS_TEST_LIBRARY_TYPE}")
+endforeach()
+
+foreach(CAORS_DEPENDENCY_CASE IN ITEMS complete base_only incompatible unknown)
+  add_test(NAME caors.cmake.catch_${CAORS_DEPENDENCY_CASE}
+    COMMAND ${CAORS_PARENT_PROJECT_TEST_COMMAND}
+      -S "${CMAKE_CURRENT_SOURCE_DIR}/dependency_project"
+      -B "${CMAKE_CURRENT_BINARY_DIR}/catch_${CAORS_DEPENDENCY_CASE}"
+      "-DCAORS_DEPENDENCY_CASE=${CAORS_DEPENDENCY_CASE}")
+  if(NOT CAORS_DEPENDENCY_CASE STREQUAL "complete")
+    set_tests_properties(caors.cmake.catch_${CAORS_DEPENDENCY_CASE} PROPERTIES WILL_FAIL TRUE)
+  endif()
+endforeach()

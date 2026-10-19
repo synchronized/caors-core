@@ -25,6 +25,7 @@ struct module_static_capability_list<custom_static_capability_module,
 
 } // namespace caors::meta::capabilities
 
+#include "caors/core/string_name.h"
 #include "caors/meta/type_id.h"
 #include "caors/registration/type_builder.h"
 
@@ -53,4 +54,8 @@ CAORS_TEST_PLUGIN_EXPORT int caors_test_plugin_b_register_consistent_type() noex
 CAORS_TEST_PLUGIN_EXPORT std::uint64_t caors_test_plugin_b_capability_key() noexcept {
   return caors::meta::capability_key_of<caors::tests::plugin_identity::shared_static_capability>()
       .value();
+}
+
+CAORS_TEST_PLUGIN_EXPORT caors::string_name caors_test_plugin_b_name() {
+  return caors::string_name{"caors.identity.shared.name"};
 }

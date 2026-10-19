@@ -265,3 +265,18 @@ executor 实际加载资源的 resources coroutine API。
 - 找到错误版本：清理 consumer cache，并检查 `caors_DIR` 是否位于预期前缀；
 - Shared consumer 启动失败：检查目标进程的动态库搜索路径，不要用另一个构建目录中的 DLL/SO；
 - 移动安装树后仍引用旧路径：必须使用全新的 consumer 构建目录重新配置。
+
+## 嵌入宿主与依赖复用
+
+`CAORS_LIBRARY_TYPE` 为 `AUTO`（默认）、`STATIC` 或 `SHARED`，AUTO 跟随 `BUILD_SHARED_LIBS`，
+显式模式不改变宿主全局选项。导出宏与测试使用 CAORS 实际模式；子项目默认关闭自身测试。
+测试启用还需 `BUILD_TESTING`；关闭测试不创建 Catch2，关闭 benchmark 不创建 ctrack。
+外部 Catch2 需要同时提供 `Catch2::Catch2` 和 `Catch2::Catch2WithMain`，已验证版本为 3.15.0；
+通过包元数据或 `Catch2_VERSION` 声明实际版本。外部 ctrack 使用 `ctrack_VERSION=1.1.0`。
+未知或不同版本会给出明确配置错误；不静默组合内外两套测试框架。
+
+日志使用 `CAORS_USE_DEBUG_OUTPUT`、`CAORS_USE_LOG`、`CAORS_USE_LOG_SEVERITY`。
+旧无前缀选项仅提供首次配置默认值并发出弃用提示，新名称优先；旧缓存可用 CMake `-U` 删除。
+静态 CAORS 默认启用 PIC，宿主显式设置 `CMAKE_POSITION_INDEPENDENT_CODE` 时按其设置。
+动态库默认隐藏内部符号，通过公共导出声明暴露 API；SONAME 使用 major.minor，
+CMake 包兼容匹配限制在同一 minor，不保证任意工具链 C++ ABI 或多版本对象混用。

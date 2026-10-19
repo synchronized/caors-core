@@ -7,6 +7,7 @@
 #include "caors/config.h"
 #include "caors/error.h"
 #include "caors/memory/resource.h"
+#include "caors/tasks/detail/abandon_guard.h"
 #include "caors/tasks/executor.h"
 
 #include <memory>
@@ -318,8 +319,15 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
 
   request current = request::make(resource != nullptr ? resource : next.resource());
   std::shared_ptr<detail::request_state> state = detail::request_access::state(current);
+  auto abandonment = std::allocate_shared<detail::abandonment>(
+      allocator<detail::abandonment>{current.resource()},
+      task{current.resource(), [state]() noexcept {
+             detail::request_access::fail(state, {error_domain::core, errc::cancelled});
+           }});
   task wrapped{resource != nullptr ? resource : next.resource(),
-               [state, next = std::move(next)]() mutable -> error {
+               [state, next = std::move(next),
+                abandoned = detail::abandon_guard{abandonment}]() mutable -> error {
+                 abandoned.release();
                  if (!detail::request_access::start(state)) {
                    return {};
                  }
@@ -347,6 +355,8 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
   const error submit_status = target.post(std::move(wrapped));
   if (submit_status) {
     detail::request_access::fail(state, submit_status);
+  } else {
+    abandonment->arm();
   }
 
   return current;

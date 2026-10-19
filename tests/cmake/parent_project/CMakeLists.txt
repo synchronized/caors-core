@@ -19,7 +19,22 @@ set(CAORS_BUILD_EXAMPLE_TESTING OFF CACHE BOOL "" FORCE)
 set(CAORS_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(CAORS_ENABLE_WARNINGS ON CACHE BOOL "" FORCE)
 
+if(DEFINED CAORS_TEST_LIBRARY_TYPE)
+  set(CAORS_LIBRARY_TYPE "${CAORS_TEST_LIBRARY_TYPE}" CACHE STRING "" FORCE)
+endif()
+if(CAORS_TEST_LIBRARY_TYPE STREQUAL "STATIC")
+  set(BUILD_SHARED_LIBS ON)
+elseif(CAORS_TEST_LIBRARY_TYPE STREQUAL "SHARED")
+  set(BUILD_SHARED_LIBS OFF)
+endif()
 add_subdirectory("${CAORS_SOURCE_DIR}" caors)
+get_target_property(actual_type caors TYPE)
+if(DEFINED CAORS_TEST_LIBRARY_TYPE AND NOT actual_type STREQUAL "${CAORS_TEST_LIBRARY_TYPE}_LIBRARY")
+  message(FATAL_ERROR "显式链接模式未生效：${actual_type}")
+endif()
+if(TARGET Catch2::Catch2 OR TARGET ctrack::ctrack)
+  message(FATAL_ERROR "关闭测试和基准后不应创建对应依赖")
+endif()
 
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/host_probe.cpp"
      "// SPDX-License-Identifier: MIT\n"

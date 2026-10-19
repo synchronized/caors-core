@@ -11,7 +11,7 @@ target_link_libraries(
 set_target_properties(caors_tasks_asio_config_test PROPERTIES FOLDER "Tests")
 
 add_test(NAME caors.tasks.asio_config COMMAND caors_tasks_asio_config_test)
-if(BUILD_SHARED_LIBS)
+if(CAORS_BUILD_SHARED)
   set_property(
     TEST caors.tasks.asio_config
     PROPERTY ENVIRONMENT_MODIFICATION

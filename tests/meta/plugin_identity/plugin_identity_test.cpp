@@ -3,6 +3,7 @@
 
 #include "plugin_identity_test_support.h"
 
+#include "caors/core/string_name.h"
 #include "caors/error.h"
 #include "caors/meta/type_id.h"
 #include "caors/platform/shared_library.h"
@@ -111,6 +112,20 @@ int main(int argc, char** argv) {
   }
   if (plugin_b_register_consistent() != static_cast<int>(caors::errc::duplicate_id)) {
     return fail("相同静态类型模型被错误诊断为冲突");
+  }
+
+  using name_fn = caors::string_name (*)();
+  const auto name_a = reloaded_plugin_a.find_function<name_fn>("caors_test_plugin_a_name");
+  const auto name_b = plugin_b.find_function<name_fn>("caors_test_plugin_b_name");
+  const caors::string_name host_name{"caors.identity.shared.name"};
+  if (!name_a || !name_b || name_a() != host_name || name_b() != host_name) {
+    return fail("跨模块字符串驻留身份不一致");
+  }
+  const auto create = reloaded_plugin_a.find_function<void* (*)()>("caors_test_plugin_a_create");
+  const auto destroy =
+      reloaded_plugin_a.find_function<int (*)(void*) noexcept>("caors_test_plugin_a_destroy");
+  if (!create || !destroy || destroy(create()) != 42) {
+    return fail("跨模块创建与创建方释放协议失败");
   }
 
   return 0;

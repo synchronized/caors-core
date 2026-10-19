@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 CAORS contributors
 
-if(NOT BUILD_SHARED_LIBS)
-  message(STATUS "跳过 meta plugin identity 测试：该测试要求 BUILD_SHARED_LIBS=ON")
+if(NOT CAORS_BUILD_SHARED)
+  message(STATUS "跳过 meta plugin identity 测试：该测试要求 CAORS_BUILD_SHARED=ON")
   return()
 endif()
 

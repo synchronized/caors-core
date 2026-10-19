@@ -9,7 +9,17 @@
 
 ## Unreleased
 
+### 宿主集成
+
+- 新增外部 executor 拥有型适配；宿主关闭并丢弃队列任务时，关联请求进入明确失败终态。
+- 同一资源的独立加载/重载调用共享底层工作，取消订阅互不影响；需要旧的全局取消行为时改用 `cancel_shared()`。
+- 增加 runtime 身份、跨模块创建/释放、显式模块 pin 与 allocator/弱引用寿命的验证和契约说明。
+
 ### 工程
+
+- 支持 `CAORS_LIBRARY_TYPE=AUTO/STATIC/SHARED`、按需测试/benchmark 依赖及外部依赖版本检查。
+- 日志选项改用 `CAORS_` 前缀，旧选项仅作默认值，新值优先；子项目默认关闭自身测试。
+- 静态库默认 PIC，动态库隐藏内部符号；SONAME 和安装包兼容匹配按 major.minor 划分。
 
 - 工程版本集中到 `cmake/caors_version.cmake`，生成头、运行时查询和安装包版本继续由同一来源派生。
 - 项目私有 CMake 模块与辅助函数统一使用 `caors_` 前缀；直接包含旧脚本的调用需改用新文件名。

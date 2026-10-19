@@ -151,3 +151,20 @@ registry layer detach、旧 lease 和 in-flight 调用；任一前置条件未�
 `windows-clang-shared-debug` preset 提供真实的 `host + plugin_a + plugin_b + caors.dll`
 测试拓扑，覆盖跨 DLL 类型身份、并发首次解析、插件重载、模型冲突、capability key 和 plugin host
 extension 查询一致性。共享构建建议使用 `--parallel 1`，避免大型模板测试并行编译导致内存不足。
+
+## 宿主显式保活资源模块
+
+通用资源句柄的寿命边界由[资源参考](../reference/resources.md#模块卸载与资源寿命)维护。
+宿主在模块对象或 allocator 进入外部缓存前获取 `plugin_binary::library_lease()`；不要在收到卸载请求后才获取。
+宿主卸载入口先停止新请求，对仍有资源、弱引用或工作中的模块返回 pending/拒绝，并保留原 pin。
+在模块的 allocator/服务销毁前，完成以下顺序：
+
+1. 关闭加载入口，取消等待并排空后台任务和完成队列；取消本身不能替代等待。
+2. 清理 cache 与外部强引用，再清理弱引用及其控制块。
+3. 销毁仍引用模块函数和 allocator 的回调、任务、适配上下文，再销毁 allocator/服务。
+4. 由宿主释放最后 pin 并完成插件卸载，不从插件内部最后一条执行路径自行卸载代码。
+
+`plugin_manager` 无法自动枚举宿主的通用资源和弱引用，宿主必须在调用卸载流程前执行该门禁。
+仅保存 library lease 不代表插件逻辑服务可以提前 shutdown；它只保证动态库代码仍映射。
+创建/加载失败用 RAII 回收临时 pin，长期 pin 由宿主统一持有，避免反向所有权循环。
+跨 CRT 对象仍使用兼容构建和创建方释放协议，普通 DLL 不自动获得插件构建环境检查。
