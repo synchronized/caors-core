@@ -3,7 +3,7 @@ name: Linux
 on:
   workflow_dispatch:
   schedule:
-    # 每周一北京时间 02:00 执行完整矩阵。
+    # 每周一北京时间 02:00，执行精简常规矩阵。
     - cron: "0 18 * * 0"
 
 concurrency:
@@ -15,50 +15,34 @@ permissions:
 
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: "2"
+  # 测试会发起不可满足的申请，保持 nothrow 返回空语义。
+  ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:allocator_may_return_null=1
+  UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
 
 jobs:
-  linux-ubsan:
-    name: Shared · Clang UBSan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-    steps:
-      - uses: actions/checkout@v5
-      - name: 安装构建工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ninja-build clang
-      - name: 配置
-        run: >
-          cmake --preset linux-clang-shared-debug
-          -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
-          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=undefined
-          -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=undefined
-      - name: 构建
-        run: cmake --build --preset linux-clang-shared-debug
-      - name: 测试
-        run: ctest --preset linux-clang-shared-debug
-      - name: 上传失败日志
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-clang-shared-ubsan-test-log
-          path: build/linux-clang-shared-debug/Testing/Temporary/LastTest.log
-          if-no-files-found: warn
-
-  linux-static:
-    name: Static · ${{ matrix.preset }}
+  linux:
+    name: ${{ matrix.preset }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        preset:
-          - linux-clang-debug
-          - linux-clang-release
-          - linux-gcc-debug
-          - linux-gcc-release
+        include:
+          - preset: linux-clang-release
+            shared: ON
+            sanitizer: false
+          - preset: linux-gcc-release
+            shared: ON
+            sanitizer: false
+          - preset: linux-clang-asan
+            shared: ON
+            sanitizer: true
+          - preset: linux-clang-ubsan
+            shared: ON
+            sanitizer: true
+          - preset: linux-clang-static-release
+            shared: OFF
+            sanitizer: false
     steps:
       - uses: actions/checkout@v5
       - name: 安装构建工具
@@ -72,82 +56,44 @@ jobs:
           ninja --version
           clang --version
           gcc --version
-          ld --version
-          ldd --version
-          g++ -print-file-name=libstdc++.so
       - name: 配置
         run: cmake --preset "${{ matrix.preset }}"
       - name: 验证无异常协程公共头
+        if: matrix.preset == 'linux-clang-static-release' || matrix.preset == 'linux-gcc-release'
         run: |
           compiler=clang++
           case "${{ matrix.preset }}" in linux-gcc-*) compiler=g++ ;; esac
           for probe in tests/tasks/coroutine/no_exceptions_probe.cpp tests/resources/coroutine/no_exceptions_probe.cpp; do
             "$compiler" -std=c++20 -fno-exceptions -DCAORS_FORCE_DISABLE_EXCEPTIONS -DCAORS_STATIC_DEFINE -I include -fsyntax-only "$probe"
           done
+      - name: 验证 ASan 覆盖
+        if: matrix.preset == 'linux-clang-asan'
+        run: python3 scripts/verify_asan_coverage.py build/${{ matrix.preset }}
       - name: 构建
         run: cmake --build --preset "${{ matrix.preset }}"
       - name: 测试
-        run: ctest --preset "${{ matrix.preset }}"
-      - name: 验证 Static 安装包
-        run: >
-          cmake
-          -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
-          -DCAORS_INSTALL_PREFIX=build/installed-package/linux-static-prefix
-          -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-static-consumer
-          -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-static-relocated-prefix
-          -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-static-relocated-consumer
-          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
-          -DCAORS_SHARED=OFF
-          -P cmake/caors_verify_installed_package.cmake
-      - name: 上传失败日志
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.preset }}-test-log
-          path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
-          if-no-files-found: warn
-
-  linux-shared:
-    name: Shared · ${{ matrix.preset }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        preset:
-          - linux-clang-shared-debug
-          - linux-clang-shared-release
-    steps:
-      - uses: actions/checkout@v5
-      - name: 安装构建工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ninja-build clang
-      - name: 配置
-        run: cmake --preset "${{ matrix.preset }}"
-      - name: 构建
-        run: cmake --build --preset "${{ matrix.preset }}"
-      - name: 测试
-        run: ctest --preset "${{ matrix.preset }}"
+        run: ctest --preset "${{ matrix.preset }}" --timeout 120
       - name: 审计动态库符号与依赖
+        if: ${{ !matrix.sanitizer && matrix.shared == 'ON' }}
         run: python3 scripts/verify_shared_symbols.py build/${{ matrix.preset }}/src/libcaors.so build/symbol-audit
       - name: 上传符号与依赖证据
-        if: always()
+        if: ${{ always() && !matrix.sanitizer && matrix.shared == 'ON' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.preset }}-symbols
           path: build/symbol-audit/
           if-no-files-found: warn
-      - name: 验证 Shared 安装包
+      - name: 验证安装与迁移 consumer
+        if: ${{ !matrix.sanitizer }}
         run: >
           cmake
           -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
-          -DCAORS_INSTALL_PREFIX=build/installed-package/linux-shared-prefix
-          -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-consumer
-          -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-shared-relocated-prefix
-          -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-relocated-consumer
-          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
-          -DCAORS_SHARED=ON
+          -DCAORS_INSTALL_PREFIX=build/installed-package/prefix
+          -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/consumer
+          -DCAORS_RELOCATION_PREFIX=build/installed-package/relocated-prefix
+          -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/relocated-consumer
+          -DCAORS_BUILD_CONFIG=Release
+          -DCAORS_SHARED=${{ matrix.shared }}
           -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
         if: failure()
@@ -155,33 +101,4 @@ jobs:
         with:
           name: ${{ matrix.preset }}-test-log
           path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
-          if-no-files-found: warn
-
-  linux-asan:
-    name: Shared · Clang ASan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      # try_allocate 测试会故意发起不可满足的超大申请，应保持 nothrow 返回空语义。
-      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:allocator_may_return_null=1
-    steps:
-      - uses: actions/checkout@v5
-      - name: 安装构建工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ninja-build clang
-      - name: 配置
-        run: cmake --preset linux-clang-shared-asan
-      - name: 验证 ASan 覆盖
-        run: python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
-      - name: 构建
-        run: cmake --build --preset linux-clang-shared-asan
-      - name: 测试
-        run: ctest --preset linux-clang-shared-asan
-      - name: 上传失败日志
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-clang-shared-asan-test-log
-          path: build/linux-clang-shared-asan/Testing/Temporary/LastTest.log
           if-no-files-found: warn

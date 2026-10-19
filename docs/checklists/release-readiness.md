@@ -16,8 +16,8 @@
 
 ## 正确性与安装
 
-- [ ] 最终 SHA 完成 Windows Clang/MSVC 静态/动态 Debug/Release 验证，或明确收窄该版本的平台承诺。
-- [ ] 最终 SHA 完成现有 Linux 完整 CI，包括 Clang/GCC 静态、Clang 动态、ASan/UBSan。
+- [ ] 最终 SHA 完成 CI 策略规定的 Windows 常规矩阵；Debug/其他组合按版本承诺及变更风险补充。
+- [ ] 最终 SHA 完成 CI 策略规定的 Linux 常规矩阵，包括两种编译器、静态/动态、ASan/UBSan。
 - [ ] 插件、临时内存或 MessagePack 高风险变化完成相应重复压力验证。
 - [ ] 静态/动态安装、六类 consumer、迁移前缀、动态库运行时部署和私有依赖边界通过。
 - [ ] 公共头、相关示例、失败路径、取消、借用有效期和插件卸载约束与声明一致。

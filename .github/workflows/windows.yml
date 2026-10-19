@@ -1,0 +1,59 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 与 Linux 相同，每周一北京时间 02:00。
+    - cron: "0 18 * * 0"
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: "2"
+
+jobs:
+  windows:
+    name: ${{ matrix.preset }}
+    runs-on: windows-2022
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: windows-clang-release
+            shared: ON
+          - preset: windows-msvc-release
+            shared: ON
+          - preset: windows-clang-static-release
+            shared: OFF
+    steps:
+      - uses: actions/checkout@v5
+      - name: 构建、测试及安装迁移验证
+        shell: pwsh
+        run: |
+          # 包装脚本加载 VS 环境；后续 consumer 在同一进程中使用该环境。
+          .\scripts\msvc.ps1 -Preset '${{ matrix.preset }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --version
+          cmake `
+            -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }} `
+            -DCAORS_INSTALL_PREFIX=build/installed-package/prefix `
+            -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/consumer `
+            -DCAORS_RELOCATION_PREFIX=build/installed-package/relocated-prefix `
+            -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/relocated-consumer `
+            -DCAORS_BUILD_CONFIG=Release `
+            -DCAORS_SHARED=${{ matrix.shared }} `
+            -P cmake/caors_verify_installed_package.cmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: 上传失败日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}-test-log
+          path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
+          if-no-files-found: warn

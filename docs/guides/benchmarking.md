@@ -15,8 +15,8 @@ CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具。`ctrack` 以�
 benchmark 默认关闭，避免影响普通开发构建：
 
 ```sh
-cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
-cmake --build --preset windows-clang-debug --target caors_benchmarks
+cmake --preset windows-clang-static-debug -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset windows-clang-static-debug --target caors_benchmarks
 build/benchmarks/caors_benchmarks 100000
 ```
 

@@ -37,20 +37,20 @@ jobs:
           ldd --version
           g++ -print-file-name=libstdc++.so
       - name: 配置
-        run: cmake --preset linux-clang-shared-asan
+        run: cmake --preset linux-clang-asan
       - name: 验证 ASan 覆盖
-        run: python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
+        run: python3 scripts/verify_asan_coverage.py build/linux-clang-asan
       - name: 构建
-        run: cmake --build --preset linux-clang-shared-asan
+        run: cmake --build --preset linux-clang-asan
       - name: 插件卸载压力测试
         run: >-
-          ctest --test-dir build/linux-clang-shared-asan
+          ctest --test-dir build/linux-clang-asan
           --output-on-failure
           --repeat until-fail:20
           -R '^(caors\.plugins\.(scope|protocol)|caors\.meta\.plugin_identity)$'
       - name: 临时内存与 MessagePack 压力测试
         run: >-
-          ctest --test-dir build/linux-clang-shared-asan
+          ctest --test-dir build/linux-clang-asan
           --output-on-failure
           --repeat until-fail:10
           -R '^(caors\.memory\.|caors\.serialization\.messagepack$)'
@@ -58,6 +58,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-clang-shared-asan-stress-test-log
-          path: build/linux-clang-shared-asan/Testing/Temporary/LastTest.log
+          name: linux-clang-asan-stress-test-log
+          path: build/linux-clang-asan/Testing/Temporary/LastTest.log
           if-no-files-found: warn

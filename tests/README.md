@@ -11,7 +11,7 @@
 
 ```sh
 ctest --preset windows-clang-debug
-ctest --preset linux-gcc-debug
+ctest --preset linux-gcc-static-debug
 ```
 
 关闭测试目标：

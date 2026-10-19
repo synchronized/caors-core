@@ -43,49 +43,53 @@ cmake --list-presets
 配置、构建并测试：
 
 ```sh
-cmake --preset windows-clang-debug
-cmake --build --preset windows-clang-debug
-ctest --preset windows-clang-debug
+cmake --preset windows-clang-static-debug
+cmake --build --preset windows-clang-static-debug
+ctest --preset windows-clang-static-debug
 ```
 
 使用 GCC preset：
 
 ```sh
-cmake --preset linux-gcc-debug
-cmake --build --preset linux-gcc-debug
-ctest --preset linux-gcc-debug
+cmake --preset linux-gcc-static-debug
+cmake --build --preset linux-gcc-static-debug
+ctest --preset linux-gcc-static-debug
 ```
 
 preset 名称表示预期工具链组合，实际是否可用取决于当前系统和 PATH 中的编译器。
 
 ## 常用 Preset
 
+默认使用动态库：`<平台>-<工具链>-debug/release`；静态库明确使用
+`<平台>-<工具链>-static-debug/release`。preset 通过 `CAORS_LIBRARY_TYPE` 固定 CAORS 的类型，
+不修改宿主的 `BUILD_SHARED_LIBS`。不使用 preset 的父工程仍可选择 `AUTO/STATIC/SHARED`。
+
 | Preset | 用途 |
 | --- | --- |
-| `windows-vs2022-debug` | Visual Studio 2022 generator，普通终端可直接使用 |
-| `windows-vs2022-release` | Visual Studio 2022 generator，Release 构建 |
-| `windows-msvc-debug` | Ninja + MSVC Debug，要求已初始化 MSVC 环境 |
-| `windows-msvc-release` | Ninja + MSVC Release，要求已初始化 MSVC 环境 |
-| `windows-msvc-shared-debug` | Ninja + MSVC Shared Debug 与插件测试，要求已初始化 MSVC 环境 |
-| `windows-msvc-shared-release` | Ninja + MSVC Shared Release 与插件测试，要求已初始化 MSVC 环境 |
-| `windows-clang-cl-debug` | Windows clang-cl Debug 构建 |
-| `windows-clang-debug` | Clang Debug 构建 |
-| `linux-clang-debug` | Clang Debug 构建 |
-| `linux-gcc-debug` | GCC Debug 构建 |
-| `linux-clang-shared-debug` | Clang Shared Debug 与插件测试 |
-| `linux-clang-shared-release` | Clang Shared Release 与插件测试 |
-| `linux-clang-shared-asan` | Clang Shared Debug 与 AddressSanitizer |
+| `windows-msvc-debug/release` | Ninja + MSVC 动态库，要求开发环境 |
+| `windows-clang-debug/release` | Clang 动态库 |
+| `windows-clang-cl-debug/release` | clang-cl 动态库，要求开发环境 |
+| `windows-vs2022-debug/release` | Visual Studio generator 动态库，普通终端可用 |
+| `linux-clang-debug/release` | Linux Clang 动态库 |
+| `linux-gcc-debug/release` | Linux GCC 动态库 |
+| `*-static-debug/release` | 上述平台/工具链对应的静态库配置 |
+| `linux-clang-asan` | 动态 Debug + AddressSanitizer |
+| `linux-clang-ubsan` | 动态 Debug + UndefinedBehaviorSanitizer |
+
+旧 `*-shared-*` 名称已移除；原来无 `static` 的名称现在表示动态库。
+需要保留旧静态行为时改用 `*-static-*`。旧构建目录建议重新配置到全新目录，避免混用旧缓存和产物。
+Debug、clang-cl 与 Visual Studio presets 继续保留，CI 常规组合由[CI 策略](ci.md)统一维护。
 
 每个 configure preset 使用独立构建目录 `build/<preset-name>/`，不同编译器和配置不会复用同一份
 CMake 缓存。
 
-包装脚本默认依次配置、构建和测试 `windows-msvc-debug`。也可以只执行一个阶段或指定其他 Ninja + MSVC preset：
+包装脚本默认依次配置、构建和测试动态库 `windows-msvc-debug`。也可以只执行一个阶段或指定其他 Ninja + MSVC preset：
 
 ```powershell
 .\scripts\msvc.ps1 -Action configure
-.\scripts\msvc.ps1 -Preset windows-msvc-release
-.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
-.\scripts\msvc.ps1 -Action build -Preset windows-msvc-shared-debug -Jobs 1
+.\scripts\msvc.ps1 -Preset windows-msvc-static-release
+.\scripts\msvc.ps1 -Preset windows-msvc-debug
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug -Jobs 1
 ```
 
 `-Fresh` 只重建 CMake 缓存，不等于清理全部对象文件。恢复旧构建目录、变更编译器或发现头文件依赖记录不完整时，
@@ -95,7 +99,7 @@ CMake 缓存。
 切换 worktree、移动源码目录或需要丢弃旧 CMake cache 时，使用 `-Fresh` 让 CMake 重新生成缓存：
 
 ```powershell
-.\scripts\msvc.ps1 -Preset windows-msvc-debug -Fresh
+.\scripts\msvc.ps1 -Preset windows-msvc-static-debug -Fresh
 ```
 
 ## 构建并行度与内存
@@ -103,14 +107,14 @@ CMake 缓存。
 默认建议不指定 `-j` 或 `--parallel`，让 Ninja、Visual Studio 等底层构建工具采用自身默认并行度：
 
 ```powershell
-.\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-static-debug
 ```
 
 如果模板密集目标并行编译时发生内存不足，应根据可用内存主动降低并行度。最稳妥的诊断和低内存
 构建方式是单任务：
 
 ```powershell
-.\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug -Jobs 1
+.\scripts\msvc.ps1 -Action build -Preset windows-msvc-static-debug -Jobs 1
 ```
 
 需要兼顾速度时，可从逻辑 CPU 数量的一半或更低值开始尝试，例如 `-j 4`，再根据峰值内存调整；
@@ -122,8 +126,8 @@ CPU 数量不是硬性依据，内存容量和单个编译任务的占用更重�
 测试说明见 [tests/README.md](../../tests/README.md)。这里仅保留常用入口：
 
 ```sh
-ctest --preset windows-clang-debug
-ctest --preset linux-gcc-debug
+ctest --preset windows-clang-static-debug
+ctest --preset linux-gcc-static-debug
 ```
 
 ## CMake 选项
@@ -148,36 +152,36 @@ ctest --preset linux-gcc-debug
 开启警告即错误：
 
 ```sh
-cmake --preset windows-clang-debug -DCAORS_WARNINGS_AS_ERRORS=ON
+cmake --preset windows-clang-static-debug -DCAORS_WARNINGS_AS_ERRORS=ON
 ```
 
 开启严格标准扩展警告：
 
 ```sh
-cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
+cmake --preset windows-clang-static-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
 ```
 
 构建 benchmark：
 
 ```sh
-cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
-cmake --build --preset windows-clang-debug --target caors_benchmarks
+cmake --preset windows-clang-static-debug -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset windows-clang-static-debug --target caors_benchmarks
 ```
 
 Linux 下验证共享库与插件：
 
 ```sh
-cmake --preset linux-clang-shared-debug
-cmake --build --preset linux-clang-shared-debug
-ctest --preset linux-clang-shared-debug
+cmake --preset linux-clang-debug
+cmake --build --preset linux-clang-debug
+ctest --preset linux-clang-debug
 ```
 
 Linux 下启用 AddressSanitizer：
 
 ```sh
-cmake --preset linux-clang-shared-asan
-cmake --build --preset linux-clang-shared-asan
-ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-shared-asan
+cmake --preset linux-clang-asan
+cmake --build --preset linux-clang-asan
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-asan
 ```
 
 `CAORS_ENABLE_ASAN` 使用目标级编译和链接选项，并通过 `caors::caors` 传播到测试及插件目标，避免
