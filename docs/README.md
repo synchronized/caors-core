@@ -1,26 +1,40 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# CAORS 文档
+# CAORS 文档中心
 
-本目录存放 CAORS 的专题文档。这里仅作为文档索引，项目介绍和快速开始见 [README.md](../README.md)。
+这里统一索引 CAORS 的指南、当前行为参考、架构说明、计划和验证资料。
+项目介绍和快速开始见 [README.md](../README.md)，文档维护规则见
+[项目文档规范](../DOCUMENTATION_GUIDE.md)。现有专题路径继续有效，分类表示内容职责。
 
-## 项目文档
+## 推荐阅读顺序
+
+- 初次接入：构建与安装 → 示例 → 所用模块的行为参考 → API 稳定性与生命周期约束。
+- 参与开发：开发规范 → 文档规范 → 路线图 → 相关计划 → 测试与验证资料。
+
+下方提供对应文档入口；计划中的方案不代表已经提供的公共能力。
+
+## 操作与开发指南
 
 - [build.md](build.md)：环境要求、CMake preset、构建、测试、安装和 CMake 选项。
 - [benchmarking.md](benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
-- [plans/README.md](plans/README.md)：重构、迁移和架构调整的开发计划索引。
+- [development.md](development.md)：目录结构、代码规范、格式化、静态检查和新增模块规则。
+- [DOCUMENTATION_GUIDE.md](../DOCUMENTATION_GUIDE.md)：文档职责、事实维护入口、生命周期和内容模板。
+- [registration.md](registration.md)：类型、对象、meta 属性/方法和序列化的推荐注册顺序与初始化策略。
+- [examples/README.md](../examples/README.md)：可运行示例、构建、运行和新增规则。
+- [tests/README.md](../tests/README.md)：测试组织、运行和新增规则。
+
+## 架构与模块边界
+
+- [dll-plugins.md](dll-plugins.md)：共享 runtime、类型身份、ABI、注册和插件卸载约束。
+- [module-boundary.md](module-boundary.md)：跨 EXE、DLL、插件和静态库的 runtime 唯一性、视图传递和 ABI 风险边界。
+
+## API、行为与稳定性参考
+
 - [beta.md](beta.md)：beta 前推荐稳定主入口、质量门槛和实验性能力清单。
 - [api_stability.md](api_stability.md)：当前 alpha 阶段 API 稳定性草案、beta gate 和公开边界扫描规则。
 - [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
-- [development.md](development.md)：目录结构、代码规范、格式化、静态检查和新增模块规则。
-- [dll-plugins.md](dll-plugins.md)：共享 runtime、类型身份、ABI、注册和插件卸载约束。
-- [module-boundary.md](module-boundary.md)：跨 EXE、DLL、插件和静态库的 runtime 唯一性、视图传递和 ABI 风险边界。
-- [roadmap.md](roadmap.md)：项目路线图。
-- [registration.md](registration.md)：类型、对象、meta 属性/方法和序列化的推荐注册顺序与初始化策略。
 - [traits.md](traits.md)：底层 traits 扩展点、adapters 边界和用户特化规则。
-
-## 主题文档
 
 - [assets.md](assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
@@ -35,10 +49,14 @@
 - [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、
   provider、loader/saver、非拥有 database 编排入口、同步 reload 通知、异步加载请求和资源引用 resolver。
 - [serialization.md](serialization.md)：序列化元信息、注册表、JSON/文本读写、codec、资源引用和多态读写边界。
-- [tasks.md](tasks.md)：move-only task、executor 抽象、同步 inline executor、固定线程池和主线程 completion queue。
+- [tasks.md](tasks.md)：move-only task、轻量 executor、Asio execution context、线程池和可选协程等待。
 - [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
 
-## 相关入口
+## 规划与验证证据
 
-- [examples/README.md](../examples/README.md)：示例构建、运行和新增规则。
-- [tests/README.md](../tests/README.md)：测试组织、运行和新增规则。
+- [roadmap.md](roadmap.md)：后续方向和阶段状态；详细实施范围见对应计划。
+- [plans/README.md](plans/README.md)：进行中、已完成和延期复验的开发计划索引。
+- [checklists/linux-validation.md](checklists/linux-validation.md)：Linux 验证步骤和检查清单。
+- [benchmarks/results/README.md](../benchmarks/results/README.md)：性能结果的记录规则及复现要求，具体结果保存在同目录。
+
+现有计划保留历史设计和验收依据。新增长篇执行证据按文档规范写入独立记录，性能表继续由结果目录维护。

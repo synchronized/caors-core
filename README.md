@@ -78,23 +78,11 @@ ctest --preset windows-clang-debug
 ## 文档入口
 
 - [docs/README.md](docs/README.md)：文档索引。
-- [docs/benchmarking.md](docs/benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
 - [docs/build.md](docs/build.md)：构建、测试、安装和 CMake 选项。
-- [docs/config.md](docs/config.md)：编译期配置常量、异常检测和内部分配策略。
 - [docs/development.md](docs/development.md)：开发规范、代码格式和静态检查。
-- [docs/error.md](docs/error.md)：统一错误模型和标准库错误码适配。
-- [docs/events.md](docs/events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher 和连接生命周期。
-- [docs/io.md](docs/io.md)：同步字节流、文件系统抽象和本地文件系统实现。
-- [docs/math.md](docs/math.md)：基础数学值类型和后续 `meta::value` fast path 接入边界。
-- [docs/assets.md](docs/assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
-- [docs/roadmap.md](docs/roadmap.md)：项目路线图。
-- [docs/registration.md](docs/registration.md)：类型、对象、meta 属性/方法和序列化的注册顺序与初始化策略。
-- [docs/meta-properties.md](docs/meta-properties.md)：meta 属性/方法能力和手写注册入口。
-- [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
-- [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。
-- [docs/value.md](docs/value.md)：meta value 子模块，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - [examples/README.md](examples/README.md)：示例构建、运行和新增规则。
-- [tests/README.md](tests/README.md)：测试组织、运行和新增规则。
+
+模块参考、架构约束、规划与验证资料统一从文档索引进入。
 
 ## 许可证
 

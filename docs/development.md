@@ -5,6 +5,9 @@
 
 本文档说明 CAORS 的目录结构、代码风格、格式化、静态检查和新增模块规则。
 
+文档的职责、目录、事实来源、计划收尾及验收记录规则见
+[项目文档规范](../DOCUMENTATION_GUIDE.md)。
+
 ## 目录结构
 
 ```text
@@ -154,4 +157,5 @@ Actions 页面或命令行手动运行 Linux workflow。同一分支连续触发
 - 实现放入 `src/caors/`。
 - 行为测试放入 `tests/<topic>/<leaf-topic>/`，遵循“叶子目录生成测试可执行文件”的规则。
 - 示例放入 `examples/<topic>/`，规则见 [examples/README.md](../examples/README.md)。
-- 专题文档放入 `docs/<topic>.md`，并在 [docs/README.md](README.md) 中挂入口。
+- 优先扩展对应专题文档 `docs/<topic>.md`；需要独立教程、指南或概念时按文档规范选择落点，
+  并在 [文档中心](README.md) 对应分类或其链接的分类索引中挂入口。
