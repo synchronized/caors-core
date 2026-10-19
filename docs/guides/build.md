@@ -88,6 +88,10 @@ CMake 缓存。
 .\scripts\msvc.ps1 -Action build -Preset windows-msvc-shared-debug -Jobs 1
 ```
 
+`-Fresh` 只重建 CMake 缓存，不等于清理全部对象文件。恢复旧构建目录、变更编译器或发现头文件依赖记录不完整时，
+应在初始化工具链后用 `cmake --build --preset <preset> --clean-first` 执行干净重建，不能把旧对象当作本轮验收。
+普通 PowerShell 先执行 MSVC 包装脚本的 configure 动作，再在同一进程内调用 clean-first 构建。
+
 切换 worktree、移动源码目录或需要丢弃旧 CMake cache 时，使用 `-Fresh` 让 CMake 重新生成缓存：
 
 ```powershell
