@@ -28,7 +28,10 @@ inline void complete_schedule(const std::shared_ptr<schedule_state>& state,
   state->status = status;
   const schedule_phase previous =
       state->phase.exchange(schedule_phase::completed, std::memory_order_acq_rel);
-  if (previous == schedule_phase::suspended) {
+  // 成功投递必须在目标执行线程恢复，即使该线程早于 post() 返回完成任务。
+  // 拒绝/丢弃发生于 initiating 时留给 await_suspend 报错，避免在错误码确定前恢复。
+  if (previous == schedule_phase::suspended ||
+      (previous == schedule_phase::initiating && !status)) {
     state->continuation.resume();
   }
 }
@@ -97,16 +100,22 @@ public:
   [[nodiscard]] bool await_suspend(std::coroutine_handle<> continuation) {
     std::shared_ptr<detail::schedule_state> state = state_;
     state->continuation = continuation;
-    const caors::error status = target_.post(task{detail::schedule_handler{state}});
+    // 发布 continuation 后，成功任务可能同步恢复并销毁 awaiter；后续只访问局部拥有对象。
+    executor target = target_;
+    const caors::error status = target.post(task{detail::schedule_handler{state}});
     if (status) {
       state->status = status;
       state->phase.store(detail::schedule_phase::completed, std::memory_order_release);
       return false;
     }
 
-    const detail::schedule_phase previous =
-        state->phase.exchange(detail::schedule_phase::suspended, std::memory_order_acq_rel);
-    return previous != detail::schedule_phase::completed;
+    auto expected = detail::schedule_phase::initiating;
+    if (state->phase.compare_exchange_strong(expected, detail::schedule_phase::suspended,
+                                             std::memory_order_acq_rel)) {
+      return true;
+    }
+    // 成功时 continuation 已由目标线程恢复；提前丢弃则在当前线程报告失败。
+    return expected != detail::schedule_phase::completed || !state->status;
   }
 
   [[nodiscard]] caors::error await_resume() const noexcept { return state_->status; }

@@ -4,6 +4,7 @@
 #include "caors/memory/tracking.h"
 #include "caors/tasks/asio.h"
 #include "caors/tasks/execution_context.h"
+#include "caors/tasks/external_executor.h"
 #include "caors/tasks/thread_pool.h"
 
 #include <catch2/catch_all.hpp>
@@ -140,4 +141,24 @@ TEST_CASE("tasks - schedule state uses executor long lived resource", "[tasks][a
   }
 
   CHECK(tracking.statistics().bytes_in_use == baseline);
+}
+
+TEST_CASE("tasks - early completion still resumes on the external target thread",
+          "[tasks][coroutine]") {
+  class joined_context final : public caors::tasks::external_executor_context {
+  public:
+    caors::error post(caors::tasks::task next) override {
+      std::thread worker{[next = std::move(next)]() mutable { (void)next.run(); }};
+      worker.join();
+      return {};
+    }
+    void close() noexcept override {}
+  };
+  caors::tasks::external_executor target{std::make_shared<joined_context>()};
+  const auto caller = std::this_thread::get_id();
+  std::thread::id observed;
+  auto operation = switch_to(target.get_executor(), &observed);
+  CHECK(operation.done());
+  CHECK_FALSE(operation.result());
+  CHECK(observed != caller);
 }

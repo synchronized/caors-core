@@ -75,7 +75,7 @@ TEST_CASE("tasks - spawn owns frame across executor switch", "[tasks][asio][coro
 
   caors::tasks::request request =
       caors::tasks::spawn(start, switch_and_succeed(pool.get_executor(), &observed));
-  CHECK(request.status() == caors::tasks::request_status::running);
+  CHECK((request.status() == caors::tasks::request_status::running || request.completed()));
 
   pool.shutdown();
   CHECK(request.completed());
