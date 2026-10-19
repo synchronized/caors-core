@@ -323,4 +323,4 @@ scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_res
 - 未命中挂载返回 `errc::not_found`。
 - 目标路径语义仍由被挂载的具体文件系统决定。
 
-相关测试位于 `tests/io/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+相关测试位于 `tests/io/`，测试组织规则见 [tests/README.md](../../tests/README.md)。

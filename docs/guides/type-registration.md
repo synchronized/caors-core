@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Registration
+# 类型注册与初始化
 
 本文档说明 CAORS 当前推荐的类型注册顺序和初始化策略。这里的注册只面向 C++ 类型；脚本或动态类型后续应使用独立注册系统，再通过上层 resolver 和 C++ 运行期数据交互。
 

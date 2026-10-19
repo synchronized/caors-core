@@ -6,7 +6,7 @@
 本文档说明 CAORS 的目录结构、代码风格、格式化、静态检查和新增模块规则。
 
 文档的职责、目录、事实来源、计划收尾及验收记录规则见
-[项目文档规范](../DOCUMENTATION_GUIDE.md)。
+[项目文档规范](../../DOCUMENTATION_GUIDE.md)。
 
 ## 目录结构
 
@@ -14,7 +14,7 @@
 .
 ├── 3rd/                    # 第三方依赖，当前包含 Catch2
 ├── cmake/                  # 项目 CMake 工具函数
-├── docs/                   # 专题设计文档
+├── docs/                   # 按职责分类的文档
 ├── examples/               # 可运行示例
 ├── include/caors/          # 公共头文件和版本头模板
 ├── src/                    # 库目标和实现
@@ -40,8 +40,8 @@
 
 ## API 稳定性
 
-当前阶段与兼容政策见[API 稳定性](api-stability.md)，Beta 验收见
-[执行清单](checklists/beta-readiness.md)。本页只维护开发与公开 API 设计规则。
+当前阶段与兼容政策见[API 稳定性](../reference/api-stability.md)，Beta 验收见
+[执行清单](../checklists/beta-readiness.md)。本页只维护开发与公开 API 设计规则。
 
 ## 公开 API 边界
 
@@ -130,7 +130,7 @@ Actions 页面或命令行手动运行 Linux workflow。同一分支连续触发
 ## 测试目录规则
 
 测试发现、目标命名、文件拆分、辅助头和特殊 CMake 入口统一见
-[测试组织规范](../tests/README.md)。
+[测试组织规范](../../tests/README.md)。
 
 ## 新增模块
 
@@ -139,6 +139,6 @@ Actions 页面或命令行手动运行 Linux workflow。同一分支连续触发
 - 公共 API 放入 `include/caors/` 或对应主题子目录。
 - 实现放入 `src/caors/`。
 - 行为测试放入 `tests/<topic>/<leaf-topic>/`，遵循“叶子目录生成测试可执行文件”的规则。
-- 示例放入 `examples/<topic>/`，规则见 [examples/README.md](../examples/README.md)。
-- 优先扩展对应专题文档 `docs/<topic>.md`；需要独立教程、指南或概念时按文档规范选择落点，
-  并在 [文档中心](README.md) 对应分类或其链接的分类索引中挂入口。
+- 示例放入 `examples/<topic>/`，规则见 [examples/README.md](../../examples/README.md)。
+- 优先扩展对应专题文档 `docs/reference/<topic>.md`；需要独立教程、指南或概念时按文档规范选择落点，
+  并在 [文档中心](../README.md) 对应分类或其链接的分类索引中挂入口。

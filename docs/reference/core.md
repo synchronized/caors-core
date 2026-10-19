@@ -85,7 +85,7 @@ caors::type_guid id{*parsed};
 - `type_guid` 不应由 `string_name` 或运行期 hash 自动派生。
 - 没有长期序列化或资源引用需求的临时类型可以保持 nil。
 
-相关测试位于 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+相关测试位于 `tests/core/`，测试组织规则见 [tests/README.md](../../tests/README.md)。
 
 ## 基础容器
 

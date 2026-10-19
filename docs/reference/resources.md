@@ -1068,4 +1068,4 @@ provider + loader 加载，再把结果插入 cache。
   [assets.md](assets.md)。
 
 底层资源测试位于 `tests/resources/`，高层 assets 配置、JSON loader/saver 和 asset manager 测试位于
-`tests/assets/`。测试组织规则见 [tests/README.md](../tests/README.md)。
+`tests/assets/`。测试组织规则见 [tests/README.md](../../tests/README.md)。

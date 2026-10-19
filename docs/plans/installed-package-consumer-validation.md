@@ -187,7 +187,7 @@ workflow `30609769822` 的 7 个 job 全部通过，其中 Static/Shared Release
 
 ### 阶段 4：文档收尾
 
-- [x] 回写 `docs/build.md` 的验证保证与故障排查；
+- [x] 回写 `docs/guides/build.md` 的验证保证与故障排查；
 - [x] 记录 Static/Shared、运行时库查找和可重定位边界；
 - [x] 将计划状态改为完成。
 

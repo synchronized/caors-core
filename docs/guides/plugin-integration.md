@@ -1,20 +1,20 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# DLL 与插件使用规范
+# 动态插件接入与生命周期
 
 本文说明 CAORS 的动态库和插件边界。当前插件模型以“宿主和插件共享同一份 CAORS runtime”
-为前提。更完整的跨编译模块 API 风险和传参边界见 [module-boundary.md](module-boundary.md)。
+为前提。更完整的跨编译模块 API 风险和传参边界见 [module-boundary.md](../concepts/module-boundary.md)。
 
 ## 推荐拓扑
 
 宿主与插件共享唯一动态 CAORS runtime，native C++ ABI 的共同前置条件统一由
-[模块边界](module-boundary.md#唯一-caors-runtime)维护，本页说明插件接入和加载/卸载 API。
+[模块边界](../concepts/module-boundary.md#唯一-caors-runtime)维护，本页说明插件接入和加载/卸载 API。
 
 ## 编译与 ABI 要求
 
 跨模块公共类型使用共同头文件；匿名 namespace、lambda 和局部类型属于插件私有实现，不能充当协议类型。
-C++ view/ops 与版本化 C ABI 的区别见[跨边界传参规则](module-boundary.md#推荐使用规则)。
+C++ view/ops 与版本化 C ABI 的区别见[跨边界传参规则](../concepts/module-boundary.md#推荐使用规则)。
 Windows 的具体 CRT 配置和加载期诊断如下。
 
 ### Windows CRT 与构建环境校验

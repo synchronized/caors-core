@@ -4,7 +4,7 @@
 # Beta 验收执行清单
 
 本页维护进入 beta 的检查步骤和通过条件，不声明项目已经进入 beta。
-候选与实验性范围只在[API 稳定性政策](../api-stability.md)维护；各模块行为见[文档中心](../README.md)。
+候选与实验性范围只在[API 稳定性政策](../reference/api-stability.md)维护；各模块行为见[文档中心](../README.md)。
 
 ## 功能与文档门槛
 
@@ -29,8 +29,8 @@ rg -n 'namespace caors::|using .*::' include/caors
 
 ## 构建与验证入口
 
-构建和安装命令统一见[构建指南](../build.md)，跨平台步骤见[Linux 清单](linux-validation.md)，
-基准构建及用例见[Benchmark 指南](../benchmarking.md)，示例顺序见
+构建和安装命令统一见[构建指南](../guides/build.md)，跨平台步骤见[Linux 清单](linux-validation.md)，
+基准构建及用例见[Benchmark 指南](../guides/benchmarking.md)，示例顺序见
 [Beta 示例](../../examples/beta/README.md)。
 
 每轮检查记录被验证提交、环境、实际命令、通过/失败、未验证项及延期影响，结果写入

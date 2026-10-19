@@ -16,7 +16,7 @@
 
 ## 构建与测量入口
 
-目标、构建命令、用例与统计范围统一见[Benchmark 指南](../../docs/benchmarking.md)。
+目标、构建命令、用例与统计范围统一见[Benchmark 指南](../../docs/guides/benchmarking.md)。
 本页维护结果格式与索引，不维护第二份运行指南。
 
 ## 测量记录

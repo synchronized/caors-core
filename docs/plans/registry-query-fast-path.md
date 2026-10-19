@@ -261,7 +261,7 @@ detachable layer 调用 guard。
 - [x] 对比加锁查询与 frozen fast path 的 benchmark 用例；
 - [x] 使用 `windows-clang-debug` 和 `windows-clang-shared-debug` 覆盖普通 registry 与真实插件拓扑；
 - [x] 使用 Linux Clang/GCC Static、Clang Shared 与 ASan 覆盖 registry 和插件卸载回归；
-- [x] 文档更新 `module-boundary.md`、`dll-plugins.md` 和 `meta.md`。
+- [x] 文档更新 `module-boundary.md`、`plugin-integration.md` 和 `meta.md`。
 
 当前已覆盖 `locked_find_type_id`、`frozen_find_type_id`、`layer_find_type_id`、
 `frozen_contains`、`frozen_property_lookup`、`frozen_method_lookup`、

@@ -15,7 +15,7 @@
 - `type_id` 和 capability key 已统一经过共享 runtime 驻留；早期 meta extension key 已删除；
 - 已增加 `host.exe + plugin_a.dll + plugin_b.dll + caors.dll` 的真实跨模块测试拓扑；
 - Windows Clang Shared Debug 下，meta、object、serialization 和插件身份共 37 项计划内测试通过；
-- 正式 DLL/插件约束已整理到 [DLL 与插件使用规范](../dll-plugins.md)；
+- 正式 DLL/插件约束已整理到 [DLL 与插件使用规范](../guides/plugin-integration.md)；
 - 全仓库共享模式仍存在计划外的 `asset_manager` DLL 导出缺口，不影响本计划的身份系统验收。
 
 ## 背景
@@ -416,7 +416,7 @@ Debug 模式可在 identity 节点保存额外诊断信息，但首版不把 ada
 - 验证插件卸载后 identity 仍由 runtime 持有；
 - 验证多个 registry 共享 identity、但各自拥有独立 record；
 - 完整回归 property、method、value、serialization、object 和 capability；
-- 更新 `docs/meta.md` 中地址型 key、RTTI map 和 DLL 限制说明；
+- 更新 `docs/reference/meta.md` 中地址型 key、RTTI map 和 DLL 限制说明；
 - 将相同编译环境、公共类型 identity/GUID 声明和整体重编部署等要求整理进正式架构文档
   与 DLL/插件使用规范，不能只保留在开发计划中。
 

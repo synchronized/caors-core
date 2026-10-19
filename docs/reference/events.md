@@ -214,4 +214,4 @@ auto result = caors::resources::reload_and_notify(cache, loader, texture_id, rel
 dispatcher 事件，在主循环或资源系统更新阶段统一 `update()`。是否刷新对象、重新解析引用、级联刷新依赖资源，
 仍由资源管理器、资源依赖图或编辑器工具层决定。
 
-相关测试位于 `tests/events/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+相关测试位于 `tests/events/`，测试组织规则见 [tests/README.md](../../tests/README.md)。

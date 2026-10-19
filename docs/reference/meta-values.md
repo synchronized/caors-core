@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Meta Value
+# Meta 值与运行期视图
 
-meta value 子模块负责运行期值访问和数据中间表示，是 `meta` 的一部分，主要包含四类能力：
+meta value 子模块负责运行期值访问和数据中间表示，是 `meta` 的一部分，主要包含以下能力：
 
 - `any`：拥有一份 C++ 对象拷贝，保留运行期类型描述。
 - `owned_value`：拥有一份由 factory、constructor 或内部构造策略创建出来的对象，可在填充后转成
@@ -263,6 +263,6 @@ registry。`get_*_type()` 系列接口返回 `meta::type`；调用方需要 `typ
 
 ## 后续规划
 
-数学值快路径的候选范围见[统一路线图](roadmap.md#05-math-基础数学类型)，
-测量方法见[Benchmark 指南](benchmarking.md#math-fast-path-判断)。本页只维护当前值类型契约；
-原规划说明保留在[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
+数学值快路径的候选范围见[统一路线图](../roadmap.md#05-math-基础数学类型)，
+测量方法见[Benchmark 指南](../guides/benchmarking.md#math-fast-path-判断)。本页只维护当前值类型契约；
+原规划说明保留在[整理前基线](../records/history/2026-10-19-roadmap-baseline.md)。

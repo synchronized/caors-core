@@ -3,6 +3,9 @@
 
 # 文档职责与唯一维护入口审查
 
+> 本记录描述 `3ead5fd` 完成时的职责审查。保留平铺目录和旧路径导航的决定已被后续
+> [物理目录与命名整理](2026-10-19-documentation-layout.md)取代；下方旧结论保留作历史依据。
+
 ## 范围与方法
 
 - 日期：2026-10-19；整理基线：`7cce62d`，分支：`docs/documentation-standards`。
@@ -33,14 +36,14 @@
 
 | 信息 | 维护入口 |
 | --- | --- |
-| 当前阶段、稳定候选、实验性范围 | [API 稳定性](../api-stability.md) |
+| 当前阶段、稳定候选、实验性范围 | [API 稳定性](../reference/api-stability.md) |
 | Beta 检查步骤和通过条件 | [Beta 清单](../checklists/beta-readiness.md) |
-| 公开 API 设计规则 | [开发规范](../development.md#公开-api-边界) |
-| runtime、跨模块数据和 ABI 前置条件 | [模块边界](../module-boundary.md) |
-| 插件接入、加载诊断与卸载 API | [DLL 与插件](../dll-plugins.md) |
-| 构建、安装及 consumer 操作 | [构建指南](../build.md) |
+| 公开 API 设计规则 | [开发规范](../guides/development.md#公开-api-边界) |
+| runtime、跨模块数据和 ABI 前置条件 | [模块边界](../concepts/module-boundary.md) |
+| 插件接入、加载诊断与卸载 API | [DLL 与插件](../guides/plugin-integration.md) |
+| 构建、安装及 consumer 操作 | [构建指南](../guides/build.md) |
 | 测试目录、发现与命名 | [测试 README](../../tests/README.md) |
-| 基准目标、构建、用例、统计范围 | [Benchmark 指南](../benchmarking.md) |
+| 基准目标、构建、用例、统计范围 | [Benchmark 指南](../guides/benchmarking.md) |
 | 性能结果格式和测量数据 | [结果目录](../../benchmarks/results/README.md) |
 | 后续方向与依赖 | [路线图](../roadmap.md) |
 | 单项范围、状态与待办 | [计划索引](../plans/README.md)指向的对应 Plan |

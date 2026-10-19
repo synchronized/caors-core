@@ -66,4 +66,4 @@ static_assert(caors::config::default_new_alignment >= alignof(std::max_align_t))
 该常量用于内存模块判断默认分配对齐边界，不表示所有自定义后端都只能支持这个对齐。需要更高对齐时，
 仍应通过 `memory_resource::allocate(size, alignment)` 或 `caors::allocate(size, alignment)` 显式传入。
 
-相关测试位于 `tests/config/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+相关测试位于 `tests/config/`，测试组织规则见 [tests/README.md](../../tests/README.md)。

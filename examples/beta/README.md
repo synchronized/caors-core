@@ -4,7 +4,7 @@
 # Beta Examples
 
 本目录展示 beta 前推荐优先验证的资源系统主路径。示例代码只覆盖公共 API 的最小组合，完整设计边界见
-`docs/assets.md`、`docs/resources.md` 和 `docs/serialization.md`。
+`docs/reference/assets.md`、`docs/reference/resources.md` 和 `docs/reference/serialization.md`。
 
 ## 推荐阅读顺序
 

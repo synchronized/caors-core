@@ -115,7 +115,7 @@ CPU 数量不是硬性依据，内存容量和单个编译任务的占用更重�
 
 ## 测试
 
-测试说明见 [tests/README.md](../tests/README.md)。这里仅保留常用入口：
+测试说明见 [tests/README.md](../../tests/README.md)。这里仅保留常用入口：
 
 ```sh
 ctest --preset windows-clang-debug
@@ -176,11 +176,11 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-shared-as
 
 `CAORS_ENABLE_ASAN` 使用目标级编译和链接选项，并通过 `caors::caors` 传播到测试及插件目标，避免
 共享边界两侧混用 sanitizer ABI。当前只接受 Clang 或 GCC；其他编译器会在配置阶段报错。完整的
-人工验证步骤见 [Linux 验证执行清单](checklists/linux-validation.md)。
+人工验证步骤见 [Linux 验证执行清单](../checklists/linux-validation.md)。
 
 ## 示例
 
-示例说明见 [examples/README.md](../examples/README.md)。
+示例说明见 [examples/README.md](../../examples/README.md)。
 
 在本项目 CMake 内部链接库目标：
 
@@ -224,7 +224,7 @@ cmake --build <consumer-build>
 consumer 覆盖基础 API 与序列化、核心 tasks、tasks coroutine 和 resources coroutine，并验证安装前缀移动后的
 重新配置。普通 consumer 不需要包含 `caors/tasks/asio.h`，安装导出也不暴露内部 standalone Asio
 target。
-具体已执行的配置与结果见[验收记录索引](records/README.md)。
+具体已执行的配置与结果见[验收记录索引](../records/README.md)。
 
 ### Shared 运行时库
 

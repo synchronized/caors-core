@@ -7,8 +7,8 @@ CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具。`ctrack` 以�
 `3rd/ctrack-1.1.0`，CMake 中包装为 `ctrack::ctrack` interface 目标；不会构建
 `ctrack` 自带示例、测试和 benchmark。
 
-源码分组和目标入口见[基准目录](../benchmarks/README.md)，历史数据与记录格式见
-[结果索引](../benchmarks/results/README.md)。本页统一维护构建、用例和统计范围。
+源码分组和目标入口见[基准目录](../../benchmarks/README.md)，历史数据与记录格式见
+[结果索引](../../benchmarks/results/README.md)。本页统一维护构建、用例和统计范围。
 
 ## 构建和运行
 
@@ -170,8 +170,8 @@ math benchmark 分成两类：
   反射属性和反射方法时的额外成本。这些数据用于决定 `vec2`、`vec3`、`vec4`、`quat`
   是否值得加入 `meta::value` fast path。
 
-当前数学值的存储契约见[math 参考](math.md#与-metavalue-fast-path-的关系)，
-候选范围与启动条件统一见[路线图](roadmap.md#05-math-基础数学类型)。
+当前数学值的存储契约见[math 参考](../reference/math.md#与-metavalue-fast-path-的关系)，
+候选范围与启动条件统一见[路线图](../roadmap.md#05-math-基础数学类型)。
 
 
 ## 后续适合拆分的专项

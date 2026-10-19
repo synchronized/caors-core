@@ -263,7 +263,7 @@ messagepack_writer writer{output, temporary_resource};
 - 事务式 caller-buffer 容器的暂存数组和 schema 遍历路径已使用 temporary resource；暂存元素及需要
   保存的未知字段路径仍使用 result resource。
 
-契约以 `stack_resource` 公共注释和 `docs/memory.md` 为准：marker 属于创建它的资源，只能在同一线程按
+契约以 `stack_resource` 公共注释和 `docs/reference/memory.md` 为准：marker 属于创建它的资源，只能在同一线程按
 LIFO 回滚；资源内非平凡对象必须先析构；公开返回值、目标对象和借用 view 不得引用已回滚的临时地址。
 
 ### 阶段 1：`stack_resource`

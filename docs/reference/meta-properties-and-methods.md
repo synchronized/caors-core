@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Meta Properties And Methods
+# Meta 属性与方法
 
 本文档说明 CAORS meta 属性和成员方法能力的当前设计边界。属性和成员方法元信息统一保存在
 `meta` 类型记录里，由 `meta::registry` 管理；项目不再提供独立 `caors::reflection` 模块，
@@ -851,6 +851,6 @@ auto reflected = caors::meta::find("game.actor");
 - `include/caors/meta/value.h` 是 meta value umbrella 头，提供 `any`、各类运行期 view 和
   `caors::variant` DOM 值；具体 view 头位于 `include/caors/meta/value/`。
 - 相关可运行示例位于 `examples/meta/` 和 `examples/serialization/`，示例组织规则见
-  [examples/README.md](../examples/README.md)。
+  [examples/README.md](../../examples/README.md)。
 - 行为测试按 meta 能力主题位于 `tests/meta/property/`、`tests/meta/method/`、`tests/meta/value/`
-  等目录，测试组织规则见 [tests/README.md](../tests/README.md)。
+  等目录，测试组织规则见 [tests/README.md](../../tests/README.md)。

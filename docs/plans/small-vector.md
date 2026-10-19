@@ -219,7 +219,7 @@ workload 覆盖：始终内联、偶尔溢出、频繁溢出、大元素、非�
 
 - [x] 增加 sequence traits 和类型身份；
 - [x] 完成 JSON/MessagePack 往返及资源传播测试；
-- [x] 更新聚合头、`docs/core.md` 或相关正式容器文档和 roadmap。
+- [x] 更新聚合头、`docs/reference/core.md` 或相关正式容器文档和 roadmap。
 
 ### 阶段 4：基准与跨平台验证
 

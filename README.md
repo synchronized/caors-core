@@ -14,7 +14,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 保持偏 STL / RTTR 的库风格，公共 API 使用小写下划线命名。
 - 通过 CMake preset、示例和测试维持跨平台构建入口。
 
-项目仍处于早期阶段，稳定性与兼容政策见 [API 稳定性](docs/api-stability.md)。
+项目仍处于早期阶段，稳定性与兼容政策见 [API 稳定性](docs/reference/api-stability.md)。
 
 ## 当前状态
 
@@ -48,13 +48,13 @@ ctest --preset windows-clang-debug
 不要在未初始化的普通终端中直接调用 `windows-msvc-*` preset；如果希望直接使用 CMake 命令，
 可改用能够自行定位工具链的 `windows-vs2022-*` preset。
 
-更完整的构建、安装和 CMake 选项说明见 [docs/build.md](docs/build.md)。
+更完整的构建、安装和 CMake 选项说明见 [docs/guides/build.md](docs/guides/build.md)。
 
 ## 文档入口
 
 - [docs/README.md](docs/README.md)：文档索引。
-- [docs/build.md](docs/build.md)：构建、测试、安装和 CMake 选项。
-- [docs/development.md](docs/development.md)：开发规范、代码格式和静态检查。
+- [docs/guides/build.md](docs/guides/build.md)：构建、测试、安装和 CMake 选项。
+- [docs/guides/development.md](docs/guides/development.md)：开发规范、代码格式和静态检查。
 - [examples/README.md](examples/README.md)：示例构建、运行和新增规则。
 
 模块参考、架构约束、规划与验证资料统一从文档索引进入。

@@ -233,7 +233,7 @@ header。首批不把内部 metadata 放在用户块里，避免越界同时破�
 - [x] 覆盖回调顺序、空回调和锁外重入；
 - [x] 覆盖 guard 关闭的直接布局及独立填充；
 - [x] 运行 Windows Static 全量和 Shared 专项测试；
-- [x] 更新 `docs/memory.md`、roadmap 和计划状态；
+- [x] 更新 `docs/reference/memory.md`、roadmap 和计划状态；
 - [x] 使用 GitHub Actions 完成 Linux Clang/GCC/ASan 完整验证。
 
 实施结果：

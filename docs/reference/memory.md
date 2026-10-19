@@ -468,7 +468,7 @@ chunk 或 block 的实际使用情况；需要逐地址泄漏、标签和错误�
 `debug_tracking_resource`。
 
 process、registry layer、scratch 与 result/user 四个域的统一统计口径和当前 Release 基线见
-[`benchmarks/results/2026-08-05-memory-domain-observability.md`](../benchmarks/results/2026-08-05-memory-domain-observability.md)。
+[`benchmarks/results/2026-08-05-memory-domain-observability.md`](../../benchmarks/results/2026-08-05-memory-domain-observability.md)。
 普通 `tracking_resource` 无法观察 system allocator 内部碎片，文档和 benchmark 不使用
 “累计分配字节减当前存活字节”伪造碎片率。
 
@@ -593,11 +593,11 @@ runtime 并注入不同 registry resource。type/capability identity 与 `string
 
 ## 后续路线图
 
-后续方向见[统一路线图](roadmap.md#2-定制化分配器)，分级池的验收与延期范围由
-[对应计划](plans/size-class-pool.md)维护。原规划清单保留在
-[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
+后续方向见[统一路线图](../roadmap.md#2-定制化分配器)，分级池的验收与延期范围由
+[对应计划](../plans/size-class-pool.md)维护。原规划清单保留在
+[整理前基线](../records/history/2026-10-19-roadmap-baseline.md)。
 
 ## 相关入口
 
-- 可运行示例位于 `examples/memory/`，示例组织规则见 [examples/README.md](../examples/README.md)。
-- 行为测试位于 `tests/memory/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+- 可运行示例位于 `examples/memory/`，示例组织规则见 [examples/README.md](../../examples/README.md)。
+- 行为测试位于 `tests/memory/`，测试组织规则见 [tests/README.md](../../tests/README.md)。

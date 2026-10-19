@@ -97,7 +97,7 @@ caors::type_id id = caors::meta::id("game.player");
 在 DLL 或插件边界，只要 host 和插件动态链接同一份 CAORS runtime，并使用相同编译器主版本、
 标准库 ABI、公共类型定义和 CAORS 配置，同一 C++ 类型会获得相同 `type_id`。分别静态链接多份
 CAORS runtime 的 DLL 不属于这一保证范围。跨进程或存档数据里的稳定身份仍使用 `type_guid`，
-必要时再结合类型名和版本迁移策略。完整约束见 [DLL 与插件使用规范](dll-plugins.md)。
+必要时再结合类型名和版本迁移策略。完整约束见 [DLL 与插件使用规范](../guides/plugin-integration.md)。
 
 注册 C++ 类型时，注册表还会记录 `typeid(T) -> type_id` 的进程内映射。该映射只用于运行期 RTTI
 辅助，例如普通 C++ 多态 wrapper 从 `Base*` 查到真实 `Derived` 类型；它不是类型身份来源，
@@ -466,7 +466,7 @@ caors::registration::type_<actor>("game.actor")
 
 跨 EXE、DLL 和插件边界使用 meta API 时，同一进程必须只有一个 CAORS runtime。`meta::type`、
 property/method view、`any`、`any_ref`、容器 view、capability facade 和 raw ops 都是当前 runtime
-内的进程内对象，不是稳定 ABI 数据包。完整约束见 [module-boundary.md](module-boundary.md)。
+内的进程内对象，不是稳定 ABI 数据包。完整约束见 [module-boundary.md](../concepts/module-boundary.md)。
 
 static capability 依赖模板特化可见性。用户类型及其 `codec_traits<T>`、object adapter 或自定义
 `static_capability` 特化应放在同一个公共头或配套 adapter 头中，并在首次使用
@@ -1243,4 +1243,4 @@ layer 生命周期处理：`pinned_process` layer 的 guard 是 no-op；`detacha
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `meta::get_registry()`：进程内全局元数据注册表。
 
-相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../../tests/README.md)。

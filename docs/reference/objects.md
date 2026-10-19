@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Object
+# 对象系统
 
 本文档说明 CAORS 对象系统的当前设计边界、已实现能力和后续扩展方向。当前对象系统处于基础阶段，目标是为后续反射、序列化、资源系统和编辑器工具提供稳定入口。
 
@@ -574,12 +574,12 @@ manager.destroy(instance);
 
 ## 后续路线图
 
-对象图存档和并发容器等后续方向由[统一路线图](roadmap.md#3-对象系统)维护。
-原完成清单保留在[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
+对象图存档和并发容器等后续方向由[统一路线图](../roadmap.md#3-对象系统)维护。
+原完成清单保留在[整理前基线](../records/history/2026-10-19-roadmap-baseline.md)。
 
 ## 相关入口
 
-- 可运行示例位于 `examples/object/`，示例组织规则见 [examples/README.md](../examples/README.md)。
-- 行为测试位于 `tests/object/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+- 可运行示例位于 `examples/object/`，示例组织规则见 [examples/README.md](../../examples/README.md)。
+- 行为测试位于 `tests/object/`，测试组织规则见 [tests/README.md](../../tests/README.md)。
 - 对象序列化行为测试位于 `tests/serialization/object/`，多态对象读写测试位于
   `tests/serialization/polymorphic/`。

@@ -373,7 +373,7 @@ block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler �
 ### 阶段 5：调用方迁移和正式文档
 
 - [x] 将 resources 和 assets 异步入口统一为 background/completion 两个 executor；
-- [x] 更新 `docs/tasks.md`；coroutine 适配保持显式包含，不加入聚合头；
+- [x] 更新 `docs/reference/tasks.md`；coroutine 适配保持显式包含，不加入聚合头；
 - [x] 更新独立 consumer，覆盖基础 API、核心 tasks 和显式 coroutine 适配；安装导出继续保持 Asio 私有；
 - [x] 删除过期 `thread_pool_executor`、`inline_executor` 包装类和 `completion_queue` 兼容层；
 - [x] 为后续 assets/resources coroutine 重构建立独立计划和基线，见

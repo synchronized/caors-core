@@ -192,7 +192,7 @@ frustum，裁剪一组 AABB，再把可见对象中心点投影到屏幕并反�
 
 数学类型当前不直接内联到 `meta::value`，通过 `any` / `any_ref` 或 capability 承载。
 较大结构直接内联会增加 tagged value 的大小与分支成本；后续候选与启动条件由
-[路线图](roadmap.md#05-math-基础数学类型)维护，测量方法见[Benchmark 指南](benchmarking.md#math-fast-path-判断)。
+[路线图](../roadmap.md#05-math-基础数学类型)维护，测量方法见[Benchmark 指南](../guides/benchmarking.md#math-fast-path-判断)。
 
 ## Meta 注册和序列化
 
