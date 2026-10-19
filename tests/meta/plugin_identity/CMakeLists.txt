@@ -20,6 +20,17 @@ foreach(PLUGIN_TARGET IN ITEMS caors_meta_identity_plugin_a caors_meta_identity_
   caors_target_compile_warnings(${PLUGIN_TARGET})
   target_include_directories(${PLUGIN_TARGET} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(${PLUGIN_TARGET} PRIVATE caors::caors)
+  # 插件内部模板与静态状态必须隔离，只有显式标记的 C ABI 入口对外可见。
+  set_target_properties(${PLUGIN_TARGET} PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    C_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES
+  )
+  # GNU unique 会使 dlclose 跳过真实卸载，不能用于可卸载插件。
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_options(${PLUGIN_TARGET} PRIVATE
+      $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fno-gnu-unique>)
+  endif()
   set_target_properties(${PLUGIN_TARGET} PROPERTIES FOLDER "Tests/Plugins")
 endforeach()
 
