@@ -6,3 +6,5 @@ caors_add_example(caors_example_beta_assets_async_load assets_async_load.cpp)
 caors_add_example(caors_example_beta_resource_reload resource_reload.cpp)
 caors_add_example(caors_example_beta_config_schema config_schema.cpp)
 caors_add_example(caors_example_beta_asset_pipeline asset_pipeline.cpp)
+
+caors_add_example(caors_example_beta_assets_native_async assets_native_async.cpp)

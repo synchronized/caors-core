@@ -17,6 +17,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -171,7 +172,8 @@ struct preload_request_state {
   explicit preload_request_state(memory_resource* memory)
       : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource),
         item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}),
-        waiters(allocator<request_waiter>{resource}) {}
+        waiters(allocator<request_waiter>{resource}), demands(allocator<request_waiter>{resource}) {
+  }
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
@@ -184,6 +186,20 @@ struct preload_request_state {
   core::vector<double> item_progress;
   core::string progress_stage;
   core::vector<request_waiter> waiters;
+  // 批次只拥有自己的订阅；订阅反向弱引用批次，避免持有环。
+  core::vector<request_waiter> demands;
+  ~preload_request_state() { notify_request_waiters(demands); }
+  void release_demands() {
+    std::optional<core::vector<request_waiter>> detached;
+    {
+      std::lock_guard lock{mutex};
+      if (status == request_status::queued || status == request_status::loading) {
+        return;
+      }
+      detached.emplace(std::move(demands));
+    }
+    notify_request_waiters(*detached);
+  }
 };
 
 template <typename T>
@@ -408,6 +424,7 @@ private:
     bool subscription_operation = false;
     bool abandoned = false;
     bool committing = false;
+    std::stop_source stop_source;
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
     request_status status = request_status::queued;
@@ -757,12 +774,32 @@ public:
         child.state_->progress_stage = parent->progress_stage;
       }
       parent->subscription_operation = true;
-      parent->subscribers.emplace_back(child.state_);
+      if (status == request_status::queued || status == request_status::loading) {
+        parent->subscribers.emplace_back(child.state_);
+      }
       failure = parent->status_error;
       value = parent->value;
     }
+    if (preload) {
+      bool active;
+      {
+        std::lock_guard lock{preload->mutex};
+        active =
+            preload->status == request_status::queued || preload->status == request_status::loading;
+        if (active) {
+          preload->demands.push_back(request_waiter{
+              child.state_, [](const std::shared_ptr<void>& raw) noexcept {
+                (void)load_request_access<T>::cancel(std::static_pointer_cast<state_type>(raw));
+              }});
+        }
+      }
+      if (!active) {
+        (void)cancel(child);
+      }
+    }
     if (status == request_status::loaded) {
       complete(child, std::move(value));
+      notify_preload_observers(child.state_);
     } else if (status == request_status::failed) {
       fail(child, failure);
     } else if (status == request_status::cancelled) {
@@ -957,6 +994,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->stop_source.request_stop();
     notify_request_waiters(waiters);
     notify_preload_observers(state);
     publish_subscribers(state);
@@ -1089,6 +1127,7 @@ public:
       }
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1116,6 +1155,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1147,6 +1187,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1178,12 +1219,13 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
 
-  [[nodiscard]] static bool cancel(const std::shared_ptr<state_type>& state) {
+  [[nodiscard]] static bool cancel(std::shared_ptr<state_type> state) {
     if (state == nullptr) {
       return false;
     }
@@ -1201,6 +1243,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
     return true;
   }
@@ -1434,35 +1477,13 @@ inline bool preload_request::cancel() const {
 namespace detail {
 
 template <typename T, typename StatePtr>
-void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
-                                 resource_guid guid, const tasks::executor& completion_executor,
-                                 bool replace, load_request_table<T>* requests = nullptr,
-                                 load_request<T> request = {}) {
-  if (!load_request_access<T>::loading(state)) {
-    if (requests != nullptr) {
-      requests->erase(guid, request);
-    }
-    load_request_access<T>::notify_preload_observers(state);
-    return;
-  }
-
-  if (!load_request_access<T>::should_commit(state)) {
-    (void)load_request_access<T>::cancel(state);
-    if (requests != nullptr) {
-      requests->erase(guid, request);
-    }
-    return;
-  }
-
+void finish_resource_load(const StatePtr& state, cache<T>& target, resource_guid guid,
+                          const tasks::executor& completion_executor, bool replace,
+                          load_request_table<T>* requests, load_request<T> request,
+                          load_result<T> loaded, std::shared_ptr<void> activity = {}) noexcept {
 #if CAORS_HAS_EXCEPTIONS
   try {
 #endif
-    StatePtr progress_state = state;
-    progress_reporter reporter{&progress_state, [](void* context, progress_update update) noexcept {
-                                 const auto& typed_state = *static_cast<const StatePtr*>(context);
-                                 load_request_access<T>::report_progress(typed_state, update);
-                               }};
-    load_result<T> loaded = source.load(guid, target.resource(), reporter);
     if (loaded.failed()) {
       load_request_access<T>::fail(state, loaded.status);
       if (requests != nullptr) {
@@ -1489,7 +1510,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
                     }});
     error push_status = completion_executor.post(tasks::task{
         target.resource(), [state, &target, guid, replace, requests, request,
-                            loaded_resource = std::move(loaded.value),
+                            loaded_resource = std::move(loaded.value), activity,
                             abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
           abandoned.release();
           if (!load_request_access<T>::begin_commit(state)) {
@@ -1551,13 +1572,78 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 #endif
 }
 
+template <typename StatePtr> struct async_progress_state {
+  StatePtr state;
+  std::shared_ptr<void> activity;
+};
+
+template <typename T, typename StatePtr>
+void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
+                                 resource_guid guid, const tasks::executor& worker,
+                                 const tasks::executor& completion_executor, bool replace,
+                                 load_request_table<T>* requests = nullptr,
+                                 load_request<T> request = {},
+                                 std::shared_ptr<void> activity = {}) {
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    if (!load_request_access<T>::loading(state) || !load_request_access<T>::should_commit(state)) {
+      (void)load_request_access<T>::cancel(state);
+      if (requests) {
+        requests->erase(guid, request);
+      }
+      return;
+    }
+    auto completion = load_completion_access<T>::make(
+        target.resource(), [state, &target, guid, completion_executor, replace, requests, request,
+                            activity](load_result<T> loaded) noexcept {
+          finish_resource_load(state, target, guid, completion_executor, replace, requests, request,
+                               std::move(loaded), activity);
+        });
+    auto receipt = load_completion_access<T>::receipt(completion);
+    using progress_state = async_progress_state<StatePtr>;
+    auto progress_owner = std::allocate_shared<progress_state>(
+        allocator<progress_state>{target.resource()}, state, activity);
+    async_load_context context{
+        guid, target.resource(), worker, state->stop_source.get_token(),
+        load_progress{progress_owner, [](void* value, progress_update update) noexcept {
+                        load_request_access<T>::report_progress(
+                            static_cast<progress_state*>(value)->state, update);
+                      }}};
+    error status;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      status = source.start(std::move(context), std::move(completion));
+#if CAORS_HAS_EXCEPTIONS
+    } catch (const std::bad_alloc&) {
+      status = {error_domain::resources, errc::out_of_memory};
+    } catch (...) {
+      status = {error_domain::resources, errc::backend_failure};
+    }
+#endif
+    load_completion_access<T>::resolve(receipt, status);
+#if CAORS_HAS_EXCEPTIONS
+  } catch (const std::bad_alloc&) {
+    load_request_access<T>::fail(state, {error_domain::resources, errc::out_of_memory});
+    if (requests) {
+      requests->erase(guid, request);
+    }
+  } catch (...) {
+    load_request_access<T>::fail(state, {error_domain::resources, errc::backend_failure});
+    if (requests) {
+      requests->erase(guid, request);
+    }
+  }
+#endif
+}
+
 template <typename T>
-[[nodiscard]] load_request<T>
-request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                       const tasks::executor& executor, const tasks::executor& completion_executor,
-                       load_request_table<T>* requests, bool commit_unconditionally = true,
-                       std::shared_ptr<preload_request_state> preload_state = {},
-                       preload_item preload_observer_item = {}) {
+[[nodiscard]] load_request<T> request_load_into_impl(
+    cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
+    const tasks::executor& completion_executor, load_request_table<T>* requests,
+    bool commit_unconditionally = true, std::shared_ptr<preload_request_state> preload_state = {},
+    preload_item preload_observer_item = {}, std::shared_ptr<void> activity = {}) {
   if (!guid) {
     load_request<T> request = load_request<T>::failed(
         {error_domain::resources, errc::invalid_argument}, target.resource());
@@ -1597,10 +1683,11 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
                     load_request_access<T>::notify_preload_observers(state);
                   }});
   error submit_status = executor.post(tasks::task{
-      target.resource(), [state, request, &target, &source, guid, completion_executor, requests,
-                          abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
-        load_resource_in_background(state, target, source, guid, completion_executor, false,
-                                    requests, request);
+      target.resource(),
+      [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
+       abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+        load_resource_in_background(state, target, source, guid, executor, completion_executor,
+                                    false, requests, request, activity);
         abandoned.release();
       }});
   if (!submit_status) {
@@ -1618,11 +1705,11 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
 }
 
 template <typename T>
-[[nodiscard]] load_request<T> request_reload_into_impl(cache<T>& target, loader<T>& source,
-                                                       resource_guid guid,
-                                                       const tasks::executor& executor,
-                                                       const tasks::executor& completion_executor,
-                                                       load_request_table<T>* requests) {
+[[nodiscard]] load_request<T>
+request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
+                         const tasks::executor& executor,
+                         const tasks::executor& completion_executor,
+                         load_request_table<T>* requests, std::shared_ptr<void> activity = {}) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
@@ -1654,10 +1741,11 @@ template <typename T>
                     load_request_access<T>::notify_preload_observers(state);
                   }});
   error submit_status = executor.post(tasks::task{
-      target.resource(), [state, request, &target, &source, guid, completion_executor, requests,
-                          abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
-        load_resource_in_background(state, target, source, guid, completion_executor, true,
-                                    requests, request);
+      target.resource(),
+      [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
+       abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+        load_resource_in_background(state, target, source, guid, executor, completion_executor,
+                                    true, requests, request, activity);
         abandoned.release();
       }});
   if (!submit_status) {

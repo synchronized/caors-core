@@ -28,6 +28,14 @@
 
 namespace caors::assets {
 
+class asset_group;
+
+/** @brief 运行期加载调度组合；只保存句柄，不拥有线程或队列，不参与 project_config 序列化。 */
+struct asset_execution_options {
+  tasks::executor worker;
+  tasks::executor completion;
+};
+
 using resources::dependency_graph;
 using resources::handle_result;
 using resources::load_request;
@@ -206,6 +214,27 @@ public:
   };
 
   explicit asset_manager(memory_resource* resource = nullptr);
+  /** @brief 初始化默认调度；未配置有效组合时便捷异步入口返回 invalid_argument。 */
+  explicit asset_manager(asset_execution_options execution, memory_resource* resource = nullptr)
+      : asset_manager(resource) {
+    execution_configured_ = execution.worker.valid() && execution.completion.valid();
+    execution_ = std::move(execution);
+  }
+  /** @brief 在所属线程配置默认调度；实际操作未清理时返回 frozen，不迁移 cache 所属线程。 */
+  [[nodiscard]] error set_execution_options(asset_execution_options execution) {
+    if (database_.has_active_operations()) {
+      return {error_domain::resources, errc::frozen};
+    }
+    if (!execution.worker.valid() || !execution.completion.valid()) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+    execution_ = std::move(execution);
+    execution_configured_ = true;
+    return {};
+  }
+  /** @brief 创建绑定本 manager 与固定调度组合的非拥有加载上下文；manager 必须覆盖其访问寿命。 */
+  [[nodiscard]] asset_group create_group(tasks::executor worker, tasks::executor completion);
+
   /** @brief 按安全顺序释放内部运行期绑定和由 asset_manager 创建的对象。 */
   ~asset_manager();
 
@@ -336,6 +365,17 @@ public:
                                     : remember_manual_type_binding<T>(cache, loader, resource_type);
   }
 
+  /** @brief 注册异步 loader 与 cache，可与同类型同步 loader 并存。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::async_loader<T>& source,
+                                    core::string_name type) {
+    if (auto status = database_.register_type(cache, source, type)) {
+      return status;
+    }
+    return building_config_runtime_ ? error{}
+                                    : remember_manual_type_binding<T>(cache, source, type, true);
+  }
+
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
   template <typename T> [[nodiscard]] T* find(resource_guid guid) const {
     static_assert(std::is_base_of_v<resources::resource, T>,
@@ -395,6 +435,35 @@ public:
 
   /** @brief 按 manifest type 同步预加载资源。 */
   [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
+
+  /** @brief 使用默认调度获取资源；未配置时返回失败请求，缓存命中可立即完成。 */
+  template <typename T> [[nodiscard]] load_request<T> request_load(resource_guid guid) {
+    if (!execution_configured_) {
+      return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
+    }
+    return request_load<T>(guid, execution_.worker, execution_.completion);
+  }
+  /** @brief 使用默认调度重新加载资源，失败保留旧 cache 绑定。 */
+  template <typename T> [[nodiscard]] load_request<T> request_reload(resource_guid guid) {
+    if (!execution_configured_) {
+      return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
+    }
+    return request_reload<T>(guid, execution_.worker, execution_.completion);
+  }
+  /** @brief 使用默认调度预加载同类型依赖闭包。 */
+  template <typename T> [[nodiscard]] preload_request request_preload(resource_guid root) {
+    if (!execution_configured_) {
+      return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
+    }
+    return request_preload<T>(root, execution_.worker, execution_.completion);
+  }
+  /** @brief 使用默认调度按 manifest type 预加载依赖闭包。 */
+  [[nodiscard]] preload_request request_preload(resource_guid root) {
+    if (!execution_configured_) {
+      return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
+    }
+    return request_preload(root, execution_.worker, execution_.completion);
+  }
 
   /** @brief 在后台 executor 加载资源，并在完成 executor 提交到对应 cache。 */
   template <typename T>
@@ -533,11 +602,12 @@ private:
   };
 
   struct manual_type_binding {
-    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader,
+    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader, void* async_loader,
                               core::string_name resource_type);
 
     void* cache = nullptr;
     void* loader = nullptr;
+    void* async_loader = nullptr;
     bind_fn bind = nullptr;
   };
 
@@ -633,29 +703,49 @@ private:
 
   template <typename T>
   [[nodiscard]] static error rebind_manual_type(asset_manager& manager, void* cache, void* loader,
-                                                core::string_name resource_type) {
-    return manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
-                                           *static_cast<resources::loader<T>*>(loader),
-                                           resource_type);
+                                                void* async_loader, core::string_name type) {
+    if (loader) {
+      if (auto status =
+              manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
+                                              *static_cast<resources::loader<T>*>(loader), type)) {
+        return status;
+      }
+    }
+    return async_loader ? manager.database_.register_type(
+                              *static_cast<resources::cache<T>*>(cache),
+                              *static_cast<resources::async_loader<T>*>(
+                                  static_cast<resources::loader<T>*>(async_loader)),
+                              type)
+                        : error{};
   }
 
   template <typename T>
-  [[nodiscard]] error remember_manual_type_binding(resources::cache<T>& cache,
-                                                   resources::loader<T>& loader,
-                                                   core::string_name resource_type) {
-    manual_type_binding binding{&cache, &loader, &asset_manager::rebind_manual_type<T>};
-    const auto position = manual_type_bindings_.find(resource_type);
-    if (position != manual_type_bindings_.end()) {
-      return position->second.cache == binding.cache && position->second.loader == binding.loader &&
-                     position->second.bind == binding.bind
-                 ? error{}
-                 : error{error_domain::resources, errc::already_exists};
+  [[nodiscard]] error
+  remember_manual_type_binding(resources::cache<T>& cache, resources::loader<T>& loader,
+                               core::string_name type, bool asynchronous = false) {
+    auto position = manual_type_bindings_.find(type);
+    if (position == manual_type_bindings_.end()) {
+      manual_type_binding binding{&cache, asynchronous ? nullptr : &loader,
+                                  asynchronous ? &loader : nullptr,
+                                  &asset_manager::rebind_manual_type<T>};
+      manual_type_bindings_.emplace(type, binding);
+      return {};
     }
-
-    manual_type_bindings_.emplace(resource_type, binding);
+    auto& binding = position->second;
+    if (binding.cache != &cache || binding.bind != &asset_manager::rebind_manual_type<T>) {
+      return {error_domain::resources, errc::already_exists};
+    }
+    void*& slot = asynchronous ? binding.async_loader : binding.loader;
+    if (slot && slot != &loader) {
+      return {error_domain::resources, errc::already_exists};
+    }
+    slot = &loader;
     return {};
   }
 
+  friend class asset_group;
+  asset_execution_options execution_;
+  bool execution_configured_ = false;
   memory_resource* resource_ = nullptr;
   resources::manifest manifest_;
   resources::provider provider_;
@@ -670,6 +760,76 @@ private:
   manual_type_map manual_type_bindings_;
   bool building_config_runtime_ = false;
 };
+
+/**
+ * @brief 固定调度组合的轻量非拥有加载上下文。
+ *
+ * 不拥有 manager/cache/线程池；manager 必须活到全部访问及实际请求清理完成。
+ * 复制、移动与析构不取消请求；runtime 重配后旧 group 返回 frozen。
+ * 不提供组级取消或独立缓存；共享请求沿用首次操作的调度，等待者不保证在本组线程恢复。
+ */
+class asset_group final {
+public:
+  asset_group() = default;
+  /** @brief 获取单资源，命中 cache 立即完成，否则订阅共享加载。 */
+  template <typename T>
+  [[nodiscard]] resources::load_request<T> request_load(resources::resource_guid guid) const {
+    if (auto status = check()) {
+      return resources::load_request<T>::failed(status, resource());
+    }
+    return manager_->request_load<T>(guid, execution_.worker, execution_.completion);
+  }
+  /** @brief 重载单资源，成功替换 cache，失败保留原绑定。 */
+  template <typename T>
+  [[nodiscard]] resources::load_request<T> request_reload(resources::resource_guid guid) const {
+    if (auto status = check()) {
+      return resources::load_request<T>::failed(status, resource());
+    }
+    return manager_->request_reload<T>(guid, execution_.worker, execution_.completion);
+  }
+  /** @brief 预加载根资源的同类型依赖闭包，不强制刷新已有缓存。 */
+  template <typename T>
+  [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
+    if (auto status = check()) {
+      return resources::preload_request::failed(status, resource());
+    }
+    return manager_->request_preload<T>(root, execution_.worker, execution_.completion);
+  }
+  /** @brief 按 manifest type 预加载根资源及跨类型依赖闭包。 */
+  [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
+    if (auto status = check()) {
+      return resources::preload_request::failed(status, resource());
+    }
+    return manager_->request_preload(root, execution_.worker, execution_.completion);
+  }
+
+private:
+  friend class asset_manager;
+  asset_group(asset_manager& manager, asset_execution_options execution)
+      : manager_(&manager), execution_(std::move(execution)),
+        generation_(manager.database_.configuration_generation()),
+        configured_(execution_.worker.valid() && execution_.completion.valid()) {}
+  [[nodiscard]] error check() const noexcept {
+    if (!manager_ || !configured_) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+    if (generation_ != manager_->database_.configuration_generation()) {
+      return {error_domain::resources, errc::frozen};
+    }
+    return {};
+  }
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return manager_ ? manager_->resource() : nullptr;
+  }
+  asset_manager* manager_ = nullptr;
+  asset_execution_options execution_;
+  std::uint64_t generation_ = 0;
+  bool configured_ = false;
+};
+
+inline asset_group asset_manager::create_group(tasks::executor worker, tasks::executor completion) {
+  return asset_group{*this, {std::move(worker), std::move(completion)}};
+}
 
 } // namespace caors::assets
 

@@ -295,9 +295,9 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 
 ## 异步加载请求
 
-第一版异步资源 API 只拆分两个阶段：
+异步资源 API 分为发起/加载与提交两个阶段：
 
-- 后台阶段：通过 `tasks::executor` 调用 `loader<T>::load()`，读取 provider、解码数据并构造资源对象。
+- 加载阶段：worker 调用 `loader<T>::start()`。同步 loader 默认适配到 `load()`；原生异步 loader 发起宿主 I/O 后返回，通过完成凭证稍后交付结果。
 - 提交阶段：通过调用方指定的 completion executor 把加载结果提交到 `cache<T>`，执行 insert 或
   replace；通常由主线程 `execution_context` 提供该 executor。
 
@@ -951,6 +951,46 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 - 跨线程访问 provider 或 source 时，调用方需要自行同步。
 
 ## loader / saver
+
+### 原生异步 loader
+
+迁移时已有同步 loader 源码无需修改；本次为 loader 增加虚函数并扩展相关类型布局，
+不兼容旧二进制。库、宿主与所有使用这些头文件的插件应一起重新编译，不能混用旧对象文件或 SDK。
+
+`resources::async_loader<T>` 继承 `loader<T>`，覆盖 `start(async_load_context, load_completion<T>)`，
+无需实现同步 load；其默认同步 load 返回 `resources / unsupported`，不会阻塞等待宿主 loop。
+`database.register_loader()` / `register_type()` 有异步能力重载，可与同类型的同步 loader 同时注册。
+异步请求优先异步能力，只有同步能力时在 worker 适配；失败不自动改用另一 loader 重试。
+同步加载仍使用同步能力；async-only 的已缓存资源可通过同步 load_handle 获取，缓存未命中返回 unsupported。
+同步 preload 遇到 async-only 的未缓存项也返回 unsupported，调用方可统一改用 request_preload。
+
+`async_load_context` 提供 GUID、非拥有结果 resource、worker、协作取消的 `std::stop_token` 与拥有状态的 `load_progress`。
+context 和进度通道可跨异步边界保存；原 `progress_reporter` 仍只在同步 load 调用期间有效，不能留到 I/O 回调使用。
+结果 resource 必须覆盖结果与回调寿命；分配/释放跨线程时应使用支持相应并发访问的资源。
+
+`load_completion<T>` 为 move-only 完成凭证，`complete(load_result<T>)` 接管资源或错误，交付成功返回 true；
+重复交付返回 false 并销毁多余结果，成功却不含资源会归一化为 backend_failure。
+接受操作后应执行或销毁凭证；未交付即销毁会使请求以 cancelled 失败收尾，不能永久保留 pending。
+库内部在 start 返回后结算交付，兼容同步完成、并发提前完成及拒绝路径，保留明确的启动拒绝原因。
+start 失败不得继续持有凭证或回调；异常映射为 out_of_memory 或 backend_failure。
+同一凭证的移动/销毁不能与成员调用并发；完成回调允许重入并释放其所属对象。
+
+取消单订阅不干扰其他消费者；最后订阅放弃或 cancel_shared() 会触发底层操作的 stop 信号。
+预加载批次取消、失败或最后一个批次句柄释放时，只释放该批次的订阅；剩余独立请求/其他批次仍可复用加载。
+宿主负责把取消转发到自己的 loop，信号不代表 I/O 已结束。迟到结果被清理，不恢复已取消订阅；
+cache 提交仍遵循原线性化边界，开始提交后不承诺回滚。
+错误/取消可能在产生终态的线程通知等待方，完成 executor 只保证 cache 提交的执行位置，不提供协程恢复线程亲和性。
+
+`database.has_active_operations()` 覆盖启动队列、完成凭证、拥有型进度通道及 cache 提交任务的实际持有期。
+计数用于检测库内仍持有的操作，归零也不能代替宿主确认 loop、回调和线程已经排空。
+请求终态不等于该值为 false：宿主回调结束后应释放凭证与 context/进度通道，再清理 backend、allocator 或模块 pin。
+直接 clear_registered_types() 仍要求调用方先清理实际在途工作；它递增 configuration_generation() 使旧 group 失效。
+标准库 stop 状态内部的系统分配不保证由 CAORS resource 统计。
+
+完整示例见 [assets_native_async.cpp](../../examples/beta/assets_native_async.cpp)。示例模拟延迟事件，
+不代表 libuv 实际接入；CAORS 不包含 libuv 类型或依赖，loop 线程投递、请求清理和缓冲区由宿主适配器管理。
+
+### 同步 loader 与 saver
 
 `resources::loader<T>` 和 `resources::saver<T>` 是类型化资源 IO 接口。它们只描述“按 GUID 加载一个
 资源”和“保存一个已有资源”，不规定路径、文件格式、资源包、缓存策略或异步调度：

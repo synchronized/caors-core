@@ -170,3 +170,12 @@ extension 查询一致性。共享构建建议使用 `--parallel 1`，避免大�
 跨 CRT 对象仍使用兼容构建和创建方释放协议，普通 DLL 不自动获得插件构建环境检查。
 
 任务同时保存 pin 与弱引用时，应使用明确成员析构顺序的拥有对象，保证依赖先销毁、pin 最后释放；不要依赖 lambda 捕获成员的隐含顺序。
+
+## Linux 插件符号与卸载
+
+插件目标应设置 `CXX_VISIBILITY_PRESET hidden`、`C_VISIBILITY_PRESET hidden` 和
+`VISIBILITY_INLINES_HIDDEN YES`，仅显式导出协议入口，避免不同插件的模板静态模型被动态链接器合并。
+使用 GCC 构建可卸载插件时，还应为该目标的 C++ 编译添加 `-fno-gnu-unique`；
+GNU unique 符号可能导致 `dlclose` 不执行真实卸载，见 [GCC 编译选项说明](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html#index-fno-gnu-unique)。
+这些配置属于插件自身的构建约束，不通过 CAORS 链接目标强制修改宿主的全部编译选项。
+仓库中的 plugin identity 与 protocol 测试插件采用相同约束，并保留类型冲突与真实卸载验证。

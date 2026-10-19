@@ -24,9 +24,11 @@
 - [独立订阅取消](resource-request-subscriptions.md)：C51-05，共享加载与消费者终态隔离。
 - [外部 executor](external-executor-adapter.md)：C51-06，宿主投递、关闭与任务所有权。
 
-### 待实施
+### v0.3.0 已完成开发验收
 
-- [异步资源 loader](asynchronous-resource-loader.md)：v0.3.0，开发前契约评审；延迟完成协议、资源/Assets 接入与取消寿命验收。
+- [异步资源 loader](asynchronous-resource-loader.md)：异步协议、默认调度与 asset_group 已完成实现和集成验收，尚未发布。
+
+### 待实施
 
 - [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
 
