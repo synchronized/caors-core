@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-状态：已完成开发验收，纳入 [v0.3.0](../versions/v0.3.0.md)；实现、专项回归与常规 CI 已通过，尚未发布。
+状态：已完成开发验收，纳入 [v0.3.0](../versions/v0.3.0.md)；实现、专项回归与常规 CI 已通过，公开状态见版本页。
 目标为可延迟交付结果的加载协议，接入现有 resources/database 与 assets/asset_manager。
 版本范围和发布门槛由版本页维护；当前同步接口见[资源参考](../reference/resources.md)与[Assets 参考](../reference/assets.md)。
 
