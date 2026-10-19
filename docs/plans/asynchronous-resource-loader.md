@@ -5,11 +5,11 @@
 
 ## 状态与范围
 
-状态：待验收，纳入 [v0.3.0](../versions/v0.3.0.md)，实现与本机专项回归已完成，完整集成验收正在执行。
+状态：已完成开发验收，纳入 [v0.3.0](../versions/v0.3.0.md)；实现、专项回归与常规 CI 已通过，尚未发布。
 目标为可延迟交付结果的加载协议，接入现有 resources/database 与 assets/asset_manager。
 版本范围和发布门槛由版本页维护；当前同步接口见[资源参考](../reference/resources.md)与[Assets 参考](../reference/assets.md)。
 
-现有 `loader<T>::load()` 必须同步返回 `load_result<T>`，`request_load()` 只是把该调用放入后台 executor。
+改动前，`loader<T>::load()` 必须同步返回 `load_result<T>`，`request_load()` 只是把该调用放入后台 executor。
 [外部 executor](../reference/tasks.md#外部-executor)解决执行位置，不能让同步 loader 在返回后交付 I/O 结果。
 新协议要释放发起任务所在的 worker，而不是在 worker 中等待宿主回调。
 
@@ -185,10 +185,10 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 
 ### AL-04：验收、安装与文档
 
-- [ ] 提供可控延迟、同步完成、拒绝、取消后迟到与丢弃的模拟宿主，以及初始化一次默认调度、group 调度复用与三个请求语义的示例。
-- [ ] 跑下列契约矩阵、必要重复测试与 sanitizer，再在完整批次集中运行常规 CI。
-- [ ] 安装包公共头独立包含，consumer 覆盖同步兼容与异步请求/coroutine；迁移前缀后可用且不依赖 libuv。
-- [ ] 实现后更新 resources/assets 参考、迁移说明和 CHANGELOG，真实数据写 Record，再将 Plan 标为已完成。
+- [x] 提供可控延迟、同步完成、拒绝、取消后迟到与丢弃的模拟宿主，以及初始化一次默认调度、group 调度复用与三个请求语义的示例。
+- [x] 跑下列契约矩阵、必要重复测试与 sanitizer，再在完整批次集中运行常规 CI。
+- [x] 安装包公共头独立包含，consumer 覆盖同步兼容与异步请求/coroutine；迁移前缀后可用且不依赖 libuv。
+- [x] 实现后更新 resources/assets 参考、迁移说明和 CHANGELOG，真实数据写 Record，再将 Plan 标为已完成。
 
 ## 验收场景
 
@@ -219,4 +219,4 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 - 完成凭证与拥有型进度通道共享真实操作 lease；manager 重配据此拒绝 frozen，直接 database 清空及析构仍遵守宿主清理前提。
 - 无异常只保留公共头编译支持，不承诺完整无异常运行矩阵；标准库 stop 状态系统分配单独说明。
 
-实际验证、故障注入修复和尚待执行的完整矩阵见[v0.3.0 执行记录](../records/2026-10-19-v0.3.0-async-loader.md)。
+实际验证、故障注入修复与完整矩阵见[v0.3.0 执行记录](../records/2026-10-19-v0.3.0-async-loader.md)。

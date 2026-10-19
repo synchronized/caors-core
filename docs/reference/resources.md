@@ -954,6 +954,9 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 
 ### 原生异步 loader
 
+迁移时已有同步 loader 源码无需修改；本次为 loader 增加虚函数并扩展相关类型布局，
+不兼容旧二进制。库、宿主与所有使用这些头文件的插件应一起重新编译，不能混用旧对象文件或 SDK。
+
 `resources::async_loader<T>` 继承 `loader<T>`，覆盖 `start(async_load_context, load_completion<T>)`，
 无需实现同步 load；其默认同步 load 返回 `resources / unsupported`，不会阻塞等待宿主 loop。
 `database.register_loader()` / `register_type()` 有异步能力重载，可与同类型的同步 loader 同时注册。
