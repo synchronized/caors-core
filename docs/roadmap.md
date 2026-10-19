@@ -10,7 +10,7 @@
 最新版本为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，
 已发布 alpha 源码并完成验收与公开下载复核；详细范围与发布证据由版本页关联。
 [v0.2.0](versions/v0.2.0.md) 已完成实现验收，公开发布状态由其版本页维护，既有延期复验继续由原计划跟踪。
-下一目标为 [v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)，按[计划](plans/asynchronous-vfs.md)推进。
+下一目标为 [v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)，功能已按[计划](plans/asynchronous-vfs.md)验收，正在准备发布。
 以下其他候选方向尚不构成承诺排期，启动时再明确范围和验收。
 原有逐 API 完成清单归档到[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
 
@@ -61,7 +61,7 @@ JSON、MessagePack、codec 和 resolver 的现状及限制见[序列化参考](r
 当前资源、清单、provider/database 和 Assets 编排见[resources](reference/resources.md)、[assets](reference/assets.md)。
 Tasks/Resources 协程迁移和延期验证的状态见[计划索引](plans/README.md)。后续方向：
 
-- 异步 loader 进入[下一版本计划](plans/asynchronous-resource-loader.md)；资源包、远程资源与异步 saver 仍为独立候选。
+- 异步 loader 已按[计划](plans/asynchronous-resource-loader.md)交付；资源包、远程资源与异步 saver 仍为独立候选。
 - 跨 cache/version 的引用失效、弱引用和调试诊断策略。
 - 跨对象、场景和资源包的依赖图，以及 reload 影响范围计算。
 - 编辑器 file server 与 runtime remote file system，保持逻辑 URI 与具体后端解耦。
