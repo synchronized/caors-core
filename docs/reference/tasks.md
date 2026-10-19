@@ -344,7 +344,8 @@ resources 和 assets 异步入口都接收后台 executor 与 completion executo
 宿主实现 `post(task)` 和 `close()`，接口不绑定具体后端；可分别为宿主线程池和所属线程完成队列创建适配器。
 `post` 接管任务，成功后必须执行或销毁，拒绝后不得执行。`close` 必须封闭队列并排空/销毁已接受任务，
 与投递并发时仍保证协议；不在自己的工作任务中阻塞等待自身关闭。允许同步 inline 执行，需支持重入。
-适配器不持锁调用宿主，投递异常在允许异常的构建中转换为 `backend_failure`。
+适配器不持锁调用宿主；允许异常的构建将投递中的 `std::bad_alloc` 转换为 `out_of_memory`，
+其余投递异常转换为 `backend_failure`。
 
 所有者关闭后，晚存活的 executor 返回 `frozen`。上下文由共享所有权保活，资源和模块必须覆盖其全部寿命。
 `submit_request()` 或资源加载的排队任务被丢弃时会进入失败终态，错误为 `cancelled`；

@@ -34,7 +34,7 @@
 
 ### 进行中
 
-- [统一 VFS 与异步范围读取](asynchronous-vfs.md)：v0.4.0，核心协议与资源链路已实现，集成验收中。
+- [统一 VFS 与异步范围读取](asynchronous-vfs.md)：v0.4.0，核心协议与资源链路已实现，集成验收完成。
 
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
