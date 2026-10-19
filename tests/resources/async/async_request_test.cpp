@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <thread>
 
@@ -1169,5 +1170,104 @@ TEST_CASE("resources - subscription cancellation races completion with one termi
     CHECK(a.done());
     CHECK(b.loaded());
     CHECK(loader.load_count == 1);
+  }
+}
+
+namespace {
+class external_resource_queue final : public caors::tasks::external_executor_context {
+public:
+  caors::error post(caors::tasks::task next) override {
+    std::lock_guard lock{mutex_};
+    if (closed_) {
+      return {caors::error_domain::core, caors::errc::frozen};
+    }
+    queued_.push_back(std::move(next));
+    return {};
+  }
+  void drain() {
+    std::vector<caors::tasks::task> ready;
+    {
+      std::lock_guard lock{mutex_};
+      ready.swap(queued_);
+      active_ += ready.size();
+    }
+    for (auto& next : ready) {
+      (void)next.run();
+      next.reset();
+      {
+        std::lock_guard lock{mutex_};
+        --active_;
+      }
+      stopped_.notify_all();
+    }
+  }
+  void close() noexcept override {
+    std::vector<caors::tasks::task> discarded;
+    {
+      std::unique_lock lock{mutex_};
+      closed_ = true;
+      discarded.swap(queued_);
+      stopped_.wait(lock, [&] { return active_ == 0; });
+    }
+  }
+
+private:
+  std::mutex mutex_;
+  std::condition_variable stopped_;
+  std::vector<caors::tasks::task> queued_;
+  std::size_t active_ = 0;
+  bool closed_ = false;
+};
+}
+
+TEST_CASE("resources - host queues preserve independent cancellation and commit ownership",
+          "[resources]") {
+  require_async_resource_metadata();
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  std::thread::id load_thread;
+  loader.load_thread = &load_thread;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  auto background = std::make_shared<external_resource_queue>();
+  auto completion = std::make_shared<external_resource_queue>();
+  caors::tasks::external_executor worker{background};
+  caors::tasks::external_executor owner{completion};
+  auto a = database.request_load<async_resource>(test_guid_a, worker.get_executor(),
+                                                 owner.get_executor());
+  auto b = database.request_load<async_resource>(test_guid_a, worker.get_executor(),
+                                                 owner.get_executor());
+  REQUIRE(a.cancel());
+  std::thread thread{[&] { background->drain(); }};
+  thread.join();
+  CHECK(load_thread != std::this_thread::get_id());
+  CHECK(loader.load_count == 1);
+  CHECK_FALSE(cache.contains(test_guid_a));
+  completion->drain();
+  CHECK(a.cancelled());
+  CHECK(b.loaded());
+  CHECK(cache.contains(test_guid_a));
+}
+
+TEST_CASE("resources - discarded host work always reaches a terminal state", "[resources]") {
+  require_async_resource_metadata();
+  for (bool discard_completion : {false, true}) {
+    caors::resource_cache<async_resource> cache;
+    async_loader loader;
+    auto background = std::make_shared<external_resource_queue>();
+    auto completion = std::make_shared<external_resource_queue>();
+    caors::tasks::external_executor worker{background};
+    caors::tasks::external_executor owner{completion};
+    auto request = caors::resources::request_load_into(cache, loader, test_guid_a,
+                                                       worker.get_executor(), owner.get_executor());
+    if (discard_completion) {
+      background->drain();
+      owner.close();
+    } else {
+      worker.close();
+    }
+    CHECK(request.failed());
+    CHECK(request.error() == caors::error{caors::error_domain::resources, caors::errc::cancelled});
+    CHECK_FALSE(cache.contains(test_guid_a));
   }
 }

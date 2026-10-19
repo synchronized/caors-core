@@ -13,9 +13,9 @@
 
 ## 状态索引
 
-### 讨论中
+### 版本集成实施中
 
-下一版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项尚未完成新增实施与验收：
+下一版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项已有实现批次，正在验收；未标为全部完成：
 
 - [runtime 集成契约](runtime-integration-contracts.md)：C51-01，共享与私有 runtime 边界及跨模块验收。
 - [可嵌入 CMake](embedded-cmake-configuration.md)：C51-03，独立链接类型、依赖隔离与选项命名。

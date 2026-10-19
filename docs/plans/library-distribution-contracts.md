@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-状态：讨论中，对应 C51-04，依赖 [runtime 契约](runtime-integration-contracts.md)和
+状态：实施中，对应 C51-04，依赖 [runtime 契约](runtime-integration-contracts.md)和
 [可嵌入构建](embedded-cmake-configuration.md)。版本范围见 [v0.2.0](../versions/v0.2.0.md)。
 现有安装、独立 consumer 和可重定位验证继续复用；本计划不重新打开已完成的
 [原安装包计划](installed-package-consumer-validation.md)。
@@ -36,3 +36,12 @@ Linux 增加 PIC 静态库并入共享宿主，Windows 检查对应 CRT 配置�
 alpha 的 SOVERSION 策略、公共符号范围与包兼容匹配规则需明确后才能验收。
 预编译 SDK、签名和发布自动化不在本计划范围；源码交付也必须通过本计划安装验证。
 当前没有本计划新增符号审计或共享宿主验收结果。
+
+## 本轮推进
+
+实现批次 `c3b262e` 已提交，仍需完成本计划全部验收；过程与结果统一记入
+[版本验收记录](../records/2026-10-19-v0.2.0-host-integration.md)。本页原复选项在逐项核实后收口，
+不能仅凭实现提交标记全部通过。
+
+本轮 alpha SONAME 使用 major.minor，包兼容筛选采用 SameMinorVersion；隐藏默认符号，静态库默认 PIC，
+宿主显式 PIC 设置优先。符号边界与运行依赖以 CI 实际审计产物确认，不仅依据构建属性。

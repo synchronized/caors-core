@@ -7,6 +7,10 @@
 [文档中心](../README.md)、[路线图](../roadmap.md)和[计划索引](../plans/README.md)。
 性能测量继续存放在 [benchmarks/results](../../benchmarks/results/README.md)。
 
+## 版本验收
+
+- [v0.2.0 宿主集成](2026-10-19-v0.2.0-host-integration.md)：正在执行，尚未完成版本验收。
+
 ## 当前整理记录
 
 - [2026-10-19 文档物理目录与命名整理](2026-10-19-documentation-layout.md)：完成目录归类，取代前次保留平铺结构的决定。
