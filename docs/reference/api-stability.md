@@ -20,11 +20,13 @@ CAORS 当前处于 alpha 阶段，允许为模块边界、命名、所有权和�
 | resources | 身份、引用、cache/provider/loader/database、同步与异步请求、依赖与通知、manifest 枚举叠加 | [resources](resources.md) |
 | assets | project_config、asset_manager、source/type factory、typed options、JSON 适配 | [assets](assets.md) |
 | events | 同步 signal/dispatcher、连接与委托 | [events](events.md) |
-| tasks | task、轻量 executor、execution_context、inline_executor()、thread_pool、request；协程适配显式包含 | [tasks](tasks.md) |
+| tasks | task、轻量 executor、外部 executor 适配、execution_context、inline_executor()、thread_pool、request；协程适配显式包含 | [tasks](tasks.md) |
 | math | 基础数学值类型、变换、几何与相机 helper | [math](math.md) |
 
 具体接口与限制以对应参考和公共头为准；候选表示评估范围，不保证某个版本冻结全部接口。
 Tasks/Resources 协程等待和 MessagePack 已有实现，不再归入“尚未实现”项目。
+任务公共抽象与内置基础后端的职责分开；适用场景、调度限制和验证边界统一见
+[Tasks 定位与适用范围](tasks.md#定位与适用范围)。内置后端的功能验收不等于性能或长期运行保证。
 
 ## 实验性入口与后续方向
 
