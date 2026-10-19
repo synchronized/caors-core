@@ -28,13 +28,15 @@
 
 - [异步资源 loader](asynchronous-resource-loader.md)：异步协议、默认调度与 asset_group 已完成实现和集成验收；公开状态见版本页。
 
+### v0.4.0 已完成开发验收
+
+- [统一 VFS 与异步范围读取](asynchronous-vfs.md)：核心协议与资源链路已实现并完成集成验收；发布状态见版本页。
+
 ### 待实施
 
 - [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
 
 ### 进行中
-
-- [统一 VFS 与异步范围读取](asynchronous-vfs.md)：v0.4.0，核心协议与资源链路已实现，集成验收完成。
 
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
