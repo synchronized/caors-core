@@ -95,7 +95,18 @@ caors::resource_handle<caors::resource> create_native_resource(int* destroyed, i
   resource_allocator.deallocated = deallocated;
   return caors::make_handle<module_resource>(&resource_allocator, destroyed);
 }
-const caors_native_resource_test_extension native_resource_extension{&create_native_resource};
+struct unload_probe {
+  int* count = nullptr;
+  ~unload_probe() {
+    if (count) {
+      ++*count;
+    }
+  }
+};
+unload_probe resource_unload;
+void watch_resource_unload(int* count) { resource_unload.count = count; }
+const caors_native_resource_test_extension native_resource_extension{&create_native_resource,
+                                                                     &watch_resource_unload};
 
 plugin_reflected_type::~plugin_reflected_type() {
   instance.destructions.fetch_add(1, std::memory_order_relaxed);

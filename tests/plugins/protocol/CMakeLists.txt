@@ -78,3 +78,20 @@ add_test(
     $<TARGET_FILE:caors_plugin_protocol_incompatible_build>
     $<TARGET_FILE:caors_plugin_protocol_missing_build_extension>
 )
+
+add_executable(caors_plugins_resource_lifetime_test resource_lifetime_test.cpp)
+target_compile_features(caors_plugins_resource_lifetime_test PRIVATE cxx_std_20)
+caors_target_compile_warnings(caors_plugins_resource_lifetime_test)
+if(MSVC)
+  set_property(TARGET caors_plugins_resource_lifetime_test PROPERTY MSVC_RUNTIME_LIBRARY
+    "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+target_link_libraries(caors_plugins_resource_lifetime_test PRIVATE caors::caors)
+add_dependencies(caors_plugins_resource_lifetime_test caors_plugin_protocol_good)
+if(WIN32)
+  add_custom_command(TARGET caors_plugins_resource_lifetime_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:caors>
+      $<TARGET_FILE_DIR:caors_plugins_resource_lifetime_test>)
+endif()
+add_test(NAME caors.plugins.resource_lifetime
+  COMMAND caors_plugins_resource_lifetime_test $<TARGET_FILE:caors_plugin_protocol_good>)
