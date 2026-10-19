@@ -25,7 +25,7 @@
 
 ## 验收
 
-Windows 与 Linux 的静态/共享、Debug/Release 安装包均执行四类独立 consumer、前缀迁移及运行验证；
+Windows 与 Linux 的静态/共享、Debug/Release 安装包均执行六类独立 consumer、前缀迁移及运行验证；
 Linux 增加 PIC 静态库并入共享宿主，Windows 检查对应 CRT 配置和运行库部署。
 在 Record 固定源码 SHA、工具链、导出列表及 DLL/SO 依赖检查命令和结果。
 隐藏符号后身份、反射、插件和跨模块释放仍通过；不依赖开发机 PATH 偶然找到 runtime。

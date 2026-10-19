@@ -89,7 +89,6 @@ jobs:
       - name: 测试
         run: ctest --preset "${{ matrix.preset }}"
       - name: 验证 Static 安装包
-        if: matrix.preset == 'linux-clang-release'
         run: >
           cmake
           -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
@@ -97,7 +96,7 @@ jobs:
           -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-static-consumer
           -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-static-relocated-prefix
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-static-relocated-consumer
-          -DCAORS_BUILD_CONFIG=Release
+          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
           -DCAORS_SHARED=OFF
           -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
@@ -140,7 +139,6 @@ jobs:
           path: build/symbol-audit/
           if-no-files-found: warn
       - name: 验证 Shared 安装包
-        if: matrix.preset == 'linux-clang-shared-release'
         run: >
           cmake
           -DCAORS_PRODUCER_BUILD_DIR=build/${{ matrix.preset }}
@@ -148,7 +146,7 @@ jobs:
           -DCAORS_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-consumer
           -DCAORS_RELOCATION_PREFIX=build/installed-package/linux-shared-relocated-prefix
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-relocated-consumer
-          -DCAORS_BUILD_CONFIG=Release
+          -DCAORS_BUILD_CONFIG=${{ endsWith(matrix.preset, 'debug') && 'Debug' || 'Release' }}
           -DCAORS_SHARED=ON
           -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志

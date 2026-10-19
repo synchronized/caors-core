@@ -11,10 +11,10 @@
 
 | 入口 | 触发 | 实际覆盖 |
 | --- | --- | --- |
-| [Linux](../../.github/workflows/linux.yml) | 手动；每周一北京时间 02:00 | Clang/GCC 静态 Debug/Release、Clang 动态 Debug/Release、Shared ASan/UBSan；Clang/GCC 无异常公共头；Clang Release 静态/动态安装与迁移前缀 consumer |
+| [Linux](../../.github/workflows/linux.yml) | 手动；每周一北京时间 02:00 | Clang/GCC 静态 Debug/Release、Clang 动态 Debug/Release、Shared ASan/UBSan；Clang/GCC 无异常公共头；Clang/GCC 静态及 Clang 动态 Debug/Release 安装与迁移前缀 consumer |
 | [Linux Stress](../../.github/workflows/linux-stress.yml) | 手动 | Clang Shared ASan；插件卸载 20 轮；内存与 MessagePack 10 轮 |
 | [MSVC 包装脚本](../../scripts/msvc.ps1) | 本地调用 | 初始化 Visual Studio 环境，按 preset 配置、构建与测试 |
-| [安装包验证](../../cmake/caors_verify_installed_package.cmake) | 本地或 Linux 工作流调用 | 基础、Tasks、Tasks coroutine、Resources coroutine 四类 consumer，原始与迁移前缀 |
+| [安装包验证](../../cmake/caors_verify_installed_package.cmake) | 本地或 Linux 工作流调用 | 基础、Tasks、Tasks coroutine、Resources coroutine、共享宿主、静态宿主六类 consumer，原始与迁移前缀 |
 
 当前没有 Windows、Documentation 或 Release workflow，没有版本准备和正式发布脚本。
 普通分支 push、PR 更新及 main push 不自动运行完整 Linux CI；本页不引入新的自动触发。
