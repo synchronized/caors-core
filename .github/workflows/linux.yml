@@ -17,6 +17,36 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: "2"
 
 jobs:
+  linux-ubsan:
+    name: Shared · Clang UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v5
+      - name: 安装构建工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build clang
+      - name: 配置
+        run: >
+          cmake --preset linux-clang-shared-debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=undefined
+          -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=undefined
+      - name: 构建
+        run: cmake --build --preset linux-clang-shared-debug
+      - name: 测试
+        run: ctest --preset linux-clang-shared-debug
+      - name: 上传失败日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-clang-shared-ubsan-test-log
+          path: build/linux-clang-shared-debug/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+
   linux-static:
     name: Static · ${{ matrix.preset }}
     runs-on: ubuntu-24.04
