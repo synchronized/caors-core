@@ -15,7 +15,7 @@
 
 ### 版本集成已验收
 
-下一版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项实现与契约验收已完成；版本元数据与公开发布状态由版本页维护：
+上一轮版本的范围、批次和依赖见 [v0.2.0](../versions/v0.2.0.md)。以下六项实现与契约验收已完成；版本元数据与公开发布状态由版本页维护：
 
 - [runtime 集成契约](runtime-integration-contracts.md)：C51-01，共享与私有 runtime 边界及跨模块验收。
 - [可嵌入 CMake](embedded-cmake-configuration.md)：C51-03，独立链接类型、依赖隔离与选项命名。
@@ -25,6 +25,8 @@
 - [外部 executor](external-executor-adapter.md)：C51-06，宿主投递、关闭与任务所有权。
 
 ### 待实施
+
+- [异步资源 loader](asynchronous-resource-loader.md)：v0.3.0，开发前契约评审；延迟完成协议、资源/Assets 接入与取消寿命验收。
 
 - [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
 
@@ -90,6 +92,7 @@
 
 ## Tasks
 
+- [asynchronous-resource-loader.md](asynchronous-resource-loader.md)：宿主异步 I/O 的启动/完成协议、同步兼容及共享请求接入。
 - [asio-task-redesign.md](asio-task-redesign.md)：standalone Asio 依赖、execution context、轻量 executor、
   completion queue/thread pool 收敛和可选 C++20 coroutine 适配计划。
 - [resource-coroutine-pipeline.md](resource-coroutine-pipeline.md)：资源请求等待协议、coroutine 适配、
