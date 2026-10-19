@@ -11,6 +11,12 @@
 namespace caors::io {
 namespace {
 
+// 将后端与宿主凭据放入同一控制块，保证 erase/move 也先释放后端，再释放模块 pin。
+struct owned_backend {
+  std::shared_ptr<void> lifetime;
+  std::shared_ptr<file_system> target;
+};
+
 [[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
   return {value.data(), value.size()};
 }
@@ -96,6 +102,7 @@ error file_system_resolver::mount(uri_view prefix, file_system& target, path_vie
   }
 
   routes_.push_back(route_entry{
+      {},
       scheme,
       authority,
       path_prefix,
@@ -103,6 +110,21 @@ error file_system_resolver::mount(uri_view prefix, file_system& target, path_vie
       trim_target_prefix(target_prefix, resource()),
   });
   return {};
+}
+
+error file_system_resolver::mount(uri_view prefix, std::shared_ptr<file_system> target,
+                                  path_view target_prefix, std::shared_ptr<void> lifetime) {
+  if (!target) {
+    return {error_domain::io, errc::invalid_argument};
+  }
+  auto* backend = target.get();
+  auto owner = std::allocate_shared<owned_backend>(
+      allocator<owned_backend>{resource()}, owned_backend{std::move(lifetime), std::move(target)});
+  const auto status = mount(prefix, *backend, target_prefix);
+  if (!status) {
+    routes_.back().owner = std::move(owner);
+  }
+  return status;
 }
 
 bool file_system_resolver::unmount(uri_view prefix) {

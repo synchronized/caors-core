@@ -4,9 +4,16 @@
 #include "caors/io/mount_file_system.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace caors::io {
 namespace {
+
+// 将后端与宿主凭据放入同一控制块，保证 erase/move 也先释放后端，再释放模块 pin。
+struct owned_backend {
+  std::shared_ptr<void> lifetime;
+  std::shared_ptr<file_system> target;
+};
 
 [[nodiscard]] bool is_separator(char value) noexcept { return value == '/' || value == '\\'; }
 
@@ -157,12 +164,28 @@ error mount_file_system::mount(path_view prefix, file_system& target, path_view 
   }
 
   mount_entry entry{
+      {},
       std::move(normalized_prefix),
       &target,
       trim_target_prefix(target_prefix, resource()),
   };
   mounts_.push_back(std::move(entry));
   return {};
+}
+
+error mount_file_system::mount(path_view prefix, std::shared_ptr<file_system> target,
+                               path_view target_prefix, std::shared_ptr<void> lifetime) {
+  if (!target) {
+    return {error_domain::io, errc::invalid_argument};
+  }
+  auto* backend = target.get();
+  auto owner = std::allocate_shared<owned_backend>(
+      allocator<owned_backend>{resource()}, owned_backend{std::move(lifetime), std::move(target)});
+  const auto status = mount(prefix, *backend, target_prefix);
+  if (!status) {
+    mounts_.back().owner = std::move(owner);
+  }
+  return status;
 }
 
 bool mount_file_system::unmount(path_view prefix) {

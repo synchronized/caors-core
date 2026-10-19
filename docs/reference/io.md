@@ -210,7 +210,7 @@ fs.mount("caors://assets", project, "assets");
 
 规则：
 
-- resolver 不拥有被挂载的文件系统。
+- `mount(prefix, file_system&, target_prefix)` 借用目标；拥有式重载见下文[拥有式挂载](#拥有式挂载)。
 - 路由按 scheme、authority 和路径前缀匹配，使用最长匹配。
 - 未命中路由返回 `errc::not_found`。
 - `list()` 返回的 `directory_entry::path` 会回到调用方使用的 URI 空间。
@@ -312,7 +312,7 @@ scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_res
 
 规则：
 
-- 挂载表不拥有目标 `file_system`，调用方需要保证目标生命周期。
+- 借用重载不拥有目标 `file_system`，调用方需要保证目标生命周期；另提供[拥有式挂载](#拥有式挂载)。
 - 虚拟路径使用 `/` 作为分隔符，开头的 `/` 会被忽略。
 - 常规物理根目录应放在目标 `file_system` 内，例如 `native_file_system{"D:/game/assets"}`。
 - `target_prefix` 只用于目标文件系统内部的子路径重映射，不应承担后端物理根目录职责。
@@ -324,3 +324,16 @@ scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_res
 - 目标路径语义仍由被挂载的具体文件系统决定。
 
 相关测试位于 `tests/io/`，测试组织规则见 [tests/README.md](../../tests/README.md)。
+
+## 拥有式挂载
+
+resolver 和 mount 均增加 `mount(prefix, shared_ptr<file_system>, target_prefix, lifetime)` 重载。
+挂载持有后端；`lifetime` 是可选的拥有式宿主凭据，例如模块 pin，其释放晚于本挂载持有的后端所有权。
+路由表扩容、删除、清空和销毁均遵循该顺序；空后端返回 invalid_argument，重复前缀返回 already_exists，
+不替换已有路由，也不继续持有被拒绝的候选。分配失败可抛出 bad_alloc，并保留已有挂载。
+
+调用方若在挂载之外独立持有后端，必须自行保证相应实现代码和 allocator 的寿命；
+路由器自身的 memory_resource 必须覆盖路由器及其内部控制块。
+不要用拥有式嵌套挂载形成 shared_ptr 强引用环；循环路由诊断和不可变快照仍在
+[v0.4.0 计划](../plans/asynchronous-vfs.md)实施中，当前重载不提供并发修改或异步访问保证。
+原 `mount(prefix, file_system&, target_prefix)` 的借用行为保持不变。
