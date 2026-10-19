@@ -13,9 +13,9 @@
 - 参与开发：[开发规范](guides/development.md) → [文档规范](../DOCUMENTATION_GUIDE.md) →
   [路线图](roadmap.md) → [相关计划](plans/README.md) → [测试组织](../tests/README.md)。
 
-## 当前版本规划
+## 当前版本
 
-下一目标为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，开发验收已完成，版本准备完成，待最终发布验收；
+当前版本为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，已发布 alpha 源码并完成公开下载复核；
 具体设计见[异步资源 loader 计划](plans/asynchronous-resource-loader.md)，实际 API 与验收状态分别由参考及执行记录维护。
 [v0.2.0](versions/v0.2.0.md) 的实现验收与发布状态继续由其版本页维护。
 

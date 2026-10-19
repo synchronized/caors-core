@@ -26,7 +26,7 @@
 
 ### v0.3.0 已完成开发验收
 
-- [异步资源 loader](asynchronous-resource-loader.md)：异步协议、默认调度与 asset_group 已完成实现和集成验收，尚未发布。
+- [异步资源 loader](asynchronous-resource-loader.md)：异步协议、默认调度与 asset_group 已完成实现和集成验收；公开状态见版本页。
 
 ### 待实施
 
