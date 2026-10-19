@@ -30,7 +30,8 @@ struct type_entry_ops {
   using request_load_fn = error (*)(void* cache, void* loader, void* requests, preload_item item,
                                     const tasks::executor& executor,
                                     const tasks::executor& completion_executor,
-                                    const std::shared_ptr<preload_request_state>& state);
+                                    const std::shared_ptr<preload_request_state>& state,
+                                    std::shared_ptr<void> activity);
   using resolve_fn = bool (*)(void* cache, void* reference);
   using is_current_fn = bool (*)(void* cache, const void* reference);
 

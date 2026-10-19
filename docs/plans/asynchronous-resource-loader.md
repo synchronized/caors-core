@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-状态：讨论中（开发前契约评审），纳入 [v0.3.0](../versions/v0.3.0.md)，尚未实现或验收。
+状态：待验收，纳入 [v0.3.0](../versions/v0.3.0.md)，实现与本机专项回归已完成，完整集成验收正在执行。
 目标为可延迟交付结果的加载协议，接入现有 resources/database 与 assets/asset_manager。
 版本范围和发布门槛由版本页维护；当前同步接口见[资源参考](../reference/resources.md)与[Assets 参考](../reference/assets.md)。
 
@@ -18,8 +18,8 @@
 ### 公共接口与注册
 
 新增独立异步 loader 协议，保留原同步 `loader<T>`，不要求所有已有实现重写。
-拟采用 `async_loader<T>`、启动上下文及 move-only 完成凭证；这些是待评审设计名字，当前仓库尚无这些 API。
-启动上下文携带 GUID、结果内存资源、进度/取消访问及必要的调度入口；精确签名在 AL-01 固定。
+采用 `async_loader<T>`、`async_load_context` 与 move-only `load_completion<T>`；
+精确当前协议由[资源参考](../reference/resources.md#原生异步-loader)及公共头维护。
 
 同一类型允许注册同步与异步能力。异步请求优先异步能力，只有同步 loader 时通过现有后台 executor 适配。
 启动被拒绝或运行失败不自动回退重试另一 loader，避免重复 I/O 和掩盖错误。
@@ -30,10 +30,10 @@
 
 在构造或运行期初始化 asset_manager 时传入默认 `worker` 与 `completion` executor，
 默认值属于运行期调度配置，不写入可序列化的 `project_config`。保留原构造方式，兼容仅使用同步入口的调用方。
-具体配置类型与构造/初始化签名在 AL-01 定稿；以下为拟议调用方式，不是当前已有 API：
+配置类型为 asset_execution_options，构造/初始化和 group 用法以[Assets 参考](../reference/assets.md#默认调度与-asset_group)为准。以下保留设计示例：
 
 ```cpp
-// 拟议用法：通过构造或初始化配置默认调度组合。
+// 通过构造或 set_execution_options 配置默认调度组合。
 auto request = assets.request_load<texture>(guid);
 
 // 特殊调度提前绑定到 group，后续请求不再重复传 executor。
@@ -66,8 +66,8 @@ auto special = group.request_load<texture>(guid);
 
 ### asset_group：复用调度组合的轻量入口
 
-拟新增 `assets::asset_group`，由 `asset_manager::create_group(worker, completion)` 创建。
-名称和精确签名在 AL-01 定稿；以下仅为拟议用法，当前仓库尚无这些 API：
+采用 `assets::asset_group`，由 `asset_manager::create_group(worker, completion)` 创建。
+当前接口的精确契约见 Assets 参考；设计用法如下：
 
 ```cpp
 auto group = assets.create_group(other_worker, other_completion);
@@ -93,7 +93,7 @@ manager 与依赖服务必须覆盖 group 全部访问及实际操作的寿命�
 请求保存所需调度快照，因此 group 先析构不会自动取消请求；宿主仍须清理实际 I/O 和回调。
 
 manager clear/重新 apply 配置使旧 group 失效：在 manager 仍存活时，旧 group 请求返回失败状态，不静默绑定新配置；
-重新配置后显式重建 group。配置代次和失效错误表达方式在 AL-01 固定。单纯更换默认调度不等于更换 runtime 配置，
+重新配置后显式重建 group。采用 database 配置代次检查，旧 group 返回 frozen。单纯更换默认调度不等于更换 runtime 配置，
 不能据此改变现有 group 的固定句柄。无效/已关闭的 group 调度组合不回退到 manager 默认值。
 completion 仍须运行在同一 cache 所属线程，创建 group 不迁移资源线程归属。
 
@@ -159,29 +159,29 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 
 ### AL-01：协议与寿命模型
 
-- [ ] 评审启动上下文、完成凭证与底层取消访问的精确签名，形成公共中文 Doxygen 契约。
-- [ ] 固定 asset_manager 运行期默认调度配置、兼容构造/初始化、asset_group 创建与转发接口，以及未配置/失效/重配错误。
-- [ ] 固定跨 group 共享操作的首次调度归属、manager 配置代次与旧 group 失效规则，明确非拥有寿命。
-- [ ] 实现启动拒绝、同步完成、延迟完成、完成凭证丢弃和恰好一次交付；确定重复交付防护与错误归属。
-- [ ] 固定结果/缓冲区/allocator/模块所有权、回调线程、无环持有与无异常模式支持边界。
+- [x] 评审启动上下文、完成凭证与底层取消访问的精确签名，形成公共中文 Doxygen 契约。
+- [x] 固定 asset_manager 运行期默认调度配置、兼容构造/初始化、asset_group 创建与转发接口，以及未配置/失效/重配错误。
+- [x] 固定跨 group 共享操作的首次调度归属、manager 配置代次与旧 group 失效规则，明确非拥有寿命。
+- [x] 实现启动拒绝、同步完成、延迟完成、完成凭证丢弃和恰好一次交付；确定重复交付防护与错误归属。
+- [x] 固定结果/缓冲区/allocator/模块所有权、回调线程、无环持有与无异常模式支持边界。
 
 ### AL-02：资源请求与 cache
 
-- [ ] 异步 load/reload 复用共享操作、独立订阅、进度与现有 coroutine 等待。
-- [ ] 同步 loader fallback 与异步优先路由，保持原同步入口；async-only 缓存未命中同步返回 unsupported。
-- [ ] 覆盖取消登记窗口、启动/完成竞态、cache 提交边界、失败时保留旧 reload 资源。
-- [ ] 完成 executor 拒绝/丢弃、内存分配失败及迟到结果均正确释放并收口。
+- [x] 异步 load/reload 复用共享操作、独立订阅、进度与现有 coroutine 等待。
+- [x] 同步 loader fallback 与异步优先路由，保持原同步入口；async-only 缓存未命中同步返回 unsupported。
+- [x] 覆盖取消登记窗口、启动/完成竞态、cache 提交边界、失败时保留旧 reload 资源。
+- [x] 完成 executor 拒绝/丢弃、内存分配失败及迟到结果均正确释放并收口。
 
 ### AL-03：database 与 asset_manager
 
-- [ ] 扩展类型擦除注册、manifest type/type_guid 绑定和冲突诊断，允许同步/异步能力并存。
-- [ ] 接通 asset_manager 类型工厂及 request_load/request_reload，保持已有同步工厂兼容。
-- [ ] 增加默认 worker/completion 配置和统一请求重载，覆盖加载、重载及两类预加载；保持原显式调度调用可用。
-- [ ] 实现 asset_group 的创建、复制/移动与请求转发；共享 manager/cache/请求表，按 runtime 配置代次拒绝旧 group 请求。
-- [ ] 不同 group 共享同一加载时保留首次调度组合，验证新订阅、独立取消及 cancel_shared 的跨组影响。
-- [ ] 请求固定发起时的调度快照，约束在途操作期间重配，明确空闲重配不迁移 cache 所属线程。
-- [ ] 支持同类型与跨类型 request_preload 的同步/异步混合依赖、共享加载与失败传播。
-- [ ] 明确重新配置/clear/销毁前的宿主清理步骤，覆盖真实在途 I/O 与回调的寿命。
+- [x] 扩展类型擦除注册、manifest type/type_guid 绑定和冲突诊断，允许同步/异步能力并存。
+- [x] 接通 asset_manager 类型工厂及 request_load/request_reload，保持已有同步工厂兼容。
+- [x] 增加默认 worker/completion 配置和统一请求重载，覆盖加载、重载及两类预加载；保持原显式调度调用可用。
+- [x] 实现 asset_group 的创建、复制/移动与请求转发；共享 manager/cache/请求表，按 runtime 配置代次拒绝旧 group 请求。
+- [x] 不同 group 共享同一加载时保留首次调度组合，验证新订阅、独立取消及 cancel_shared 的跨组影响。
+- [x] 请求固定发起时的调度快照，约束在途操作期间重配，明确空闲重配不迁移 cache 所属线程。
+- [x] 支持同类型与跨类型 request_preload 的同步/异步混合依赖、共享加载与失败传播。
+- [x] 明确重新配置/clear/销毁前的宿主清理步骤，覆盖真实在途 I/O 与回调的寿命。
 
 ### AL-04：验收、安装与文档
 
@@ -211,13 +211,12 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 
 确切编译器、CI SHA、测试次数与结果在实际执行后记录，本计划不预填已通过数据。
 
-## 实施前需收口的问题
+## 已收口的接口取舍
 
-以下均阻塞 AL-01 的接口定稿，不以讨论通过代替实现：
+- async_loader 继承同步 loader，默认同步入口返回 unsupported；注册槽区分同步/异步能力，共用 start 请求管线。
+- asset_execution_options 通过构造或 set_execution_options 初始化；asset_group 固定组合与 runtime 代次，不新增组级资源管理。
+- load_completion 的启动结算保留拒绝原因，complete 返回是否首次交付；std::stop_token 表达协作取消，宿主自行转发到 loop。
+- 完成凭证与拥有型进度通道共享真实操作 lease；manager 重配据此拒绝 frozen，直接 database 清空及析构仍遵守宿主清理前提。
+- 无异常只保留公共头编译支持，不承诺完整无异常运行矩阵；标准库 stop 状态系统分配单独说明。
 
-- 默认调度配置与 asset_group 的精确类型/签名、创建失败和配置代次失效的错误表达；如何检测可拒绝的在途重配，以及仅宿主可证明的实际 I/O 清理边界。
-- 启动上下文如何携带选定的默认或覆盖调度组合；异步 loader 如何把发起工作转交到所需宿主线程。
-- 底层取消句柄与完成凭证如何独立保活，避免取消回调重入和相互强引用；重复交付的诊断方式。
-- 完成凭证丢弃与同步启动拒绝如何优先保留准确错误，避免清理守卫提前覆盖拒绝原因。
-
-这些问题由开发前接口评审解决，不需要提前引入 libuv 或修改当前同步 API。
+实际验证、故障注入修复和尚待执行的完整矩阵见[v0.3.0 执行记录](../records/2026-10-19-v0.3.0-async-loader.md)。

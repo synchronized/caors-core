@@ -672,6 +672,9 @@ asset_manager::resolve_resource_source(const project_config& config,
 }
 
 error asset_manager::clear_config_runtime() {
+  if (database_.has_active_operations()) {
+    return {error_domain::resources, errc::frozen};
+  }
   for (auto position = file_systems_.begin(); position != file_systems_.end();) {
     if (position->second.config_created) {
       position = file_systems_.erase(position);
@@ -702,11 +705,13 @@ error asset_manager::clear_config_runtime() {
 error asset_manager::rebuild_manual_type_bindings() {
   for (const auto& pair : manual_type_bindings_) {
     const manual_type_binding& binding = pair.second;
-    if (binding.bind == nullptr || binding.cache == nullptr || binding.loader == nullptr) {
+    if (binding.bind == nullptr || binding.cache == nullptr ||
+        (binding.loader == nullptr && binding.async_loader == nullptr)) {
       return {error_domain::resources, errc::invalid_argument};
     }
 
-    const error status = binding.bind(*this, binding.cache, binding.loader, pair.first);
+    const error status =
+        binding.bind(*this, binding.cache, binding.loader, binding.async_loader, pair.first);
     if (status) {
       return status;
     }

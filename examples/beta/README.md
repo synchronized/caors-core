@@ -14,6 +14,7 @@
 3. `resource_reload.cpp`：验证已缓存资源的同步重载和失败保留旧资源语义。
 4. `asset_pipeline.cpp`：串起 `project_config -> VFS/provider -> asset_manager -> async preload -> resolve -> reload/save`。
 5. `config_schema.cpp`：展示 typed factory options 的校验入口。
+6. [assets_native_async.cpp](assets_native_async.cpp)：宿主延迟完成 loader、默认调度和 asset_group 共享请求；仅模拟 I/O 事件，不依赖 libuv。
 
 ## 主流程
 
@@ -40,4 +41,5 @@ cmake --build --preset windows-clang-debug --target caors_example_beta_assets_as
 cmake --build --preset windows-clang-debug --target caors_example_beta_resource_reload
 cmake --build --preset windows-clang-debug --target caors_example_beta_asset_pipeline
 cmake --build --preset windows-clang-debug --target caors_example_beta_config_schema
+cmake --build --preset windows-clang-debug --target caors_example_beta_assets_native_async
 ```

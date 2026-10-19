@@ -6,6 +6,12 @@
 
 #include "caors/resources/cache.h"
 #include "caors/result.h"
+#include "caors/tasks/executor.h"
+
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <stop_token>
 
 #include <string_view>
 #include <type_traits>
@@ -60,6 +66,162 @@ private:
   report_fn report_ = nullptr;
 };
 
+/** @brief 可跨异步边界保存的进度通道，持有上报所需状态。 */
+class load_progress final {
+public:
+  load_progress() = default;
+  /** @brief 持有状态并绑定 noexcept 回调；回调不能反向强持有本通道。 */
+  load_progress(std::shared_ptr<void> owner, progress_reporter::report_fn report) noexcept
+      : owner_(std::move(owner)), report_(report) {}
+  /** @brief 上报进度；允许并发，空通道无效果。 */
+  void report(double value, std::string_view stage = {}) const noexcept {
+    if (report_) {
+      report_(owner_.get(), {value, stage});
+    }
+  }
+
+private:
+  std::shared_ptr<void> owner_;
+  progress_reporter::report_fn report_ = nullptr;
+};
+
+/**
+ * @brief 异步加载的发起上下文，可按值保存到实际操作结束。
+ * @note resource 非拥有，必须覆盖结果和所有回调；worker 不拥有执行环境。
+ * stop 仅表示协作取消，宿主负责转发到其 loop 线程并清理迟到回调。
+ */
+struct async_load_context {
+  /** @brief 待加载资源的稳定身份。 */
+  resource_guid guid{};
+  /** @brief 非拥有结果资源，必须覆盖对象、控制块和回调的实际寿命。 */
+  memory_resource* resource = nullptr;
+  /** @brief 发起及解析任务的调度入口；执行环境由宿主持有。 */
+  tasks::executor worker{};
+  /** @brief 共享操作的协作取消信号，不表示底层 I/O 已经停止。 */
+  std::stop_token stop{};
+  /** @brief 可复制、拥有状态的进度通道，不能形成强引用环。 */
+  load_progress progress{};
+};
+
+namespace detail {
+template <typename T> struct load_completion_access;
+}
+
+/**
+ * @brief move-only 资源完成凭证；成功或错误只交付一次。
+ *
+ * 可同步完成或移交任意回调线程；同一对象的移动/销毁不得与成员调用并发。
+ * 接受操作后未交付即销毁，会报告 cancelled 失败。拒绝原因由启动返回值优先保留。
+ * 结果所有权传入 complete；重复交付返回 false，并在调用线程清理多余结果。
+ */
+template <typename T> class load_completion final {
+  struct state {
+    virtual ~state() = default;
+    virtual void deliver(load_result<T> value) noexcept = 0;
+    std::mutex mutex;
+    bool accepted = false;
+    bool submitted = false;
+    bool finished = false;
+    std::optional<load_result<T>> pending;
+
+    bool submit(load_result<T> value) noexcept {
+      {
+        std::lock_guard lock{mutex};
+        if (submitted || finished) {
+          return false;
+        }
+        submitted = true;
+        if (!accepted) {
+          pending.emplace(std::move(value));
+          return true;
+        }
+        finished = true;
+      }
+      deliver(std::move(value));
+      return true;
+    }
+    void resolve(error status) noexcept {
+      std::optional<load_result<T>> value;
+      {
+        std::lock_guard lock{mutex};
+        accepted = true;
+        if (finished) {
+          return;
+        }
+        if (status) {
+          finished = true;
+          value.emplace(load_result<T>{status, {}});
+        } else if (pending) {
+          finished = true;
+          value.emplace(std::move(*pending));
+        }
+      }
+      // pending 的资源析构与交付均在锁外，允许用户回调重入。
+      if (value) {
+        deliver(std::move(*value));
+      }
+    }
+  };
+  template <typename F> struct callback_state final : state {
+    explicit callback_state(F fn) : callback(std::move(fn)) {}
+    ~callback_state() override { this->pending.reset(); }
+    void deliver(load_result<T> value) noexcept override { callback(std::move(value)); }
+    F callback;
+  };
+  friend struct detail::load_completion_access<T>;
+
+public:
+  load_completion() = default;
+  load_completion(const load_completion&) = delete;
+  load_completion& operator=(const load_completion&) = delete;
+  load_completion(load_completion&& other) noexcept : state_(std::move(other.state_)) {}
+  load_completion& operator=(load_completion&& other) noexcept {
+    if (this != &other) {
+      abandon();
+      state_ = std::move(other.state_);
+    }
+    return *this;
+  }
+  ~load_completion() { abandon(); }
+  /** @brief 交付资源或错误；只能成功交付一次。空成功结果会归一化为 backend_failure。 */
+  [[nodiscard]] bool complete(load_result<T> value) const noexcept {
+    auto current = state_;
+    if (!current) {
+      return false;
+    }
+    if (!value.status && !value.value) {
+      value.status = {error_domain::resources, errc::backend_failure};
+    }
+    return current->submit(std::move(value));
+  }
+
+private:
+  void abandon() noexcept {
+    auto current = std::move(state_);
+    if (current) {
+      (void)current->submit({{error_domain::resources, errc::cancelled}, {}});
+    }
+  }
+  std::shared_ptr<state> state_;
+};
+
+namespace detail {
+template <typename T> struct load_completion_access {
+  template <typename F> static load_completion<T> make(memory_resource* resource, F fn) {
+    static_assert(std::is_nothrow_invocable_v<F&, load_result<T>>);
+    load_completion<T> result;
+    result.state_ = std::allocate_shared<typename load_completion<T>::template callback_state<F>>(
+        allocator<typename load_completion<T>::template callback_state<F>>{resource},
+        std::move(fn));
+    return result;
+  }
+  static auto receipt(const load_completion<T>& value) { return value.state_; }
+  template <typename State> static void resolve(const State& value, error status) noexcept {
+    value->resolve(status);
+  }
+};
+} // namespace detail
+
 /**
  * @brief 指定资源类型的加载器接口。
  *
@@ -95,6 +257,36 @@ public:
     (void)reporter;
     return load(guid, resource);
   }
+
+  /**
+   * @brief 在 worker 中发起加载；默认适配同步 load，已有实现无需修改。
+   * @note 覆盖实现接受后必须完成或销毁凭证；失败返回不得保留凭证或继续回调。
+   * context 可移动到宿主操作，禁止阻塞等待其 I/O；异常由请求入口转换为失败。
+   */
+  [[nodiscard]] virtual error start(async_load_context context, load_completion<T> completion) {
+    progress_reporter reporter{&context.progress, [](void* value, progress_update update) noexcept {
+                                 static_cast<load_progress*>(value)->report(update.value,
+                                                                            update.stage);
+                               }};
+    (void)completion.complete(load(context.guid, context.resource, reporter));
+    return {};
+  }
+};
+
+/**
+ * @brief 延迟交付资源的 loader 协议；与同步 loader 共用请求管线。
+ * @note 同步调用返回 unsupported。start 可在返回前完成，或将凭证移交宿主 I/O 回调。
+ * 此类型不创建线程、不拥有宿主 loop；实现对象和 allocator 必须覆盖全部操作及回调。
+ */
+template <typename T> class async_loader : public loader<T> {
+public:
+  /** @brief 原生异步实现不通过阻塞等待提供同步加载。 */
+  [[nodiscard]] load_result<T> load(resource_guid, memory_resource* = nullptr) override {
+    return {{error_domain::resources, errc::unsupported}, {}};
+  }
+  /** @brief 接受并异步交付资源，或立即返回拒绝原因；不得遗留未收口操作。 */
+  [[nodiscard]] virtual error start(async_load_context context,
+                                    load_completion<T> completion) override = 0;
 };
 
 /**

@@ -191,9 +191,8 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
 - `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
 - `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
-- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：分别接收后台 executor 和完成
-  executor；加载在后台执行，cache commit 在完成 executor 执行。需要手动 pump 时可显式传入
-  `execution_context::get_executor()`。
+- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度，也保留显式 worker/completion 重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
+- `create_group(worker, completion)`：创建复用固定调度组合的 asset_group，详见下节。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
 
@@ -207,6 +206,45 @@ auto result = co_await caors::resources::async_wait(request);
 ```
 
 Assets 不额外提供重复的 `async_load()` 包装；启动请求与等待保持两个可独立组合的步骤。
+
+### 默认调度与 asset_group
+
+运行期调度配置与可序列化 project_config 分开：
+
+```cpp
+caors::assets::asset_manager assets{
+    caors::assets::asset_execution_options{worker, main_executor}};
+auto request = assets.request_load<texture>(texture_id);
+
+auto group = assets.create_group(other_worker, other_completion);
+auto grouped = group.request_load<texture>(texture_id);
+auto reloaded = group.request_reload<texture>(texture_id);
+auto batch = group.request_preload(root_id);
+```
+
+原无调度配置的构造继续可用。set_execution_options() 可在所属线程初始化/修改默认值；
+实际操作未清理时返回 frozen，无效组合返回 invalid_argument。未配置默认值的便捷异步入口返回失败请求，
+不隐式创建线程池；同步接口、显式传参入口和显式创建的 group 仍可使用。
+manager/group 只保存 executor 句柄，不拥有线程或队列；completion 必须运行在 cache 所属线程。
+修改默认调度不迁移 cache 线程，也不会修改既有 group 的固定组合。
+
+| group 请求 | 行为 |
+| --- | --- |
+| request_load<T>(guid) | 获取单个资源，命中缓存直接完成，否则发起或订阅共享加载 |
+| request_reload<T>(guid) | 重新读取，成功替换缓存，失败保留旧资源 |
+| request_preload(root) / request_preload<T>(root) | 按已登记依赖图预加载跨类型/同类型闭包，复用缓存，不强制刷新 |
+
+group 关联同一 manager/cache/请求表，可复制或移动；复制不复制资源，析构不取消已发请求。
+manager 必须覆盖所有 group 访问及实际工作寿命，不保证 manager 销毁后 group 可访问。
+同一共享操作由首次请求确定实际调度，后续 group 的订阅不会重新选择 worker/completion；
+cancel() 只取消订阅，cancel_shared() 影响共享操作，group 不提供统一取消、批量等待或独立缓存。
+等待方需要特定恢复线程时应显式调度，不能假设一定在本 group 的 completion 恢复。
+
+build/build_detailed() 在实际操作仍活跃时拒绝重配，返回 frozen。完成凭证或进度通道未释放也计入实际操作；
+仅 request.done() 不足以证明安全。清空 database 类型绑定或重新 build 后，旧 group 返回 frozen，须重新创建；
+只修改默认调度不会使 group 失效。宿主仍须在 manager 析构前清理 I/O、队列、结果内存与模块 pin。
+原生异步协议、错误及取消细节以[资源 loader 参考](resources.md#原生异步-loader)为准。
+
 
 需要把 `asset_manager` 挂到 `serialization::context` 解析 `resource_ref<T>` 时，使用 adapter 自由函数：
 

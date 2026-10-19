@@ -15,12 +15,26 @@
 #include "caors/resources/preload.h"
 #include "caors/resources/source.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <type_traits>
 
 namespace caors::resources {
+namespace detail {
+struct resource_activity final {
+  std::atomic_size_t count{0};
+};
+struct resource_activity_lease final {
+  explicit resource_activity_lease(std::shared_ptr<resource_activity> value)
+      : owner(std::move(value)) {
+    owner->count.fetch_add(1, std::memory_order_relaxed);
+  }
+  ~resource_activity_lease() { owner->count.fetch_sub(1, std::memory_order_release); }
+  std::shared_ptr<resource_activity> owner;
+};
+} // namespace detail
 
 /**
  * @brief 资源系统的轻量编排入口。
@@ -33,6 +47,8 @@ class database final {
 public:
   explicit database(memory_resource* resource = nullptr)
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+        activity_(std::allocate_shared<detail::resource_activity>(
+            allocator<detail::resource_activity>{resource_})),
         entries_(typename entry_map::allocator_type{resource_}),
         entries_by_resource_type_(typename resource_type_map::allocator_type{resource_}),
         entries_by_type_guid_(typename type_guid_map::allocator_type{resource_}) {}
@@ -45,6 +61,12 @@ public:
   /** @brief 返回 database 内部索引使用的内存资源。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
 
+  /** @brief 查询排队、宿主 I/O 或完成提交是否仍持有实际操作。 */
+  [[nodiscard]] bool has_active_operations() const noexcept {
+    return activity_->count.load(std::memory_order_acquire) != 0;
+  }
+  /** @brief runtime 绑定代次；用于使重配前的加载上下文失效。 */
+  [[nodiscard]] std::uint64_t configuration_generation() const noexcept { return generation_; }
   /** @brief 设置当前清单视图。database 不拥有该对象。 */
   void set_manifest(const resources::manifest* value) noexcept { manifest_ = value; }
   void set_manifest(const resources::manifest& value) noexcept { set_manifest(&value); }
@@ -73,6 +95,7 @@ public:
    * manifest、provider 或 dependency graph 指针。
    */
   void clear_registered_types() noexcept {
+    ++generation_;
     entries_.clear();
     entries_by_resource_type_.clear();
     entries_by_type_guid_.clear();
@@ -172,6 +195,64 @@ public:
     return {};
   }
 
+  /** @brief 注册原生异步能力；不替换已有同步 loader。 */
+  template <typename T> [[nodiscard]] error register_loader(resources::async_loader<T>& source) {
+    type_entry* entry = nullptr;
+    if (auto status = ensure_entry<T>(entry)) {
+      return status;
+    }
+    auto* base = static_cast<resources::loader<T>*>(&source);
+    if (entry->async_loader && entry->async_loader != base) {
+      return {error_domain::resources, errc::already_exists};
+    }
+    entry->async_loader = base;
+    entry->ops.load = &load_in_cache<T>;
+    entry->ops.request_load = &request_load_in_cache<T>;
+    return {};
+  }
+  /** @brief 注册异步 loader 并绑定资源类型。 */
+  template <typename T>
+  [[nodiscard]] error register_loader(resources::async_loader<T>& source, core::string_name type) {
+    if (auto status = register_loader(source)) {
+      return status;
+    }
+    return bind_resource_type<T>(type);
+  }
+  /** @brief 注册异步 loader 并绑定资源类型。 */
+  template <typename T>
+  [[nodiscard]] error register_loader(resources::async_loader<T>& source, type_guid type) {
+    if (auto status = register_loader(source)) {
+      return status;
+    }
+    return bind_type_guid<T>(type);
+  }
+  /** @brief 注册 cache 与异步 loader。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& target,
+                                    resources::async_loader<T>& source) {
+    if (auto status = register_cache(target)) {
+      return status;
+    }
+    return register_loader(source);
+  }
+  /** @brief 注册 cache、异步 loader 及资源类型。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::async_loader<T>& source,
+                                    core::string_name type) {
+    if (auto status = register_type(target, source)) {
+      return status;
+    }
+    return bind_resource_type<T>(type);
+  }
+  /** @brief 注册 cache、异步 loader 及资源类型。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::async_loader<T>& source,
+                                    type_guid type) {
+    if (auto status = register_type(target, source)) {
+      return status;
+    }
+    return bind_type_guid<T>(type);
+  }
   /** @brief 注册某个资源类型的加载器，并绑定 manifest type。 */
   template <typename T>
   [[nodiscard]] error register_loader(resources::loader<T>& source,
@@ -334,10 +415,17 @@ public:
       return {{error_domain::resources, errc::not_found}, {}};
     }
 
-    if (entry->cache == nullptr || entry->loader == nullptr) {
+    if (entry->cache == nullptr || entry->request_loader() == nullptr) {
       return {{error_domain::resources, errc::not_found}, {}};
     }
 
+    auto& target = *static_cast<resources::cache<T>*>(entry->cache);
+    if (auto existing = target.find_handle(guid)) {
+      return {{}, std::move(existing)};
+    }
+    if (!entry->loader) {
+      return {{error_domain::resources, errc::unsupported}, {}};
+    }
     return resources::load_handle_into(*static_cast<resources::cache<T>*>(entry->cache),
                                        *static_cast<resources::loader<T>*>(entry->loader), guid);
   }
@@ -355,10 +443,13 @@ public:
       return {{error_domain::resources, errc::not_found}, {}};
     }
 
-    if (entry->cache == nullptr || entry->loader == nullptr) {
+    if (entry->cache == nullptr || entry->request_loader() == nullptr) {
       return {{error_domain::resources, errc::not_found}, {}};
     }
 
+    if (!entry->loader) {
+      return {{error_domain::resources, errc::unsupported}, {}};
+    }
     return resources::reload_handle_into(*static_cast<resources::cache<T>*>(entry->cache),
                                          *static_cast<resources::loader<T>*>(entry->loader), guid);
   }
@@ -455,7 +546,7 @@ public:
     }
 
     type_entry* entry = find_entry<T>();
-    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+    if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr) {
       result.status = {error_domain::resources, errc::not_found};
       for (const preload_item& item : result.plan.load_order) {
         detail::append_preload_failure(result, item, result.status);
@@ -466,7 +557,8 @@ public:
     for (const preload_item& item : result.plan.load_order) {
       handle_result<T> loaded = resources::load_handle_into(
           *static_cast<resources::cache<T>*>(entry->cache),
-          *static_cast<resources::loader<T>*>(entry->loader), item.guid);
+          *static_cast<resources::loader<T>*>(entry->loader ? entry->loader : entry->async_loader),
+          item.guid);
       if (loaded.failed()) {
         result.status = loaded.status;
         detail::append_preload_failure(result, item, loaded.status);
@@ -496,14 +588,15 @@ public:
 
     for (const preload_item& item : result.plan.load_order) {
       type_entry* entry = find_entry(item.type);
-      if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+      if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr ||
           entry->ops.load == nullptr) {
         result.status = {error_domain::resources, errc::not_found};
         detail::append_preload_failure(result, item, result.status);
         return result;
       }
 
-      const error status = entry->ops.load(entry->cache, entry->loader, item.guid);
+      const error status = entry->ops.load(
+          entry->cache, entry->loader ? entry->loader : entry->async_loader, item.guid);
       if (status) {
         result.status = status;
         detail::append_preload_failure(result, item, status);
@@ -521,7 +614,7 @@ public:
   [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor executor,
                                              tasks::executor completion_executor) {
     type_entry* entry = find_entry<T>();
-    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+    if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr) {
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
     }
 
@@ -530,9 +623,10 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
     }
 
-    return resources::request_load_into(*static_cast<resources::cache<T>*>(entry->cache),
-                                        *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                        executor, completion_executor, *requests);
+    return detail::request_load_into_impl(
+        *static_cast<resources::cache<T>*>(entry->cache),
+        *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
+        completion_executor, requests, true, {}, {}, make_activity());
   }
 
   /** @brief 异步重载资源，并通过指定执行目标替换对应 cache 绑定。 */
@@ -540,7 +634,7 @@ public:
   [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
                                                tasks::executor completion_executor) {
     type_entry* entry = find_entry<T>();
-    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+    if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr) {
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
     }
 
@@ -549,9 +643,10 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
     }
 
-    return resources::request_reload_into(*static_cast<resources::cache<T>*>(entry->cache),
-                                          *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                          executor, completion_executor, *requests);
+    return detail::request_reload_into_impl(
+        *static_cast<resources::cache<T>*>(entry->cache),
+        *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
+        completion_executor, requests, make_activity());
   }
 
   /**
@@ -574,7 +669,7 @@ public:
     }
 
     type_entry* entry = find_entry<T>();
-    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+    if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr ||
         entry->ops.request_load == nullptr) {
       detail::preload_request_access::fail_all_items(state,
                                                      {error_domain::resources, errc::not_found});
@@ -583,8 +678,8 @@ public:
 
     for (const preload_item& item : plan.load_order) {
       const error status =
-          entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
-                                  executor, completion_executor, state);
+          entry->ops.request_load(entry->cache, entry->request_loader(), entry->load_requests.get(),
+                                  item, executor, completion_executor, state, make_activity());
       if (status) {
         return request;
       }
@@ -609,7 +704,7 @@ public:
 
     for (const preload_item& item : plan.load_order) {
       type_entry* entry = find_entry(item.type);
-      if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+      if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr ||
           entry->ops.request_load == nullptr) {
         detail::preload_request_access::fail_item(state, item,
                                                   {error_domain::resources, errc::not_found});
@@ -617,8 +712,8 @@ public:
       }
 
       const error status =
-          entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
-                                  executor, completion_executor, state);
+          entry->ops.request_load(entry->cache, entry->request_loader(), entry->load_requests.get(),
+                                  item, executor, completion_executor, state, make_activity());
       if (status) {
         return request;
       }
@@ -692,6 +787,8 @@ private:
     core::string_name resource_type{};
     void* cache = nullptr;
     void* loader = nullptr;
+    void* async_loader = nullptr;
+    void* request_loader() const noexcept { return async_loader ? async_loader : loader; }
     std::shared_ptr<void> load_requests{};
     std::shared_ptr<void> reload_requests{};
     detail::type_entry_ops ops{};
@@ -871,7 +968,8 @@ private:
   [[nodiscard]] static error
   request_load_in_cache(void* cache, void* loader, void* requests, preload_item item,
                         const tasks::executor& executor, const tasks::executor& completion_executor,
-                        const std::shared_ptr<detail::preload_request_state>& state) {
+                        const std::shared_ptr<detail::preload_request_state>& state,
+                        std::shared_ptr<void> activity) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
     if (!item.guid) {
@@ -889,9 +987,11 @@ private:
     resources::load_request<T> request =
         request_table != nullptr
             ? detail::request_load_into_impl(target, source, item.guid, executor,
-                                             completion_executor, request_table, false, state, item)
+                                             completion_executor, request_table, false, state, item,
+                                             activity)
             : detail::request_load_into_impl<T>(target, source, item.guid, executor,
-                                                completion_executor, nullptr, false, state, item);
+                                                completion_executor, nullptr, false, state, item,
+                                                activity);
     if (!request) {
       const error status{error_domain::resources, errc::backend_failure};
       detail::preload_request_access::fail_item(state, item, status);
@@ -991,12 +1091,12 @@ private:
       return;
     }
 
-    if (entry == nullptr || entry->loader == nullptr || entry->ops.load == nullptr) {
+    if (entry == nullptr || entry->request_loader() == nullptr || entry->ops.load == nullptr) {
       plan.missing_loader.push_back(item);
     }
 
     if (entry != nullptr && entry->cache != nullptr && entry->ops.find != nullptr &&
-        entry->loader != nullptr && entry->ops.load != nullptr) {
+        entry->request_loader() != nullptr && entry->ops.load != nullptr) {
       plan.load_order.push_back(item);
     }
   }
@@ -1023,7 +1123,13 @@ private:
         typename dependency_graph::guid_list::allocator_type{resource_}};
   }
 
+  [[nodiscard]] std::shared_ptr<void> make_activity() {
+    return std::allocate_shared<detail::resource_activity_lease>(
+        allocator<detail::resource_activity_lease>{resource_}, activity_);
+  }
   memory_resource* resource_ = nullptr;
+  std::shared_ptr<detail::resource_activity> activity_;
+  std::uint64_t generation_ = 0;
   const resources::manifest* manifest_ = nullptr;
   resources::provider* provider_ = nullptr;
   resources::dependency_graph* dependency_graph_ = nullptr;

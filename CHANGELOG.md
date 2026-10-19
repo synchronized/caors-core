@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- 新增 async_loader、拥有型进度与 move-only 完成凭证，接入现有共享请求、独立取消和协程；支持宿主延迟 I/O，不引入 libuv 依赖。
+- asset_manager 可初始化默认 worker/completion，asset_group 复用特殊调度；实际操作清理前拒绝 runtime 重配，旧 group 在重配后失效。
+
 - CMake preset 默认动态库；静态库使用 `*-static-debug/release`，旧 `*-shared-*` 名称移除，原无前缀静态调用需迁移。
 - 常规 CI 精简为 Linux 5 组、Windows 3 组，补充 Windows workflow；Debug 等组合保留按需验证。
 

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/assets.h"
 #include "caors/resources.h"
 #include "caors/resources/coroutine.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
+#include <optional>
 
 #include <coroutine>
 #include <iostream>
@@ -31,6 +33,25 @@ public:
     loaded->value = 42;
     return {{}, std::move(loaded)};
   }
+};
+
+class native_loader final : public caors::resources::async_loader<consumer_resource> {
+public:
+  caors::error start(caors::resources::async_load_context value,
+                     caors::resources::load_completion<consumer_resource> token) override {
+    context.emplace(std::move(value));
+    completion = std::move(token);
+    return {};
+  }
+  void finish() {
+    auto token = std::move(completion);
+    auto value = caors::memory::make_unique<consumer_resource>(context->resource, context->guid);
+    value->value = 64;
+    context.reset();
+    (void)token.complete({{}, std::move(value)});
+  }
+  std::optional<caors::resources::async_load_context> context;
+  caors::resources::load_completion<consumer_resource> completion;
 };
 
 class probe_coroutine final {
@@ -92,6 +113,27 @@ int main() {
       cache.find(consumer_guid) != result.value.get()) {
     std::cerr << "CAORS installed resources coroutine consumer 失败\n";
     return 1;
+  }
+
+  native_loader native;
+  caors::assets::asset_manager assets{
+      {caors::tasks::inline_executor(), completion_context.get_executor()}};
+  if (assets.register_type(cache, native, caors::core::string_name{"consumer.native"})) {
+    return 2;
+  }
+  auto group =
+      assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
+  auto reload = group.request_reload<consumer_resource>(consumer_guid);
+  caors::resources::handle_result<consumer_resource> native_result;
+  probe_coroutine native_operation = wait_for_resource(reload, &native_result);
+  if (native_operation.done() || !native.context) {
+    return 3;
+  }
+  native.finish();
+  if (completion_context.drain() != 1 || !native_operation.done() || native_operation.failed() ||
+      native_result.failed() || native_result.value->value != 64 ||
+      assets.database().has_active_operations()) {
+    return 4;
   }
 
   std::cout << "CAORS installed resources coroutine consumer passed\n";
