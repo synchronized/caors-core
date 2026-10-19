@@ -55,3 +55,8 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
   或模块级 `find()` / `class_()` 入口；只有 capability 扩展、registry 管理或生命周期管理示例才直接展示
   类型级 capability、registry 或其他高级入口。
 - 复杂背景说明放到 `docs/` 对应主题文档中，不写进示例源码。
+
+## 动态库 preset
+
+不含 `static` 的 preset 现在构建动态库。直接启动示例前，按[Shared 运行时库](../docs/guides/build.md#shared-运行时库)
+配置动态库搜索路径；需要独立静态链接时使用对应的 `*-static-debug/release` preset。

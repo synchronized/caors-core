@@ -62,7 +62,7 @@ CAORS 是一个 C++20 基础设施库，目标能力包括自定义内存分配�
 ```powershell
 cmake --list-presets
 .\scripts\msvc.ps1 -Preset windows-msvc-debug
-.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
+.\scripts\msvc.ps1 -Preset windows-msvc-static-debug
 ```
 
 Ninja + MSVC 必须在已初始化的 Visual Studio 开发环境中运行。普通 PowerShell 中应使用上述
@@ -110,12 +110,13 @@ ctest --preset linux-clang-debug
    根据改动风险完成本机相关验证。
 6. 大型功能可以使用 `feature/<topic>` 作为临时集成分支，并从子分支合入；功能完整后再统一向
    `main` 创建 Pull Request。默认不建立长期 `develop` 分支。
-7. 完整 Linux CI 在以下时机运行：
+7. Linux/Windows 常规 CI（组合见 CI 策略）在以下时机运行：
    - 每周一北京时间 02:00 定时运行；
    - 大功能完工、关键里程碑或高风险改动准备合并时，通过 GitHub 或
      `gh workflow run linux.yml --ref <branch>` 手动运行。
 8. ABI、插件生命周期、内存管理、并发、序列化格式、构建系统或跨平台代码等高风险改动，合并前
-   应主动运行完整 CI；低风险局部修改可依据本机相关测试决定是否运行。纯文档变更不触发完整 CI。
+   先做相关专项验证；核心机制改变或关键批次完成时，合并前运行受影响平台的常规 CI。
+   不为每个中间提交重复运行矩阵；仅注释、纯文档或仅版本号调整按 CI 策略选择检查。
 9. 未经用户明确授权，不绕过失败检查或强制合并 Pull Request。
 10. 在总结中说明分支、提交、Pull Request、验证结果和剩余风险。
 

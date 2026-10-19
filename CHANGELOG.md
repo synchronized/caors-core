@@ -9,7 +9,8 @@
 
 ## Unreleased
 
-暂无。
+- CMake preset 默认动态库；静态库使用 `*-static-debug/release`，旧 `*-shared-*` 名称移除，原无前缀静态调用需迁移。
+- 常规 CI 精简为 Linux 5 组、Windows 3 组，补充 Windows workflow；Debug 等组合保留按需验证。
 
 ## v0.2.0 — 2026-10-19（候选，尚未发布）
 

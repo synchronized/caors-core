@@ -42,7 +42,7 @@ ctest --preset windows-clang-debug
 
 ```powershell
 .\scripts\msvc.ps1 -Preset windows-msvc-debug
-.\scripts\msvc.ps1 -Preset windows-msvc-shared-debug
+.\scripts\msvc.ps1 -Preset windows-msvc-static-debug
 ```
 
 不要在未初始化的普通终端中直接调用 `windows-msvc-*` preset；如果希望直接使用 CMake 命令，

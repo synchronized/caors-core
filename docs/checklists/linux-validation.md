@@ -23,39 +23,24 @@ ldd --version
 同时记录是否运行在容器或虚拟机中，以及可用内存和逻辑 CPU 数量。若构建发生 OOM，使用
 `cmake --build --preset <preset> -j 1` 重新验证，或从逻辑 CPU 数量的一半以下开始调整。
 
-## 基础矩阵
+## 常规矩阵
 
-逐项执行配置、构建和测试：
-
-```sh
-cmake --preset linux-clang-debug
-cmake --build --preset linux-clang-debug
-ctest --preset linux-clang-debug
-
-cmake --preset linux-clang-release
-cmake --build --preset linux-clang-release
-ctest --preset linux-clang-release
-
-cmake --preset linux-gcc-debug
-cmake --build --preset linux-gcc-debug
-ctest --preset linux-gcc-debug
-
-cmake --preset linux-gcc-release
-cmake --build --preset linux-gcc-release
-ctest --preset linux-gcc-release
-```
-
-## Shared 与插件矩阵
+组合以[CI 策略](../guides/ci.md#常规矩阵)为准。需要复现完整 Linux 常规 CI 时执行：
 
 ```sh
-cmake --preset linux-clang-shared-debug
-cmake --build --preset linux-clang-shared-debug
-ctest --preset linux-clang-shared-debug
-
-cmake --preset linux-clang-shared-release
-cmake --build --preset linux-clang-shared-release
-ctest --preset linux-clang-shared-release
+export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1:allocator_may_return_null=1
+export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
+for preset in linux-clang-release linux-gcc-release linux-clang-static-release linux-clang-asan linux-clang-ubsan; do
+  cmake --preset "$preset" &&
+  cmake --build --preset "$preset" &&
+  ctest --preset "$preset" --output-on-failure || exit 1
+done
 ```
+
+ASan 使用下节环境变量，UBSan 设置 `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`。
+只处理局部问题时选取相关配置；Debug 和其他静态组合按实际风险补充，不要求每次穷举。
+
+## 动态库与插件
 
 检查：
 
@@ -67,15 +52,15 @@ ctest --preset linux-clang-shared-release
 可使用以下命令检查测试发现结果：
 
 ```sh
-ctest --test-dir build/linux-clang-shared-debug --show-only
+ctest --test-dir build/linux-clang-debug --show-only
 ```
 
 ## AddressSanitizer
 
 ```sh
-cmake --preset linux-clang-shared-asan
-cmake --build --preset linux-clang-shared-asan
-ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-shared-asan
+cmake --preset linux-clang-asan
+cmake --build --preset linux-clang-asan
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-asan
 ```
 
 检查：
@@ -88,7 +73,7 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --preset linux-clang-shared-as
 Linux 下可抽查动态依赖：
 
 ```sh
-ldd build/linux-clang-shared-asan/tests/caors_tests
+ldd build/linux-clang-asan/tests/caors_tests
 ```
 
 实际测试可执行文件路径以当前构建目录为准。
@@ -96,7 +81,7 @@ ldd build/linux-clang-shared-asan/tests/caors_tests
 配置完成后可在构建前验证编译和链接规则是否完整传播 ASan：
 
 ```sh
-python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
+python3 scripts/verify_asan_coverage.py build/linux-clang-asan
 ```
 
 ## 独立压力验证
@@ -111,12 +96,12 @@ python3 scripts/verify_asan_coverage.py build/linux-clang-shared-asan
 本地可以使用等价命令：
 
 ```sh
-ctest --test-dir build/linux-clang-shared-asan \
+ctest --test-dir build/linux-clang-asan \
   --output-on-failure \
   --repeat until-fail:20 \
   -R '^(caors\.plugins\.(scope|protocol)|caors\.meta\.plugin_identity)$'
 
-ctest --test-dir build/linux-clang-shared-asan \
+ctest --test-dir build/linux-clang-asan \
   --output-on-failure \
   --repeat until-fail:10 \
   -R '^(caors\.memory\.|caors\.serialization\.messagepack$)'
