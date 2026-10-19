@@ -7,8 +7,9 @@
 单项任务的范围与状态由[计划索引](plans/README.md)指向的 Plan 维护，当前能力见
 [文档中心](README.md)，稳定性边界见[API 政策](reference/api-stability.md)。
 
-近期目标为 [v0.2.0：宿主集成与生命周期契约](versions/v0.2.0.md)，按构建与 ABI、资源寿命、
-共享请求与外部调度三批推进；详细范围与出口只由版本页维护。既有延期复验继续由原计划跟踪。
+近期目标为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，
+先评审异步协议与寿命，再接入资源请求和 Assets；详细范围与出口由版本页维护。
+[v0.2.0](versions/v0.2.0.md) 已完成实现验收，公开发布状态由其版本页维护，既有延期复验继续由原计划跟踪。
 以下其他候选方向尚不构成承诺排期，启动时再明确范围和验收。
 原有逐 API 完成清单归档到[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
 
@@ -59,7 +60,7 @@ JSON、MessagePack、codec 和 resolver 的现状及限制见[序列化参考](r
 当前资源、清单、provider/database 和 Assets 编排见[resources](reference/resources.md)、[assets](reference/assets.md)。
 Tasks/Resources 协程迁移和延期验证的状态见[计划索引](plans/README.md)。后续方向：
 
-- 资源包、远程资源、真正异步 loader/saver 后端。
+- 异步 loader 进入[下一版本计划](plans/asynchronous-resource-loader.md)；资源包、远程资源与异步 saver 仍为独立候选。
 - 跨 cache/version 的引用失效、弱引用和调试诊断策略。
 - 跨对象、场景和资源包的依赖图，以及 reload 影响范围计算。
 - 编辑器 file server 与 runtime remote file system，保持逻辑 URI 与具体后端解耦。
@@ -68,7 +69,7 @@ Tasks/Resources 协程迁移和延期验证的状态见[计划索引](plans/READ
 
 ## 7. 任务调度
 
-统一 context、轻量 executor 和协程请求等待已有迁移验收；内置后端正在[移除 Asio](plans/standard-thread-backends.md)，延期扩展验证见
+统一 context、轻量 executor 和协程请求等待已有迁移验收；内置后端已[移除 Asio](plans/standard-thread-backends.md)，延期扩展验证见
 [Tasks 计划](plans/asio-task-redesign.md)。当前 API 见[tasks](reference/tasks.md)。
 优先级、阻塞等待、取消传播、timer/超时、任务图、work stealing 和平台异步 I/O 作为独立需求评估。
 Task SBO、operation allocator 和批量调度仅在独立实验及真实负载证明收益后实施。

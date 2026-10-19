@@ -15,8 +15,9 @@
 
 ## 当前版本规划
 
-下一目标为 [v0.2.0：宿主集成与生命周期契约](versions/v0.2.0.md)，正在实施与验收；
-实施方案由[计划索引](plans/README.md)导航，规划内容不代表当前 API 已实现。
+下一目标为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，处于规划阶段；
+具体设计见[异步资源 loader 计划](plans/asynchronous-resource-loader.md)，规划不代表当前 API 已实现。
+[v0.2.0](versions/v0.2.0.md) 的实现验收与发布状态继续由其版本页维护。
 
 ## 分类入口
 
