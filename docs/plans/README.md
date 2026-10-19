@@ -30,8 +30,6 @@
 
 ### 进行中
 
-- [标准库调度后端](standard-thread-backends.md)：v0.2.0 范围调整，删除 Asio，验证内置队列与关闭协议。
-
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与
   性能验证计划；核心实现、Windows 全矩阵、Linux Clang/GCC/ASan 和代表性基准已完成，等待固定
   Linux 环境的 UBSan、正式性能复验与真实业务 workload。
@@ -53,6 +51,8 @@
   Linux Clang/GCC/ASan 验证已完成；固定 Linux 环境性能复验延期。
 
 ### 已完成
+
+- [标准库调度后端](standard-thread-backends.md)：删除 Asio；Windows 八组、Linux 完整 CI、重复回归和安装迁移通过。
 
 - Tasks 与 Resources：`asio-task-redesign`、`resource-coroutine-pipeline` 的迁移验收；
   固定环境性能复验等扩展验证见上方延期复验。

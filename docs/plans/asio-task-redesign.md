@@ -7,7 +7,7 @@
 
 ## 文档状态
 
-- 当前状态：阶段 0 到阶段 6 的迁移验收已完成；固定 Linux 环境正式性能复验延期，单独跟踪；
+- 当前状态：已取代。原阶段 0 到阶段 6 的迁移验收已完成，证据仅适用于旧后端；固定 Linux 环境正式性能复验仍为历史延期项；
 - 目标：引入固定版本的 standalone Asio，统一当前 `executor`、`completion_queue`、
   `thread_pool_executor` 的调度模型，并为 C++20 coroutine 提供可选适配；
 - 首批范围：依赖接入、execution context、轻量 executor、主线程 poll、线程池、现有 task/request

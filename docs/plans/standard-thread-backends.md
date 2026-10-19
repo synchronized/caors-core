@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-状态：实施中，纳入 [v0.2.0](../versions/v0.2.0.md)。按宿主集成需求删除 Asio，保留现有 executor 与外部适配协议。
+状态：已完成，纳入 [v0.2.0](../versions/v0.2.0.md)。按宿主集成需求删除 Asio，保留现有 executor 与外部适配协议。
 不引入 I/O、timer、work stealing 或任务图；旧 Asio 性能证据不能作为新后端性能结论。
 
 ## 设计与实施
@@ -22,4 +22,4 @@
 - context 快照、重入投递、耗尽/停止/重启、清空回调；pool drain/cancel、并发提交与关闭、异常隔离。
 - 请求丢弃终态、协程提前完成恢复、外部 executor 和资源异步组合回归。
 - Windows MSVC/Clang 静态/共享 Debug/Release、Linux 完整 CI 与 sanitizer、安装和迁移 consumer。
-- 真实结果写入[版本验收记录](../records/2026-10-19-v0.2.0-host-integration.md)，通过前不标记完成。
+- Windows 八组与 Linux 八组 CI 均通过，重复回归及安装迁移通过；实际结果见[版本验收记录](../records/2026-10-19-v0.2.0-host-integration.md)。
