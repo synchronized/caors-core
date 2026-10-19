@@ -26,6 +26,8 @@ int main(int argc, char** argv) {
   caors::benchmarks::benchmark_math(iterations);
   caors::benchmarks::benchmark_serialization(iterations);
   caors::benchmarks::benchmark_resources(iterations);
+  caors::benchmarks::benchmark_resource_coroutines(iterations);
+  caors::benchmarks::benchmark_task_coroutines(iterations);
   caors::benchmarks::benchmark_memory_pools(iterations);
   caors::benchmarks::print_allocation_samples();
 

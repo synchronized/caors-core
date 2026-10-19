@@ -6,6 +6,7 @@
 #include <catch2/catch_all.hpp>
 
 #include <array>
+#include <barrier>
 #include <cstdint>
 #include <thread>
 
@@ -113,15 +114,29 @@ TEST_CASE("memory - stack resource trim releases a large first chunk", "[memory]
 TEST_CASE("memory - library temporary resource is isolated per thread", "[memory][stack]") {
   caors::stack_resource* first = nullptr;
   caors::stack_resource* second = nullptr;
+  std::barrier ready{3};
+  std::barrier release{3};
 
-  std::thread first_thread{[&first] { first = &caors::library_temporary_resource(); }};
-  std::thread second_thread{[&second] { second = &caors::library_temporary_resource(); }};
+  std::thread first_thread{[&] {
+    first = &caors::library_temporary_resource();
+    ready.arrive_and_wait();
+    release.arrive_and_wait();
+  }};
+  std::thread second_thread{[&] {
+    second = &caors::library_temporary_resource();
+    ready.arrive_and_wait();
+    release.arrive_and_wait();
+  }};
+
+  ready.arrive_and_wait();
+
+  CHECK(first != nullptr);
+  CHECK(second != nullptr);
+  CHECK(first != second);
+
+  release.arrive_and_wait();
   first_thread.join();
   second_thread.join();
-
-  REQUIRE(first != nullptr);
-  REQUIRE(second != nullptr);
-  CHECK(first != second);
 }
 
 TEST_CASE("memory - thread local stack resource releases chunks at thread exit",

@@ -516,10 +516,10 @@ public:
     return result;
   }
 
-  /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
+  /** @brief 异步加载资源，并通过指定执行目标提交到对应 cache。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
-                                             tasks::completion_queue& completions) {
+  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor executor,
+                                             tasks::executor completion_executor) {
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
@@ -532,13 +532,13 @@ public:
 
     return resources::request_load_into(*static_cast<resources::cache<T>*>(entry->cache),
                                         *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                        executor, completions, *requests);
+                                        executor, completion_executor, *requests);
   }
 
-  /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
+  /** @brief 异步重载资源，并通过指定执行目标替换对应 cache 绑定。 */
   template <typename T>
-  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor& executor,
-                                               tasks::completion_queue& completions) {
+  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
+                                               tasks::executor completion_executor) {
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
@@ -551,18 +551,18 @@ public:
 
     return resources::request_reload_into(*static_cast<resources::cache<T>*>(entry->cache),
                                           *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                          executor, completions, *requests);
+                                          executor, completion_executor, *requests);
   }
 
   /**
    * @brief 按同一资源类型异步预加载依赖闭包。
    *
    * 该函数先生成 `plan_preload<T>()`，再把计划中的每个资源提交到 executor。后台任务只执行
-   * loader 阶段，cache 写入会延迟到 completion queue drain。
+   * loader 阶段，cache 写入会延迟到 completion executor 运行。
    */
   template <typename T>
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
-                                                tasks::completion_queue& completions) {
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
+                                                tasks::executor completion_executor) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
 
@@ -584,7 +584,7 @@ public:
     for (const preload_item& item : plan.load_order) {
       const error status =
           entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
-                                  executor, completions, state);
+                                  executor, completion_executor, state);
       if (status) {
         return request;
       }
@@ -598,8 +598,8 @@ public:
    *
    * 该重载要求 database 设置 manifest，并把每个资源项按 manifest type 分派到对应 cache/loader。
    */
-  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
-                                                tasks::completion_queue& completions) {
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor executor,
+                                                tasks::executor completion_executor) {
     preload_plan plan = plan_preload(root);
     preload_request request = preload_request::from_plan(plan, resource_);
     auto state = detail::preload_request_access::state(request);
@@ -618,7 +618,7 @@ public:
 
       const error status =
           entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
-                                  executor, completions, state);
+                                  executor, completion_executor, state);
       if (status) {
         return request;
       }
@@ -870,7 +870,7 @@ private:
   template <typename T>
   [[nodiscard]] static error
   request_load_in_cache(void* cache, void* loader, void* requests, preload_item item,
-                        tasks::executor& executor, tasks::completion_queue& completions,
+                        const tasks::executor& executor, const tasks::executor& completion_executor,
                         const std::shared_ptr<detail::preload_request_state>& state) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
@@ -888,10 +888,10 @@ private:
     auto* request_table = static_cast<resources::load_request_table<T>*>(requests);
     resources::load_request<T> request =
         request_table != nullptr
-            ? detail::request_load_into_impl(target, source, item.guid, executor, completions,
-                                             request_table, false, state, item)
-            : detail::request_load_into_impl<T>(target, source, item.guid, executor, completions,
-                                                nullptr, false, state, item);
+            ? detail::request_load_into_impl(target, source, item.guid, executor,
+                                             completion_executor, request_table, false, state, item)
+            : detail::request_load_into_impl<T>(target, source, item.guid, executor,
+                                                completion_executor, nullptr, false, state, item);
     if (!request) {
       const error status{error_domain::resources, errc::backend_failure};
       detail::preload_request_access::fail_item(state, item, status);

@@ -84,6 +84,10 @@ layer_call_guard::~layer_call_guard() {
   }
 }
 
+bool layer_call_guard::valid() const noexcept { return entered_; }
+
+layer_call_guard::operator bool() const noexcept { return valid(); }
+
 registry_snapshot::registry_snapshot(std::shared_ptr<registry_layer_state> primary)
     : layers_(core::vector<std::shared_ptr<registry_layer_state>>::allocator_type{
           primary != nullptr ? primary->state().resource : &memory::process_resource()}) {

@@ -220,8 +220,10 @@ cmake -S <consumer-source> -B <consumer-build> \
 cmake --build <consumer-build>
 ```
 
-`caors::caors` 会传递 C++20、头文件目录和 Static/Shared 所需编译定义。当前安装契约已通过独立
-consumer 验证版本 API、meta 注册与属性查询、JSON round trip，以及安装前缀移动后的重新配置。
+`caors::caors` 会传递 C++20、头文件目录和 Static/Shared 所需编译定义。当前安装契约通过三个独立
+consumer 分别验证基础 API 与序列化、核心 tasks、显式 coroutine 适配，并覆盖安装前缀移动后的
+重新配置。普通 consumer 不需要包含 `caors/tasks/asio.h`，安装导出也不暴露内部 standalone Asio
+target。
 Windows Clang 和 Linux Clang 的 Static/Shared Release 均已覆盖。
 
 ### Shared 运行时库
@@ -254,7 +256,8 @@ cmake \
 
 脚本会重新创建四个显式输出目录，执行 install、两轮独立 consumer configure/build/run，并检查
 迁移后的配置不引用旧前缀。为避免误删，所有输出目录必须是当前仓库 `build/` 下彼此不嵌套的具体
-子目录。
+子目录。consumer 当前覆盖基础库、tasks executor、tasks coroutine，以及通过公开 database 和双
+executor 实际加载资源的 resources coroutine API。
 
 常见问题：
 

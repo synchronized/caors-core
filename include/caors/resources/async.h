@@ -38,7 +38,7 @@ enum class request_status {
 
 /** @brief request poll/drain 辅助函数的结果。 */
 struct request_poll_result {
-  /** @brief 本次从 completion queue 执行的完成回调数量。 */
+  /** @brief 本次从完成执行环境执行的回调数量。 */
   std::size_t drained = 0;
   /** @brief 目标请求或请求集合是否已经进入终态。 */
   bool done = false;
@@ -49,12 +49,12 @@ template <typename T> class load_request_table;
 class preload_request;
 
 /**
- * @brief drain 一次 completion queue，并返回单个请求是否完成。
+ * @brief drain 一次完成执行环境，并返回单个请求是否完成。
  *
- * 该函数不阻塞等待后台线程，只执行调用时已经进入 completion queue 的回调。
+ * 该函数不阻塞等待后台线程，只执行调用时已经进入执行环境的回调。
  */
 template <typename Request>
-[[nodiscard]] request_poll_result poll_request(tasks::completion_queue& completions,
+[[nodiscard]] request_poll_result poll_request(tasks::execution_context& completions,
                                                const Request& request) {
   request_poll_result result;
   if (!request.done()) {
@@ -65,14 +65,14 @@ template <typename Request>
 }
 
 /**
- * @brief 持续 drain completion queue，直到单个请求完成或当前队列没有更多回调。
+ * @brief 持续 drain 完成执行环境，直到单个请求完成或当前没有更多回调。
  *
  * `max_drains` 限制最多执行多少轮 drain，用于测试或上层主循环避免一次处理过多回调。该函数不阻塞等待
  * 尚未入队的后台结果。
  */
 template <typename Request>
 [[nodiscard]] request_poll_result
-drain_until_done(tasks::completion_queue& completions, const Request& request,
+drain_until_done(tasks::execution_context& completions, const Request& request,
                  std::size_t max_drains = std::numeric_limits<std::size_t>::max()) {
   request_poll_result result;
   while (!request.done() && max_drains > 0) {
@@ -100,12 +100,12 @@ template <typename Requests> [[nodiscard]] bool all_requests_done(const Requests
 }
 
 /**
- * @brief drain 一次 completion queue，并返回请求集合是否全部完成。
+ * @brief drain 一次完成执行环境，并返回请求集合是否全部完成。
  *
  * 该函数适合跨帧轮询一批 `load_request<T>` 或 `preload_request`。
  */
 template <typename Requests>
-[[nodiscard]] request_poll_result poll_requests(tasks::completion_queue& completions,
+[[nodiscard]] request_poll_result poll_requests(tasks::execution_context& completions,
                                                 const Requests& requests) {
   request_poll_result result;
   if (!all_requests_done(requests)) {
@@ -116,13 +116,13 @@ template <typename Requests>
 }
 
 /**
- * @brief 持续 drain completion queue，直到请求集合全部完成或当前队列没有更多回调。
+ * @brief 持续 drain 完成执行环境，直到请求集合全部完成或当前没有更多回调。
  *
  * 该函数不等待后台线程把新回调放入队列；如果返回 `done == false`，调用方应在后续帧再次调用。
  */
 template <typename Requests>
 [[nodiscard]] request_poll_result
-drain_until_all_done(tasks::completion_queue& completions, const Requests& requests,
+drain_until_all_done(tasks::execution_context& completions, const Requests& requests,
                      std::size_t max_drains = std::numeric_limits<std::size_t>::max()) {
   request_poll_result result;
   while (!all_requests_done(requests) && max_drains > 0) {
@@ -143,6 +143,19 @@ namespace detail {
 template <typename T> class load_request_access;
 class preload_request_access;
 
+struct request_waiter {
+  std::shared_ptr<void> state;
+  void (*notify)(const std::shared_ptr<void>&) noexcept = nullptr;
+};
+
+inline void notify_request_waiters(core::vector<request_waiter>& waiters) noexcept {
+  for (request_waiter& waiter : waiters) {
+    if (waiter.notify != nullptr) {
+      waiter.notify(waiter.state);
+    }
+  }
+}
+
 [[nodiscard]] inline double clamp_progress(double value) noexcept {
   if (!(value >= 0.0)) {
     return 0.0;
@@ -156,7 +169,8 @@ class preload_request_access;
 struct preload_request_state {
   explicit preload_request_state(memory_resource* memory)
       : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource),
-        item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}) {}
+        item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}),
+        waiters(allocator<request_waiter>{resource}) {}
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
@@ -168,6 +182,7 @@ struct preload_request_state {
   std::size_t failed = 0;
   core::vector<double> item_progress;
   core::string progress_stage;
+  core::vector<request_waiter> waiters;
 };
 
 template <typename T>
@@ -206,7 +221,7 @@ template <typename T>
  * @brief 异步资源加载请求视图。
  *
  * `load_request<T>` 是可拷贝的轻量句柄，多个副本共享同一个线程安全状态。后台任务会把加载结果提交到
- * `tasks::completion_queue`，调用方在主线程 drain 后再通过 `status()`、`error()` 和 `try_get()`
+ * 指定 completion executor，调用方运行该执行环境后再通过 `status()`、`error()` 和 `try_get()`
  * 查询结果。
  */
 template <typename T> class load_request {
@@ -236,6 +251,11 @@ public:
   /** @brief 判断当前句柄是否引用一个请求状态。 */
   [[nodiscard]] bool valid() const noexcept { return state_ != nullptr; }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  /** @brief 返回请求共享状态使用的长期内存资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
 
   /** @brief 查询请求状态。空请求返回 `cancelled`。 */
   [[nodiscard]] request_status status() const {
@@ -277,7 +297,7 @@ public:
    * @brief 请求取消。
    *
    * 只有 queued/loading 状态可以取消。取消不会强制中断已经开始执行的 loader，但会阻止后续
-   * completion queue commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
+   * completion executor commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
    */
   [[nodiscard]] bool cancel() const {
     if (state_ == nullptr) {
@@ -369,7 +389,8 @@ private:
 
     explicit state_type(memory_resource* resource)
         : resource(resource), progress_stage(allocator<char>{resource}),
-          preload_observers(allocator<preload_observer>{resource}) {}
+          preload_observers(allocator<preload_observer>{resource}),
+          waiters(allocator<detail::request_waiter>{resource}) {}
 
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
@@ -380,6 +401,7 @@ private:
     core::string progress_stage;
     bool commit_unconditionally = false;
     core::vector<preload_observer> preload_observers;
+    core::vector<detail::request_waiter> waiters;
   };
 
   explicit load_request(std::shared_ptr<state_type> state) noexcept : state_(std::move(state)) {}
@@ -495,6 +517,11 @@ public:
   [[nodiscard]] bool valid() const noexcept { return state_ != nullptr; }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
+  /** @brief 返回请求共享状态使用的长期内存资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
+
   /** @brief 查询请求状态。空请求返回 `cancelled`。 */
   [[nodiscard]] request_status status() const {
     if (state_ == nullptr) {
@@ -534,7 +561,7 @@ public:
   /**
    * @brief 请求取消。
    *
-   * 取消不会强制中断已经开始执行的 loader，但会阻止后续 completion queue commit 写入 cache。
+   * 取消不会强制中断已经开始执行的 loader，但会阻止后续 completion executor commit 写入 cache。
    */
   [[nodiscard]] bool cancel() const;
 
@@ -712,16 +739,22 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return false;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return false;
+      }
+
+      state->status = request_status::loaded;
+      state->status_error = {};
+      state->value = std::move(value);
+      state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::loaded;
-    state->status_error = {};
-    state->value = std::move(value);
-    state->progress = 1.0;
+    notify_request_waiters(waiters);
     return true;
   }
 
@@ -734,17 +767,23 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->value = {};
+      state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->value = {};
-    state->progress = 1.0;
+    notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -754,6 +793,7 @@ public:
       return false;
     }
 
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
     {
       std::lock_guard lock{state->mutex};
       if (state->status != request_status::queued && state->status != request_status::loading) {
@@ -764,9 +804,26 @@ public:
       state->status_error = {error_domain::resources, errc::cancelled};
       state->value = {};
       state->progress = 1.0;
+      waiters.swap(state->waiters);
     }
 
+    notify_request_waiters(waiters);
     notify_preload_observers(state);
+    return true;
+  }
+
+  [[nodiscard]] static bool add_waiter(const std::shared_ptr<state_type>& state,
+                                       request_waiter waiter) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::loaded || state->status == request_status::failed ||
+        state->status == request_status::cancelled) {
+      return false;
+    }
+    state->waiters.push_back(std::move(waiter));
     return true;
   }
 
@@ -859,22 +916,28 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->result.loaded.push_back(item);
+      ++state->loaded;
+      if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+        state->item_progress[index] = 1.0;
+      }
+      if (state->loaded + state->failed >= state->total) {
+        state->status = request_status::loaded;
+        state->status_error = {};
+        state->result.status = {};
+        waiters.swap(state->waiters);
+      }
     }
 
-    state->result.loaded.push_back(item);
-    ++state->loaded;
-    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
-      state->item_progress[index] = 1.0;
-    }
-    if (state->loaded + state->failed >= state->total) {
-      state->status = request_status::loaded;
-      state->status_error = {};
-      state->result.status = {};
-    }
+    notify_request_waiters(waiters);
   }
 
   static void fail(const request_type& request, caors::error status) {
@@ -886,16 +949,22 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   static void fail_all_items(const std::shared_ptr<state_type>& state, caors::error status) {
@@ -903,24 +972,30 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      const caors::error failure =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      for (const preload_item& item : state->result.plan.load_order) {
+        append_preload_failure(state->result, item, failure);
+      }
+      state->failed = state->result.plan.load_order.size();
+      for (double& item_progress : state->item_progress) {
+        item_progress = 1.0;
+      }
+      state->status = request_status::failed;
+      state->status_error = failure;
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    const caors::error failure =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    for (const preload_item& item : state->result.plan.load_order) {
-      append_preload_failure(state->result, item, failure);
-    }
-    state->failed = state->result.plan.load_order.size();
-    for (double& item_progress : state->item_progress) {
-      item_progress = 1.0;
-    }
-    state->status = request_status::failed;
-    state->status_error = failure;
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   static void fail_item(const std::shared_ptr<state_type>& state, preload_item item,
@@ -929,23 +1004,29 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::failed ||
-        state->status == request_status::loaded) {
-      return;
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled || state->status == request_status::failed ||
+          state->status == request_status::loaded) {
+        return;
+      }
+
+      ++state->failed;
+      append_preload_failure(state->result, item,
+                             status ? status
+                                    : caors::error{error_domain::resources, errc::backend_failure});
+      if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+        state->item_progress[index] = 1.0;
+      }
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::resources, errc::backend_failure};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
     }
 
-    ++state->failed;
-    append_preload_failure(state->result, item,
-                           status ? status
-                                  : caors::error{error_domain::resources, errc::backend_failure});
-    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
-      state->item_progress[index] = 1.0;
-    }
-    state->status = request_status::failed;
-    state->status_error =
-        status ? status : caors::error{error_domain::resources, errc::backend_failure};
-    state->result.status = state->status_error;
+    notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -955,14 +1036,35 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status != request_status::queued && state->status != request_status::loading) {
+    core::vector<request_waiter> waiters{allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status != request_status::queued && state->status != request_status::loading) {
+        return false;
+      }
+
+      state->status = request_status::cancelled;
+      state->status_error = {error_domain::resources, errc::cancelled};
+      state->result.status = state->status_error;
+      waiters.swap(state->waiters);
+    }
+
+    notify_request_waiters(waiters);
+    return true;
+  }
+
+  [[nodiscard]] static bool add_waiter(const std::shared_ptr<state_type>& state,
+                                       request_waiter waiter) {
+    if (state == nullptr) {
       return false;
     }
 
-    state->status = request_status::cancelled;
-    state->status_error = {error_domain::resources, errc::cancelled};
-    state->result.status = state->status_error;
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::loaded || state->status == request_status::failed ||
+        state->status == request_status::cancelled) {
+      return false;
+    }
+    state->waiters.push_back(std::move(waiter));
     return true;
   }
 
@@ -1167,7 +1269,7 @@ namespace detail {
 
 template <typename T, typename StatePtr>
 void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
-                                 resource_guid guid, tasks::completion_queue& completions,
+                                 resource_guid guid, const tasks::executor& completion_executor,
                                  bool replace, load_request_table<T>* requests = nullptr,
                                  load_request<T> request = {}) {
   if (!load_request_access<T>::loading(state)) {
@@ -1212,7 +1314,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       return;
     }
 
-    error push_status = completions.push(tasks::task{
+    error push_status = completion_executor.post(tasks::task{
         target.resource(), [state, &target, guid, replace, requests, request,
                             loaded_resource = std::move(loaded.value)]() mutable {
           if (!load_request_access<T>::should_commit(state)) {
@@ -1263,7 +1365,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 template <typename T>
 [[nodiscard]] load_request<T>
 request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                       tasks::executor& executor, tasks::completion_queue& completions,
+                       const tasks::executor& executor, const tasks::executor& completion_executor,
                        load_request_table<T>* requests, bool commit_unconditionally = true,
                        std::shared_ptr<preload_request_state> preload_state = {},
                        preload_item preload_observer_item = {}) {
@@ -1300,11 +1402,11 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
     requests->store(guid, request);
   }
 
-  error submit_status = executor.submit(
-      tasks::task{target.resource(),
-                  [state, request, &target, &source, guid, &completions, requests]() mutable {
-                    load_resource_in_background(state, target, source, guid, completions, false,
-                                                requests, request);
+  error submit_status = executor.post(
+      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
+                                      requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completion_executor,
+                                                false, requests, request);
                   }});
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
@@ -1318,10 +1420,11 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
 }
 
 template <typename T>
-[[nodiscard]] load_request<T>
-request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                         tasks::executor& executor, tasks::completion_queue& completions,
-                         load_request_table<T>* requests) {
+[[nodiscard]] load_request<T> request_reload_into_impl(cache<T>& target, loader<T>& source,
+                                                       resource_guid guid,
+                                                       const tasks::executor& executor,
+                                                       const tasks::executor& completion_executor,
+                                                       load_request_table<T>* requests) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
@@ -1346,11 +1449,11 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
     requests->store(guid, request);
   }
 
-  error submit_status = executor.submit(
-      tasks::task{target.resource(),
-                  [state, request, &target, &source, guid, &completions, requests]() mutable {
-                    load_resource_in_background(state, target, source, guid, completions, true,
-                                                requests, request);
+  error submit_status = executor.post(
+      tasks::task{target.resource(), [state, request, &target, &source, guid, completion_executor,
+                                      requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completion_executor,
+                                                true, requests, request);
                   }});
   if (submit_status) {
     load_request_access<T>::fail(state, submit_status);
@@ -1365,16 +1468,16 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
 } // namespace detail
 
 /**
- * @brief 异步加载资源并在 completion queue 中提交到 cache。
+ * @brief 异步加载资源并通过指定执行目标提交到 cache。
  *
  * 已缓存资源会立即返回 loaded 请求。未缓存资源会在 executor 中调用 loader，随后把 cache
- * 插入动作投递到 completion queue；调用方应在主线程 drain completion queue。
+ * 插入动作投递到 completion executor；调用方负责在拥有该执行环境的线程运行它。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
-                                                resource_guid guid, tasks::executor& executor,
-                                                tasks::completion_queue& completions) {
-  return detail::request_load_into_impl<T>(target, source, guid, executor, completions,
+                                                resource_guid guid, tasks::executor executor,
+                                                tasks::executor completion_executor) {
+  return detail::request_load_into_impl<T>(target, source, guid, executor, completion_executor,
                                            static_cast<load_request_table<T>*>(nullptr));
 }
 
@@ -1382,23 +1485,23 @@ template <typename T>
  * @brief 异步加载资源并复用同 GUID 的进行中请求。
  */
 template <typename T>
-[[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
-                                                resource_guid guid, tasks::executor& executor,
-                                                tasks::completion_queue& completions,
-                                                load_request_table<T>& requests) {
-  return detail::request_load_into_impl(target, source, guid, executor, completions, &requests);
+[[nodiscard]] load_request<T>
+request_load_into(cache<T>& target, loader<T>& source, resource_guid guid, tasks::executor executor,
+                  tasks::executor completion_executor, load_request_table<T>& requests) {
+  return detail::request_load_into_impl(target, source, guid, executor, completion_executor,
+                                        &requests);
 }
 
 /**
- * @brief 异步重载资源并在 completion queue 中替换 cache 绑定。
+ * @brief 异步重载资源并通过指定执行目标替换 cache 绑定。
  *
  * cache 未包含该 GUID 时立即失败。加载或 commit 失败时旧资源保持不变。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
-                                                  resource_guid guid, tasks::executor& executor,
-                                                  tasks::completion_queue& completions) {
-  return detail::request_reload_into_impl<T>(target, source, guid, executor, completions,
+                                                  resource_guid guid, tasks::executor executor,
+                                                  tasks::executor completion_executor) {
+  return detail::request_reload_into_impl<T>(target, source, guid, executor, completion_executor,
                                              static_cast<load_request_table<T>*>(nullptr));
 }
 
@@ -1407,10 +1510,11 @@ template <typename T>
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
-                                                  resource_guid guid, tasks::executor& executor,
-                                                  tasks::completion_queue& completions,
+                                                  resource_guid guid, tasks::executor executor,
+                                                  tasks::executor completion_executor,
                                                   load_request_table<T>& requests) {
-  return detail::request_reload_into_impl(target, source, guid, executor, completions, &requests);
+  return detail::request_reload_into_impl(target, source, guid, executor, completion_executor,
+                                          &requests);
 }
 
 } // namespace caors::resources

@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 namespace caors::tasks {
 
@@ -31,14 +32,21 @@ enum class request_status {
 
 namespace detail {
 
+struct request_waiter {
+  std::shared_ptr<void> state;
+  void (*notify)(const std::shared_ptr<void>&) noexcept = nullptr;
+};
+
 struct request_state {
   explicit request_state(memory_resource* memory) noexcept
-      : resource(memory != nullptr ? memory : get_default_memory_resource()) {}
+      : resource(memory != nullptr ? memory : get_default_memory_resource()),
+        waiters(allocator<request_waiter>{resource}) {}
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
   request_status status = request_status::queued;
   caors::error status_error{};
+  std::vector<request_waiter, allocator<request_waiter>> waiters;
 };
 
 class request_access;
@@ -80,6 +88,11 @@ public:
 
   /** @brief 查询请求是否已经结束。 */
   [[nodiscard]] bool done() const;
+
+  /** @brief 查询共享状态使用的长期内存资源；空请求返回当前默认资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept {
+    return state_ != nullptr ? state_->resource : get_default_memory_resource();
+  }
 
   /** @brief 查询任务是否成功完成。 */
   [[nodiscard]] bool completed() const { return status() == request_status::completed; }
@@ -137,14 +150,21 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::completed ||
-        state->status == request_status::failed) {
-      return false;
+    std::vector<request_waiter, allocator<request_waiter>> waiters{
+        allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled ||
+          state->status == request_status::completed || state->status == request_status::failed) {
+        return false;
+      }
+
+      state->status = request_status::completed;
+      state->status_error = {};
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::completed;
-    state->status_error = {};
+    notify(waiters);
     return true;
   }
 
@@ -153,13 +173,22 @@ public:
       return;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::completed) {
-      return;
+    std::vector<request_waiter, allocator<request_waiter>> waiters{
+        allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status == request_status::cancelled ||
+          state->status == request_status::completed) {
+        return;
+      }
+
+      state->status = request_status::failed;
+      state->status_error =
+          status ? status : caors::error{error_domain::core, errc::backend_failure};
+      waiters.swap(state->waiters);
     }
 
-    state->status = request_status::failed;
-    state->status_error = status ? status : caors::error{error_domain::core, errc::backend_failure};
+    notify(waiters);
   }
 
   [[nodiscard]] static bool cancel(const std::shared_ptr<state_type>& state) {
@@ -167,14 +196,45 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status != request_status::queued && state->status != request_status::running) {
+    std::vector<request_waiter, allocator<request_waiter>> waiters{
+        allocator<request_waiter>{state->resource}};
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status != request_status::queued && state->status != request_status::running) {
+        return false;
+      }
+
+      state->status = request_status::cancelled;
+      state->status_error = {error_domain::core, errc::cancelled};
+      waiters.swap(state->waiters);
+    }
+
+    notify(waiters);
+    return true;
+  }
+
+  [[nodiscard]] static bool add_waiter(const std::shared_ptr<state_type>& state,
+                                       request_waiter waiter) {
+    if (state == nullptr) {
       return false;
     }
 
-    state->status = request_status::cancelled;
-    state->status_error = {error_domain::core, errc::cancelled};
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::completed || state->status == request_status::failed ||
+        state->status == request_status::cancelled) {
+      return false;
+    }
+    state->waiters.push_back(std::move(waiter));
     return true;
+  }
+
+private:
+  static void notify(std::vector<request_waiter, allocator<request_waiter>>& waiters) noexcept {
+    for (request_waiter& waiter : waiters) {
+      if (waiter.notify != nullptr) {
+        waiter.notify(waiter.state);
+      }
+    }
   }
 };
 
@@ -250,7 +310,7 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
  * 成功提交后返回 queued/running/completed 之一，具体取决于 executor 是否同步执行。提交失败时返回
  * failed request，错误来自 executor。任务返回错误时请求进入 failed；返回成功时进入 completed。
  */
-[[nodiscard]] inline request submit_request(executor& target, task next,
+[[nodiscard]] inline request submit_request(executor target, task next,
                                             memory_resource* resource = nullptr) {
   if (!next) {
     return request::make_failed({error_domain::core, errc::invalid_argument}, resource);
@@ -284,7 +344,7 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
 #endif
                }};
 
-  const error submit_status = target.submit(std::move(wrapped));
+  const error submit_status = target.post(std::move(wrapped));
   if (submit_status) {
     detail::request_access::fail(state, submit_status);
   }

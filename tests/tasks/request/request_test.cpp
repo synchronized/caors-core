@@ -8,35 +8,33 @@
 #include <catch2/catch_all.hpp>
 
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <stdexcept>
 
 namespace {
 
-class holding_executor final : public caors::tasks::executor {
+class holding_executor final {
 public:
-  [[nodiscard]] caors::error submit(caors::tasks::task next) override {
-    if (!next) {
+  holding_executor() : executor(context.get_executor()) {}
+
+  operator caors::tasks::executor() const noexcept { return executor; }
+
+  [[nodiscard]] caors::error run_once() {
+    if (context.poll_one() == 0) {
       return {caors::error_domain::core, caors::errc::invalid_argument};
     }
-
-    queued = std::move(next);
     return {};
   }
 
-  [[nodiscard]] caors::error run_once() {
-    if (!queued) {
-      return {caors::error_domain::core, caors::errc::invalid_argument};
-    }
-
-    return queued.run();
-  }
-
-  caors::tasks::task queued{};
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor;
 };
 
 } // namespace
 
 TEST_CASE("tasks - request reports completed inline task", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   int value = 0;
 
   caors::tasks::request request =
@@ -51,7 +49,7 @@ TEST_CASE("tasks - request reports completed inline task", "[tasks]") {
 }
 
 TEST_CASE("tasks - request reports callable errors", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
 
   caors::tasks::request request = caors::tasks::submit_request(
       executor, caors::tasks::task{[] {
@@ -66,17 +64,17 @@ TEST_CASE("tasks - request reports callable errors", "[tasks]") {
 }
 
 TEST_CASE("tasks - request reports invalid and rejected submissions", "[tasks]") {
-  caors::tasks::inline_executor inline_executor;
+  caors::tasks::executor inline_target = caors::tasks::inline_executor();
 
-  caors::tasks::request invalid =
-      caors::tasks::submit_request(inline_executor, caors::tasks::task{});
+  caors::tasks::request invalid = caors::tasks::submit_request(inline_target, caors::tasks::task{});
   CHECK(invalid.failed());
   CHECK(invalid.error() == caors::error{caors::error_domain::core, caors::errc::invalid_argument});
 
-  caors::tasks::thread_pool_executor pool{1};
+  caors::tasks::thread_pool pool{1};
   pool.shutdown();
 
-  caors::tasks::request rejected = caors::tasks::submit_request(pool, caors::tasks::task{[] {}});
+  caors::tasks::request rejected =
+      caors::tasks::submit_request(pool.get_executor(), caors::tasks::task{[] {}});
   CHECK(rejected.failed());
   CHECK(rejected.error() == caors::error{caors::error_domain::core, caors::errc::frozen});
 }
@@ -107,10 +105,11 @@ TEST_CASE("tasks - request observes thread pool completion", "[tasks]") {
   caors::tasks::request request;
 
   {
-    caors::tasks::thread_pool_executor executor{1};
-    request = caors::tasks::submit_request(executor, caors::tasks::task{[&] { value.store(11); }});
+    caors::tasks::thread_pool pool{1};
+    request = caors::tasks::submit_request(pool.get_executor(),
+                                           caors::tasks::task{[&] { value.store(11); }});
     REQUIRE(request);
-    executor.shutdown();
+    pool.shutdown();
   }
 
   CHECK(request.completed());
@@ -118,9 +117,90 @@ TEST_CASE("tasks - request observes thread pool completion", "[tasks]") {
   CHECK(value.load() == 11);
 }
 
+TEST_CASE("tasks - request copies observe the same state transitions", "[tasks]") {
+  holding_executor executor;
+  caors::tasks::request first = caors::tasks::submit_request(executor, caors::tasks::task{[] {}});
+  caors::tasks::request second = first;
+
+  CHECK(first.status() == caors::tasks::request_status::queued);
+  CHECK(second.status() == caors::tasks::request_status::queued);
+
+  REQUIRE_FALSE(executor.run_once());
+  CHECK(first.completed());
+  CHECK(second.completed());
+  CHECK_FALSE(first.result());
+  CHECK_FALSE(second.result());
+}
+
+TEST_CASE("tasks - cancelling a running request does not interrupt its callable", "[tasks]") {
+  caors::tasks::thread_pool pool{1};
+  std::mutex mutex;
+  std::condition_variable condition;
+  bool started = false;
+  bool release = false;
+  std::atomic<int> observed = 0;
+
+  caors::tasks::request request =
+      caors::tasks::submit_request(pool.get_executor(), caors::tasks::task{[&] {
+                                     std::unique_lock lock{mutex};
+                                     started = true;
+                                     condition.notify_all();
+                                     condition.wait(lock, [&] { return release; });
+                                     observed.fetch_add(1);
+                                   }});
+
+  {
+    std::unique_lock lock{mutex};
+    condition.wait(lock, [&] { return started; });
+  }
+  CHECK(request.status() == caors::tasks::request_status::running);
+  REQUIRE(request.cancel());
+  CHECK(request.cancelled());
+
+  {
+    std::lock_guard lock{mutex};
+    release = true;
+  }
+  condition.notify_all();
+  pool.shutdown();
+
+  CHECK(observed.load() == 1);
+  CHECK(request.cancelled());
+  CHECK(request.result() == caors::error{caors::error_domain::core, caors::errc::cancelled});
+}
+
+#if CAORS_HAS_EXCEPTIONS
+TEST_CASE("tasks - request converts callable exceptions to backend failure", "[tasks]") {
+  caors::tasks::executor executor = caors::tasks::inline_executor();
+  caors::tasks::request request = caors::tasks::submit_request(
+      executor, caors::tasks::task{[] { throw std::runtime_error{"任务失败"}; }});
+
+  CHECK(request.failed());
+  CHECK(request.error() == caors::error{caors::error_domain::core, caors::errc::backend_failure});
+  CHECK(request.result() == caors::error{caors::error_domain::core, caors::errc::backend_failure});
+}
+#endif
+
+TEST_CASE("tasks - request factories expose terminal and empty states", "[tasks]") {
+  caors::tasks::request empty;
+  CHECK_FALSE(empty.valid());
+  CHECK(empty.cancelled());
+  CHECK(empty.done());
+  CHECK(empty.error() == caors::error{caors::error_domain::core, caors::errc::invalid_argument});
+
+  caors::tasks::request completed = caors::tasks::request::make_completed();
+  CHECK(completed.completed());
+  CHECK_FALSE(completed.cancel());
+
+  caors::tasks::request failed = caors::tasks::request::make_failed({});
+  CHECK(failed.failed());
+  CHECK(failed.error() == caors::error{caors::error_domain::core, caors::errc::backend_failure});
+  CHECK_FALSE(failed.cancel());
+}
+
 TEST_CASE("tasks - request uses configured memory resource", "[tasks]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
 
   {
     caors::tasks::request request =
@@ -133,7 +213,7 @@ TEST_CASE("tasks - request uses configured memory resource", "[tasks]") {
 }
 
 TEST_CASE("tasks - request helpers are available from module namespace", "[tasks]") {
-  caors::tasks::inline_executor executor;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::request request = caors::tasks::submit_request(executor, caors::tasks::task{[] {}});
 
   CHECK(request.status() == caors::tasks::request_status::completed);

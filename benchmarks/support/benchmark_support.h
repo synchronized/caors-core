@@ -108,6 +108,8 @@ void benchmark_any(std::size_t iterations);
 void benchmark_math(std::size_t iterations);
 void benchmark_serialization(std::size_t iterations);
 void benchmark_resources(std::size_t iterations);
+void benchmark_resource_coroutines(std::size_t iterations);
+void benchmark_task_coroutines(std::size_t iterations);
 void benchmark_memory_pools(std::size_t iterations);
 void print_meta_wrapper_layout_samples();
 void print_meta_wrapper_registration_samples();

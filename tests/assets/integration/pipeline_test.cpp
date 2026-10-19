@@ -118,20 +118,20 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   CHECK(assets.provider().contains(test_guid_a));
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::tasks::inline_executor executor;
-  caors::tasks::completion_queue completions;
+  caors::tasks::executor executor = caors::tasks::inline_executor();
+  caors::tasks::execution_context completions;
 
   caors::resources::load_request<serialized_resource> direct =
-      assets.request_load<serialized_resource>(test_guid_a, executor, completions);
+      assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());
   caors::resources::preload_request preload =
-      assets.request_preload(test_guid_b, executor, completions);
+      assets.request_preload(test_guid_b, executor, completions.get_executor());
 
   REQUIRE(direct);
   REQUIRE(preload);
   CHECK(direct.status() == caors::resources::request_status::loading);
   CHECK(preload.total_count() == 2);
   CHECK(preload.pending_count() == 2);
-  CHECK(completions.size() == 2);
+  CHECK(completions.pending() == 2);
 
   CHECK(completions.drain() == 2);
   REQUIRE(direct.loaded());
@@ -151,7 +151,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(files->write_all("assets/resource-a.json", std::string_view{R"({"width":2048})"})
               .succeeded());
   caors::resources::load_request<serialized_resource> reloaded =
-      assets.request_reload<serialized_resource>(test_guid_a, executor, completions);
+      assets.request_reload<serialized_resource>(test_guid_a, executor, completions.get_executor());
   REQUIRE(reloaded);
   CHECK(completions.drain() == 1);
   REQUIRE(reloaded.loaded());

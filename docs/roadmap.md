@@ -444,10 +444,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `preload_request::progress()` 聚合底层 load request 的内部进度。
 - [x] 实现资源异步执行器和后台任务队列：后台阶段只做 provider 读取、loader 解码和资源对象构造，不直接修改
   `cache<T>`、manifest 或运行期对象状态。
-- [x] 实现主线程 commit 阶段：第一版通过 `tasks::completion_queue::drain()` 将已完成异步结果插入或替换 cache，
-  失败时保留旧资源；完成、失败和 reload 通知后续再接入 events/signal 或 dispatcher。
+- [x] 实现主线程 commit 阶段：通过调用方提供的 completion executor 将已完成异步结果插入或替换
+  cache，手动 pump 场景使用 `execution_context::drain()`；失败时保留旧资源。
 - [x] 提供 `resources::database::request_preload<T>()` / `request_preload()`，支持把依赖闭包提交为
-  `preload_request`，并在 completion queue 中按 cache 所属线程提交资源。
+  `preload_request`，并在 completion executor 所属线程提交资源。
 - [x] 设计并实现 database 级异步单资源请求合并和生命周期策略：同资源类型、同 GUID 的 direct
   load/reload 重复请求复用同一 request，已缓存资源可立即完成，取消、完成和失败后会从请求表移除。
 - [x] 扩展异步预加载内部请求合并：同类型同 GUID 的 direct load / preload load 复用同一请求，
@@ -490,13 +490,15 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 ## 7. 任务调度
 
-- [x] 建立 `tasks` 主题，第一阶段只依赖 C++20 STL，不引入第三方任务库。
-- [x] 定义最小 `tasks::executor` 抽象，用于资源异步加载、资源导入管线、后台序列化和跨线程事件投递等模块提交任务。
-- [x] 提供 `tasks::inline_executor`，用于测试和确定性执行；提交的任务在调用线程立即运行。
-- [x] 提供 `tasks::thread_pool_executor`，基于 `std::jthread` / `std::mutex` / `std::condition_variable_any`
-  实现固定线程池，支持安全停止和析构前 drain / cancel 边界。
+- [x] 引入仓库固定的 standalone Asio 私有后端，公共核心头不直接暴露 Asio 类型。
+- [x] 定义一个指针大小的 `tasks::executor` 句柄，用于资源异步加载、资源导入管线、后台序列化和
+  跨线程事件投递等模块提交任务。
+- [x] 提供 `tasks::inline_executor()`，用于测试和确定性执行；提交的任务在调用线程立即运行。
+- [x] 提供 `tasks::execution_context` 与基于 Asio 的 `tasks::thread_pool`，支持安全失效句柄、快照
+  poll 和析构前 drain / cancel 边界。
 - [x] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
-- [x] 提供 `tasks::completion_queue` 主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
+- [x] 让 `tasks::execution_context` 支持主线程 `drain()`，后台任务通过其 executor 把结果交回主线程
+  commit；删除重复的 `completion_queue` 兼容包装。
 - [x] 定义基础任务状态和结果语义，提供 `tasks::request` / `submit_request()`，覆盖
   queued/running/completed/failed/cancelled；进度、优先级、阻塞等待和取消传播后续再评估。
 - [x] 明确任务调度边界：第一阶段不做 work stealing、fiber、协程 scheduler、任务图和平台异步 IO；这些能力后续按需求评估。

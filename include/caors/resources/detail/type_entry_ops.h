@@ -11,7 +11,6 @@
 
 namespace caors::tasks {
 
-class completion_queue;
 class executor;
 
 } // namespace caors::tasks
@@ -29,7 +28,8 @@ struct type_entry_ops {
   using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
   using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
   using request_load_fn = error (*)(void* cache, void* loader, void* requests, preload_item item,
-                                    tasks::executor& executor, tasks::completion_queue& completions,
+                                    const tasks::executor& executor,
+                                    const tasks::executor& completion_executor,
                                     const std::shared_ptr<preload_request_state>& state);
   using resolve_fn = bool (*)(void* cache, void* reference);
   using is_current_fn = bool (*)(void* cache, const void* reference);

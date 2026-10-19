@@ -13,7 +13,7 @@
 namespace {
 
 [[nodiscard]] bool drain_until_done(
-    caors::tasks::completion_queue& completions,
+    caors::tasks::execution_context& completions,
     const caors::resources::load_request<caors::examples::beta::texture_resource>& load,
     const caors::resources::preload_request& preload) {
   for (int frame = 0; frame < 200 && (!load.done() || !preload.done()); ++frame) {
@@ -26,7 +26,7 @@ namespace {
 }
 
 [[nodiscard]] bool drain_until_done(
-    caors::tasks::completion_queue& completions,
+    caors::tasks::execution_context& completions,
     const caors::resources::load_request<caors::examples::beta::texture_resource>& request) {
   for (int frame = 0; frame < 200 && !request.done(); ++frame) {
     (void)completions.drain();
@@ -55,13 +55,14 @@ int main() {
     return 1;
   }
 
-  caors::tasks::thread_pool_executor executor{1};
-  caors::tasks::completion_queue completions;
+  caors::tasks::thread_pool pool{1};
+  caors::tasks::executor executor = pool.get_executor();
+  caors::tasks::execution_context completions;
 
   caors::resources::load_request<texture_resource> direct =
-      assets.request_load<texture_resource>(texture_guid, executor, completions);
+      assets.request_load<texture_resource>(texture_guid, executor, completions.get_executor());
   caors::resources::preload_request preload =
-      assets.request_preload(texture_guid, executor, completions);
+      assets.request_preload(texture_guid, executor, completions.get_executor());
 
   if (!drain_until_done(completions, direct, preload) || direct.failed() || preload.failed()) {
     std::cerr << "async load/preload pipeline failed\n";
@@ -82,7 +83,7 @@ int main() {
   }
 
   caors::resources::load_request<texture_resource> reload =
-      assets.request_reload<texture_resource>(texture_guid, executor, completions);
+      assets.request_reload<texture_resource>(texture_guid, executor, completions.get_executor());
   if (!drain_until_done(completions, reload) || reload.failed() || !reload.try_get()) {
     std::cerr << "async reload failed\n";
     return 1;

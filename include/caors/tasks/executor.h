@@ -5,27 +5,62 @@
 #define CAORS_TASKS_EXECUTOR_H_
 
 #include "caors/error.h"
+#include "caors/export.h"
 #include "caors/tasks/task.h"
+
+#include <utility>
 
 namespace caors::tasks {
 
-/**
- * @brief 任务提交抽象。
- *
- * executor 只描述“如何提交一个任务”，不规定线程模型、队列策略、取消语义或结果保存方式。
- */
-class executor {
-public:
-  executor() = default;
-  executor(const executor&) = delete;
-  executor& operator=(const executor&) = delete;
-  executor(executor&&) = delete;
-  executor& operator=(executor&&) = delete;
-  virtual ~executor() = default;
+namespace detail {
+struct executor_control_block;
+}
 
-  /** @brief 提交任务。空任务返回 `errc::invalid_argument`。 */
-  [[nodiscard]] virtual error submit(task next) = 0;
+class execution_context;
+class executor;
+/** @brief 返回在调用线程立即执行任务的轻量 executor。 */
+[[nodiscard]] CAORS_API executor inline_executor() noexcept;
+class thread_pool;
+
+/**
+ * @brief 可复制的轻量任务提交句柄。
+ *
+ * executor 不拥有具体线程或队列。关联的 context 销毁后句柄仍可安全访问，但 `post()` 会返回
+ * `errc::frozen`。复制和销毁句柄是线程安全的。
+ */
+class CAORS_API executor final {
+public:
+  constexpr executor() noexcept = default;
+  executor(const executor& other) noexcept;
+  executor& operator=(const executor& other) noexcept;
+  executor(executor&& other) noexcept;
+  executor& operator=(executor&& other) noexcept;
+  ~executor() noexcept;
+
+  /** @brief 投递任务。空任务返回 `errc::invalid_argument`。 */
+  [[nodiscard]] error post(task next) const;
+
+  /** @brief 判断句柄当前是否关联仍接受任务的执行环境。 */
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  /** @brief 查询执行环境的长期内存资源；空句柄返回当前默认资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept;
+
+  /** @brief 交换两个句柄。 */
+  void swap(executor& other) noexcept;
+
+private:
+  explicit executor(detail::executor_control_block* control, bool add_reference) noexcept;
+
+  detail::executor_control_block* control_ = nullptr;
+
+  friend class execution_context;
+  friend class thread_pool;
+  friend CAORS_API executor inline_executor() noexcept;
 };
+
+inline void swap(executor& lhs, executor& rhs) noexcept { lhs.swap(rhs); }
 
 } // namespace caors::tasks
 

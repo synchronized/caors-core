@@ -7,52 +7,60 @@
 
 #include <atomic>
 #include <catch2/catch_all.hpp>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 TEST_CASE("tasks - thread pool executor drains submitted tasks on shutdown", "[tasks]") {
   std::atomic<int> total = 0;
 
   {
-    caors::tasks::thread_pool_executor executor{2};
-    CHECK(executor.thread_count() == 2);
+    caors::tasks::thread_pool pool{2};
+    caors::tasks::executor executor = pool.get_executor();
+    CHECK(pool.thread_count() == 2);
 
     for (int index = 0; index < 32; ++index) {
-      CHECK_FALSE(executor.submit(caors::tasks::task{[&] { total.fetch_add(1); }}));
+      CHECK_FALSE(executor.post(caors::tasks::task{[&] { total.fetch_add(1); }}));
     }
 
-    executor.shutdown();
+    pool.shutdown();
   }
 
   CHECK(total.load() == 32);
 }
 
 TEST_CASE("tasks - thread pool executor reports invalid and frozen submissions", "[tasks]") {
-  caors::tasks::thread_pool_executor executor{1};
+  caors::tasks::thread_pool pool{1};
+  caors::tasks::executor executor = pool.get_executor();
 
-  CHECK(executor.submit(caors::tasks::task{}) ==
+  CHECK(executor.post(caors::tasks::task{}) ==
         caors::error{caors::error_domain::core, caors::errc::invalid_argument});
 
-  executor.shutdown();
+  pool.shutdown();
 
-  CHECK(executor.stopping());
-  CHECK(executor.submit(caors::tasks::task{[] {}}) ==
+  CHECK(pool.stopping());
+  CHECK(executor.post(caors::tasks::task{[] {}}) ==
         caors::error{caors::error_domain::core, caors::errc::frozen});
 }
 
-TEST_CASE("tasks - thread pool executor can post completions back to completion queue", "[tasks]") {
-  caors::tasks::completion_queue completions;
+TEST_CASE("tasks - thread pool executor can post back to execution context", "[tasks]") {
+  caors::tasks::execution_context completions;
+  caors::tasks::executor completion_executor = completions.get_executor();
   std::atomic<int> background_total = 0;
   int main_total = 0;
 
   {
-    caors::tasks::thread_pool_executor executor{2};
+    caors::tasks::thread_pool pool{2};
+    caors::tasks::executor executor = pool.get_executor();
     for (int index = 0; index < 8; ++index) {
-      CHECK_FALSE(executor.submit(caors::tasks::task{[&, index] {
+      CHECK_FALSE(executor.post(caors::tasks::task{[&, index] {
         background_total.fetch_add(index);
-        CHECK_FALSE(completions.push(caors::tasks::task{[&, index] { main_total += index; }}));
+        CHECK_FALSE(
+            completion_executor.post(caors::tasks::task{[&, index] { main_total += index; }}));
       }}));
     }
 
-    executor.shutdown();
+    pool.shutdown();
   }
 
   CHECK(background_total.load() == 28);
@@ -64,11 +72,12 @@ TEST_CASE("tasks - thread pool executor uses configured memory resource", "[task
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
 
   {
-    caors::tasks::thread_pool_executor executor{1, &tracking};
-    CHECK(executor.resource() == &tracking);
+    caors::tasks::thread_pool pool{1, &tracking};
+    caors::tasks::executor executor = pool.get_executor();
+    CHECK(pool.resource() == &tracking);
 
-    CHECK_FALSE(executor.submit(caors::tasks::task{&tracking, [] {}}));
-    executor.shutdown();
+    CHECK_FALSE(executor.post(caors::tasks::task{&tracking, [] {}}));
+    pool.shutdown();
   }
 
   CHECK(tracking.statistics().bytes_in_use == 0);
@@ -78,12 +87,66 @@ TEST_CASE("tasks - thread pool executor is available from module namespace", "[t
   std::atomic<int> value = 0;
 
   {
-    caors::tasks::thread_pool_executor executor{1};
-    caors::tasks::executor* base = &executor;
+    caors::tasks::thread_pool pool{1};
+    caors::tasks::executor base = pool.get_executor();
 
-    CHECK_FALSE(base->submit(caors::tasks::task{[&] { value.store(3); }}));
-    executor.shutdown();
+    CHECK_FALSE(base.post(caors::tasks::task{[&] { value.store(3); }}));
+    pool.shutdown();
   }
 
   CHECK(value.load() == 3);
+}
+
+TEST_CASE("tasks - thread pool cancel discards queued tasks", "[tasks]") {
+  caors::tasks::thread_pool pool{1};
+  caors::tasks::executor executor = pool.get_executor();
+  std::mutex mutex;
+  std::condition_variable condition;
+  bool started = false;
+  bool release = false;
+  std::atomic<int> executed = 0;
+
+  REQUIRE_FALSE(executor.post(caors::tasks::task{[&] {
+    std::unique_lock lock{mutex};
+    started = true;
+    condition.notify_all();
+    condition.wait(lock, [&] { return release; });
+    executed.fetch_add(1);
+  }}));
+
+  {
+    std::unique_lock lock{mutex};
+    condition.wait(lock, [&] { return started; });
+  }
+  for (int index = 0; index < 8; ++index) {
+    REQUIRE_FALSE(executor.post(caors::tasks::task{[&] { executed.fetch_add(1); }}));
+  }
+  CHECK(pool.pending() == 8);
+
+  std::jthread shutdown_thread{[&] { pool.shutdown(caors::tasks::shutdown_mode::cancel); }};
+  while (!pool.stopping()) {
+    std::this_thread::yield();
+  }
+  {
+    std::lock_guard lock{mutex};
+    release = true;
+  }
+  condition.notify_all();
+  shutdown_thread.join();
+
+  CHECK(executed.load() == 1);
+  CHECK(pool.pending() == 0);
+}
+
+TEST_CASE("tasks - thread pool executor remains safely invalid after pool destruction", "[tasks]") {
+  caors::tasks::executor executor;
+  {
+    caors::tasks::thread_pool pool{1};
+    executor = pool.get_executor();
+    CHECK(executor.valid());
+  }
+
+  CHECK_FALSE(executor.valid());
+  CHECK(executor.post(caors::tasks::task{[] {}}) ==
+        caors::error{caors::error_domain::core, caors::errc::frozen});
 }

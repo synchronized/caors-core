@@ -11,14 +11,14 @@ namespace {
 
 constexpr std::string_view service_id_text = "a331397a-60fd-43cc-8202-d772e3587373";
 
-class holding_executor final : public caors::tasks::executor {
+class holding_executor final {
 public:
-  [[nodiscard]] caors::error submit(caors::tasks::task next) override {
-    pending = std::move(next);
-    return {};
-  }
+  holding_executor() : executor(context.get_executor()) {}
 
-  caors::tasks::task pending{};
+  operator caors::tasks::executor() const noexcept { return executor; }
+
+  caors::tasks::execution_context context;
+  caors::tasks::executor executor;
 };
 
 } // namespace

@@ -5,7 +5,7 @@
 
 ## 文档状态
 
-- 当前状态：方案讨论与实施前基线；
+- 当前状态：阶段 0 到阶段 6 的迁移验收已完成；固定 Linux 环境正式性能复验延期，单独跟踪；
 - 目标：引入固定版本的 standalone Asio，统一当前 `executor`、`completion_queue`、
   `thread_pool_executor` 的调度模型，并为 C++20 coroutine 提供可选适配；
 - 首批范围：依赖接入、execution context、轻量 executor、主线程 poll、线程池、现有 task/request
@@ -298,67 +298,112 @@ Asio 的 concrete 类型放在 `.cpp` 私有实现或私有头中。核心公共
 
 ### 阶段 0：依赖与语义原型
 
-- [ ] 选定 standalone Asio 固定版本并记录许可证；
-- [ ] 比较仓库固定依赖与 `find_package`/获取方案，验证离线构建；
-- [ ] 建立唯一 `caors_asio_config` target 和配置宏；
-- [ ] 验证 MSVC/Clang/GCC、Static/Shared、异常开关和 C++20 coroutine 检测；
-- [ ] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
-- [ ] 原型比较 executor control block 的安全性、大小、分配和提交成本；
-- [ ] 明确 `poll()` 的快照批次语义和 Asio 原生行为差异；
-- [ ] 决定兼容迁移周期。
+- [x] 固定 standalone Asio `asio-1.38.2`，使用 Boost Software License 1.0；
+- [x] 选择仓库固定依赖，避免 `FetchContent` 首次配置联网；Asio 在核心库中保持私有；
+- [x] 建立唯一 `caors_asio_config` target，集中声明 `ASIO_STANDALONE`、
+  `ASIO_NO_DEPRECATED` 和 C++20；
+- [x] 验证 MSVC/Clang/GCC、Static/Shared 和 C++20 coroutine 检测；无异常模式通过
+  Windows Clang/MSVC 与 Linux Clang/GCC 的公共头编译探针验证，不等同于完整无异常运行矩阵；
+- [x] 验证安装包 consumer 不使用 coroutine 时不必包含 Asio 公共头；
+- [x] executor 使用一个指针大小的侵入式引用计数 control block；句柄可复制，context
+  销毁后句柄仍可安全判定失效，不采用公共虚基类或 `std::shared_ptr` 布局；
+- [x] `execution_context::poll()` 保留调用开始时的快照批次语义；Asio 原生 `poll()`
+  可能继续执行 handler 内重入投递的工作，因此实现不能直接无界转发；
+- [x] 项目仍处 beta，本分支直接迁移到轻量 executor；不长期维护两套调度实现。
+
+当前验证记录：
+
+- Windows Clang Static Debug：基础调度探针通过；
+- Windows MSVC Static Debug：基础调度探针通过；
+- Windows Clang Shared Debug：基础调度探针通过；
+- Windows Clang Shared Debug 安装包：原始前缀与迁移前缀 consumer 均通过，安装导出不依赖 Asio；
+- Windows Clang `-fno-exceptions` 已验证核心库、`asio.h` 独立包含以及当前 CAORS 原生 coroutine
+  适配可以编译；阶段 6 已补 Windows MSVC 和 Linux Clang/GCC 的 tasks/resources 无异常公共头
+  探针，完整无异常运行矩阵仍属于后续扩展验证。
+
+control block 由 context 指定的长期 `memory_resource` 分配，内部保存引用计数、提交状态和私有 Asio
+backend。`execution_context` 销毁时先关闭提交并销毁 backend；外部仍存活的 executor 只保留 control
+block，后续 `post()` 返回 `errc::frozen`。投递到 backend 的 handler 在完成或被销毁前持有内部引用，
+避免任务与 control block 的生命周期竞争。context 析构不与其自身的 `run/poll` 成员调用并发，这是
+对象生命周期层面的前置条件，而不是 executor 句柄的限制。
 
 ### 阶段 1：execution context 与 executor
 
-- [ ] 实现 `execution_context` 私有 Asio backend；
-- [ ] 实现可复制、安全失效的轻量 `executor`；
-- [ ] 实现 `post()`、`run/run_one`、`poll/poll_one`、`stop/restart`；
-- [ ] 实现明确的 `inline_executor()`；
-- [ ] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
-- [ ] 增加内存资源与无泄漏测试。
+- [x] 实现 `execution_context` 私有 Asio backend；
+- [x] 实现一个指针大小、可复制且可安全失效的轻量 `executor`；
+- [x] 实现 `post()`、`run/run_one`、快照 `poll/poll_one`、`stop/restart`；
+- [x] 实现明确返回轻量句柄的 `inline_executor()`；
+- [x] 覆盖空 executor、关闭后提交、嵌套提交和 context 析构后 executor 行为；
+- [x] 增加 control block 长期内存资源与无泄漏测试；Asio operation allocator 仍属于后续工作。
+
+生产实现与 `request/resources/assets` 已统一使用轻量 executor 的 `post()`，不再依赖 executor
+虚基类或线程池上的 `submit()` 转发。迁移期 `thread_pool_executor` 别名和 `inline_executor` 包装类
+已经删除。
 
 ### 阶段 2：线程池与 completion queue 迁移
 
-- [ ] 实现 `thread_pool` 并保持默认 drain 析构；
-- [ ] 定义并测试 `shutdown(drain/cancel)`；
-- [ ] 让 `completion_queue` 临时包装 `execution_context`；
-- [ ] 迁移 tests/examples 到统一 `post()` 接口；
-- [ ] 验证主线程每帧 `poll()` 和本轮新任务延后语义；
-- [ ] 移除旧独立队列/worker 实现，避免两套调度状态长期并存。
+- [x] 实现 `thread_pool` 并保持默认 drain 析构；
+- [x] 定义并测试 `shutdown(drain/cancel)`；
+- [x] 让 `completion_queue` 临时包装 `execution_context`；
+- [x] 迁移 tests/examples 到统一 `post()` 接口；
+- [x] 验证主线程每帧 `poll()` 和本轮新任务延后语义；
+- [x] 移除旧独立队列/worker 实现，避免两套调度状态长期并存。
 
 ### 阶段 3：task/request 适配
 
-- [ ] 让 `task` 可安全作为 Asio handler 提交；
-- [ ] 迁移 `submit_request()` 到轻量 executor；
-- [ ] 保持 queued/running/completed/failed/cancelled 行为；
-- [ ] 覆盖多个等待者、提交失败、handler 失败和协作取消；
-- [ ] 评估 task SBO，但只有独立 benchmark 证明收益后实施。
+- [x] 通过内部持有 control block 引用的 move-only handler 安全提交 `task`；
+- [x] 迁移 `submit_request()`、resources 与 assets 异步入口到按值轻量 executor 和 `post()`；
+- [x] 保持 queued/running/completed/failed/cancelled 行为；
+- [x] 覆盖多个共享观察者、提交失败、handler 失败和协作取消；
+- [x] 完成 callable 分配基线评估；当前保留每 callable 一次显式资源分配，不引入 task SBO。
+  SBO 容量与收益仍需后续独立对照实验，不作为本次迁移的验收条件。
 
 ### 阶段 4：C++20 coroutine 适配
 
-- [ ] 增加可选 `caors/tasks/asio.h`；
-- [ ] 实现并测试 `schedule(executor)` awaiter；
-- [ ] 提供顶层 spawn/helper，把异常和 Asio error 转为 CAORS 错误；
-- [ ] 为 request 增加非阻塞 coroutine wait；
-- [ ] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；
-- [ ] 明确无异常构建的支持级别；
-- [ ] 验证 coroutine frame 不使用同步 TLS scratch。
+- [x] 增加可选 `caors/tasks/asio.h`；
+- [x] 实现并测试 `schedule(executor)` awaiter；
+- [x] 提供顶层 `spawn()` 和 error-only `async_operation`，把逃逸异常转换为 CAORS 错误；
+- [x] 为 request 增加支持多个共享等待者的非阻塞 `async_wait()`；
+- [x] 覆盖 executor 切换、取消、context stop、异常与 frame 销毁；
+- [x] 明确无异常构建的支持级别：当前适配不依赖 Asio `awaitable`，业务失败通过 `caors::error`
+  传播；关闭异常后不提供逃逸异常转换，但 `schedule/spawn/async_wait` 仍可编译；
+- [x] 验证 coroutine frame 不使用同步 TLS scratch；frame 仍由编译器默认长期分配器管理，
+  `schedule` 和 `async_wait` 的辅助状态分别使用 executor 与 request 的长期资源。
 
 ### 阶段 5：调用方迁移和正式文档
 
-- [ ] 迁移 resources 当前 `executor + completion_queue` 调用点，但不在本阶段重设 assets API；
-- [ ] 更新 `docs/tasks.md` 和聚合头；
-- [ ] 更新 CMake 安装导出与独立 consumer；
-- [ ] 删除过期 API 或完成弃用标记；
-- [ ] 为后续 assets/resources coroutine 重构建立独立计划和基线。
+- [x] 将 resources 和 assets 异步入口统一为 background/completion 两个 executor；
+- [x] 更新 `docs/tasks.md`；coroutine 适配保持显式包含，不加入聚合头；
+- [x] 更新独立 consumer，覆盖基础 API、核心 tasks 和显式 coroutine 适配；安装导出继续保持 Asio 私有；
+- [x] 删除过期 `thread_pool_executor`、`inline_executor` 包装类和 `completion_queue` 兼容层；
+- [x] 为后续 assets/resources coroutine 重构建立独立计划和基线，见
+  `resource-coroutine-pipeline.md`。
 
 ### 阶段 6：性能与全矩阵验证
 
-- [ ] 基准比较旧/新 inline、主线程 post/poll 和 thread pool 提交；
-- [ ] 记录 task/request/context 的分配次数、吞吐和 p50/p95 延迟；
-- [ ] Windows Clang/MSVC Static/Shared Debug/Release；
-- [ ] Linux Clang/GCC Static/Shared、ASan；
-- [ ] 固定 Linux 环境补 UBSan；
-- [ ] 安装包 consumer 覆盖不使用 Asio、使用核心 tasks 和使用 coroutine adapter 三类场景。
+- [x] 基准比较旧/新 inline、主线程 post/drain 和 thread pool 往返；线程池场景包含屏障，
+  不将其解释为纯提交延迟或饱和吞吐；
+- [x] 记录 task/request/context 的显式资源分配、布局、采样吞吐和 p50/p95，结果见
+  `benchmarks/results/2026-10-19-windows-clang-task-scheduler.md`；协程等待数据见
+  `benchmarks/results/2026-08-07-windows-clang-task-coroutines.md`；
+- [x] Windows Clang/MSVC Static/Shared Debug/Release；2026-10-19 八组全量复验通过，
+  Static 各 86/86、Shared 各 88/88；MSVC Static Debug 使用干净构建；
+- [x] Linux Clang/GCC Static、Clang Shared、ASan；
+- [x] 在 Ubuntu 24.04 CI 补充 Clang Shared UBSan，并设置失败即停止；固定业务环境复验延期；
+- [x] 安装包 consumer 覆盖基础 API、核心 tasks、tasks coroutine 和 resources coroutine，
+  Windows Static Release / Shared Debug 原始与迁移前缀四类 consumer 全部通过。
+
+### 2026-10-19 收尾验收
+
+- [Linux 完整 CI](https://github.com/synchronized/caors-core/actions/runs/39194854028) 在
+  `73c0290` 全部通过：Clang/GCC Static Debug/Release、Clang Shared Debug/Release、Shared ASan
+  和 Shared UBSan；Static/Shared Release 安装包及迁移前缀验证也通过。
+- Windows 八组全量测试、Static/Shared 四类 installed consumer 和 Clang/MSVC 无异常公共头探针通过。
+  无异常探针只验证公共适配头的编译能力，不声明完整无异常运行矩阵已完成。
+- 新旧调度器的 Windows 同机对比已记录。当前空任务 post/drain 和线程池往返较旧实现慢，
+  本次迁移不承诺性能提升；应复用长期 context/pool，后续根据真实负载评估批量投递和 allocator。
+- 固定 Linux 环境的正式性能复验、真实业务负载和完整无异常运行矩阵继续作为延期扩展验证，
+  不以 CI runner 的耗时替代正式性能数据，不阻塞本次迁移验收。
 
 ## 验收标准
 
