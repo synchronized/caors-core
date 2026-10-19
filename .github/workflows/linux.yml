@@ -77,6 +77,13 @@ jobs:
           g++ -print-file-name=libstdc++.so
       - name: 配置
         run: cmake --preset "${{ matrix.preset }}"
+      - name: 验证无异常协程公共头
+        run: |
+          compiler=clang++
+          case "${{ matrix.preset }}" in linux-gcc-*) compiler=g++ ;; esac
+          for probe in tests/tasks/coroutine/no_exceptions_probe.cpp tests/resources/coroutine/no_exceptions_probe.cpp; do
+            "$compiler" -std=c++20 -fno-exceptions -DCAORS_FORCE_DISABLE_EXCEPTIONS -DCAORS_STATIC_DEFINE -I include -fsyntax-only "$probe"
+          done
       - name: 构建
         run: cmake --build --preset "${{ matrix.preset }}"
       - name: 测试
