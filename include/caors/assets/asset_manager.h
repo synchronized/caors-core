@@ -265,6 +265,14 @@ public:
   /** @brief 按配置名称绑定运行期 file_system。asset_manager 不拥有 file_system。 */
   [[nodiscard]] error bind_file_system(core::string_name name, io::file_system& file_system);
 
+  /** @brief 拥有式绑定后端及可选模块/宿主凭据；allocator 仍由宿主保证寿命。 */
+  [[nodiscard]] error bind_file_system(core::string_name name,
+                                       std::shared_ptr<io::file_system> file_system,
+                                       std::shared_ptr<void> lifetime = {});
+  /** @brief 查询拥有式后端；借用绑定或缺失返回空指针。 */
+  [[nodiscard]] std::shared_ptr<io::file_system>
+  find_owned_file_system(core::string_name name) const;
+
   /** @brief 解除 file_system 名称绑定。 */
   [[nodiscard]] bool unbind_file_system(core::string_name name);
 
@@ -567,6 +575,7 @@ private:
   using type_factory_map = core::hash_map<core::string_name, type_factory>;
 
   struct file_system_binding {
+    std::shared_ptr<io::file_system> owner;
     io::file_system* file_system = nullptr;
     bool config_created = false;
   };

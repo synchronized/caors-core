@@ -56,6 +56,11 @@ private:
 
 source::~source() = default;
 
+result<std::shared_ptr<io::file_system>>
+source::freeze_routes(io::detail::snapshot_context&) const {
+  return fail<std::shared_ptr<io::file_system>>({error_domain::resources, errc::unsupported});
+}
+
 io::input_stream_result source::open_read(io::location_view location, memory_resource* resource) {
   io::byte_buffer_result bytes = read(location, resource);
   if (bytes.failed()) {
@@ -85,6 +90,28 @@ io::output_stream_result source::open_write(io::location_view location, memory_r
 }
 
 file_source::file_source(io::file_system& file_system) noexcept : file_system_(&file_system) {}
+
+file_source::file_source(std::shared_ptr<io::file_system> file_system,
+                         std::shared_ptr<void> lifetime) {
+  struct held_file_system {
+    std::shared_ptr<void> lifetime;
+    std::shared_ptr<io::file_system> target;
+  };
+  if (file_system) {
+    auto held = std::make_shared<held_file_system>(
+        held_file_system{std::move(lifetime), std::move(file_system)});
+    owner_ = std::shared_ptr<io::file_system>{held, held->target.get()};
+    file_system_ = owner_.get();
+  }
+}
+
+result<std::shared_ptr<io::file_system>>
+file_source::freeze_routes(io::detail::snapshot_context& context) const {
+  if (!file_system_)
+    return fail<std::shared_ptr<io::file_system>>(
+        {error_domain::resources, errc::invalid_argument});
+  return context.capture(*file_system_, owner_);
+}
 
 io::file_system& file_source::file_system() const noexcept { return *file_system_; }
 
@@ -124,6 +151,34 @@ io::output_stream_result file_source::open_write(io::location_view location,
   }
 
   return file_system_->open_write(location, resource);
+}
+
+provider_snapshot::provider_snapshot(memory_resource* resource)
+    : locations_(typename location_map::allocator_type{resource}) {}
+
+result<io::resolved_file> provider_snapshot::resolve(resource_guid guid) const {
+  const auto found = locations_.find(guid);
+  if (found == locations_.end())
+    return fail<io::resolved_file>({error_domain::resources, errc::not_found});
+  const auto& entry = found->second;
+  if (entry.status)
+    return fail<io::resolved_file>(entry.status);
+  return io::detail::resolve_snapshot(entry.root, entry.location);
+}
+
+std::shared_ptr<const provider_snapshot> provider::snapshot() const {
+  auto result =
+      std::allocate_shared<provider_snapshot>(allocator<provider_snapshot>{resource_}, resource_);
+  io::detail::snapshot_context context;
+  for (const auto& [guid, binding] : locations_) {
+    auto root = binding.source->freeze_routes(context);
+    if (root && !root.value)
+      root.status = {error_domain::resources, errc::backend_failure};
+    provider_snapshot::entry entry{
+        std::move(root.value), io::path{io::path_view{binding.location}, resource_}, root.error()};
+    result->locations_.emplace(guid, std::move(entry));
+  }
+  return result;
 }
 
 provider::provider(memory_resource* resource)

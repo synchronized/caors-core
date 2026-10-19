@@ -1125,3 +1125,31 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 拒绝投递则保存 executor 的原始错误。通知发生在终态产生线程，协程恢复仍按指定 executor 投递。
 
 `preload_request` 每次调用生成独立聚合状态，底层单资源加载仍复用。调用方应保留聚合句柄直到结束；最后聚合句柄释放后，该聚合的预加载需求会被放弃，不影响其他仍有效订阅。
+
+
+## 加载来源快照
+
+`source::freeze_routes()` 是可选拥有式来源扩展；默认 unsupported。
+`file_source(shared_ptr<file_system>, lifetime)` 持有底层后端和宿主凭据；旧引用构造保留同步借用行为。
+引用构造可捕获内置路由根，但其全部边仍必须拥有后端；借用叶根无法变成安全异步来源。
+
+`provider.snapshot()` 复制 GUID/位置并冻结全部文件路由，结果独立于原 provider/source 和位置字符串。
+捕获时禁止并发修改 provider/source 配置；后续只读解析可跨线程。无法捕获的来源按条目保留失败，
+`provider_snapshot::resolve(guid)` 返回诊断，不隐式退回原借用 source。旧同步 loader 可继续使用原 provider。
+单次捕获共用嵌套路由节点；同步读取也可使用解析结果 backend/path，保持与异步读取相同来源。
+
+database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.sources`。
+预加载根和依赖共用一份快照；缓存命中和同 GUID 在途共享不重新选择来源，显式 reload 的新操作才捕获新状态。
+不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
+独立 `request_load_into` 没有 provider 时该字段为空；自定义 loader 需要快照时应检查并明确失败。
+旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
+内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
+读取 `context.sources` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
+
+内置 asset_manager 文件系统工厂和来源工厂提供拥有式后端，配置路由在挂载前检查循环。
+自定义 factory 可通过 `bind_file_system(name, shared_ptr<file_system>, lifetime)` 提供完整寿命；
+仅用 create_owned 返回裸指针并借用绑定，仍不足以让异步快照越过 manager 的生命周期。
+来源/allocator/模块的清理约束与 [IO 请求协议](io.md#请求取消与错误)一致，资源缓存本身不会因 remount 自动替换。
+
+目前每个新操作复制 provider 的全部 GUID 绑定，预加载批次仅复制一次；大规模索引的成本尚无吞吐保证。
+原生与显式同步 worker 适配的完整组合见 [异步 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。

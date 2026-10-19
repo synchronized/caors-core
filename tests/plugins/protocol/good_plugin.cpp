@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/adapters/stl.h"
+#include "caors/io/memory_file_system.h"
 #include "caors/object.h"
 #include "caors/plugins/abi.h"
 #include "caors/plugins/meta_registration.h"
@@ -105,8 +106,35 @@ struct unload_probe {
 };
 unload_probe resource_unload;
 void watch_resource_unload(int* count) { resource_unload.count = count; }
-const caors_native_resource_test_extension native_resource_extension{&create_native_resource,
-                                                                     &watch_resource_unload};
+class module_file_system final : public caors::io::file_system {
+public:
+  explicit module_file_system(int* destroyed) : destroyed_(destroyed) {
+    (void)files_.write_all("data", std::string_view{"module"});
+  }
+  ~module_file_system() override { ++*destroyed_; }
+  bool exists(caors::io::path_view path) const override { return files_.exists(path); }
+  caors::io::byte_buffer_result read_all(caors::io::path_view path,
+                                         caors::memory_resource* resource) override {
+    return files_.read_all(path, resource);
+  }
+  caors::error write_all(caors::io::path_view path, std::span<const std::byte> bytes) override {
+    return files_.write_all(path, bytes);
+  }
+  caors::io::io_error
+  start_open(caors::io::resolved_file location, caors::memory_resource* resource,
+             caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion) override {
+    return files_.start_open(std::move(location), resource, std::move(completion));
+  }
+
+private:
+  int* destroyed_;
+  caors::io::memory_file_system files_;
+};
+std::shared_ptr<caors::io::file_system> create_native_io(int* destroyed) {
+  return std::make_shared<module_file_system>(destroyed);
+}
+const caors_native_resource_test_extension native_resource_extension{
+    &create_native_resource, &watch_resource_unload, &create_native_io};
 
 plugin_reflected_type::~plugin_reflected_type() {
   instance.destructions.fetch_add(1, std::memory_order_relaxed);

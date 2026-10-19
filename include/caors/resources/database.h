@@ -632,7 +632,7 @@ public:
     return detail::request_load_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
-        completion_executor, requests, true, {}, {}, make_activity());
+        completion_executor, requests, true, {}, {}, make_activity(), {}, provider_);
   }
 
   /** @brief 异步重载资源，并通过指定执行目标替换对应 cache 绑定。 */
@@ -652,7 +652,7 @@ public:
     return detail::request_reload_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
-        completion_executor, requests, make_activity());
+        completion_executor, requests, make_activity(), {}, provider_);
   }
 
   /**
@@ -682,10 +682,11 @@ public:
       return request;
     }
 
+    auto sources = provider_ ? provider_->snapshot() : std::shared_ptr<const provider_snapshot>{};
     for (const preload_item& item : plan.load_order) {
-      const error status =
-          entry->ops.request_load(entry->cache, entry->request_loader(), entry->load_requests.get(),
-                                  item, executor, completion_executor, state, make_activity());
+      const error status = entry->ops.request_load(
+          entry->cache, entry->request_loader(), entry->load_requests.get(), item, executor,
+          completion_executor, state, make_activity(), sources);
       if (status) {
         return request;
       }
@@ -708,6 +709,7 @@ public:
       return request;
     }
 
+    auto sources = provider_ ? provider_->snapshot() : std::shared_ptr<const provider_snapshot>{};
     for (const preload_item& item : plan.load_order) {
       type_entry* entry = find_entry(item.type);
       if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr ||
@@ -717,9 +719,9 @@ public:
         return request;
       }
 
-      const error status =
-          entry->ops.request_load(entry->cache, entry->request_loader(), entry->load_requests.get(),
-                                  item, executor, completion_executor, state, make_activity());
+      const error status = entry->ops.request_load(
+          entry->cache, entry->request_loader(), entry->load_requests.get(), item, executor,
+          completion_executor, state, make_activity(), sources);
       if (status) {
         return request;
       }
@@ -975,7 +977,8 @@ private:
   request_load_in_cache(void* cache, void* loader, void* requests, preload_item item,
                         const tasks::executor& executor, const tasks::executor& completion_executor,
                         const std::shared_ptr<detail::preload_request_state>& state,
-                        std::shared_ptr<void> activity) {
+                        std::shared_ptr<void> activity,
+                        std::shared_ptr<const provider_snapshot> sources) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
     if (!item.guid) {
@@ -994,10 +997,10 @@ private:
         request_table != nullptr
             ? detail::request_load_into_impl(target, source, item.guid, executor,
                                              completion_executor, request_table, false, state, item,
-                                             activity)
+                                             activity, sources)
             : detail::request_load_into_impl<T>(target, source, item.guid, executor,
                                                 completion_executor, nullptr, false, state, item,
-                                                activity);
+                                                activity, sources);
     if (!request) {
       const error status{error_domain::resources, errc::backend_failure};
       detail::preload_request_access::fail_item(state, item, status);

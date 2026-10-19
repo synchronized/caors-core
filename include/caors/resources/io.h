@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_IO_H_
 
 #include "caors/resources/cache.h"
+#include "caors/resources/source.h"
 #include "caors/result.h"
 #include "caors/tasks/executor.h"
 
@@ -101,6 +102,8 @@ struct async_load_context {
   std::stop_token stop{};
   /** @brief 可复制、拥有状态的进度通道，不能形成强引用环。 */
   load_progress progress{};
+  /** @brief 同次加载及依赖共享的来源快照；无 provider 的独立调用为空，旧 loader 可忽略。 */
+  std::shared_ptr<const provider_snapshot> sources{};
 };
 
 namespace detail {

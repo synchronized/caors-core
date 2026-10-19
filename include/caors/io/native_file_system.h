@@ -25,6 +25,10 @@ public:
   /** @brief 设置本地文件系统根目录。root 不会按虚拟路径规则规范化。 */
   void set_root(path_view root);
 
+  /** @brief 打开独立随机读取句柄，不经 read_all 回退；句柄持有打开时的长度。 */
+  [[nodiscard]] io_result<std::shared_ptr<random_access_reader>>
+  open_random_read(path_view path, memory_resource* result_resource = nullptr) override;
+
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] file_system_capabilities capabilities() const noexcept override;
   [[nodiscard]] file_status_result status(path_view path) const override;

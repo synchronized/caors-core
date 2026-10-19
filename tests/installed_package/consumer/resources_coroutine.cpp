@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets.h"
+#include "caors/io.h"
 #include "caors/resources.h"
 #include "caors/resources/coroutine.h"
 #include "caors/tasks/execution_context.h"
@@ -46,7 +47,22 @@ public:
   void finish() {
     auto token = std::move(completion);
     auto value = caors::memory::make_unique<consumer_resource>(context->resource, context->guid);
-    value->value = 64;
+    value->value = -1;
+    auto file = context->sources ? context->sources->resolve(context->guid)
+                                 : caors::fail<caors::io::resolved_file>(
+                                       {caors::error_domain::io, caors::errc::unsupported});
+    if (file) {
+      auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
+      if (opened && opened->result() && *opened->result()) {
+        auto stream = opened->result()->value;
+        auto read = caors::io::request_read(stream, 0, 1, 1, caors::tasks::inline_executor());
+        if (read && read->result() && *read->result())
+          value->value = std::to_integer<int>(read->result()->value[0]);
+        auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
+        if (!closed || !closed->result() || !*closed->result())
+          value->value = -2;
+      }
+    }
     context.reset();
     (void)token.complete({{}, std::move(value)});
   }
@@ -121,6 +137,13 @@ int main() {
   if (assets.register_type(cache, native, caors::core::string_name{"consumer.native"})) {
     return 2;
   }
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  const std::byte payload[]{std::byte{64}};
+  if (files->write_all("data", payload))
+    return 5;
+  caors::resources::file_source source{files};
+  if (assets.provider().bind(consumer_guid, source, "data"))
+    return 6;
   auto group =
       assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
   auto reload = group.request_reload<consumer_resource>(consumer_guid);
@@ -129,6 +152,8 @@ int main() {
   if (native_operation.done() || !native.context) {
     return 3;
   }
+  assets.provider().clear();
+  files.reset();
   native.finish();
   if (completion_context.drain() != 1 || !native_operation.done() || native_operation.failed() ||
       native_result.failed() || native_result.value->value != 64 ||

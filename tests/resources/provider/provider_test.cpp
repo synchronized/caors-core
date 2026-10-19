@@ -298,3 +298,45 @@ TEST_CASE("resources - provider writes bytes through file source", "[resources]"
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "streamed-bytes");
 }
+
+TEST_CASE("resources - source snapshot owns strings and root lifetime independently",
+          "[resources][vfs]") {
+  std::weak_ptr<int> pin;
+  std::shared_ptr<const caors::resources::provider_snapshot> snapshot;
+  {
+    auto lifetime = std::make_shared<int>(42);
+    pin = lifetime;
+    auto fs = std::make_shared<caors::io::memory_file_system>();
+    REQUIRE_FALSE(fs->write_all("data", std::string_view{"owned"}));
+    caors::resources::file_source source{fs, lifetime};
+    caors::resources::provider provider;
+    std::string location = "data";
+    REQUIRE_FALSE(provider.bind(test_guid_a, source, location));
+    snapshot = provider.snapshot();
+    location.assign("changed");
+    provider.clear();
+  }
+  REQUIRE_FALSE(pin.expired());
+  auto file = snapshot->resolve(test_guid_a);
+  REQUIRE(file);
+  snapshot.reset();
+  CHECK_FALSE(pin.expired());
+  CHECK(file->path.string_view() == "data");
+  auto bytes = file->backend->read_all(file->path);
+  REQUIRE(bytes);
+  CHECK(bytes_to_string(*bytes) == "owned");
+  file = caors::fail<caors::io::resolved_file>(
+      {caors::error_domain::resources, caors::errc::cancelled});
+  CHECK(pin.expired());
+}
+TEST_CASE("resources - borrowed leaf snapshot fails explicitly while synchronous read remains",
+          "[resources][vfs]") {
+  caors::io::memory_file_system fs;
+  REQUIRE_FALSE(fs.write_all("data", std::string_view{"sync"}));
+  caors::resources::file_source source{fs};
+  caors::resources::provider provider;
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "data"));
+  auto snapshot = provider.snapshot();
+  CHECK(snapshot->resolve(test_guid_a).error().value() == caors::errc::unsupported);
+  CHECK(provider.read(test_guid_a).succeeded());
+}

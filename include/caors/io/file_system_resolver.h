@@ -7,6 +7,7 @@
 #include "caors/io/file_system.h"
 #include "caors/io/uri.h"
 
+#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <span>
@@ -36,7 +37,7 @@ public:
    * @brief 挂载拥有式后端；空 target 返回 invalid_argument，重复前缀不替换旧挂载。
    * @param lifetime 可选宿主寿命凭据，例如模块 pin；其释放晚于本挂载持有的后端所有权。
    * @note 调用方仍须保证路由器 allocator 的寿命，独立持有 target 时须自行延长相关模块寿命。
-   * 当前仍为同步接口；并发修改、快照和异步访问由后续协议提供。分配失败可抛出 bad_alloc。
+   * 挂载更新与查询可并发；后端自身的线程约束仍由调用方遵守。分配失败可抛出 bad_alloc。
    */
   [[nodiscard]] error mount(uri_view prefix, std::shared_ptr<file_system> target,
                             path_view target_prefix = {}, std::shared_ptr<void> lifetime = {});
@@ -63,9 +64,15 @@ public:
   open_write(path_view location, memory_resource* result_resource = nullptr) override;
   [[nodiscard]] error write_all(path_view location, std::span<const std::byte> bytes) override;
 
+  [[nodiscard]] bool routes_paths() const noexcept override { return true; }
+  [[nodiscard]] result<resolved_file> resolve_owned(path_view location) const override;
+  [[nodiscard]] result<std::shared_ptr<file_system>>
+  freeze_routes(detail::snapshot_context& context, std::shared_ptr<void> owner) const override;
+
 private:
   struct route_entry {
     std::shared_ptr<void> owner;
+    std::uint64_t source_id = 0;
     core::string scheme;
     core::string authority;
     core::string path_prefix;
@@ -73,10 +80,15 @@ private:
     core::string target_prefix;
   };
 
-  [[nodiscard]] const route_entry* find_route(uri_view location) const;
+  [[nodiscard]] const route_entry* find_route(const core::vector<route_entry>& entries,
+                                              uri_view location) const;
   [[nodiscard]] core::string resolve_path(const route_entry& entry, uri_view location) const;
 
-  core::vector<route_entry> routes_;
+  [[nodiscard]] error mount_owned(uri_view prefix, file_system& target, path_view target_prefix,
+                                  std::shared_ptr<void> owner);
+  using route_table = core::vector<route_entry>;
+  memory_resource* resource_;
+  std::atomic<std::shared_ptr<const route_table>> routes_;
 };
 
 } // namespace caors::io
