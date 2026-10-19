@@ -410,6 +410,9 @@ public:
 
   /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回强 handle。 */
   template <typename T> [[nodiscard]] handle_result<T> load_handle(resource_guid guid) {
+    if (!guid) {
+      return {{error_domain::resources, errc::invalid_argument}, {}};
+    }
     type_entry* entry = find_entry<T>();
     if (entry == nullptr) {
       return {{error_domain::resources, errc::not_found}, {}};
@@ -438,6 +441,9 @@ public:
 
   /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
   template <typename T> [[nodiscard]] handle_result<T> reload_handle(resource_guid guid) {
+    if (!guid) {
+      return {{error_domain::resources, errc::invalid_argument}, {}};
+    }
     type_entry* entry = find_entry<T>();
     if (entry == nullptr) {
       return {{error_domain::resources, errc::not_found}, {}};

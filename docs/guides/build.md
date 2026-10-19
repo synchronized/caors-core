@@ -92,6 +92,10 @@ CMake 缓存。
 .\scripts\msvc.ps1 -Action build -Preset windows-msvc-debug -Jobs 1
 ```
 
+若 MSVC/Ninja 输出包含大量未被过滤的 showIncludes 行，可用
+`ninja -C <build> -t deps <object>` 检查头依赖。对象依赖为 0 时，不能相信修改头文件后的增量结果；
+应改用 Visual Studio generator，或完整清理后按当前源码构建。语言资源缺失时仅设置 VSLANG 不保证改变诊断语言。
+
 `-Fresh` 只重建 CMake 缓存，不等于清理全部对象文件。恢复旧构建目录、变更编译器或发现头文件依赖记录不完整时，
 应在初始化工具链后用 `cmake --build --preset <preset> --clean-first` 执行干净重建，不能把旧对象当作本轮验收。
 普通 PowerShell 先执行 MSVC 包装脚本的 configure 动作，再在同一进程内调用 clean-first 构建。

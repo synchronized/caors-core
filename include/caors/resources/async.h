@@ -17,6 +17,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -171,7 +172,8 @@ struct preload_request_state {
   explicit preload_request_state(memory_resource* memory)
       : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource),
         item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}),
-        waiters(allocator<request_waiter>{resource}) {}
+        waiters(allocator<request_waiter>{resource}), demands(allocator<request_waiter>{resource}) {
+  }
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
@@ -184,6 +186,20 @@ struct preload_request_state {
   core::vector<double> item_progress;
   core::string progress_stage;
   core::vector<request_waiter> waiters;
+  // 批次只拥有自己的订阅；订阅反向弱引用批次，避免持有环。
+  core::vector<request_waiter> demands;
+  ~preload_request_state() { notify_request_waiters(demands); }
+  void release_demands() {
+    std::optional<core::vector<request_waiter>> detached;
+    {
+      std::lock_guard lock{mutex};
+      if (status == request_status::queued || status == request_status::loading) {
+        return;
+      }
+      detached.emplace(std::move(demands));
+    }
+    notify_request_waiters(*detached);
+  }
 };
 
 template <typename T>
@@ -758,12 +774,32 @@ public:
         child.state_->progress_stage = parent->progress_stage;
       }
       parent->subscription_operation = true;
-      parent->subscribers.emplace_back(child.state_);
+      if (status == request_status::queued || status == request_status::loading) {
+        parent->subscribers.emplace_back(child.state_);
+      }
       failure = parent->status_error;
       value = parent->value;
     }
+    if (preload) {
+      bool active;
+      {
+        std::lock_guard lock{preload->mutex};
+        active =
+            preload->status == request_status::queued || preload->status == request_status::loading;
+        if (active) {
+          preload->demands.push_back(request_waiter{
+              child.state_, [](const std::shared_ptr<void>& raw) noexcept {
+                (void)load_request_access<T>::cancel(std::static_pointer_cast<state_type>(raw));
+              }});
+        }
+      }
+      if (!active) {
+        (void)cancel(child);
+      }
+    }
     if (status == request_status::loaded) {
       complete(child, std::move(value));
+      notify_preload_observers(child.state_);
     } else if (status == request_status::failed) {
       fail(child, failure);
     } else if (status == request_status::cancelled) {
@@ -1091,6 +1127,7 @@ public:
       }
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1118,6 +1155,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1149,6 +1187,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
@@ -1180,12 +1219,13 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
 
-  [[nodiscard]] static bool cancel(const std::shared_ptr<state_type>& state) {
+  [[nodiscard]] static bool cancel(std::shared_ptr<state_type> state) {
     if (state == nullptr) {
       return false;
     }
@@ -1203,6 +1243,7 @@ public:
       waiters.swap(state->waiters);
     }
 
+    state->release_demands();
     notify_request_waiters(waiters);
     return true;
   }

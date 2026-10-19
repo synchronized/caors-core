@@ -187,6 +187,8 @@ TEST_CASE(
 TEST_CASE("assets - async capability wins requests and keeps synchronous capability",
           "[assets][native-async]") {
   fixture f;
+  CHECK(f.assets.load_handle<texture>({}).status.value() == caors::errc::invalid_argument);
+  CHECK(f.assets.reload_handle<texture>({}).status.value() == caors::errc::invalid_argument);
   CHECK(f.assets.load_handle<texture>(test_guid_a).status.value() == caors::errc::unsupported);
   counting_texture_loader synchronous;
   REQUIRE_FALSE(f.assets.register_type(f.cache, synchronous, caors::string_name{"group.texture"}));
@@ -509,4 +511,44 @@ TEST_CASE("assets - generic owned type factory accepts native async loader",
   REQUIRE(completion.drain() == 1);
   CHECK(request.loaded());
   CHECK(assets.load_handle<texture>(test_guid_b).status.value() == caors::errc::unsupported);
+}
+
+TEST_CASE("assets - preload cancellation and abandonment signal only unused native operations",
+          "[assets][native-async]") {
+  for (bool drop_batch : {false, true}) {
+    fixture f;
+    REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
+    auto first = f.assets.request_preload(test_guid_a);
+    auto second = f.assets.request_preload(test_guid_a);
+    REQUIRE(f.worker.drain() == 1);
+    if (drop_batch) {
+      first = {};
+    } else {
+      REQUIRE(first.cancel());
+    }
+    CHECK_FALSE(f.loader.pending.front().context.stop.stop_requested());
+    REQUIRE(second.cancel());
+    CHECK(f.loader.pending.front().context.stop.stop_requested());
+    f.loader.finish();
+    CHECK_FALSE(f.cache.contains(test_guid_a));
+    CHECK_FALSE(f.assets.database().has_active_operations());
+  }
+}
+
+TEST_CASE("assets - preload failure cancels remaining I/O without cancelling standalone demand",
+          "[assets][native-async]") {
+  fixture f;
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
+  REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
+  auto batch = f.assets.request_preload(test_guid_a);
+  auto independent = f.assets.request_load<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 2);
+  f.loader.finish({caors::error_domain::io, caors::errc::not_found});
+  CHECK(batch.failed());
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK_FALSE(f.loader.pending.front().context.stop.stop_requested());
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(independent.loaded());
 }
