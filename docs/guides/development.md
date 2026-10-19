@@ -89,43 +89,44 @@ clang-tidy src/caors/version.cpp -p build
 
 `include/caors/version.h.in` 包含 CMake 占位符，不直接使用 `clang-format` 格式化；需要检查时以生成后的 `version.h` 为准。
 
-## 分支与 Pull Request
+## 开发到发布
 
-CAORS 使用短期功能分支和 Pull Request，不维护长期 `develop` 分支。`main` 表示已经完成评审和
-验证的集成状态，不作为日常开发分支。
+main 是唯一集成分支，不在 main 日常开发，也不建立长期 develop。
+一个完整任务复用一个短期分支和 PR；方案、实现、测试、示例和文档等子阶段在同一分支连续提交。
 
-分支命名：
+| 分支 | 职责 |
+| --- | --- |
+| `feature/<topic>` | 新功能或完整重构 |
+| `fix/<topic>` | 缺陷和可移植性修复 |
+| `docs/<topic>` | 文档内容与架构 |
+| `chore/<topic>` | 构建、CI 和仓库维护 |
+| `release/X.Y.Z` | 从最新 main 创建，只收口版本元数据、范围、变更与验收 |
 
-| 前缀 | 用途 | 示例 |
-| --- | --- | --- |
-| `feature/` | 新功能或较大重构 | `feature/meta-redesign` |
-| `fix/` | 缺陷和可移植性修复 | `fix/linux-asan` |
-| `docs/` | 只修改文档 | `docs/plugin-abi` |
-| `chore/` | 构建、CI 和仓库维护 | `chore/development-workflow` |
+执行顺序：
 
-推荐流程：
+1. 检查工作区、当前分支、相关 Plan 与文档；新任务从最新 origin/main 创建聚焦分支，
+   正在进行的同一任务继续复用原分支。
+2. 明确目标、非目标与验证范围，实施最小相关改动，同步公开注释、参考、测试和示例。
+3. 子阶段完成且相关验证通过后创建聚焦提交；不为每个机械步骤建立长期分支或 PR。
+4. 任务达到可评审状态后推送并创建一个 PR；需要本地无法覆盖的平台或工作流验证时可提前推送同一分支。
+5. 按[CI 策略](ci.md)选择验证，记录被验证 SHA、结果与未验证项；失败修复继续更新同一 PR。
+6. 检查提交范围、`git diff --check`、用户可见变更与迁移说明；在授权及仓库规则范围内完成合并，
+   不绕过失败检查，合并后结束短期分支。
 
-1. 拉取最新 `main`，创建聚焦的短期分支；
-2. 在分支上完成一组相关提交，并运行与改动匹配的本地验证；
-3. 功能达到可评审状态后，创建面向 `main` 的 Pull Request；
-4. 高风险改动在合并前手动运行 Linux CI，修复失败项后再合并；
-5. 合并后删除短期分支。
+大型功能可使用有明确出口的临时 feature 集成分支，整体完整后再向 main 提交一个 PR。
+已知将进入发布的用户可见变更写入[CHANGELOG](../../CHANGELOG.md)的 Unreleased；版本范围由
+[版本文档](../versions/README.md)组合关联 Plan，开发阶段不提前创建发布标签。
 
-大型功能可以创建一个有明确范围的 `feature/<topic>` 临时集成分支，再把若干子分支合入该分支。
-只有整体达到可评审状态时才向 `main` 创建 Pull Request。该集成分支随功能结束而删除，不演变为
-长期 `develop`。
+## 版本准备与发布的边界
 
-普通分支、Pull Request 和 `main` push 均不自动触发 Linux 全量构建。需要验证时，可以从 GitHub
-Actions 页面或命令行手动运行 Linux workflow。同一分支连续触发时，旧的未完成运行会被自动取消，
-只保留最新提交；每周定时任务继续提供环境与工具链变化的兜底检查。
+功能和缺陷先经 PR 合入 main，不直接进入 release 分支。
+版本准备 PR 收口工程版本、CHANGELOG、固定范围与候选验收，合入 main 后固定最终发布 SHA。
+正式发布只读取该提交，执行干净验证、制品检查、tag/Release 和公开下载复核。
+详细步骤统一由[发布流程](release.md)维护，检查条件由[发布清单](../checklists/release-readiness.md)维护。
 
-当前私有仓库套餐不支持 GitHub 分支保护，仓库依靠本规范避免直接开发和推送 `main`。仓库具备
-分支保护能力后，应依次启用：
-
-- 禁止直接 push 到 `main`；
-- 必须通过 Pull Request 合并；
-- 对高风险改动要求手动 Linux 检查通过；
-- 合并前要求分支基于最新 `main`。
+当前 CAORS 没有自动发布或 Windows CI，不能照着 Granit 的脚本名运行。
+发布任务必须明确目标版本和交付范围；整理流程文档本身不代表执行一次发布。
+分支保护、required checks 和发布权限由仓库设置控制，本规范不声称已经自动启用这些设置。
 
 ## 测试目录规则
 

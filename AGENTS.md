@@ -118,3 +118,11 @@ ctest --preset linux-clang-debug
    应主动运行完整 CI；低风险局部修改可依据本机相关测试决定是否运行。纯文档变更不触发完整 CI。
 9. 未经用户明确授权，不绕过失败检查或强制合并 Pull Request。
 10. 在总结中说明分支、提交、Pull Request、验证结果和剩余风险。
+
+## 版本准备与发布
+
+- 日常开发与短期分支遵循 [开发流程](docs/guides/development.md)，验证选择见 [CI 策略](docs/guides/ci.md)。
+- Feature/fix 先进入 main；release 分支只承载版本元数据和发布收口，不作为第二个功能集成分支。
+- 工程版本以根 CMake 为唯一来源；版本范围、用户可见变更与实际验收分别由 Version、CHANGELOG 和 Record 维护。
+- 发布前执行 [发布流程](docs/guides/release.md) 和 [发布清单](docs/checklists/release-readiness.md)，固定最终 SHA，失败不得跳过；已公开标签和制品不静默覆盖。
+- 当前未实现 release/publish 脚本和 Release workflow，文档模板不代表版本已经验证或发布；实际发布任务需明确版本和交付范围。

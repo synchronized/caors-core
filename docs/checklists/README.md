@@ -8,3 +8,5 @@
 
 - [Beta 验收](beta-readiness.md)：文档/API 主路径、边界扫描、构建与未验证项记录。
 - [Linux 验证](linux-validation.md)：环境、静态/动态库、Sanitizer 与压力验证步骤。
+
+- [发布验收](release-readiness.md)：身份、最终提交验证、安装 consumer、制品与公开复核。

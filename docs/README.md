@@ -23,7 +23,11 @@
 | checklists | 如何重复执行检查，哪些条件必须满足 | [验收清单](checklists/README.md) |
 | plans | 单项工作怎样设计、实施和验收 | [计划索引](plans/README.md) |
 | records | 实际执行、审计与历史证据 | [记录索引](records/README.md) |
+| versions | 单次版本的固定范围、依赖与出口 | [版本规划](versions/README.md) |
+| templates | 创建版本与验收文档需要哪些字段 | [文档模板](templates/README.md) |
 
 全局方向见[路线图](roadmap.md)；可运行程序见[示例目录](../examples/README.md)，
 行为测试见[测试目录](../tests/README.md)，测量数据见[性能结果](../benchmarks/results/README.md)。
 分类目录 README 管理具体条目，本页不再重复完整清单。
+
+用户可见变化见[CHANGELOG](../CHANGELOG.md)，维护者发布步骤见[发布流程](guides/release.md)。

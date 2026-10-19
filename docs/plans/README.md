@@ -13,6 +13,10 @@
 
 ## 状态索引
 
+### 待实施
+
+- [release-automation.md](release-automation.md)：人工发布流程的工具化范围，尚未排期或实现脚本/Release workflow。
+
 ### 进行中
 
 - [size-class-pool.md](size-class-pool.md)：分级中小块池、确定性尺寸路由、上游回退、统计与

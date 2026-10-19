@@ -25,6 +25,9 @@
 | 参考 Reference | 当前 API 和行为是什么 | 接口、错误、约束、格式 | `docs/reference/<topic>.md` 及公共头 Doxygen |
 | 概念 Concept | 模块怎样协作，为何如此设计 | 模型、职责、边界和权衡 | `docs/concepts/module-boundary.md` 等 |
 | 路线图 Roadmap | 后续方向和优先级是什么 | 方向、依赖、状态摘要和计划链接 | `docs/roadmap.md` |
+| 版本 Version | 某次版本交付什么、何时可发布 | 固定范围、关联任务、依赖和出口 | `docs/versions/` |
+| 变更 Changelog | 使用者升级后看到什么 | 用户可见变化、兼容影响与迁移入口 | 根 `CHANGELOG.md` |
+| 模板 Template | 新文档必须记录什么 | 最小字段与填写规则，不代表执行结果 | `docs/templates/` |
 | 计划 Plan | 某项改动怎样实施与验收 | 范围、步骤、决策、验收、未决事项 | `docs/plans/` |
 | 决策 ADR | 为何选择某个长期方案 | 背景、选择、替代方案、后果 | 新增独立决策时使用 `docs/decisions/` |
 | 记录 Record | 实际做了什么、验证了什么 | 提交、环境、命令、结果和限制 | 新增验收记录时使用 `docs/records/` |
@@ -47,7 +50,9 @@ docs/
 ├── concepts/       # 模块模型、架构与原理
 ├── checklists/     # 可重复执行的检查步骤与通过条件
 ├── plans/          # 单项实施设计、待办和验收范围
-└── records/        # 实际执行和审计证据，旧状态进入 history/
+├── records/        # 实际执行和审计证据，旧状态进入 history/
+├── versions/       # 固定版本范围、依赖和发布出口
+└── templates/      # 版本与验收记录的字段模板
 ```
 
 独立教程或 ADR 出现时再创建 `tutorials/` 或 `decisions/`，不建立空目录。
@@ -56,7 +61,7 @@ docs/
 - 根 README 保留快速开始与少量关键链接，完整导航进入文档中心。
 - 文档中心列分类入口，各分类 README 列具体文档；新增正文必须加入对应索引。
 - 自有文档正文采用小写英文单词和连字符，目录入口统一 `README.md`；根项目规范保留约定名称，
-  ADR 保留 `ADR-NNN-topic.md` 的编号前缀。
+  ADR 保留 `ADR-NNN-topic.md` 的编号前缀，版本文档使用 `vX.Y.Z.md` 的数字版本格式。
 - 文件名应说明实际主题和范围：Meta 值体系用 `meta-values.md`，属性与方法用
   `meta-properties-and-methods.md`，跨平台插件接入用 `plugin-integration.md`；不沿用易混淆的简称。
 - 不在根目录保留逐文件迁移占位；仓库内链接直接更新到正文，路径变更集中记录在迁移 Record。
@@ -70,6 +75,8 @@ docs/
 | --- | --- | --- |
 | 构建命令和选项 | `docs/guides/build.md`，以 CMake 和脚本核实 | 快速开始保留最小命令，详细条件链接指南 |
 | 当前模块行为 | 对应专题参考和公共头注释 | 计划只说明改动范围，不复制完整 API |
+| 单次版本范围、任务依赖和出口 | 对应 Version | 路线图保留摘要，Plan 不复制版本清单 |
+| 用户可见变化和升级操作 | 根 CHANGELOG | 版本页、Release 说明链接相应章节；需要手工升级时提供迁移指南 |
 | 某项工作的范围、状态、待办 | 对应 Plan | 计划索引和路线图保留一句摘要与链接 |
 | 实际验收结果 | 对应 Record 或专用结果文档 | Plan 保留简短结论和证据链接 |
 | 性能数据 | `benchmarks/results/` | 计划和路线图不维护第二份结果表 |
@@ -108,7 +115,8 @@ Plan 状态使用“讨论中、实施中、待验收、已完成、已取代”
 - 性能记录遵守 `benchmarks/results/README.md`，区分显式 resource 与全局分配、采样吞吐与饱和吞吐。
   共享 CI runner 的耗时不替代固定环境正式性能数据，发现退化应保留结果和适用限制。
 - 发布或破坏性改动应记录用户可见影响、受影响接口和迁移步骤。CAORS 当前仍是早期项目，
-  本规范不新增兼容性承诺；正式发布流程建立后再按需引入 Changelog、版本规划和发布验收模板。
+  本规范不新增兼容性承诺；版本范围、CHANGELOG、发布步骤与清单分别维护，入口见
+  [发布指南](docs/guides/release.md)。当前人工流程不等于自动化已经实现。
 
 ## 最小内容模板
 
