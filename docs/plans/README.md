@@ -55,6 +55,8 @@
 
 ## Runtime 与插件
 
+- [registry-overlay-safe-unload.md](registry-overlay-safe-unload.md)：插件 registry layer、动态库 lease、
+  覆盖与安全卸载的已完成设计和迁移依据。
 - [plugin-build-compatibility.md](plugin-build-compatibility.md)：host/plugin 编译器、CRT、
   STL ABI、架构和指针宽度的加载期兼容性校验计划。
 - [library-plugin-system.md](library-plugin-system.md)：跨平台动态库封装、稳定插件 ABI、
@@ -80,8 +82,6 @@
 
 - [memory-domain-redesign.md](memory-domain-redesign.md)：内部长期元数据、registry layer、同步临时
   工作区与用户结果内存的统一生命周期域计划。
-- [memory-domain-audit.md](memory-domain-audit.md)：全仓资源入口、owner、释放时机、线程与插件边界的
-  阶段 0 审计基线。
 - [scoped-temporary-memory.md](scoped-temporary-memory.md)：支持嵌套 checkpoint/rewind 的
   线程局部临时资源，以及 serialization 双资源接入计划。
 - [pmr-resource-adapters.md](pmr-resource-adapters.md)：CAORS 与标准 PMR 资源的双向
@@ -93,6 +93,8 @@
 
 ## Meta
 
+- [type-identity-state-redesign.md](type-identity-state-redesign.md)：运行期类型身份状态、静态类型模型、
+  注册表与 DLL 身份一致性的已完成迁移依据。
 - [detail-api-boundary-redesign.md](detail-api-boundary-redesign.md)：meta 内部 detail API
   分层与边界收敛计划。
 - [meta-type-data-redesign.md](meta-type-data-redesign.md)：静态类型数据与 registry 注册数据
@@ -124,3 +126,7 @@
   对象弱引用的显式反序列化条件。
 - [messagepack-backend.md](messagepack-backend.md)：零第三方依赖的标准 MessagePack
   writer、DOM parser 和 typed serialization 后端计划。
+
+## 相关证据
+
+重构前审计与历史验证由[记录索引](../records/README.md)维护，不再作为实施计划分类。

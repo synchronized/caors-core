@@ -7,6 +7,9 @@ CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具。`ctrack` 以�
 `3rd/ctrack-1.1.0`，CMake 中包装为 `ctrack::ctrack` interface 目标；不会构建
 `ctrack` 自带示例、测试和 benchmark。
 
+源码分组和目标入口见[基准目录](../benchmarks/README.md)，历史数据与记录格式见
+[结果索引](../benchmarks/results/README.md)。本页统一维护构建、用例和统计范围。
+
 ## 构建和运行
 
 benchmark 默认关闭，避免影响普通开发构建：
@@ -59,6 +62,23 @@ build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
 
 该构建只用于统计分配次数、字节数和退出后的存活内存，不用于耗时对比。
 
+## 独立调度器目标
+
+```sh
+cmake --preset windows-clang-benchmark
+cmake --build --preset windows-clang-benchmark --target caors_scheduler_benchmarks
+build/windows-clang-benchmark/benchmarks/caors_scheduler_benchmarks
+```
+
+独立目标 `caors_scheduler_benchmarks` 用于调度器对比：构建该目标后直接运行
+`build/windows-clang-benchmark/benchmarks/caors_scheduler_benchmarks`。每个场景采集 10,000
+个样本，输出 p50/p95、吞吐、显式 resource 分配和句柄大小。`context.lifecycle` 包含构造和销毁；
+`context.post_drain` 使用常驻 context；`pool.roundtrip` 使用常驻单 worker，并包含第二个屏障任务
+及线程同步成本。常驻执行环境自身使用系统 resource，分配统计只覆盖传入的 task resource，
+不覆盖 Asio 内部 operation、线程、全局分配和屏障任务。源码可在旧调度器版本中独立编译，
+用于同机比较；基准不构成性能保证，也不作为测试门禁。
+
+
 ## 当前用例
 
 当前 `caors_benchmarks` 覆盖以下稳定热路径：
@@ -85,6 +105,8 @@ build/windows-clang-benchmark-allocations/benchmarks/caors_benchmarks 1000
 - Meta wrapper 样本：输出 property/method wrapper、record 和公共句柄的尺寸与对齐；诊断构建还会
   输出 32 个混合 property 或 method 类型注册时的净分配次数、字节数和销毁后存活内存。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
+- `small_vector` 内联/溢出路径，以及系统资源、fixed pool、size class pool 与标准 PMR pool 的混合尺寸分配。
+- tasks/resources coroutine：请求已完成、单等待者和四等待者的显式资源分配及 p50/p95。
 
 对于属性热点循环，先缓存 `meta::property`，需要进一步降低通用类型校验与 request dispatch 成本时，
 使用 `compile_property_accessor()`。compiled accessor 的有效期不得超过所属 registry record 和注册
@@ -148,9 +170,9 @@ math benchmark 分成两类：
   反射属性和反射方法时的额外成本。这些数据用于决定 `vec2`、`vec3`、`vec4`、`quat`
   是否值得加入 `meta::value` fast path。
 
-当前策略是先记录数据，不立即把数学类型加入 `meta::value`。只有当真实脚本调用、编辑器属性访问或资源配置
-workload 显示动态封装成本已经成为热点时，才把小型高频类型作为候选；`mat4`、`rect`、`aabb`
-等较大类型默认继续走 `any` / `any_ref` 或 capability 路径。
+当前数学值的存储契约见[math 参考](math.md#与-metavalue-fast-path-的关系)，
+候选范围与启动条件统一见[路线图](roadmap.md#05-math-基础数学类型)。
+
 
 ## 后续适合拆分的专项
 

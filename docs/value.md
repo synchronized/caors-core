@@ -263,12 +263,6 @@ registry。`get_*_type()` 系列接口返回 `meta::type`；调用方需要 `typ
 
 ## 后续规划
 
-- `meta::value` fast path 继续以真实热点为依据推进。当前已经覆盖基础标量、字符串名、字符串和
-  `meta::object*` 等动态调用高频形态；数学类型仍先通过 `any` / `any_ref` 或 capability 路径承载。
-- 后续候选 fast path 包括 `math::vec2`、`math::vec3`、`math::vec4` 和 `math::quat`。当前已补充
-  属性读写、方法参数传递、`meta::value`、`any` 和 `any_ref` 的 math benchmark；进入 fast path 前仍需要结合
-  真实脚本式动态调用、编辑器属性访问和序列化转换 workload，避免只因类型常用就扩大 tagged value
-  的分支表与对象大小。
-- `mat4`、`rect`、`aabb`、`frustum` 等较大或低频结构默认不作为首批内联候选；如果渲染、编辑器或资源导入
-  workload 证明收益明确，再考虑专门的轻量引用/借用策略。
-- 持续补充细粒度 include 边界测试，避免公共头重新形成隐式依赖。
+数学值快路径的候选范围见[统一路线图](roadmap.md#05-math-基础数学类型)，
+测量方法见[Benchmark 指南](benchmarking.md#math-fast-path-判断)。本页只维护当前值类型契约；
+原规划说明保留在[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。

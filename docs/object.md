@@ -574,28 +574,8 @@ manager.destroy(instance);
 
 ## 后续路线图
 
-- [x] 对象实例 id。
-- [x] 全局运行期对象 id 生成器。
-- [x] 增加持久对象 GUID 语义别名和 `object_index` 双向映射。
-- [x] 对象类型 id、名称、大小、对齐和父类型。
-- [x] 复用全局 `meta::registry`。
-- [x] 将底层 `objects::detail::object_factory_ops` 挂载到 meta capability 索引，并通过
-  `meta::type`、`objects::object_factory_capability` 和对象语义 helper 对外查询。
-- [x] 注册错误状态和不一致类型描述检测。
-- [x] 默认构造工厂。
-- [x] 接入 `memory_resource`。
-- [x] 明确 `objects::handle` / `objects::typed_handle<T>` 设计。
-- [x] 增加对象生命周期管理器。
-- [x] manager 可选联动 `object_index`，创建、销毁和清理时维护持久对象映射。
-- [x] 设计对象引用计数边界，明确它与 `objects::typed_handle<T>`、`objects::ptr<T>`、manager 所有权和序列化 resolver 的关系。
-- [x] 实现可选侵入式引用计数基础类型和强引用包装。
-- [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
-- [x] 设计并实现 manager 延迟销毁策略，明确它和引用计数对象的边界。
-- [x] 与 meta 属性/方法打通对象高层访问和属性元信息。
-- [x] 与序列化系统打通对象指针、句柄、引用计数对象、多态 object 和对象工厂 resolver。
-- [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
-- [ ] 设计完整场景 / 对象图存档策略，包括对象图版本、共享身份、循环引用和加载期修复流程。
-- [ ] 评估是否需要线程安全对象容器或对象数据库。
+对象图存档和并发容器等后续方向由[统一路线图](roadmap.md#3-对象系统)维护。
+原完成清单保留在[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
 
 ## 相关入口
 

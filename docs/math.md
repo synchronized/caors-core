@@ -190,19 +190,9 @@ frustum，裁剪一组 AABB，再把可见对象中心点投影到屏幕并反�
 
 ## 与 meta::value fast path 的关系
 
-`meta::value` fast path 当前优先服务高频动态调用：基础数值、布尔、字符串、`string_name` 和
-`meta::object*`。数学类型暂时不直接内联到 `meta::value`，原因是：
-
-- `meta::value` 的 `kind` 是高频动态调用热路径，过早加入大量数学类型会扩大 API 和分支表。
-- `mat4`、`aabb` 等类型尺寸较大，不一定适合直接作为 tagged value 内联类型。
-- 是否值得内联，应基于实际脚本调用、编辑器属性访问和 benchmark 数据判断。
-
-推荐策略：
-
-- 先让数学类型作为普通 C++ 值类型稳定下来。
-- 通过 `meta` 注册和 serialization codec 支持反射、序列化和资源配置。
-- 后续只把确实高频的类型加入 fast path，优先候选是 `vec2`、`vec3`、`vec4`、`quat`。
-- 较大的 `mat4`、`rect`、`aabb` 默认先走 `any` / `any_ref` 或 capability 路径。
+数学类型当前不直接内联到 `meta::value`，通过 `any` / `any_ref` 或 capability 承载。
+较大结构直接内联会增加 tagged value 的大小与分支成本；后续候选与启动条件由
+[路线图](roadmap.md#05-math-基础数学类型)维护，测量方法见[Benchmark 指南](benchmarking.md#math-fast-path-判断)。
 
 ## Meta 注册和序列化
 

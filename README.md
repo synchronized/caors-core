@@ -14,38 +14,13 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 保持偏 STL / RTTR 的库风格，公共 API 使用小写下划线命名。
 - 通过 CMake preset、示例和测试维持跨平台构建入口。
 
-当前项目仍处于早期设计和验证阶段，暂不承诺公共 API 稳定性。现阶段修改时优先保证模块边界、
-命名一致性、生命周期语义和长期架构清晰；必要时可以接受破坏性 API 调整。进入稳定版本前会重新明确兼容策略。
+项目仍处于早期阶段，稳定性与兼容政策见 [API 稳定性](docs/api-stability.md)。
 
 ## 当前状态
 
-当前仓库已实现：
-
-- `caors` 库目标，别名目标为 `caors::caors`。
-- 基础配置 API：`caors/config.h`。
-- 统一错误 API：`caors/error.h`，支持轻量错误状态和 `std::error_code` 适配。
-- 导出宏 API：`caors/export.h`。
-- 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
-- Core API：`caors/core/string_name.h`、`caors/core/guid.h`、`caors/core/type_guid.h`、
-  `caors/core/containers.h` 和 `caors/core/locator.h`。
-- Math API：`caors/math.h`，包含基础向量、矩阵、四元数、变换、投影、矩形和 AABB 值类型。
-- 基础 IO API：`caors/io.h`，包含虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
-- 事件 API：`caors/events.h`，包含轻量 delegate、同步 signal、连接视图、连接句柄和同步 dispatcher。
-- 任务 API：`caors/tasks.h`，包含 move-only task、executor 抽象、同步 inline executor、固定线程池和主线程 completion queue。
-- 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
-- 基础内存资源 API：`caors/memory.h`。
-- 基础对象系统 API：`caors/object.h`。
-- Meta 字段/方法 API：`caors/meta.h` 和 `caors/registration.h`。
-- 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
-  字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
-- 工程资源 API：`caors/assets.h`，包含工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
-- Meta value API：`caors/meta/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
-- 序列化 API：`caors/serialization.h`，提供基于 meta 属性的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
-- `examples/` 可运行示例。
-- Catch2 测试骨架，测试目录按叶子主题自动生成独立测试目标。
-- CMake install/export 基础配置。
-
-具体可用 API 以源码和专题文档为准，路线规划见 [docs/roadmap.md](docs/roadmap.md)。
+当前已提供 core、memory、math、IO、events、tasks、meta、objects、resources/assets 和序列化模块，
+并配有可运行示例、行为测试和 CMake install/export。
+具体 API、限制和阅读入口见[文档中心](docs/README.md)，后续方向见[路线图](docs/roadmap.md)。
 
 ## 快速开始
 

@@ -8,36 +8,14 @@
 
 ## 推荐拓扑
 
-```text
-host.exe
-├─ caors.dll
-├─ plugin_a.dll ── caors.dll
-└─ plugin_b.dll ── caors.dll
-```
-
-宿主和所有插件必须动态链接同一个 `caors.dll` 实例。不要让多个插件分别静态链接 CAORS，
-也不要让宿主静态链接 CAORS 后再加载动态链接 CAORS 的插件。这种拓扑会产生多个 runtime state，
-CAORS 不保证不同 state 之间的 registry、默认 context、memory resource、`type_id`、
-capability key 或插件 host extension 服务表相同。
+宿主与插件共享唯一动态 CAORS runtime，native C++ ABI 的共同前置条件统一由
+[模块边界](module-boundary.md#唯一-caors-runtime)维护，本页说明插件接入和加载/卸载 API。
 
 ## 编译与 ABI 要求
 
-参与同一进程的宿主和插件必须统一：
-
-- 编译器及其主版本；
-- C++ 标准库和运行库 ABI；
-- C++ 语言模式、异常和 RTTI 配置；
-- 影响公共类型布局的编译选项和 CAORS 配置；
-- 公共 C++ 类型、traits、adapter、名称和 GUID 声明。
-
-跨模块共享的类型应定义在共同头文件中。匿名 namespace 类型、lambda 和局部类型只视为模块
-私有类型，不应作为插件协议类型。
-
-当前 `registration`、`meta::type`、`meta::property`、`meta::method`、`meta::any`、
-`meta::any_ref`、schema view 和 capability facade 构成的是 native C++ plugin API。它只面向
-同一 CAORS runtime、同一 CAORS 版本、统一编译器环境、统一 C++ ABI 和受控生命周期的宿主/插件组合，
-不是 stable C ABI。需要跨编译器、跨 CRT、可长期兼容或脚本/外部工具可消费的插件协议时，应使用
-`caors/plugins/abi.h` 这类纯 C ABI 和显式版本化 descriptor，不直接暴露这些 C++ view 或 ops。
+跨模块公共类型使用共同头文件；匿名 namespace、lambda 和局部类型属于插件私有实现，不能充当协议类型。
+C++ view/ops 与版本化 C ABI 的区别见[跨边界传参规则](module-boundary.md#推荐使用规则)。
+Windows 的具体 CRT 配置和加载期诊断如下。
 
 ### Windows CRT 与构建环境校验
 

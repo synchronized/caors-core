@@ -40,9 +40,8 @@
 
 ## API 稳定性
 
-CAORS 当前仍处于早期设计和验证阶段，暂不承诺公共 API 稳定性。修改公共接口时优先保证模块边界清晰、
-命名一致、所有权和生命周期语义正确；如果旧接口阻碍这些目标，可以直接做破坏性调整，并同步更新源码、测试、
-示例和文档。进入稳定版本前再重新定义弃用周期、兼容层和迁移策略。
+当前阶段与兼容政策见[API 稳定性](api-stability.md)，Beta 验收见
+[执行清单](checklists/beta-readiness.md)。本页只维护开发与公开 API 设计规则。
 
 ## 公开 API 边界
 
@@ -130,24 +129,8 @@ Actions 页面或命令行手动运行 Linux workflow。同一分支连续触发
 
 ## 测试目录规则
 
-`tests/` 采用“叶子目录生成测试可执行文件”的组织方式：
-
-- 每个叶子测试目录自动生成一个测试目标和一个 CTest 用例。例如
-  `tests/serialization/resource/` 会生成 `caors_serialization_resource_test`，CTest 名称为
-  `caors.serialization.resource`。
-- 非叶子分组目录不直接放置 `.cpp` 文件；如果一个目录还有子目录，测试源文件应移动到更具体的叶子目录。
-- 叶子目录可以包含多个同主题测试源文件，但不采用“一个用例一个超长 `.cpp` 文件”的规则。
-- 测试源文件按小主题命名，例如 `vector_test.cpp`、`registration_test.cpp`、`object_ref_test.cpp`；
-  详细场景写在 `TEST_CASE` 名称中，不重复写进文件名。
-- 文件名不重复父目录已有信息。例如位于 `tests/serialization/container/` 下时，文件名不再添加
-  `serialization_container_` 前缀。
-- 单个主题文件可以包含多个相关 `TEST_CASE`；当文件明显过大或 helper 名称冲突时，再拆成更具体的短主题文件。
-- 测试文件名应保持简短，避免 Windows + CMake + Ninja 生成对象文件路径时触发路径长度限制。
-- 模块共享的测试辅助头文件可以放在模块根目录，例如 `tests/serialization/serialization_test_support.h`；
-  测试目标会包含叶子目录及其父级测试目录。
-- 需要特殊构建规则的测试目录可以提供自己的 `CMakeLists.txt`，根测试脚本会改用
-  `add_subdirectory()` 交给该目录自行处理。
-- 新增测试时优先新增或复用合适的叶子主题目录，避免把大量不相关测试继续塞进单个大目标。
+测试发现、目标命名、文件拆分、辅助头和特殊 CMake 入口统一见
+[测试组织规范](../tests/README.md)。
 
 ## 新增模块
 

@@ -593,20 +593,9 @@ runtime 并注入不同 registry resource。type/capability identity 与 `string
 
 ## 后续路线图
 
-- [x] `allocator<T>`：适配 STL 容器。
-- [x] `string` / `vector` / `hash_map` / `hash_set`：提供默认走 CAORS allocator 的基础容器别名。
-- [x] `make<T>` / `destroy<T>`：统一对象构造和析构入口。
-- [x] `tracking_resource`：统计分配和释放，辅助泄漏检测。
-- [x] `debug_tracking_resource`：记录存活分配、调用点标签和错误释放。
-- [x] `monotonic_resource`：面向临时内存和批量释放。
-- [x] `stack_resource`：面向同步嵌套调用的作用域临时内存。
-- [x] `fixed_block_pool`：面向固定大小对象池。
-- [ ] `size_class_pool_resource`：面向中小型混合分配；核心实现、Windows 全矩阵和 Linux
-  Clang/GCC/ASan 已验证，等待固定 Linux 环境的 UBSan、正式性能复验与真实业务 workload。
-- [x] `try_allocate`：提供不抛异常的失败返回路径。
-- [x] 扩展越界检测、填充值和 guard block 等调试能力。
-- [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
-- [ ] 可选第三方后端：jemalloc、mimalloc、rpmalloc。
+后续方向见[统一路线图](roadmap.md#2-定制化分配器)，分级池的验收与延期范围由
+[对应计划](plans/size-class-pool.md)维护。原规划清单保留在
+[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
 
 ## 相关入口
 

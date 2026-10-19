@@ -24,18 +24,19 @@ plugin_b.dll ── static caors runtime C
 `meta::type`、`type_id`、`any`、capability 指针和 allocator 指针也没有统一语义。
 
 CAORS 的 C++ meta 注册与查询接口当前应视为 native C++ plugin API：它要求宿主、插件和共享库使用
-同一 CAORS runtime、同一 CAORS 版本、同一编译器主版本、同一标准库/CRT ABI、同一异常和 RTTI 配置，以及一致的公共
+同一 CAORS runtime、同一 CAORS 版本、同一编译器主版本、同一 C++ 语言模式、同一标准库/CRT ABI、同一异常和 RTTI 配置，以及一致的公共
 类型定义、traits、adapter 和 CAORS 编译配置。它不是 stable C ABI，也不承诺跨编译器、跨 CRT、
 跨进程或多 runtime 兼容。
 
 ## 可以跨模块传递的稳定数据
 
-跨 DLL ABI、插件协议、持久化文件和远程通信优先传递纯数据：
+下面区分数据的逻辑身份与其传输表示。独立 C ABI、持久化文件和远程协议应使用显式布局结构、
+GUID 字节、UTF-8 文本或序列化字节；不能因为逻辑上属于数据，就直接传递 C++ DOM 或 STL 对象：
 
 - `type_guid`：用于存档、资源和跨版本协议；
 - 注册类型名：用于诊断、配置和人工可读查询；
 - `type_id`：只允许在同一进程、同一 runtime 的短期查询中使用；
-- schema、JSON、variant/serialization DOM；
+- schema、JSON、variant/serialization DOM 的序列化表示；DOM C++ 对象本身仍受 native ABI 和生命周期约束；
 - POD/显式 ABI 结构和版本化 C ABI descriptor。
 
 这些数据可以在接收方重新通过 `meta::find()`、schema 查询或序列化上下文解析为当前 runtime 的视图。

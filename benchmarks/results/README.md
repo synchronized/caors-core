@@ -14,12 +14,29 @@
 - 不同机器、不同编译器、不同 preset、不同迭代次数的结果不能直接比较。
 - benchmark 结果不是测试门禁，只用于趋势分析和定位明显回归。
 
-## 建议命令
+## 构建与测量入口
 
-```sh
-cmake --preset windows-clang-benchmark
-cmake --build --preset windows-clang-benchmark --target caors_benchmarks
-build/windows-clang-benchmark/benchmarks/caors_benchmarks 100000
-```
+目标、构建命令、用例与统计范围统一见[Benchmark 指南](../../docs/benchmarking.md)。
+本页维护结果格式与索引，不维护第二份运行指南。
 
-同一提交建议运行 3 次，取中位数。
+## 测量记录
+
+以下是历史测量，不构成当前提交的性能保证；比较前核对每份记录中的提交、环境和方法。
+
+- [2026-10-19-windows-clang-task-scheduler](2026-10-19-windows-clang-task-scheduler.md)
+- [2026-08-07-windows-clang-task-coroutines](2026-08-07-windows-clang-task-coroutines.md)
+- [2026-08-07-windows-clang-resource-coroutines](2026-08-07-windows-clang-resource-coroutines.md)
+- [2026-08-05-windows-clang-registry-resources-a4f5ba1](2026-08-05-windows-clang-registry-resources-a4f5ba1.md)
+- [2026-08-05-memory-domain-observability](2026-08-05-memory-domain-observability.md)
+- [2026-08-04-windows-clang-small-vector](2026-08-04-windows-clang-small-vector.md)
+- [2026-08-03-windows-clang-size-class-pool-workloads](2026-08-03-windows-clang-size-class-pool-workloads.md)
+- [2026-08-03-windows-clang-size-class-pool-adaptive](2026-08-03-windows-clang-size-class-pool-adaptive.md)
+- [2026-08-03-windows-clang-size-class-pool-49d94a1](2026-08-03-windows-clang-size-class-pool-49d94a1.md)
+- [2026-07-31-windows-clang-meta-wrapper-22497cb](2026-07-31-windows-clang-meta-wrapper-22497cb.md)
+- [2026-07-29-windows-clang-messagepack-baseline](2026-07-29-windows-clang-messagepack-baseline.md)
+- [2026-07-27-windows-clang-benchmark-7015a59](2026-07-27-windows-clang-benchmark-7015a59.md)
+- [2026-07-23-windows-clang-benchmark-f4f2bba](2026-07-23-windows-clang-benchmark-f4f2bba.md)
+- [2026-07-23-windows-clang-benchmark-a83c174](2026-07-23-windows-clang-benchmark-a83c174.md)
+- [2026-07-21-windows-clang-benchmark-ec11212](2026-07-21-windows-clang-benchmark-ec11212.md)
+- [2026-07-21-windows-clang-benchmark-4f5a18c](2026-07-21-windows-clang-benchmark-4f5a18c.md)
+- [2026-07-21-windows-clang-benchmark-096e064](2026-07-21-windows-clang-benchmark-096e064.md)

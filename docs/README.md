@@ -31,8 +31,7 @@
 
 ## API、行为与稳定性参考
 
-- [beta.md](beta.md)：beta 前推荐稳定主入口、质量门槛和实验性能力清单。
-- [api_stability.md](api_stability.md)：当前 alpha 阶段 API 稳定性草案、beta gate 和公开边界扫描规则。
+- [api-stability.md](api-stability.md)：当前阶段、稳定候选与实验性范围的统一维护入口。
 - [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
 - [traits.md](traits.md)：底层 traits 扩展点、adapters 边界和用户特化规则。
 
@@ -53,6 +52,9 @@
 - [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
 
 ## 规划与验证证据
+
+- [checklists/beta-readiness.md](checklists/beta-readiness.md)：Beta Gate、边界扫描与记录要求。
+- [records/README.md](records/README.md)：实施、验收与历史证据索引。
 
 - [roadmap.md](roadmap.md)：后续方向和阶段状态；详细实施范围见对应计划。
 - [plans/README.md](plans/README.md)：进行中、已完成和延期复验的开发计划索引。
