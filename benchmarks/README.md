@@ -23,8 +23,16 @@ Debug benchmark 只用于冒烟和粗略观察。正式比较性能时应使用 
 同一迭代次数重复运行，详细规则见 `docs/benchmarking.md`。
 
 benchmark 源码按主题拆分在 `core/`、`meta/`、`math/`、`serialization/`、`resources/`、`memory/`
-等子目录中，跨主题 fixture 和公共辅助函数放在 `support/`。当前仍使用一个聚合目标
-`caors_benchmarks`，方便一次运行观察不同模块的相对成本。
+等子目录中，跨主题 fixture 和公共辅助函数放在 `support/`。聚合目标
+`caors_benchmarks` 方便一次运行观察不同模块的相对成本。
+
+独立目标 `caors_scheduler_benchmarks` 用于调度器对比：构建该目标后直接运行
+`build/windows-clang-benchmark/benchmarks/caors_scheduler_benchmarks`。每个场景采集 10,000
+个样本，输出 p50/p95、吞吐、显式 resource 分配和句柄大小。`context.lifecycle` 包含构造和销毁；
+`context.post_drain` 使用常驻 context；`pool.roundtrip` 使用常驻单 worker，并包含第二个屏障任务
+及线程同步成本。常驻执行环境自身使用系统 resource，分配统计只覆盖传入的 task resource，
+不覆盖 Asio 内部 operation、线程、全局分配和屏障任务。源码可在旧调度器版本中独立编译，
+用于同机比较；基准不构成性能保证，也不作为测试门禁。
 
 当前 benchmark 覆盖 `string_name`、`small_vector` 内联/溢出工作集、meta 类型查询、属性读写、方法调用、`any` / `any_ref`、
 math 向量/矩阵/四元数/投影纯计算路径、序列化到 `variant` / JSON 文本、schema 查找、property 查找、反射字段读取、手动 DOM 构造、DOM 写 JSON、

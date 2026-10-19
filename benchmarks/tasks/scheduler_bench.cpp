@@ -14,13 +14,11 @@
 #endif
 
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <semaphore>
 #include <string_view>
-#include <thread>
 #include <vector>
 
 namespace {
@@ -74,6 +72,9 @@ int main() {
   using pool_type = caors::tasks::thread_pool_executor;
   std::cout << "backend=legacy\n";
 #endif
+  std::cout << "sizeof_task=" << sizeof(caors::tasks::task)
+            << " sizeof_request=" << sizeof(caors::tasks::request)
+            << " sizeof_context=" << sizeof(context_type) << '\n';
   measure("inline", [&](caors::memory_resource* resource) {
     bool ran = false;
     require(!post(inline_target, caors::tasks::task{resource, [&] { ran = true; }}));
@@ -95,6 +96,17 @@ int main() {
     require(!context.push(caors::tasks::task{resource, [&] { ran = true; }}));
 #endif
     require(context.drain() == 1 && ran);
+  });
+  context_type persistent_context;
+  measure("context.post_drain", [&](caors::memory_resource* resource) {
+    bool ran = false;
+#if __has_include("caors/tasks/execution_context.h")
+    auto context_target = persistent_context.get_executor();
+    require(!post(context_target, caors::tasks::task{resource, [&] { ran = true; }}));
+#else
+    require(!persistent_context.push(caors::tasks::task{resource, [&] { ran = true; }}));
+#endif
+    require(persistent_context.drain() == 1 && ran);
   });
   // 常驻单 worker，逐个等待完成，避免队列积压改变延迟含义；同步信号量包含在延迟中。
   pool_type pool{1};
