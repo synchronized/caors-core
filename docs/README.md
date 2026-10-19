@@ -15,10 +15,10 @@
 
 ## 当前版本
 
-[v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)已完成开发验收，正在准备发布；设计与范围见[实施计划](plans/asynchronous-vfs.md)。
+[v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；设计与范围见[实施计划](plans/asynchronous-vfs.md)。
 宿主原生 I/O 接入见[异步 VFS 指南](guides/async-vfs-integration.md)。
 
-当前版本为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，已发布 alpha 源码并完成公开下载复核；
+上一版本为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，已发布 alpha 源码并完成公开下载复核；
 具体设计见[异步资源 loader 计划](plans/asynchronous-resource-loader.md)，实际 API 与验收状态分别由参考及执行记录维护。
 [v0.2.0](versions/v0.2.0.md) 的实现验收与发布状态继续由其版本页维护。
 
