@@ -11,8 +11,8 @@
 
 ## 已有基础
 
-根 CMake 版本、生成头与运行时版本查询、安装导出、四类独立 consumer、Linux/Stress workflow、
-本地 MSVC 包装脚本。版本准备继续使用根 CMake 为唯一工程版本，不照搬第二份版本文件。
+唯一版本模块、生成头与运行时版本查询、安装导出、四类独立 consumer、Linux/Stress workflow、
+本地 MSVC 包装脚本。版本准备只修改 [caors_version.cmake](../../cmake/caors_version.cmake)；根 CMake 读取该模块，不维护第二份版本值。
 
 ## 实施顺序
 

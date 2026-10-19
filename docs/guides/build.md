@@ -251,7 +251,7 @@ cmake \
   -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/<mode>-relocated-consumer \
   -DCAORS_BUILD_CONFIG=Release \
   -DCAORS_SHARED=<ON-or-OFF> \
-  -P cmake/VerifyInstalledPackage.cmake
+  -P cmake/caors_verify_installed_package.cmake
 ```
 
 脚本会重新创建四个显式输出目录，执行 install、两轮独立 consumer configure/build/run，并检查

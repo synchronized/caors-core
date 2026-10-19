@@ -11,7 +11,7 @@
 
 | 内容 | 维护入口 |
 | --- | --- |
-| 工程版本 | 根 [CMakeLists.txt](../../CMakeLists.txt) 的 `project(... VERSION ...)`；不新增第二个版本常量 |
+| 工程版本 | [caors_version.cmake](../../cmake/caors_version.cmake) 的 `CAORS_PROJECT_VERSION`；根 `project()` 读取并派生版本组件 |
 | 版本范围、任务依赖、发布出口 | [versions](../versions/README.md) 中对应版本文档 |
 | 单项实现与待办 | 对应 Plan，不复制版本清单 |
 | 用户可见变化、破坏性影响和迁移入口 | [CHANGELOG](../../CHANGELOG.md) |
@@ -54,7 +54,7 @@ CAORS 仍处于早期阶段，破坏性调整必须记录影响和升级操作�
 
 在 release 分支中完成：
 
-1. 修改 CMake 中唯一的工程版本，确认生成常量、版本函数及包版本一致。
+1. 修改 `cmake/caors_version.cmake` 中唯一的工程版本，确认生成常量、版本函数及包版本一致。
 2. 把 CHANGELOG 的相应 Unreleased 内容移入带版本、日期的章节，保留新的 Unreleased 入口。
 3. 版本文档固定范围与门槛；关联 Plan 标明真实完成范围与延期，不保留虚假的“已通过”。
 4. 建立候选 Record，记录当前提交与验证证据；发布状态写“候选验收中/已验收，尚未发布”。

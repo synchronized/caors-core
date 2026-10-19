@@ -34,9 +34,15 @@
 - 公共头文件模板放在 `include/caors/`，生成头文件放在构建目录下。
 - 跨库边界的公共类和非内联函数使用 `CAORS_API` 标记。
 - 库实现放在 `src/caors/`。
-- 版本号以根 `project(... VERSION ...)` 为唯一来源，不手写重复版本常量。
+- 版本号由 [caors_version.cmake](../../cmake/caors_version.cmake) 的 `CAORS_PROJECT_VERSION` 唯一维护，根 `project()` 读取并派生版本组件。
 - 新增模块时同步补充测试目录。
 - 第三方源码不默认启用项目级 `-Werror`，避免外部警告影响本项目构建。
+
+## CMake 命名
+
+项目私有模块统一使用 `caors_*.cmake`，辅助函数统一使用 `caors_` 前缀，避免嵌入父工程时覆盖通用名称。
+CMake 约定的 `CMakeLists.txt`、`caorsConfig.cmake.in` 和生成的包文件名保持标准格式。
+模块职责见 [CMake 目录说明](../../cmake/README.md)。
 
 ## API 稳定性
 

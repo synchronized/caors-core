@@ -3,9 +3,11 @@
 
 cmake_minimum_required(VERSION 3.23)
 
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/caors_version.cmake")
+
 project(
   caors
-  VERSION 0.1.0
+  VERSION "${CAORS_PROJECT_VERSION}"
   DESCRIPTION "C++20 infrastructure library"
   LANGUAGES C CXX
 )
@@ -45,8 +47,8 @@ set(
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-include(utility)
-include(verify_memory_domains)
+include(caors_warnings)
+include(caors_verify_memory_domains)
 
 caors_verify_memory_domains()
 

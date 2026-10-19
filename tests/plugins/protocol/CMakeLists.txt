@@ -28,7 +28,7 @@ add_library(caors_plugin_protocol_missing_build_extension SHARED
 
 foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
   target_compile_features(${PLUGIN_TARGET} PRIVATE cxx_std_20)
-  target_compile_warnings(${PLUGIN_TARGET})
+  caors_target_compile_warnings(${PLUGIN_TARGET})
   target_link_libraries(${PLUGIN_TARGET} PRIVATE caors::caors)
   set_target_properties(${PLUGIN_TARGET} PROPERTIES FOLDER "Tests/Plugins")
 endforeach()
@@ -45,7 +45,7 @@ endif()
 
 add_executable(caors_plugins_protocol_test plugin_binary_test.cpp)
 target_compile_features(caors_plugins_protocol_test PRIVATE cxx_std_20)
-target_compile_warnings(caors_plugins_protocol_test)
+caors_target_compile_warnings(caors_plugins_protocol_test)
 target_link_libraries(caors_plugins_protocol_test PRIVATE caors::caors)
 if(MSVC)
   set_property(

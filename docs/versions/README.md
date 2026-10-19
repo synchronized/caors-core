@@ -4,7 +4,7 @@
 # 版本规划
 
 本目录维护某次版本的固定范围、关联任务依赖、交付形式与发布出口，不复制 Plan 的设计和实施步骤。
-当前工程版本由根 [CMakeLists.txt](../../CMakeLists.txt)维护，用户可见变化见
+当前工程版本由[caors_version.cmake](../../cmake/caors_version.cmake)维护，用户可见变化见
 [CHANGELOG](../../CHANGELOG.md)，状态和兼容承诺见[API 政策](../reference/api-stability.md)。
 
 ## 当前安排

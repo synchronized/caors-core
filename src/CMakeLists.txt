@@ -41,7 +41,7 @@ target_sources(
 )
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)
-target_compile_warnings(${TARGET_NAME})
+caors_target_compile_warnings(${TARGET_NAME})
 target_link_libraries(
   ${TARGET_NAME}
   PRIVATE

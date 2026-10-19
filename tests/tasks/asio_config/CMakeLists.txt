@@ -3,7 +3,7 @@
 
 add_executable(caors_tasks_asio_config_test asio_config_test.cpp)
 target_compile_features(caors_tasks_asio_config_test PRIVATE cxx_std_20)
-target_compile_warnings(caors_tasks_asio_config_test)
+caors_target_compile_warnings(caors_tasks_asio_config_test)
 target_link_libraries(
   caors_tasks_asio_config_test
   PRIVATE caors::caors caors_asio_config Catch2::Catch2 Catch2::Catch2WithMain

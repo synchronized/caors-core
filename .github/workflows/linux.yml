@@ -99,7 +99,7 @@ jobs:
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-static-relocated-consumer
           -DCAORS_BUILD_CONFIG=Release
           -DCAORS_SHARED=OFF
-          -P cmake/VerifyInstalledPackage.cmake
+          -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -141,7 +141,7 @@ jobs:
           -DCAORS_RELOCATED_CONSUMER_BUILD_DIR=build/installed-package/linux-shared-relocated-consumer
           -DCAORS_BUILD_CONFIG=Release
           -DCAORS_SHARED=ON
-          -P cmake/VerifyInstalledPackage.cmake
+          -P cmake/caors_verify_installed_package.cmake
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4

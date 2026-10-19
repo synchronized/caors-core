@@ -170,7 +170,7 @@ Windows Clang Static/Shared Debug 的原前缀和迁移前缀均为 3/3 通过�
 - [x] 完成 Windows Clang Shared Release；
 - [x] 完成安装前缀移动后的重新消费验证。
 
-`cmake/VerifyInstalledPackage.cmake` 从 producer cache 复用生成器与编译器，并校验配置和
+`cmake/caors_verify_installed_package.cmake` 从 producer cache 复用生成器与编译器，并校验配置和
 `BUILD_SHARED_LIBS`。脚本只清理工作区 `build/` 下显式传入、彼此不嵌套的输出目录；Static/Shared
 均已完成原前缀与迁移前缀两轮全新 consumer configure/build/run。Shared 测试的 DLL 搜索路径只对
 CTest 子进程生效。

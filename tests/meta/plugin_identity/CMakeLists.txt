@@ -17,7 +17,7 @@ add_library(caors_meta_identity_plugin_b SHARED plugin_b.cpp ${PLUGIN_SUPPORT_HE
 
 foreach(PLUGIN_TARGET IN ITEMS caors_meta_identity_plugin_a caors_meta_identity_plugin_b)
   target_compile_features(${PLUGIN_TARGET} PRIVATE cxx_std_20)
-  target_compile_warnings(${PLUGIN_TARGET})
+  caors_target_compile_warnings(${PLUGIN_TARGET})
   target_include_directories(${PLUGIN_TARGET} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(${PLUGIN_TARGET} PRIVATE caors::caors)
   set_target_properties(${PLUGIN_TARGET} PROPERTIES FOLDER "Tests/Plugins")
@@ -25,7 +25,7 @@ endforeach()
 
 add_executable(caors_meta_plugin_identity_test plugin_identity_test.cpp ${PLUGIN_SUPPORT_HEADERS})
 target_compile_features(caors_meta_plugin_identity_test PRIVATE cxx_std_20)
-target_compile_warnings(caors_meta_plugin_identity_test)
+caors_target_compile_warnings(caors_meta_plugin_identity_test)
 target_include_directories(caors_meta_plugin_identity_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(caors_meta_plugin_identity_test PRIVATE caors::caors ${CMAKE_DL_LIBS})
 add_dependencies(caors_meta_plugin_identity_test caors_meta_identity_plugin_a

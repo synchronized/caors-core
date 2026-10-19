@@ -56,7 +56,7 @@ function(caors_add_test_directory TEST_DIRECTORY)
   add_executable(${TARGET_NAME})
   target_sources(${TARGET_NAME} PRIVATE ${TEST_SOURCES} ${GENERATED_TEST_SOURCES})
   target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
-  target_compile_warnings(${TARGET_NAME})
+  caors_target_compile_warnings(${TARGET_NAME})
   caors_collect_test_include_directories(TEST_INCLUDE_DIRECTORIES "${TEST_DIRECTORY}")
   target_include_directories(${TARGET_NAME} PRIVATE ${TEST_INCLUDE_DIRECTORIES})
 

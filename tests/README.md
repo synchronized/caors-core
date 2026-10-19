@@ -22,6 +22,12 @@ cmake --preset windows-clang-debug -DCAORS_BUILD_TESTING=OFF
 
 测试框架使用仓库内置的 Catch2，目前位于 `3rd/catch-v3.15.0/`。
 
+## CMake 集成检查
+
+`caors.cmake.parent_project` 通过独立父工程配置验证 `add_subdirectory()` 接入：父工程同名通用函数
+和工程版本保持有效，CAORS 警告选项不向下游传播，生成头与安装包版本使用同一版本来源。
+该用例仅运行 CMake 配置，不编译父工程探针。
+
 ## 目录与发现规则
 
 `tests/CMakeLists.txt` 会扫描 `tests/` 下的主题目录。普通目录按叶子目录生成测试目标；如果某个目录

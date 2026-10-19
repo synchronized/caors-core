@@ -6,7 +6,7 @@ option(CAORS_ENABLE_WARNINGS "启用 CAORS 目标编译警告" ON)
 option(CAORS_ENABLE_PEDANTIC_WARNINGS "启用 CAORS 目标严格标准扩展警告" OFF)
 option(CAORS_WARNINGS_AS_ERRORS "将 CAORS 目标编译警告视为错误" OFF)
 
-function(target_compile_warnings target)
+function(caors_target_compile_warnings target)
   if(NOT TARGET ${target})
     message(FATAL_ERROR "目标不存在: ${target}")
   endif()
