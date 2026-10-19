@@ -36,14 +36,16 @@
 // 拟议用法：通过构造或初始化配置默认调度组合。
 auto request = assets.request_load<texture>(guid);
 
-// 保留现有显式调度入口，按次覆盖整组默认调度。
-auto special = assets.request_load<texture>(guid, other_worker, other_completion);
+// 特殊调度提前绑定到 group，后续请求不再重复传 executor。
+auto group = assets.create_group(other_worker, other_completion);
+auto special = group.request_load<texture>(guid);
 ```
 
 统一请求入口通过同一条路由处理缓存命中、同步 loader 后台适配与异步 loader 延迟完成。
 缓存命中可能立即完成；请求入口不保证一定切换线程或挂起协程。保留同步加载接口，不要求业务混用两套入口。
-默认调度用于 request_load、request_reload 以及同类型/跨类型 request_preload；均保留显式传入完整 executor 组合的方式。
-一次请求选择整组默认值或整组覆盖，不隐式将部分覆盖与默认句柄拼接。
+默认调度用于 request_load、request_reload 以及同类型/跨类型 request_preload；特殊调度通过下节 asset_group 复用。
+现有显式传入完整 executor 组合的重载保留兼容，作为底层入口，不要求业务逐次传参。
+一次请求选用 manager 默认组合或 group 固定组合，不隐式拼接部分默认句柄。
 
 `worker` 用于同步 loader 后台适配、异步发起调度及需要的解析/计算任务；宿主 I/O loop 的线程转发仍由适配器负责。
 `completion` 必须对应 cache 所属线程。按次覆盖 completion 只改变调度路径，不迁移 cache 的线程归属。
@@ -61,6 +63,50 @@ auto special = assets.request_load<texture>(guid, other_worker, other_completion
 - 无在途操作的重配不能迁移已有 cache 的所属线程；需要更换完成线程时，按清空/重建 cache 与 manager 的寿命协议处理。
 - 宿主负责让执行上下文与长期内存资源覆盖实际操作寿命；销毁、clear 或重新 apply 配置前，先执行前述清理协议。
   完成队列需要主动 pump 时，不能阻塞其所属线程等待必须由该队列提交的请求。
+
+### asset_group：复用调度组合的轻量入口
+
+拟新增 `assets::asset_group`，由 `asset_manager::create_group(worker, completion)` 创建。
+名称和精确签名在 AL-01 定稿；以下仅为拟议用法，当前仓库尚无这些 API：
+
+```cpp
+auto group = assets.create_group(other_worker, other_completion);
+auto request = group.request_load<texture>(guid);
+auto reload = group.request_reload<texture>(guid);
+auto preload = group.request_preload(root);
+```
+
+manager 使用初始化时的默认调度；group 保存创建时明确传入的完整调度组合，后续调用省略 executor。
+group 不依赖 manager 是否配置默认调度，也不随默认值重配而隐式更换句柄；不提供组内修改调度器的 setter。
+原显式传参入口与 group 转发到同一条内部请求路径，不实现平行的缓存或请求系统。
+
+| group 入口 | 操作语义与返回类型 |
+| --- | --- |
+| `request_load<T>(guid)` | 获取单个资源，命中 cache 立即返回，否则发起或订阅加载；返回现有 `load_request<T>` |
+| `request_reload<T>(guid)` | 重新加载单个资源，成功替换 cache，失败保留旧绑定；返回现有 `load_request<T>` |
+| `request_preload(root)` | 按 manifest/已登记依赖图加载根资源及跨类型依赖闭包，复用缓存而不强制刷新；返回现有 `preload_request` |
+| `request_preload<T>(root)` | 同类型依赖闭包预加载，返回现有 `preload_request` |
+
+group 只关联 manager、runtime 配置代次和 executor 句柄，不拥有 manager、线程池、I/O loop 或独立 cache。
+可复制/移动的 group 副本复用同一 manager 与句柄，不复制资源，也不因复制或析构改变已发请求的订阅状态。
+manager 与依赖服务必须覆盖 group 全部访问及实际操作的寿命；不承诺 manager 销毁后 group 仍可访问。
+请求保存所需调度快照，因此 group 先析构不会自动取消请求；宿主仍须清理实际 I/O 和回调。
+
+manager clear/重新 apply 配置使旧 group 失效：在 manager 仍存活时，旧 group 请求返回失败状态，不静默绑定新配置；
+重新配置后显式重建 group。配置代次和失效错误表达方式在 AL-01 固定。单纯更换默认调度不等于更换 runtime 配置，
+不能据此改变现有 group 的固定句柄。无效/已关闭的 group 调度组合不回退到 manager 默认值。
+completion 仍须运行在同一 cache 所属线程，创建 group 不迁移资源线程归属。
+
+#### 跨 group 的共享加载
+
+同一 manager 下，命中同一 cache/GUID 且符合现有操作种类共享规则的请求继续复用底层工作；
+group 不作为隔离键，不能仅因不同 group 重复 I/O。load 与 reload 不因 GUID 相同而被无条件合并。
+首次创建底层操作的请求确定其 worker 与 completion；后续订阅不改变实际调度器。
+新订阅提供的 group 因而不是底层任务的强制执行位置，也不保证其等待方在该 group 的 completion 恢复。
+需要指定 coroutine 恢复线程时显式使用现有调度适配，不在本版增加每订阅完成队列。
+
+不同 group 的订阅仍独立取消；既有 `cancel_shared()` 继续影响共享操作，不能被解释为仅取消本 group。
+第一版不加入 group 级统一取消、批量等待、独立缓存、资源驻留或自动卸载职责；preload 的批次语义由原请求维护。
 
 ### 启动、完成与所有权
 
@@ -114,7 +160,8 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 ### AL-01：协议与寿命模型
 
 - [ ] 评审启动上下文、完成凭证与底层取消访问的精确签名，形成公共中文 Doxygen 契约。
-- [ ] 固定 asset_manager 运行期默认调度配置、兼容构造/初始化与整组按次覆盖接口，以及未配置和重配错误。
+- [ ] 固定 asset_manager 运行期默认调度配置、兼容构造/初始化、asset_group 创建与转发接口，以及未配置/失效/重配错误。
+- [ ] 固定跨 group 共享操作的首次调度归属、manager 配置代次与旧 group 失效规则，明确非拥有寿命。
 - [ ] 实现启动拒绝、同步完成、延迟完成、完成凭证丢弃和恰好一次交付；确定重复交付防护与错误归属。
 - [ ] 固定结果/缓冲区/allocator/模块所有权、回调线程、无环持有与无异常模式支持边界。
 
@@ -130,13 +177,15 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 - [ ] 扩展类型擦除注册、manifest type/type_guid 绑定和冲突诊断，允许同步/异步能力并存。
 - [ ] 接通 asset_manager 类型工厂及 request_load/request_reload，保持已有同步工厂兼容。
 - [ ] 增加默认 worker/completion 配置和统一请求重载，覆盖加载、重载及两类预加载；保持原显式调度调用可用。
+- [ ] 实现 asset_group 的创建、复制/移动与请求转发；共享 manager/cache/请求表，按 runtime 配置代次拒绝旧 group 请求。
+- [ ] 不同 group 共享同一加载时保留首次调度组合，验证新订阅、独立取消及 cancel_shared 的跨组影响。
 - [ ] 请求固定发起时的调度快照，约束在途操作期间重配，明确空闲重配不迁移 cache 所属线程。
 - [ ] 支持同类型与跨类型 request_preload 的同步/异步混合依赖、共享加载与失败传播。
 - [ ] 明确重新配置/clear/销毁前的宿主清理步骤，覆盖真实在途 I/O 与回调的寿命。
 
 ### AL-04：验收、安装与文档
 
-- [ ] 提供可控延迟、同步完成、拒绝、取消后迟到与丢弃的模拟宿主，以及初始化一次默认调度、统一请求与按次覆盖示例。
+- [ ] 提供可控延迟、同步完成、拒绝、取消后迟到与丢弃的模拟宿主，以及初始化一次默认调度、group 调度复用与三个请求语义的示例。
 - [ ] 跑下列契约矩阵、必要重复测试与 sanitizer，再在完整批次集中运行常规 CI。
 - [ ] 安装包公共头独立包含，consumer 覆盖同步兼容与异步请求/coroutine；迁移前缀后可用且不依赖 libuv。
 - [ ] 实现后更新 resources/assets 参考、迁移说明和 CHANGELOG，真实数据写 Record，再将 Plan 标为已完成。
@@ -152,7 +201,9 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 | 解析/分配/读取失败与 reload | 传播明确错误，旧 cache 绑定及 generation 符合现有语义 |
 | 跨类型混合 preload 与协程等待 | 依赖顺序、共享工作、错误传播及恢复均保持契约 |
 | 关闭、重配、模块卸载前清理 | 实际 I/O 与捕获对象清理后才释放服务、allocator 与模块 pin |
-| 默认调度与按次覆盖 | 初始化一次后加载/重载/两类预加载均可省略 executor，显式组合覆盖整组默认值 |
+| 默认调度与 group 调度复用 | manager 初始化默认值，group 初始化特殊组合，加载/重载/两类预加载均可省略 executor；原显式入口兼容 |
+| 跨 group 共享与取消 | 同一底层操作只启动一次，沿用首次调度组合；订阅取消隔离，cancel_shared 按原规则影响全部订阅 |
+| group 复制、移动、析构与配置失效 | 不复制 cache、不取消已发请求；清空/重配 runtime 后旧 group 不能访问新配置，manager 仍须覆盖 group 访问寿命 |
 | 未配置默认值与调度环境关闭 | 无默认值的便捷入口返回失败请求，显式入口仍可用；关闭后的投递错误不被默认回退覆盖 |
 | 默认调度下缓存命中、同步与异步 loader | 使用同一请求类型，支持立即完成与延迟完成，cache 均在所属线程提交 |
 | 调度重配与迟到 I/O | 拒绝可检测的在途重配，不以请求终态代替实际操作已清理；请求不更换已有句柄快照 |
@@ -164,7 +215,7 @@ libuv 的请求清理规则由上游实现遵守；相关 API 以[官方文件�
 
 以下均阻塞 AL-01 的接口定稿，不以讨论通过代替实现：
 
-- 默认调度配置类型与构造/初始化的精确签名；如何检测可拒绝的在途重配，以及仅宿主可证明的实际 I/O 清理边界。
+- 默认调度配置与 asset_group 的精确类型/签名、创建失败和配置代次失效的错误表达；如何检测可拒绝的在途重配，以及仅宿主可证明的实际 I/O 清理边界。
 - 启动上下文如何携带选定的默认或覆盖调度组合；异步 loader 如何把发起工作转交到所需宿主线程。
 - 底层取消句柄与完成凭证如何独立保活，避免取消回调重入和相互强引用；重复交付的诊断方式。
 - 完成凭证丢弃与同步启动拒绝如何优先保留准确错误，避免清理守卫提前覆盖拒绝原因。
