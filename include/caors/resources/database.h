@@ -635,7 +635,7 @@ public:
         completion_executor, requests, true, {}, {}, make_activity(), {}, provider_);
   }
 
-  /** @brief 异步重载资源，并通过指定执行目标替换对应 cache 绑定。 */
+  /** @brief 异步重载资源；拥有当前发布资格时通过指定执行目标替换 cache 绑定。 */
   template <typename T>
   [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
                                                tasks::executor completion_executor) {

@@ -71,7 +71,8 @@ public:
 /**
  * @brief 把 `io::file_system` 适配为资源字节来源。
  *
- * `file_source` 不拥有底层文件系统，调用方需要保证文件系统在 source 使用期间保持有效。
+ * 引用构造借用底层文件系统；shared_ptr 构造拥有后端和可选宿主凭据。
+ * provider 仍借用 source，调用方须保证 source 覆盖同步访问及快照捕获。
  */
 class CAORS_API file_source final : public source {
 public:

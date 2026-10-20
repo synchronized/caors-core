@@ -121,12 +121,14 @@ TEST_CASE("io - streaming buffer stays bounded and inline chunks do not recurse"
   file->bytes = 20000;
   file->limit = 1;
   std::uint64_t consumed = 0;
+  std::uint64_t checksum = 0;
   auto request = consume_chunks(
       file, {file->bytes, 13}, tasks::inline_executor(),
       [&](auto offset, auto block) {
         CHECK(offset == consumed);
         REQUIRE(block.size() == 1);
         CHECK(block.front() == static_cast<std::byte>(offset % 251));
+        checksum += std::to_integer<unsigned char>(block.front());
         consumed += block.size();
         return io_error{};
       },
@@ -136,6 +138,9 @@ TEST_CASE("io - streaming buffer stays bounded and inline chunks do not recurse"
   REQUIRE(*request->result());
   CHECK(request->result()->value.bytes == consumed);
   CHECK(consumed == file->bytes);
+  const auto cycles = file->bytes / 251;
+  const auto remainder = file->bytes % 251;
+  CHECK(checksum == cycles * (250 * 251 / 2) + remainder * (remainder - 1) / 2);
   CHECK(file->max_depth == 1);
   CHECK(memory.peak < 4096);
   CHECK(memory.active == 0);

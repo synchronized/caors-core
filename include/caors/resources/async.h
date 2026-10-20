@@ -203,9 +203,8 @@ struct preload_request_state {
 };
 
 template <typename T>
-[[nodiscard]] error commit_loaded_resource(cache<T>& target, resource_guid guid,
-                                           memory::unique_ptr<T> loaded, bool replace,
-                                           handle<T>& committed, bool publish = true) {
+[[nodiscard]] error prepare_loaded_resource(cache<T>& target, resource_guid guid,
+                                            memory::unique_ptr<T> loaded, handle<T>& committed) {
   if (loaded == nullptr) {
     return {error_domain::resources, errc::backend_failure};
   }
@@ -220,12 +219,6 @@ template <typename T>
   }
   if (loaded_handle->guid() != guid) {
     return {error_domain::resources, errc::inconsistent_type};
-  }
-
-  const bool committed_to_cache =
-      !publish || (replace ? target.replace(loaded_handle) : target.insert(loaded_handle));
-  if (!committed_to_cache) {
-    return {error_domain::resources, replace ? errc::backend_failure : errc::already_exists};
   }
 
   committed = std::move(loaded_handle);
@@ -1569,10 +1562,14 @@ void finish_resource_load(const StatePtr& state, cache<T>& target, resource_guid
 #if CAORS_HAS_EXCEPTIONS
           try {
 #endif
-            const bool publish = load_request_access<T>::may_publish(state, target, guid);
-            status = commit_loaded_resource(target, guid, std::move(loaded_resource),
-                                            state->refresh ? target.contains(guid) : replace,
-                                            committed, publish);
+            status = prepare_loaded_resource(target, guid, std::move(loaded_resource), committed);
+            // 先完成结果控制块分配和 GUID 校验，再裁决默认绑定，旧请求仍可拿到私有结果。
+            if (!status && load_request_access<T>::may_publish(state, target, guid)) {
+              const bool replacing = state->refresh ? target.contains(guid) : replace;
+              if (!(replacing ? target.replace(committed) : target.insert(committed)))
+                status = {error_domain::resources,
+                          replacing ? errc::backend_failure : errc::already_exists};
+            }
 #if CAORS_HAS_EXCEPTIONS
           } catch (const std::bad_alloc&) {
             status = {error_domain::resources, errc::out_of_memory};
@@ -1853,6 +1850,7 @@ template <typename T>
  *
  * 已缓存资源会立即返回 loaded 请求。未缓存资源会在 executor 中调用 loader，随后把 cache
  * 插入动作投递到 completion executor；调用方负责在拥有该执行环境的线程运行它。
+ * 若被新的刷新意图取代，仍可返回自己的加载结果，但不会更新默认绑定。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
@@ -1877,6 +1875,7 @@ request_load_into(cache<T>& target, loader<T>& source, resource_guid guid, tasks
  * @brief 异步重载资源并通过指定执行目标替换 cache 绑定。
  *
  * cache 未包含该 GUID 时立即失败。加载或 commit 失败时旧资源保持不变。
+ * 若期间登记了更新的刷新意图，成功结果仅返回给本请求，不替换默认绑定。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,

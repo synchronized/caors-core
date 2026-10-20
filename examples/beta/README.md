@@ -16,6 +16,8 @@
 5. `config_schema.cpp`：展示 typed factory options 的校验入口。
 6. [assets_native_async.cpp](assets_native_async.cpp)：宿主延迟完成 loader、默认调度和 asset_group 共享请求；仅模拟 I/O 事件，不依赖 libuv。
 
+7. [io_chunked_read.cpp](io_chunked_read.cpp)：串行逐块消费、完整结果聚合和调用方显式关闭。
+
 ## 主流程
 
 beta 前资源路径按下面公式收敛：
@@ -46,6 +48,5 @@ cmake --build --preset windows-clang-debug --target caors_example_beta_asset_pip
 cmake --build --preset windows-clang-debug --target caors_example_beta_config_schema
 cmake --build --preset windows-clang-debug --target caors_example_beta_assets_async_vfs
 cmake --build --preset windows-clang-debug --target caors_example_beta_assets_native_async
+cmake --build --preset windows-clang-debug --target caors_example_beta_io_chunked_read
 ```
-
-- [io_chunked_read.cpp](io_chunked_read.cpp)：在同一文件上执行串行逐块消费和完整结果聚合，由调用者显式关闭文件。

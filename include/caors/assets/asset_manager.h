@@ -451,7 +451,7 @@ public:
     }
     return request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 使用默认调度重新加载资源，失败保留旧 cache 绑定。 */
+  /** @brief 使用默认调度重载资源；符合当前发布资格时替换绑定，失败保留旧对象。 */
   template <typename T> [[nodiscard]] load_request<T> request_reload(resource_guid guid) {
     if (!execution_configured_) {
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
@@ -492,7 +492,7 @@ public:
                                      std::move(completion_executor));
   }
 
-  /** @brief 在后台 executor 重载资源，并在完成 executor 替换对应 cache 绑定。 */
+  /** @brief 在后台 executor 重载资源，拥有发布资格时在完成 executor 替换绑定。 */
   template <typename T>
   [[nodiscard]] load_request<T> request_reload(resource_guid guid,
                                                tasks::executor background_executor,
@@ -806,7 +806,7 @@ public:
     }
     return manager_->request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 重载单资源，成功替换 cache，失败保留原绑定。 */
+  /** @brief 重载单资源；被新刷新取代时可返回未发布的旧结果，失败保留原绑定。 */
   template <typename T>
   [[nodiscard]] resources::load_request<T> request_reload(resources::resource_guid guid) const {
     if (auto status = check()) {

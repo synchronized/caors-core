@@ -783,3 +783,23 @@ TEST_CASE("assets - rejected and cancelled refresh preserve cache and supersede 
     CHECK(f.cache.find(test_guid_a) == original.get());
   }
 }
+
+TEST_CASE("assets - refresh root does not silently refresh cached dependency closure",
+          "[assets][refresh]") {
+  fixture f;
+  auto old_root = f.cache.create_handle(test_guid_a, test_guid_a);
+  auto dependency = f.cache.create_handle(test_guid_b, test_guid_b);
+  REQUIRE(old_root);
+  REQUIRE(dependency);
+  REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
+  auto request = f.assets.request_refresh<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK(f.loader.pending.front().context.guid == test_guid_a);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(request.loaded());
+  CHECK(f.cache.find(test_guid_a) != old_root.get());
+  CHECK(f.cache.find(test_guid_b) == dependency.get());
+  CHECK(f.loader.starts == 1);
+}
