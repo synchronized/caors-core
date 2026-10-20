@@ -37,13 +37,23 @@ libc++ 保留了源回调拥有的循环引用。改为与空槽交换，在锁�
 Chrome 155.0.8059.85 实际跨事件循环验证延迟完成、取消、队列丢弃、manager/cache 销毁后句柄保活通过。
 工具链为 Emscripten 5.0.6，随附 Node 24.19.0，wasm32 单线程，Debug、严格警告即错误。
 
-## 在验收项目
+## 集成验收结果
 
-首轮完整库、独立公共头、Node 和安装/迁移 consumer 通过；最后修复后的公共头重编译及安装迁移正在复核。
+最后修复后完整静态库、独立公共头及 Node CTest 2/2 通过（fixed-build.log、fixed-test.log）。
+原始安装前缀与移走后的新前缀各自独立配置、链接、Node 运行 1/1 通过，见 final-consumer-original.log、
+final-consumer-relocated.log。另对前四字节为 0..9999 小端计数、其余为零的 GUID 进行 wasm32 哈希基本采样，
+得到 10000 个不同结果（hash-probe.log）；该采样不构成完整统计质量或性能承诺。
 新增浮点解析与位宽回归；复用异步 loader、I/O 与路由回归，仅按能力排除确实创建线程的用例，
 快照并发测试仍由原生执行。浏览器驱动固定 playwright-core 1.62.1，仅测试使用，锁文件保存来源摘要。
-最终代码提交和 CI 链接在验收后补齐，不把进行中的构建写为通过。新增工作流首次以限定特性分支 push 验证，
-合并前删除该临时入口，正式触发仍为手动/每周定时。
+验证代码为 5672b5ed2d9d09fef8b7687b0bc8a4f9e6790e90，[PR #53](https://github.com/synchronized/caors-core/pull/53)。
+
+- [Web CI](https://github.com/synchronized/caors-core/actions/runs/39447038623)：通过。Ubuntu 24.04，Emscripten 5.0.6、Node 24.19.0、静态 Release；公共头/协议 CTest 2/2，安装原始与迁移各 1/1，显式拒绝 SHARED 与同目录切换 pthread，Chrome 155.0.8059.39 浏览器 smoke 通过。
+- [Linux CI](https://github.com/synchronized/caors-core/actions/runs/39447100832)：5/5 通过。动态库每组 100/100，静态库 97/97；ASan、UBSan 均通过，普通 Release 原始/迁移 consumer 各 6/6。
+- [Windows CI](https://github.com/synchronized/caors-core/actions/runs/39447107974)：3/3 通过。动态库每组 100/100，静态库 97/97；原始与迁移 consumer 均通过。
+
+新增工作流首次以限定特性分支 push 验证，收口时删除该临时入口，正式触发为手动/每周定时。
+验收后收口提交仅更新文档和删除临时触发，不修改 C++、依赖或 CI 测试步骤；未重复启动矩阵。
+以上是功能集成证据，不是 v0.7.0 发布候选最终 main SHA 的发布验收。
 
 ## 上游与发布边界
 

@@ -13,7 +13,7 @@
 
 ## 状态索引
 
-### v0.7.0 实施中
+### v0.7.0 待联合验收
 
 - [Emscripten 单线程平台接入](emscripten-single-thread-platform.md)：共享快照、平台能力、协作调度与浏览器验收。
 

@@ -3,9 +3,6 @@
 
 name: Emscripten
 on:
-  # 新工作流首次验证入口，合并前移除；后续仅手动和定时触发。
-  push:
-    branches: [feature/v0.7.0-emscripten]
   workflow_dispatch:
   schedule:
     # 每周一北京时间 02:00，与原生常规矩阵独立。
