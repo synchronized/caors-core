@@ -35,7 +35,7 @@ vendor/
     archives/<name>-<sha256>.tar.gz
     sources/<name>/<sha256>/
     locks/<name>-<sha256>.lock
-    staging/<name>-<nonce>/
+    staging/<name>-<short-sha>-<nonce>/
 ```
 
 只共享源码与原始归档。不同 preset 的生成头、静态库和对象文件仍在各自 build 目录，不能复用编译目录。
@@ -74,7 +74,7 @@ cmake --preset linux-clang-release -DCAORS_BUILD_TESTING=OFF -DCAORS_BUILD_BENCH
 离线缺失、坏摘要、不完整源码、超时或下载失败均明确报错。不会自动删除已有归档或源码；
 失败 staging 保留路径用于排查；Windows 路径较深时可配置较短的本地缓存根目录。恢复时使用新缓存根目录，或确认没有活跃写入者后将损坏项移走重试。
 跨仓库复用必须统一缓存键、完成标记及锁协议；配置相同物理目录不代表兼容 Granit/Gneiss 的既有格式。
-CI 仅缓存 archives/sources，按平台和清单/缓存实现摘要区分；不缓存编译产物、锁或失败暂存。
+CI 仅缓存 archives/sources，按平台、依赖集合及清单/缓存实现摘要区分；不缓存编译产物、锁或失败暂存。
 
 ## 来源与许可证
 

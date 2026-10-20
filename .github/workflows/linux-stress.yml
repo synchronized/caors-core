@@ -28,7 +28,8 @@ jobs:
           path: |
             vendor/cache/archives
             vendor/cache/sources
-          key: ${{ runner.os }}-caors-source-${{ hashFiles('cmake/caors_dependency_catalog.cmake', 'cmake/caors_dependency_cache.cmake') }}
+          # 按依赖集合分键，避免只含 Catch2 的快任务占据完整基准缓存键。
+          key: ${{ runner.os }}-caors-source-catch2-${{ hashFiles('cmake/caors_dependency_catalog.cmake', 'cmake/caors_dependency_cache.cmake') }}
       - name: 安装构建工具
         run: |
           sudo apt-get update

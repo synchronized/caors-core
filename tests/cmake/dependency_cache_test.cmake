@@ -149,6 +149,38 @@ if(NOT first STREQUAL second OR NOT EXISTS "${first}/.caors-source-complete")
   message(FATAL_ERROR "并发调用没有得到同一完整源码")
 endif()
 
+# 同名但不同修订使用不同锁与发布目录，不能在并行准备时串用内容。
+file(MAKE_DIRECTORY "${test_root}/input-two/fixture")
+file(WRITE "${test_root}/input-two/fixture/entry.txt" "revision two")
+set(second_archive "${test_root}/version-two.tar.gz")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E tar cfz "${second_archive}" --format=gnutar fixture
+  WORKING_DIRECTORY "${test_root}/input-two" RESULT_VARIABLE packed)
+if(NOT packed EQUAL 0)
+  message(FATAL_ERROR "无法生成第二修订归档")
+endif()
+file(SHA256 "${second_archive}" second_digest)
+string(REGEX REPLACE "fixture\\.tar\\.gz$" "version-two.tar.gz" second_url "${archive_url}")
+set(revision_cache "${test_root}/parallel_revisions")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${revision_cache}" -DOFFLINE=OFF
+    "-DURL=${archive_url}" "-DHASH=${digest}" -DMARKER=entry.txt
+    "-DOUTPUT_FILE=${test_root}/revision-a.txt" -P "${worker}"
+  COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${revision_cache}" -DOFFLINE=OFF
+    "-DURL=${second_url}" "-DHASH=${second_digest}" -DMARKER=entry.txt
+    "-DOUTPUT_FILE=${test_root}/revision-b.txt" -P "${worker}"
+  RESULTS_VARIABLE codes OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 30)
+if(NOT codes STREQUAL "0;0")
+  message(FATAL_ERROR "并行修订准备失败：${codes}：${output}${errors}")
+endif()
+file(READ "${test_root}/revision-a.txt" first)
+file(READ "${test_root}/revision-b.txt" second)
+file(READ "${first}/entry.txt" first_content)
+file(READ "${second}/entry.txt" second_content)
+if(first STREQUAL second OR NOT first_content STREQUAL "cache contract fixture" OR
+   NOT second_content STREQUAL "revision two")
+  message(FATAL_ERROR "同名修订之间串用了缓存内容")
+endif()
+
 set(holder "${test_root}/holder.cmake")
 file(CONFIGURE OUTPUT "${holder}" CONTENT [=[
 file(MAKE_DIRECTORY "${CACHE_ROOT}/locks")

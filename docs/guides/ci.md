@@ -80,6 +80,6 @@ caors_provider_snapshot_benchmarks，并运行 1000 绑定、3 样本的最小 s
 
 ## 开发依赖缓存
 
-常规与压力任务仅缓存 vendor/cache 的 archives/sources，键包含平台及清单/缓存实现摘要；
-不缓存锁、staging 或编译产物。既有 Linux Clang Release 与 Windows MSVC Release 任务同时
+常规与压力任务仅缓存 vendor/cache 的 archives/sources，键包含平台、依赖集合及清单/缓存实现摘要；
+避免只含 Catch2 的缓存抢先保存后，完整基准缓存无法更新；不缓存锁、staging 或编译产物。既有 Linux Clang Release 与 Windows MSVC Release 任务同时
 构建两类基准，执行最小 smoke 并重新离线配置，验证 ctrack 和 Catch2 缓存完整；不新增矩阵组合。

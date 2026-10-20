@@ -43,6 +43,14 @@ Clang 23.1.1 / MSVC ABI / Shared Debug，build/v030-clang-debug：全仓及两�
 
 首轮集成的缓存契约在 Windows 深层构建目录中遇到解压子进程启动失败；
 缩短 staging 名称，保留完整锁键与发布摘要后，在相同深层目录复验通过。未通过缩短测试路径绕过。
-归档和源码重命名均使用 NO_REPLACE，不覆盖已有目标；非归档目录不会递归删除。
+归档和源码重命名均使用 NO_REPLACE，不覆盖已有目标；仅清理本次创建并确认仍位于 staging 内的暂存目录，不递归删除已有归档或源码目录。
 
 跨平台验收尚未完成；计划中的正式 v0.6.0 发布仍未执行。
+
+## 源码归档预验收
+
+从功能提交 1384dee3 生成未发布的 Git 源码快照，确认不含 3rd 或 vendor/cache；
+解压后关闭测试/基准并 OFFLINE=ON 配置核心及示例通过，未创建默认缓存目录。
+另复制精确下载归档到独立缓存，在源码快照中启用测试/基准并 OFFLINE=ON 配置通过；
+这次验证的是 Git 快照配置，不是已发布 v0.6.0 的最终 SHA 验收。
+日志 archive-core-configure.log、archive-dev-configure.log 位于 build/dependency-migration。

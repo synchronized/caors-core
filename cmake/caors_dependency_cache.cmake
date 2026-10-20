@@ -54,9 +54,10 @@ function(caors_prepare_source_cache name url sha256 marker output)
     message(FATAL_ERROR "离线依赖 ${name} 缓存缺失：${root}")
   endif()
 
-  string(RANDOM LENGTH 24 ALPHABET 0123456789abcdef nonce)
+  string(RANDOM LENGTH 16 ALPHABET 0123456789abcdef nonce)
+  string(SUBSTRING "${sha256}" 0 12 short_hash)
   # staging 不重复完整摘要，避免 Windows 子进程工作目录触及长路径限制。
-  set(stage "${root}/staging/${name}-${nonce}")
+  set(stage "${root}/staging/${name}-${short_hash}-${nonce}")
   if(EXISTS "${stage}")
     message(FATAL_ERROR "依赖 staging 路径已存在，不覆盖：${stage}")
   endif()
