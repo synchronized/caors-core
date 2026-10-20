@@ -38,13 +38,13 @@ template <typename T>
 struct scalar_ops_model<T, std::enable_if_t<std::is_same_v<scalar_type<T>, bool>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_bool(const void* object, bool& value) noexcept {
-    value = *static_cast<const type*>(object);
+  [[nodiscard]] static bool to_bool(const void* object, bool& result) noexcept {
+    result = *static_cast<const type*>(object);
     return true;
   }
 
-  [[nodiscard]] static bool from_bool(void* object, bool value) noexcept {
-    *static_cast<type*>(object) = value;
+  [[nodiscard]] static bool from_bool(void* object, bool source) noexcept {
+    *static_cast<type*>(object) = source;
     return true;
   }
 
@@ -70,17 +70,17 @@ template <typename T>
 struct scalar_ops_model<T, std::enable_if_t<std::is_same_v<scalar_type<T>, char>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_string(const void* object, std::string_view& value) noexcept {
-    value = std::string_view{static_cast<const char*>(object), 1};
+  [[nodiscard]] static bool to_string(const void* object, std::string_view& result) noexcept {
+    result = std::string_view{static_cast<const char*>(object), 1};
     return true;
   }
 
-  [[nodiscard]] static bool from_string(void* object, std::string_view value) noexcept {
-    if (value.size() != 1) {
+  [[nodiscard]] static bool from_string(void* object, std::string_view source) noexcept {
+    if (source.size() != 1) {
       return false;
     }
 
-    *static_cast<type*>(object) = value[0];
+    *static_cast<type*>(object) = source[0];
     return true;
   }
 
@@ -109,27 +109,27 @@ struct scalar_ops_model<
                      !std::is_same_v<scalar_type<T>, char> && std::is_signed_v<scalar_type<T>>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_i64(const void* object, std::int64_t& value) noexcept {
-    value = static_cast<std::int64_t>(*static_cast<const type*>(object));
+  [[nodiscard]] static bool to_i64(const void* object, std::int64_t& result) noexcept {
+    result = static_cast<std::int64_t>(*static_cast<const type*>(object));
     return true;
   }
 
-  [[nodiscard]] static bool from_i64(void* object, std::int64_t value) noexcept {
-    if (value < static_cast<std::int64_t>(std::numeric_limits<type>::min()) ||
-        value > static_cast<std::int64_t>(std::numeric_limits<type>::max())) {
+  [[nodiscard]] static bool from_i64(void* object, std::int64_t source) noexcept {
+    if (source < static_cast<std::int64_t>(std::numeric_limits<type>::min()) ||
+        source > static_cast<std::int64_t>(std::numeric_limits<type>::max())) {
       return false;
     }
 
-    *static_cast<type*>(object) = static_cast<type>(value);
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
-  [[nodiscard]] static bool from_u64(void* object, std::uint64_t value) noexcept {
-    if (value > static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
+  [[nodiscard]] static bool from_u64(void* object, std::uint64_t source) noexcept {
+    if (source > static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
       return false;
     }
 
-    *static_cast<type*>(object) = static_cast<type>(value);
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
@@ -158,27 +158,27 @@ struct scalar_ops_model<
                      !std::is_same_v<scalar_type<T>, char> && !std::is_signed_v<scalar_type<T>>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_u64(const void* object, std::uint64_t& value) noexcept {
-    value = static_cast<std::uint64_t>(*static_cast<const type*>(object));
+  [[nodiscard]] static bool to_u64(const void* object, std::uint64_t& result) noexcept {
+    result = static_cast<std::uint64_t>(*static_cast<const type*>(object));
     return true;
   }
 
-  [[nodiscard]] static bool from_i64(void* object, std::int64_t value) noexcept {
-    if (value < 0 || static_cast<std::uint64_t>(value) >
-                         static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
+  [[nodiscard]] static bool from_i64(void* object, std::int64_t source) noexcept {
+    if (source < 0 || static_cast<std::uint64_t>(source) >
+                          static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
       return false;
     }
 
-    *static_cast<type*>(object) = static_cast<type>(value);
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
-  [[nodiscard]] static bool from_u64(void* object, std::uint64_t value) noexcept {
-    if (value > static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
+  [[nodiscard]] static bool from_u64(void* object, std::uint64_t source) noexcept {
+    if (source > static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
       return false;
     }
 
-    *static_cast<type*>(object) = static_cast<type>(value);
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
@@ -204,23 +204,23 @@ template <typename T>
 struct scalar_ops_model<T, std::enable_if_t<std::is_floating_point_v<scalar_type<T>>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_f64(const void* object, double& value) noexcept {
-    value = static_cast<double>(*static_cast<const type*>(object));
+  [[nodiscard]] static bool to_f64(const void* object, double& result) noexcept {
+    result = static_cast<double>(*static_cast<const type*>(object));
     return true;
   }
 
-  [[nodiscard]] static bool from_i64(void* object, std::int64_t value) noexcept {
-    *static_cast<type*>(object) = static_cast<type>(value);
+  [[nodiscard]] static bool from_i64(void* object, std::int64_t source) noexcept {
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
-  [[nodiscard]] static bool from_u64(void* object, std::uint64_t value) noexcept {
-    *static_cast<type*>(object) = static_cast<type>(value);
+  [[nodiscard]] static bool from_u64(void* object, std::uint64_t source) noexcept {
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
-  [[nodiscard]] static bool from_f64(void* object, double value) noexcept {
-    *static_cast<type*>(object) = static_cast<type>(value);
+  [[nodiscard]] static bool from_f64(void* object, double source) noexcept {
+    *static_cast<type*>(object) = static_cast<type>(source);
     return true;
   }
 
@@ -245,28 +245,28 @@ struct scalar_ops_model<T, std::enable_if_t<std::is_floating_point_v<scalar_type
 template <typename T> struct scalar_ops_model<T, std::enable_if_t<scalar_string_v<T>>> {
   using type = scalar_type<T>;
 
-  [[nodiscard]] static bool to_string(const void* object, std::string_view& value) noexcept {
+  [[nodiscard]] static bool to_string(const void* object, std::string_view& result) noexcept {
     if constexpr (std::is_same_v<type, core::string> || std::is_same_v<type, std::string>) {
       const auto& text = *static_cast<const type*>(object);
-      value = std::string_view{text.data(), text.size()};
+      result = std::string_view{text.data(), text.size()};
     } else if constexpr (std::is_same_v<type, std::string_view>) {
-      value = *static_cast<const type*>(object);
+      result = *static_cast<const type*>(object);
     } else {
-      value = static_cast<const core::string_name*>(object)->view();
+      result = static_cast<const core::string_name*>(object)->view();
     }
     return true;
   }
 
-  [[nodiscard]] static bool from_string(void* object, std::string_view value) {
+  [[nodiscard]] static bool from_string(void* object, std::string_view source) {
 #if CAORS_HAS_EXCEPTIONS
     try {
 #endif
       if constexpr (std::is_same_v<type, core::string> || std::is_same_v<type, std::string>) {
-        static_cast<type*>(object)->assign(value.data(), value.size());
+        static_cast<type*>(object)->assign(source.data(), source.size());
       } else if constexpr (std::is_same_v<type, std::string_view>) {
-        *static_cast<type*>(object) = value;
+        *static_cast<type*>(object) = source;
       } else {
-        *static_cast<type*>(object) = core::string_name{value};
+        *static_cast<type*>(object) = core::string_name{source};
       }
 
       return true;

@@ -139,12 +139,12 @@ template <typename T> struct handle_ops_model {
     return to_untyped_handle(*static_cast<const type*>(storage));
   }
 
-  static bool set(void* storage, handle value) noexcept {
+  static bool set(void* storage, handle source) noexcept {
     if (storage == nullptr) {
       return false;
     }
 
-    static_cast<type*>(storage)->reset(value);
+    static_cast<type*>(storage)->reset(source);
     return true;
   }
 

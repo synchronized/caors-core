@@ -62,8 +62,9 @@ template <typename Reader>
   std::uint64_t parsed = 0;
   if (const std::uint64_t* value = member->try_as_u64()) {
     parsed = *value;
-  } else if (const std::int64_t* value = member->try_as_i64(); value != nullptr && *value >= 0) {
-    parsed = static_cast<std::uint64_t>(*value);
+  } else if (const std::int64_t* signed_value = member->try_as_i64();
+             signed_value != nullptr && *signed_value >= 0) {
+    parsed = static_cast<std::uint64_t>(*signed_value);
   } else {
     return {error_domain::resources, errc::invalid_argument};
   }

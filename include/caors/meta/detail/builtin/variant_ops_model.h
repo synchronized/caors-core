@@ -62,8 +62,8 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
     }
   }
 
-  static bool set(void* storage, const void* value) {
-    if (storage == nullptr || value == nullptr) {
+  static bool set(void* storage, const void* source) {
+    if (storage == nullptr || source == nullptr) {
       return false;
     }
 
@@ -73,12 +73,12 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
                            traits::variant_traits<type>::template set<Index>(variant, alternative);
                          }) {
       return traits::variant_traits<type>::template set<Index>(
-          *static_cast<type*>(storage), *static_cast<const alternative_type*>(value));
+          *static_cast<type*>(storage), *static_cast<const alternative_type*>(source));
     } else if constexpr (requires(type& variant, const alternative_type& alternative) {
                            variant.template emplace<Index>(alternative);
                          }) {
       static_cast<type*>(storage)->template emplace<Index>(
-          *static_cast<const alternative_type*>(value));
+          *static_cast<const alternative_type*>(source));
       return true;
     } else {
       return false;

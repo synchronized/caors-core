@@ -460,8 +460,8 @@ error serialization::json_writer::write_json_string(std::string_view value) {
       if (character < 0x20U) {
         unicode_escape[0] = '\\';
         unicode_escape[1] = 'u';
-        unicode_escape[2] = digits[(character >> 12U) & 0x0FU];
-        unicode_escape[3] = digits[(character >> 8U) & 0x0FU];
+        unicode_escape[2] = '0';
+        unicode_escape[3] = '0';
         unicode_escape[4] = digits[(character >> 4U) & 0x0FU];
         unicode_escape[5] = digits[character & 0x0FU];
         escaped = std::string_view{unicode_escape, sizeof(unicode_escape)};

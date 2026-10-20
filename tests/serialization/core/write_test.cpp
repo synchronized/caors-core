@@ -326,3 +326,23 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
   REQUIRE(result.succeeded());
   CHECK(writer.text() == R"({"items":[1,2]})");
 }
+
+TEST_CASE("serialization - JSON escapes every ASCII control byte", "[serialization]") {
+  caors::string control;
+  for (unsigned int byte = 0; byte < 0x20U; ++byte) {
+    control.push_back(static_cast<char>(byte));
+  }
+
+  const auto encoded = caors::to_json(control);
+  REQUIRE(encoded.succeeded());
+  CHECK(encoded->find("\\u0000") != caors::string::npos);
+  CHECK(encoded->find("\\u001f") != caors::string::npos);
+  for (const unsigned char byte : *encoded) {
+    CHECK(byte >= 0x20U);
+  }
+
+  const auto decoded = caors::serialization::parse_json(*encoded);
+  REQUIRE(decoded.succeeded());
+  REQUIRE(decoded->is_string());
+  CHECK(decoded->as_string() == control);
+}
