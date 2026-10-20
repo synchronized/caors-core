@@ -213,3 +213,63 @@ CSV 输出耗时 p50/p95/p99/max、更新最大耗时、显式 allocator 分配�
 Windows 普通 PowerShell 先用 scripts/msvc.ps1 初始化同进程 VS 环境，再配置 Release benchmark 构建目录。
 至少独立运行三次，优化前后固定提交、机器、编译器与参数；摘要与限制进入结果目录，原始 CSV 保留于执行日志。
 共享 CI 可用于可运行性核对，不替代固定 Windows/Linux 环境的正式性能复验。
+
+### 固定 Linux 主机复验
+
+以下是待执行流程，不是测量结果。需要固定 Linux x64 主机、CMake 3.23 以上、Ninja、
+Clang 及 Git；机器在六轮测量期间保持相同配置，停止并行构建及其他显著负载。
+先在同一主机完成两个提交的构建，再运行测量，不能把编译和测量交错。
+本轮比较提交由[开发记录](../records/2026-10-20-v0.5.0-vfs-followups.md#性能证据)维护；
+后续比较时应替换下列两个完整 SHA，并使用新的空输出目录，保留历史数据。
+
+在仓库根目录执行（Bash）：
+
+```bash
+set -euo pipefail
+snapshot_repo=$(git rev-parse --show-toplevel)
+snapshot_output="$snapshot_repo/build/provider-snapshot-linux"
+# 拒绝覆盖已有测量；命令失败后排查原因，使用新目录重试。
+mkdir -p "$snapshot_repo/build"
+mkdir "$snapshot_output"
+git worktree add --detach "$snapshot_output/baseline" d59cbb6e83698103594082d6dc30523ab1a25301
+git worktree add --detach "$snapshot_output/optimized" 602183206f2c28bd7b3fb294456a81f7ca5c8d78
+for variant in baseline optimized; do
+    (
+        cd "$snapshot_output/$variant"
+        cmake --preset linux-clang-release \
+            -DCAORS_BUILD_TESTING=OFF -DCAORS_BUILD_EXAMPLES=OFF \
+            -DCAORS_BUILD_BENCHMARKS=ON
+        cmake --build --preset linux-clang-release \
+            --target caors_provider_snapshot_benchmarks -j 2
+    ) > "$snapshot_output/$variant-build.log" 2>&1
+done
+
+{
+    date -u
+    uname -a
+    cat /etc/os-release
+    lscpu
+    clang++ --version
+    cmake --version
+    ninja --version
+    ldd --version
+} > "$snapshot_output/environment.txt" 2>&1
+for variant in baseline optimized; do
+    git -C "$snapshot_output/$variant" rev-parse HEAD \
+        > "$snapshot_output/$variant-commit.txt"
+    cp "$snapshot_output/$variant/build/linux-clang-release/CMakeCache.txt" \
+        "$snapshot_output/$variant-CMakeCache.txt"
+    for run in 1 2 3; do
+        "$snapshot_output/$variant/build/linux-clang-release/benchmarks/caors_provider_snapshot_benchmarks" \
+            31 0 "$snapshot_output/$variant-$run-raw.csv" \
+            > "$snapshot_output/$variant-$run.csv" \
+            2> "$snapshot_output/$variant-$run.stderr.log"
+    done
+done
+(cd "$snapshot_output" && sha256sum ./*.csv > SHA256SUMS)
+```
+
+执行顺序为三轮基线后再三轮优化，与现有 Windows 记录一致；未消除环境随时间漂移的影响。
+另记主机类型、CPU 调频/电源策略、后台负载和执行期间异常；不要筛除慢样本。
+核对六份逐次 CSV 与汇总的样本数、分位数和冻结次数，将三轮对比、长尾与分配统计的适用范围
+写入结果目录，并由执行记录链接。原始文件和环境日志保留于输出目录；命令成功本身不代表性能改善。
