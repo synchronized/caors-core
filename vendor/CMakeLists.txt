@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 CAORS contributors
+
+include(caors_dependency_catalog)
+include(caors_dependency_cache)
+
+# 测试和基准关闭时，或父项目已提供完整目标时，不触碰源码缓存。
+if(CAORS_BUILD_TESTING AND BUILD_TESTING)
+  if(TARGET Catch2::Catch2)
+    if(NOT TARGET Catch2::Catch2WithMain)
+      message(FATAL_ERROR "已有 Catch2::Catch2，但缺少 Catch2::Catch2WithMain；请提供完整 Catch2 targets")
+    endif()
+    if(NOT DEFINED Catch2_VERSION)
+      find_package(Catch2 ${CAORS_CATCH2_VERSION} EXACT CONFIG QUIET)
+    endif()
+    if(NOT DEFINED Catch2_VERSION OR NOT Catch2_VERSION VERSION_EQUAL CAORS_CATCH2_VERSION)
+      message(FATAL_ERROR "复用外部 Catch2 需要已验证版本 ${CAORS_CATCH2_VERSION}；请通过 Catch2_VERSION 提供实际版本")
+    endif()
+  else()
+    if(TARGET Catch2::Catch2WithMain)
+      message(FATAL_ERROR "已有 Catch2WithMain 但缺少 Catch2::Catch2")
+    endif()
+    caors_prepare_source_cache(catch2 "${CAORS_CATCH2_URL}" "${CAORS_CATCH2_SHA256}"
+                               "${CAORS_CATCH2_MARKER}" catch_source)
+    if(NOT EXISTS "${catch_source}/extras/catch_amalgamated.hpp" OR NOT EXISTS "${catch_source}/LICENSE.txt")
+      message(FATAL_ERROR "Catch2 缓存缺少聚合头或许可证：${catch_source}")
+    endif()
+    # 保留现有 catch2/catch_all.hpp include；适配头属于当前构建，不修改共享源码。
+    set(catch_compat "${CMAKE_CURRENT_BINARY_DIR}/catch2-compat")
+    file(MAKE_DIRECTORY "${catch_compat}/catch2")
+    file(CONFIGURE OUTPUT "${catch_compat}/catch2/catch_all.hpp"
+      CONTENT "// SPDX-License-Identifier: MIT\n// Copyright (c) 2026 CAORS contributors\n#pragma once\n#include <catch_amalgamated.hpp>\n"
+      @ONLY NEWLINE_STYLE UNIX)
+    add_library(caors_catch INTERFACE)
+    add_library(Catch2::Catch2 ALIAS caors_catch)
+    target_include_directories(caors_catch SYSTEM INTERFACE "${catch_compat}" "${catch_source}/extras")
+    add_library(caors_catch_main STATIC "${catch_source}/extras/catch_amalgamated.cpp")
+    add_library(Catch2::Catch2WithMain ALIAS caors_catch_main)
+    target_compile_features(caors_catch_main PUBLIC cxx_std_20)
+    target_link_libraries(caors_catch_main PUBLIC Catch2::Catch2)
+  endif()
+endif()
+
+if(CAORS_BUILD_BENCHMARKS)
+  if(TARGET ctrack::ctrack)
+    if(NOT DEFINED ctrack_VERSION OR NOT ctrack_VERSION VERSION_EQUAL CAORS_CTRACK_VERSION)
+      message(FATAL_ERROR "复用外部 ctrack 需要已验证版本 ${CAORS_CTRACK_VERSION}；请设置 ctrack_VERSION")
+    endif()
+  else()
+    caors_prepare_source_cache(ctrack "${CAORS_CTRACK_URL}" "${CAORS_CTRACK_SHA256}"
+                               "${CAORS_CTRACK_MARKER}" ctrack_source)
+    if(NOT EXISTS "${ctrack_source}/LICENSE")
+      message(FATAL_ERROR "ctrack 缓存缺少许可证：${ctrack_source}")
+    endif()
+    add_library(caors_ctrack INTERFACE)
+    add_library(ctrack::ctrack ALIAS caors_ctrack)
+    target_include_directories(caors_ctrack SYSTEM INTERFACE "${ctrack_source}/include")
+    target_compile_features(caors_ctrack INTERFACE cxx_std_20)
+    target_compile_definitions(caors_ctrack INTERFACE CTRACK_DISABLE_EXECUTION_POLICY)
+  endif()
+endif()

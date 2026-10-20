@@ -79,6 +79,9 @@ main 在验证期间继续前进时，仍使用已冻结的已验收 SHA，不�
 当前可使用经验证提交对应的源码发布；二进制 SDK 只有在完成该批实际文件的干净构建、安装、
 consumer 和部署复验后才能交付。`cmake --install` 可用不代表通用 SDK 打包已经完成。
 
+源码归档不包含忽略的依赖缓存；需要下载开发依赖的版本，发布前验证归档的联网冷配置与预填缓存离线配置，
+说明详见[第三方依赖指南](third-party-dependencies.md)。
+
 交付二进制时，说明系统、架构、编译器/工具集、CRT、Debug/Release、Static/Shared、异常/RTTI、
 CAORS 配置与私有依赖边界；这类 C++ 库不能仅凭“同为 Windows x64”声称可通用链接。
 每批制品附 SHA-256 和提交/环境 manifest；安装 consumer 必须针对将要交付的同一批文件执行。

@@ -7,6 +7,7 @@
 模块模型见[概念目录](../concepts/README.md)，全局入口见[文档中心](../README.md)。
 
 - [构建、测试、安装与 CMake 接入](build.md)：环境、preset、选项、部署与 consumer 验证。
+- [第三方依赖与源码缓存](third-party-dependencies.md)：锁定来源、离线、并发准备、目标复用和恢复。
 - [开发规范](development.md)：源码边界、任务分支/PR、版本准备边界与新增模块规则。
 - [CI 与验证策略](ci.md)：当前工具、触发、矩阵与按改动选择检查。
 - [版本准备与发布](release.md)：main/release 分支、固定 SHA、人工发布及公开制品复核。

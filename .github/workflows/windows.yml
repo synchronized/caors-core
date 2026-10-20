@@ -33,6 +33,13 @@ jobs:
             shared: OFF
     steps:
       - uses: actions/checkout@v5
+      - name: 恢复第三方归档与只读源码缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/cache/archives
+            vendor/cache/sources
+          key: ${{ runner.os }}-caors-source-${{ hashFiles('cmake/caors_dependency_catalog.cmake', 'cmake/caors_dependency_cache.cmake') }}
       - name: 构建、测试及安装迁移验证
         shell: pwsh
         run: |
@@ -58,9 +65,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --preset windows-msvc-release -DCAORS_BUILD_BENCHMARKS=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build --preset windows-msvc-release --target caors_provider_snapshot_benchmarks
+          cmake --build --preset windows-msvc-release --target caors_provider_snapshot_benchmarks caors_benchmarks
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PATH = (Resolve-Path build/windows-msvc-release/src).Path + ';' + $env:PATH
+          & build/windows-msvc-release/benchmarks/caors_benchmarks.exe 1 > build/ctrack-smoke.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --preset windows-msvc-release -DCAORS_DEPENDENCY_OFFLINE=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & build/windows-msvc-release/benchmarks/caors_provider_snapshot_benchmarks.exe 3 1000 build/snapshot-smoke-raw.csv > build/snapshot-smoke.csv
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: 上传快照基准 smoke 数据

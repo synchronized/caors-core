@@ -45,6 +45,13 @@ jobs:
             sanitizer: false
     steps:
       - uses: actions/checkout@v5
+      - name: 恢复第三方归档与只读源码缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/cache/archives
+            vendor/cache/sources
+          key: ${{ runner.os }}-caors-source-${{ hashFiles('cmake/caors_dependency_catalog.cmake', 'cmake/caors_dependency_cache.cmake') }}
       - name: 安装构建工具
         run: |
           sudo apt-get update
@@ -77,7 +84,9 @@ jobs:
         if: matrix.preset == 'linux-clang-release'
         run: |
           cmake --preset linux-clang-release -DCAORS_BUILD_BENCHMARKS=ON
-          cmake --build --preset linux-clang-release --target caors_provider_snapshot_benchmarks
+          cmake --build --preset linux-clang-release --target caors_provider_snapshot_benchmarks caors_benchmarks
+          build/linux-clang-release/benchmarks/caors_benchmarks 1 > build/ctrack-smoke.log
+          cmake --preset linux-clang-release -DCAORS_DEPENDENCY_OFFLINE=ON
           build/linux-clang-release/benchmarks/caors_provider_snapshot_benchmarks 3 1000 build/snapshot-smoke-raw.csv > build/snapshot-smoke.csv
       - name: 上传快照基准 smoke 数据
         if: matrix.preset == 'linux-clang-release'

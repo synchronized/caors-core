@@ -30,6 +30,8 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 cmake --list-presets
 ```
 
+测试首次配置会获取锁定的开发依赖；离线准备见[依赖指南](docs/guides/third-party-dependencies.md)。
+
 配置、构建并测试：
 
 ```sh

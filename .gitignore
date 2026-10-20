@@ -22,3 +22,6 @@ compile_commands.json
 *.dylib
 *.exe
 *.pdb
+
+# 可重新填充的依赖源码缓存不进入仓库。
+vendor/cache/

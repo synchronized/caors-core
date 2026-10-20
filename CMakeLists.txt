@@ -87,7 +87,7 @@ include(caors_verify_memory_domains)
 
 caors_verify_memory_domains()
 
-add_subdirectory(3rd)
+add_subdirectory(vendor)
 add_subdirectory(src)
 
 if(CAORS_BUILD_EXAMPLES OR (CAORS_BUILD_TESTING AND BUILD_TESTING AND CAORS_BUILD_EXAMPLE_TESTING))

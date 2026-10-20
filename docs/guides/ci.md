@@ -77,3 +77,9 @@ gh run list --workflow linux.yml --branch <branch>
 既有 linux-clang-release 和 windows-msvc-release 任务复用已构建库，额外编译
 caors_provider_snapshot_benchmarks，并运行 1000 绑定、3 样本的最小 smoke，上传汇总与逐次 CSV。
 不增加常规矩阵组合，不设耗时阈值；这些数据只证明程序可运行，不能代替固定环境性能验收。
+
+## 开发依赖缓存
+
+常规与压力任务仅缓存 vendor/cache 的 archives/sources，键包含平台及清单/缓存实现摘要；
+不缓存锁、staging 或编译产物。既有 Linux Clang Release 与 Windows MSVC Release 任务同时
+构建两类基准，执行最小 smoke 并重新离线配置，验证 ctrack 和 Catch2 缓存完整；不新增矩阵组合。

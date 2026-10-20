@@ -136,6 +136,8 @@ ctest --preset linux-gcc-static-debug
 
 ## CMake 选项
 
+开发依赖按需获取；首次配置、源码缓存、离线开关与锁超时见[第三方依赖指南](third-party-dependencies.md)。
+
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `CAORS_LIBRARY_TYPE` | `AUTO` | CAORS 独立链接类型：AUTO、STATIC、SHARED |
