@@ -9,7 +9,8 @@
 
 ## Unreleased
 
-暂无条目。
+- 修复空参数包实例化的未使用诊断，以及 identity 测试插件以 C linkage 按值返回 C++ 类型的警告。
+- 默认将编译器支持的三类指定 C++ 警告视为错误，仅作用于 CAORS 自有目标；可通过 `CAORS_ENABLE_SELECTED_WARNING_ERRORS=OFF` 关闭，全部警告提升仍由 `CAORS_WARNINGS_AS_ERRORS` 控制。
 
 ## v0.5.0 — 2026-10-20（alpha，已发布）
 

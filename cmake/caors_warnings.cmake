@@ -4,7 +4,10 @@
 # 编译警告默认只作用于本项目目标，不传递给下游使用者。
 option(CAORS_ENABLE_WARNINGS "启用 CAORS 目标编译警告" ON)
 option(CAORS_ENABLE_PEDANTIC_WARNINGS "启用 CAORS 目标严格标准扩展警告" OFF)
+option(CAORS_ENABLE_SELECTED_WARNING_ERRORS "将选定的 CAORS C++ 警告视为错误" ON)
 option(CAORS_WARNINGS_AS_ERRORS "将 CAORS 目标编译警告视为错误" OFF)
+
+include(CheckCXXCompilerFlag)
 
 function(caors_target_compile_warnings target)
   if(NOT TARGET ${target})
@@ -25,6 +28,19 @@ function(caors_target_compile_warnings target)
       $<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-Wextra>
       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wextra>
   )
+
+  # 只提升编译器支持的诊断，不向 MSVC 或其他工具链传入未知选项。
+  if(CAORS_ENABLE_SELECTED_WARNING_ERRORS AND
+     CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    foreach(warning IN ITEMS unused-but-set-parameter unused-but-set-variable return-type-c-linkage)
+      string(MAKE_C_IDENTIFIER "CAORS_HAS_WERROR_${warning}" support_variable)
+      string(TOUPPER "${support_variable}" support_variable)
+      check_cxx_compiler_flag("-Werror=${warning}" ${support_variable})
+      if(${support_variable})
+        target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Werror=${warning}>")
+      endif()
+    endforeach()
+  endif()
 
   if(CAORS_ENABLE_PEDANTIC_WARNINGS)
     target_compile_options(

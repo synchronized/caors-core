@@ -148,12 +148,19 @@ ctest --preset linux-gcc-static-debug
 | `CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE` | `OFF` | 是否让库内部分配跟随默认资源；仅用于诊断和分配 benchmark |
 | `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
 | `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
+| `CAORS_ENABLE_SELECTED_WARNING_ERRORS` | `ON` | 将编译器支持的三类指定 C++ 警告视为错误，见下文 |
 | `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |
 | `CAORS_USE_DEBUG_OUTPUT` | `OFF`，Debug preset 为 `ON` | 是否启用调试输出宏 |
 | `CAORS_USE_LOG` | `OFF`，Debug preset 为 `ON` | 是否启用日志宏 |
 | `CAORS_USE_LOG_SEVERITY` | `0` | 日志最低级别宏 |
 
-开启警告即错误：
+默认将 `unused-but-set-parameter`、`unused-but-set-variable`、`return-type-c-linkage`
+提升为错误；仅在 GCC/Clang/AppleClang 支持对应选项时启用，MSVC 不套用这些诊断名。
+这些设置只作用于 CAORS 目标本身，不传递给链接它的宿主或第三方目标。
+可通过 `-DCAORS_ENABLE_SELECTED_WARNING_ERRORS=OFF` 关闭这一组提升；
+`CAORS_ENABLE_WARNINGS=OFF` 会关闭本模块设置的全部警告。
+
+开启全部警告即错误：
 
 ```sh
 cmake --preset windows-clang-static-debug -DCAORS_WARNINGS_AS_ERRORS=ON
