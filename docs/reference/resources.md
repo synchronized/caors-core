@@ -1158,7 +1158,9 @@ database 有 provider 时，新异步操作在排队前捕获来源，传入 `as
 
 `database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
 manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
-刷新不要求已有缓存，总是捕获新来源并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
+刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
+loader 必须使用 context.sources 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
+仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
 
 | 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |
 | --- | --- | --- | --- |

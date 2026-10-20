@@ -426,3 +426,49 @@ TEST_CASE(
   CHECK(valid->resolve(test_guid_a));
   CHECK(rejected->resolve(test_guid_a).error().value() == caors::errc::unsupported);
 }
+
+namespace {
+class snapshot_failure_resource final : public caors::memory_resource {
+public:
+  int remaining = -1;
+
+private:
+  void* do_try_allocate(std::size_t bytes, std::size_t alignment) noexcept override {
+    if (bytes > 32 && remaining >= 0 && remaining-- == 0)
+      return nullptr;
+    return caors::get_system_memory_resource().try_allocate(bytes, alignment);
+  }
+  void do_deallocate(void* ptr, std::size_t bytes, std::size_t alignment) noexcept override {
+    caors::get_system_memory_resource().deallocate(ptr, bytes, alignment);
+  }
+  bool do_is_equal(const caors::memory_resource& other) const noexcept override {
+    return this == &other;
+  }
+};
+}
+TEST_CASE("resources - snapshot allocation failure leaves provider and previous snapshot intact",
+          "[resources][snapshot][memory]") {
+  for (int failure = 0; failure < 16; ++failure) {
+    snapshot_failure_resource memory;
+    auto files = std::make_shared<caors::io::memory_file_system>();
+    REQUIRE_FALSE(files->write_all("data", std::string_view{"stable"}));
+    freeze_counting_source source{files};
+    caors::resources::provider provider{&memory};
+    REQUIRE_FALSE(provider.bind(test_guid_a, source, "data"));
+    REQUIRE_FALSE(provider.bind(test_guid_b, source, "data"));
+    auto previous = provider.snapshot();
+    memory.remaining = failure;
+    std::shared_ptr<const caors::resources::provider_snapshot> candidate;
+    try {
+      candidate = provider.snapshot();
+    } catch (const std::bad_alloc&) {
+    }
+    memory.remaining = -1;
+    CHECK(provider.size() == 2);
+    auto resolved = previous->resolve(test_guid_a);
+    REQUIRE(resolved);
+    CHECK(bytes_to_string(*resolved->backend->read_all(resolved->path)) == "stable");
+    auto retry = provider.snapshot();
+    CHECK(retry->resolve(test_guid_b));
+  }
+}

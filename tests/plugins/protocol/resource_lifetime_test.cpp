@@ -4,6 +4,7 @@
 #include "caors/io.h"
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_host.h"
+#include "caors/resources/source.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/task.h"
 #include "plugin_protocol_test_extension.h"
@@ -80,10 +81,17 @@ bool verify_io(const char* path, bool discard) {
     auto pin = std::make_shared<caors::plugins::plugin_library_lease>(plugin.library_lease());
     if (router.mount("assets", native->create_io(&destroyed), {}, std::move(pin)))
       return false;
-    auto snapshot = router.snapshot();
-    if (!snapshot)
+    caors::resources::file_source source{router};
+    caors::resources::provider provider;
+    const caors::resource_guid first{caors::guid::from_bytes(caors::guid::byte_array{51})};
+    const caors::resource_guid second{caors::guid::from_bytes(caors::guid::byte_array{52})};
+    if (provider.bind(first, source, "assets/data") || provider.bind(second, source, "assets/data"))
       return false;
-    auto resolved = snapshot->resolve("assets/data");
+    auto snapshot = provider.snapshot();
+    auto resolved = snapshot->resolve(first);
+    auto other = snapshot->resolve(second);
+    if (!other || !resolved || other->source_id != resolved->source_id)
+      return false;
     if (!resolved)
       return false;
     auto opening = caors::io::request_open(std::move(resolved.value), notifications.get_executor());
@@ -113,6 +121,14 @@ bool verify_io(const char* path, bool discard) {
       return false;
     auto read = caors::io::request_read(file, 1, 2, 2, caors::tasks::inline_executor());
     if (!read || !read->result() || !*read->result() || read->result()->value.size() != 2)
+      return false;
+    std::uint64_t consumed = 0;
+    auto stream = caors::io::consume_chunks(file, {file->size(), 1},
+                                            caors::tasks::inline_executor(), [&](auto, auto block) {
+                                              consumed += block.size();
+                                              return caors::io::io_error{};
+                                            });
+    if (!stream || !stream->result() || !*stream->result() || consumed != file->size())
       return false;
     auto close = caors::io::request_close(file, caors::tasks::inline_executor());
     if (!close || !close->result() || !*close->result())
