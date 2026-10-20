@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: 恢复第三方归档与只读源码缓存
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             vendor/cache/archives
@@ -77,13 +77,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: 上传快照基准 smoke 数据
         if: matrix.preset == 'windows-msvc-release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-snapshot-smoke
           path: build/snapshot-smoke*.csv
       - name: 上传失败日志
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.preset }}-test-log
           path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
