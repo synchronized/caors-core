@@ -96,7 +96,12 @@ function(caors_prepare_source_cache name url sha256 marker output)
   endif()
   file(CONFIGURE OUTPUT "${unpacked}/.caors-source-complete"
        CONTENT "${sha256}\n" @ONLY NEWLINE_STYLE UNIX)
-  file(RENAME "${unpacked}" "${source}" RESULT published NO_REPLACE)
+  # NO_REPLACE 在本次 Linux CMake 环境不能用于目录；
+  # 同项锁下再次检查目标，再以普通 rename 原子发布目录。
+  if(EXISTS "${source}")
+    message(FATAL_ERROR "依赖 ${name} 源码发布目标已存在，不覆盖：${source}")
+  endif()
+  file(RENAME "${unpacked}" "${source}" RESULT published)
   if(NOT published STREQUAL "0")
     message(FATAL_ERROR "依赖 ${name} 源码发布失败：${published}；暂存：${stage}")
   endif()

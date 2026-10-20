@@ -43,7 +43,7 @@ Clang 23.1.1 / MSVC ABI / Shared Debug，build/v030-clang-debug：全仓及两�
 
 首轮集成的缓存契约在 Windows 深层构建目录中遇到解压子进程启动失败；
 缩短 staging 名称，保留完整锁键与发布摘要后，在相同深层目录复验通过。未通过缩短测试路径绕过。
-归档和源码重命名均使用 NO_REPLACE，不覆盖已有目标；仅清理本次创建并确认仍位于 staging 内的暂存目录，不递归删除已有归档或源码目录。
+归档重命名使用 NO_REPLACE；源码目录在持锁期间再次检查目标不存在，再原子重命名发布；仅清理本次创建并确认仍位于 staging 内的暂存目录，不递归删除已有归档或源码目录。
 
 跨平台验收尚未完成；计划中的正式 v0.6.0 发布仍未执行。
 
@@ -54,3 +54,9 @@ Clang 23.1.1 / MSVC ABI / Shared Debug，build/v030-clang-debug：全仓及两�
 另复制精确下载归档到独立缓存，在源码快照中启用测试/基准并 OFFLINE=ON 配置通过；
 这次验证的是 Git 快照配置，不是已发布 v0.6.0 的最终 SHA 验收。
 日志 archive-core-configure.log、archive-dev-configure.log 位于 build/dependency-migration。
+
+## 首轮 CI 修正
+
+Linux 首轮 39403850029 在配置期发现目录 RENAME NO_REPLACE 返回 Operation not permitted；
+Windows 同提交已进入构建。改为同项锁下再次检查目标不存在，再执行普通目录 rename；
+已有源码仍明确拒绝覆盖，归档文件保留 NO_REPLACE。修复后重新执行受影响的缓存契约与最终矩阵。
