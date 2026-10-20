@@ -195,3 +195,21 @@ math benchmark 分成两类：
 - 用例应优先测公开 API。普通动态调用优先覆盖 `meta::value` / capability facade；
   只有在比较精确 C++ 语义或高级扩展成本时才单独测 `any`、`call_any()` 或 raw ops。
 - 每个用例应使用固定输入，避免把日志、文件系统、网络或随机数据成本混入基础 API 测量。
+
+## 来源快照成本基准
+
+启用 CAORS_BUILD_BENCHMARKS 后，目标 caors_provider_snapshot_benchmarks 独立于聚合基准运行。
+参数为样本数（默认 31，最少 3）、可选绑定规模（0 表示全部，或 1000/10000/100000）、
+可选逐次样本 CSV 文件路径；每个暖态用例预热三次。
+依次覆盖单/八来源、短/长路径、嵌套路由、重复捕获、rebind、remount、保留四份旧快照，
+另测单资源 cache 命中、在途共享以及 typed/dispatched preload 的全命中、在途和依赖路径。
+
+CSV 输出耗时 p50/p95/p99/max、更新最大耗时、显式 allocator 分配次数/字节、
+新增保留量及包含 fixture 的峰值，以及 source::freeze_routes 调用次数。
+分位数基于逐次样本，较少样本的尾部分位数分辨率有限；provider 首次捕获单列 first_capture（单样本，没有分位数统计意义），fixture 构造不计入捕获计时。
+当前计时捕获本身，正常请求对象析构和预加载结果处理的成本包含在相应请求用例中。
+显式计数不覆盖 STL 默认分配、所有共享指针控制块、后端 allocator 或进程总内存；不能据此报告全局分配总量。
+
+Windows 普通 PowerShell 先用 scripts/msvc.ps1 初始化同进程 VS 环境，再配置 Release benchmark 构建目录。
+至少独立运行三次，优化前后固定提交、机器、编译器与参数；摘要与限制进入结果目录，原始 CSV 保留于执行日志。
+共享 CI 可用于可运行性核对，不替代固定 Windows/Linux 环境的正式性能复验。

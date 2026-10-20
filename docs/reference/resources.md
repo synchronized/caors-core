@@ -1158,7 +1158,9 @@ database 有 provider 时，新异步操作在排队前捕获来源，传入 `as
 
 `database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
 manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
-刷新不要求已有缓存，总是捕获新来源并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
+刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
+loader 必须使用 context.sources 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
+仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
 
 | 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |
 | --- | --- | --- | --- |
@@ -1180,3 +1182,8 @@ cache 本身仍不支持无协调的并发访问。发起请求、查询 cache �
 或由宿主统一串行化；不能把发布资格保护理解为整个 cache 变成线程安全。
 直接同步修改 cache、运行时配置替换和依赖批次事务需宿主协调。
 来源快照固定路由，不保证依赖缓存或磁盘内容属于同一修订。
+
+同一次 provider 快照捕获只调用每个 source 的 freeze_routes 一次，GUID 位置仍逐项复制。
+临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
+因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
+该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。

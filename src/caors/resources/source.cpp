@@ -170,12 +170,21 @@ std::shared_ptr<const provider_snapshot> provider::snapshot() const {
   auto result =
       std::allocate_shared<provider_snapshot>(allocator<provider_snapshot>{resource_}, resource_);
   io::detail::snapshot_context context;
+  using frozen_map =
+      core::hash_map<const resources::source*, caors::result<std::shared_ptr<io::file_system>>>;
+  frozen_map frozen{typename frozen_map::allocator_type{resource_}};
   for (const auto& [guid, binding] : locations_) {
-    auto root = binding.source->freeze_routes(context);
-    if (root && !root.value)
-      root.status = {error_domain::resources, errc::backend_failure};
-    provider_snapshot::entry entry{
-        std::move(root.value), io::path{io::path_view{binding.location}, resource_}, root.error()};
+    auto found = frozen.find(binding.source);
+    if (found == frozen.end()) {
+      auto root = binding.source->freeze_routes(context);
+      if (root && !root.value)
+        root.status = {error_domain::resources, errc::backend_failure};
+      found = frozen.emplace(binding.source, std::move(root)).first;
+    }
+    // 仅在本次捕获内共享，下一次仍重新冻结，避免错过外部或嵌套路由变化。
+    const auto& root = found->second;
+    provider_snapshot::entry entry{root.value, io::path{io::path_view{binding.location}, resource_},
+                                   root.error()};
     result->locations_.emplace(guid, std::move(entry));
   }
   return result;
