@@ -42,6 +42,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 - `serialization/`：meta 属性序列化、普通类多态 wrapper、factory 和内存资源上下文。
 
 具体示例以各主题目录下的 `*.cpp` 文件为准。异步来源快照与范围读取示例见 [beta 示例](beta/README.md)。
+分块读取与消费见 [io_chunked_read.cpp](beta/io_chunked_read.cpp)，完整 API 契约见 [IO 参考](../docs/reference/io.md)。
 
 ## 新增示例
 

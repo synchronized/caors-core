@@ -1153,3 +1153,38 @@ database 有 provider 时，新异步操作在排队前捕获来源，传入 `as
 
 目前每个新操作复制 provider 的全部 GUID 绑定，预加载批次仅复制一次；大规模索引的成本尚无吞吐保证。
 原生与显式同步 worker 适配的完整组合见 [异步 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。
+
+## 显式刷新与默认绑定
+
+`database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
+manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
+刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
+loader 必须使用 context.sources 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
+仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
+
+| 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |
+| --- | --- | --- | --- |
+| request_load | 立即返回已发布缓存 | 订阅当前刷新 | 没有刷新选择时保留原共享规则 |
+| request_reload | 无当前刷新时保留原重载规则 | 无缓存仍报 not_found | 有当前刷新时订阅它，否则保留原共享规则 |
+| request_refresh | 独立准备新对象 | 独立创建更新的刷新意图 | 不加入旧操作 |
+
+最新登记的刷新意图拥有默认绑定发布资格；首次 load 和旧 reload 的提交也必须检查该资格。
+旧请求仍可返回自己加载的拥有式 handle，但不能更新默认 cache。
+成功在 completion 所属线程切换单资源绑定，失败保留旧对象；最新意图失败、操作取消、投递拒绝/丢弃，
+均不恢复更早意图的资格。独立订阅取消继续遵循既有共享规则，有其他订阅时不必取消底层操作。
+外部旧 handle 继续可用；它不会被新绑定修改或自动切换。
+
+发布凭据按 cache/T/GUID 隔离，内部使用不可复用的拥有式身份，而非内容 hash 或 source_id。
+每个刷新过的 GUID 在 cache 内保留一个最新凭据，erase/clear 不清除该屏障、不取消在途操作；
+历史凭据只由仍存活的请求保留。内部在途弱引用在请求状态析构时清空，不额外保留其控制块。
+
+cache 本身仍不支持无协调的并发访问。发起请求、查询 cache 和执行提交必须在同一所属线程，
+或由宿主统一串行化；不能把发布资格保护理解为整个 cache 变成线程安全。
+allocator、GUID 访问器或哈希回调不得在容器更新期间重入修改同一 cache；完成通知在更新完成后可以发起新请求。
+直接同步修改 cache、运行时配置替换和依赖批次事务需宿主协调。
+来源快照固定路由，不保证依赖缓存或磁盘内容属于同一修订。
+
+同一次 provider 快照捕获只调用每个 source 的 freeze_routes 一次，GUID 位置仍逐项复制。
+临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
+因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
+该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。

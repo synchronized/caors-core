@@ -6,6 +6,7 @@
 
 #include "caors/io/async_file.h"
 #include "caors/io/async_request.h"
+#include "caors/io/chunked_file.h"
 #include "caors/io/file_system.h"
 #include "caors/io/file_system_resolver.h"
 #include "caors/io/location.h"

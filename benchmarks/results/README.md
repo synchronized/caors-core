@@ -21,6 +21,8 @@
 
 ## 测量记录
 
+- [2026-10-20-windows-clang-provider-snapshot](2026-10-20-windows-clang-provider-snapshot.md)：Windows Release 三轮对比；固定 Linux 性能复验未完成。
+
 以下是历史测量，不构成当前提交的性能保证；比较前核对每份记录中的提交、环境和方法。
 
 - [2026-10-19-windows-clang-task-scheduler](2026-10-19-windows-clang-task-scheduler.md)

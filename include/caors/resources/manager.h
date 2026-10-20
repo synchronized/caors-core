@@ -11,6 +11,7 @@
 #include <type_traits>
 
 namespace caors::resources {
+template <typename T> class cache;
 
 /**
  * @brief 非拥有资源索引。
@@ -85,10 +86,38 @@ public:
       instance->set_guid(guid);
     }
 
-    const resource_generation generation = next_generation();
-    resources_by_guid_.emplace(guid, instance);
-    guids_by_resource_.emplace(instance, guid);
-    generations_by_guid_.emplace(guid, generation);
+    // 三张索引均准备成功后才提交，任一分配失败都撤回已插入的条目。
+    struct rollback {
+      manager& target;
+      resource_guid guid;
+      resources::resource* instance;
+      bool resource = false;
+      bool pointer = false;
+      bool generation = false;
+      bool committed = false;
+      ~rollback() {
+        if (committed)
+          return;
+        if (generation)
+          target.generations_by_guid_.erase(guid);
+        if (pointer)
+          target.guids_by_resource_.erase(instance);
+        if (resource)
+          target.resources_by_guid_.erase(guid);
+      }
+    } guard{*this, guid, instance};
+    guard.resource = resources_by_guid_.emplace(guid, instance).second;
+    if (!guard.resource)
+      return false;
+    guard.pointer = guids_by_resource_.emplace(instance, guid).second;
+    if (!guard.pointer)
+      return false;
+    const auto [generation, inserted] = generations_by_guid_.emplace(guid, 0);
+    guard.generation = inserted;
+    if (!inserted)
+      return false;
+    generation->second = next_generation();
+    guard.committed = true;
     return true;
   }
 
@@ -188,6 +217,27 @@ public:
   }
 
 private:
+  template <typename T> friend class cache;
+  // 先准备可能分配的反向索引，再修改既有条目；失败不能拆掉旧绑定。
+  bool replace_binding(resource_guid guid, resources::resource* instance) {
+    if (!instance || instance->guid() != guid)
+      return false;
+    const auto found = resources_by_guid_.find(guid);
+    const auto generation = generations_by_guid_.find(guid);
+    if (found == resources_by_guid_.end() || generation == generations_by_guid_.end())
+      return false;
+    auto* old = found->second;
+    if (old != instance) {
+      const auto [_, inserted] = guids_by_resource_.emplace(instance, guid);
+      if (!inserted)
+        return false;
+      found->second = instance;
+      guids_by_resource_.erase(old);
+    }
+    generation->second = next_generation();
+    return true;
+  }
+
   using resource_map = core::hash_map<resource_guid, resources::resource*, resource_guid_hash>;
   using pointer_map = core::hash_map<const resources::resource*, resource_guid>;
   using generation_map = core::hash_map<resource_guid, resource_generation, resource_guid_hash>;

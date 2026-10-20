@@ -32,11 +32,11 @@
 
 - [统一 VFS 与异步范围读取](asynchronous-vfs.md)：核心协议与资源链路已实现并完成集成验收；发布状态见版本页。
 
-### v0.5.0 实施中
+### v0.5.0 待验收
 
-- [资源显式刷新](resource-refresh.md)：C51-08，新来源选择、在途隔离与默认绑定发布顺序。
-- [分块读取与逐块消费](chunked-file-reading.md)：C51-09，串行聚合、消费背压及内存边界。
-- [来源快照成本评估](provider-snapshot-cost.md)：C51-10，建立基线，依据证据决定复用优化。
+- [资源显式刷新](resource-refresh.md)：C51-08，已完成本机及跨平台集成验收。
+- [分块读取与逐块消费](chunked-file-reading.md)：C51-09，已完成本机及跨平台集成验收。
+- [来源快照成本评估](provider-snapshot-cost.md)：C51-10，Windows 对比与同次捕获优化已完成，固定 Linux 性能复验已获准延期。
 
 ### 待实施
 

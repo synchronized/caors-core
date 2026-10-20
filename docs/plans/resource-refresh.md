@@ -5,7 +5,7 @@
 
 ## 状态与问题
 
-实施中，C51-08，目标范围见 [v0.5.0](../versions/v0.5.0.md)。2026-10-20 用户确认采用下列推荐方案；替代方案保留为取舍依据。
+已完成，C51-08，目标范围见 [v0.5.0](../versions/v0.5.0.md)。2026-10-20 用户确认采用下列推荐方案；替代方案保留为取舍依据。
 当前行为见[资源参考](../reference/resources.md#加载来源快照)。源码基线为 cbe41b75：
 request_reload_into_impl 要求已有缓存，同 GUID 有在途操作时优先加入它，然后才可能捕获新快照。
 因此 remount 后 reload 不保证立即选择新来源；这是既有共享契约，不追认成已证实缺陷。
@@ -21,12 +21,12 @@ request_reload_into_impl 要求已有缓存，同 GUID 有在途操作时优先�
 
 ## 建议修改
 
-候选命名 request_refresh<T>(guid)，同时经 database、asset_manager、asset_group 转发，
-worker/completion 继续使用 manager/group 默认配置；准确签名在实现前收口。
+采用 request_refresh<T>(guid)，同时经 database、asset_manager、asset_group 转发，
+worker/completion 继续使用 manager/group 默认配置；准确签名与当前行为由参考及公共头维护。
 新操作捕获新的 provider 快照，不加入旧 load/reload；无旧缓存时也可准备并发布首次对象。
 不引入隐式失效、驱逐或对象销毁，保留外部旧 handle 的所有权。
 
-建议按“资源类型 + GUID + cache 身份”维护单调发布序号，并同步保护所有能写默认绑定的路径：
+建议按“资源类型 + GUID + cache 身份”维护单调推进的发布凭据（内部使用不可复用的拥有式身份，不暴露递增整数），并同步保护所有能写默认绑定的路径：
 普通首次 load、旧 reload、新 refresh。仅保护 refresh 之间不足以阻止旧 load 迟到覆盖。
 刷新序号与进程内 source_id、provider 配置修订、内容修订分别管理。
 
@@ -46,13 +46,16 @@ worker/completion 继续使用 manager/group 默认配置；准确签名在实�
 
 ## 实施与验收
 
-- [ ] RF-01：确认接口、普通 load/reload/refresh 对照表、旧请求结果及依赖范围。
-- [ ] RF-02：扩展操作登记与发布资格，拆分结果创建和默认绑定发布，覆盖所有异步写 cache 入口。
-- [ ] RF-03：manager/group/database 转发，明确同步直接修改 cache 与刷新不得无协调混用。
-- [ ] RF-04：A 已缓存/在途后 remount B；两次刷新反序完成；旧 load/reload 迟到；最新失败后旧操作迟到。
-- [ ] RF-05：失败、取消、通知拒绝/丢弃、分配失败保留旧绑定；外部旧 handle、真实模块 pin 与 allocator 寿命。
-- [ ] RF-06：通用模拟依赖展示仅根刷新边界；更新参考、迁移示例和实际 Record。
+- [x] RF-01：确认接口、普通 load/reload/refresh 对照表、旧请求结果及依赖范围。
+- [x] RF-02：扩展操作登记与发布资格，拆分结果创建和默认绑定发布，覆盖所有异步写 cache 入口。
+- [x] RF-03：manager/group/database 转发，明确同步直接修改 cache 与刷新不得无协调混用。
+- [x] RF-04：A 已缓存/在途后 remount B；两次刷新反序完成；旧 load/reload 迟到；最新失败后旧操作迟到。
+- [x] RF-05：失败、取消、通知拒绝/丢弃、分配失败保留旧绑定；外部旧 handle、真实模块 pin 与 allocator 寿命。
+- [x] RF-06：通用模拟依赖展示仅根刷新边界；更新参考、迁移示例和实际 Record。
 
 潜在影响 include/caors/resources/async.h、database.h、操作表与 cache 提交 helper，
 以及 assets manager/group 和对应 tests；是否增加状态字段需 API/ABI 复核。
-无新增测量或测试结果，v0.4.0 验收不能替代本计划验收。
+本机与本轮跨平台集成验收已完成；实际证据见下方记录，不复用 v0.4.0 验收。
+
+实现、本机与跨平台验收均已完成；本计划完成不代表版本已发布，实际证据见
+[v0.5.0 开发记录](../records/2026-10-20-v0.5.0-vfs-followups.md)。
