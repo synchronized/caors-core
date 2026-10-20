@@ -39,8 +39,9 @@ namespace {
   }
   if (const auto* number = value->try_as_u64()) {
     parsed = *number;
-  } else if (const auto* number = value->try_as_i64(); number != nullptr && *number >= 0) {
-    parsed = static_cast<std::uint64_t>(*number);
+  } else if (const auto* signed_number = value->try_as_i64();
+             signed_number != nullptr && *signed_number >= 0) {
+    parsed = static_cast<std::uint64_t>(*signed_number);
   } else {
     return false;
   }

@@ -116,8 +116,8 @@ struct named_default_conversion_actor {
 struct default_argument_overload_actor {
   int value = 0;
 
-  int choose(int value) { return value; }
-  int choose(int value, int amount) { return value + amount; }
+  int choose(int input) { return input; }
+  int choose(int input, int amount) { return input + amount; }
 };
 
 struct move_only_return_value {

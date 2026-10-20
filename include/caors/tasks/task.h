@@ -31,6 +31,11 @@ struct task_ops {
   [[nodiscard]] constexpr bool valid() const noexcept { return run != nullptr; }
 };
 
+// 只抛异常的 void callable 会让随后的成功返回不可达，这是合法的任务实现。
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
 template <typename Callable> [[nodiscard]] error run_task_callable(void* object) {
   auto& callable = *static_cast<Callable*>(object);
   if constexpr (std::same_as<std::invoke_result_t<Callable&>, void>) {
@@ -40,6 +45,10 @@ template <typename Callable> [[nodiscard]] error run_task_callable(void* object)
     return std::invoke(callable);
   }
 }
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(pop)
+#endif
 
 template <typename Callable>
 void destroy_task_callable(memory_resource* resource, void* object) noexcept {

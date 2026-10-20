@@ -315,9 +315,12 @@ template <> struct codec_traits<std::chrono::system_clock::time_point> {
 class CAORS_API codec_view final : public meta::capability_view_base<codec_ops> {
 public:
   using base_type = meta::capability_view_base<codec_ops>;
-  using base_type::base_type;
 
   codec_view() noexcept = default;
+
+  /** @brief 绑定类型、操作表及借用实例，不接管实例所有权。 */
+  codec_view(meta::type type, const codec_ops* ops, meta::any_ref source) noexcept
+      : base_type(type, ops, source) {}
 
   /** @brief 写出当前绑定值。 */
   [[nodiscard]] error write(const serialization::context& context, writer& writer) const;
@@ -366,8 +369,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   [[nodiscard]] static error write_with_context(const serialization::context& context,
-                                                serialization::writer& writer, const any& value) {
-    const type* stored = value.try_get<type>();
+                                                serialization::writer& writer, const any& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -377,8 +380,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
 
   [[nodiscard]] static error write_ref_with_context(const serialization::context& context,
                                                     serialization::writer& writer,
-                                                    const any_ref& value) {
-    const type* stored = value.try_get<type>();
+                                                    const any_ref& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -388,8 +391,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
 
   [[nodiscard]] static error write_without_context(const serialization::context&,
                                                    serialization::writer& writer,
-                                                   const any& value) {
-    const type* stored = value.try_get<type>();
+                                                   const any& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -399,8 +402,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
 
   [[nodiscard]] static error write_ref_without_context(const serialization::context&,
                                                        serialization::writer& writer,
-                                                       const any_ref& value) {
-    const type* stored = value.try_get<type>();
+                                                       const any_ref& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -441,8 +444,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
   }
 
   [[nodiscard]] static variant_result make_value_with_context(const serialization::context& context,
-                                                              const any& value) {
-    const type* stored = value.try_get<type>();
+                                                              const any& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {{error_domain::serialization, errc::invalid_type}, {}};
     }
@@ -451,8 +454,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
   }
 
   [[nodiscard]] static variant_result
-  make_value_ref_with_context(const serialization::context& context, const any_ref& value) {
-    const type* stored = value.try_get<type>();
+  make_value_ref_with_context(const serialization::context& context, const any_ref& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {{error_domain::serialization, errc::invalid_type}, {}};
     }
@@ -461,8 +464,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
   }
 
   [[nodiscard]] static variant_result make_value_without_context(const serialization::context&,
-                                                                 const any& value) {
-    const type* stored = value.try_get<type>();
+                                                                 const any& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {{error_domain::serialization, errc::invalid_type}, {}};
     }
@@ -471,8 +474,8 @@ template <typename Codec, typename T> struct codec_ops_model_from {
   }
 
   [[nodiscard]] static variant_result make_value_ref_without_context(const serialization::context&,
-                                                                     const any_ref& value) {
-    const type* stored = value.try_get<type>();
+                                                                     const any_ref& source) {
+    const type* stored = source.try_get<type>();
     if (stored == nullptr) {
       return {{error_domain::serialization, errc::invalid_type}, {}};
     }

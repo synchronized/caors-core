@@ -148,16 +148,25 @@ ctest --preset linux-gcc-static-debug
 | `CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE` | `OFF` | 是否让库内部分配跟随默认资源；仅用于诊断和分配 benchmark |
 | `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
 | `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
-| `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |
+| `CAORS_WARNINGS_AS_ERRORS` | `ON` | 是否将 CAORS 自有目标的编译警告视为错误 |
 | `CAORS_USE_DEBUG_OUTPUT` | `OFF`，Debug preset 为 `ON` | 是否启用调试输出宏 |
 | `CAORS_USE_LOG` | `OFF`，Debug preset 为 `ON` | 是否启用日志宏 |
 | `CAORS_USE_LOG_SEVERITY` | `0` | 日志最低级别宏 |
 
-开启警告即错误：
+默认将 CAORS 自有目标已启用的编译警告视为错误（GCC/Clang 的 `-Werror`、MSVC 的 `/WX`）。
+选项只作用于目标本身，不传递给链接它的宿主或第三方目标；不等于启用编译器所有可选警告。
+MSVC 的 C4251/C4275（当前统一工具链的 C++ DLL 接口边界）及 C4324（显式对齐的预期填充）
+在 CAORS 目标上有明确例外；不以此承诺稳定 ABI。其他 `/W4` 诊断仍作为错误。
+只抛异常的 void 任务允许没有成功返回路径，MSVC C4702 仅在对应任务调用模板内局部豁免。
+
+已有构建目录保留缓存值，需要显式启用新默认时使用 `-DCAORS_WARNINGS_AS_ERRORS=ON`。
+临时关闭全部警告提升（保留普通警告）：
 
 ```sh
-cmake --preset windows-clang-static-debug -DCAORS_WARNINGS_AS_ERRORS=ON
+cmake --preset windows-clang-static-debug -DCAORS_WARNINGS_AS_ERRORS=OFF
 ```
+
+`CAORS_ENABLE_WARNINGS=OFF` 会关闭本模块设置的全部警告。
 
 开启严格标准扩展警告：
 

@@ -4,7 +4,7 @@
 # 编译警告默认只作用于本项目目标，不传递给下游使用者。
 option(CAORS_ENABLE_WARNINGS "启用 CAORS 目标编译警告" ON)
 option(CAORS_ENABLE_PEDANTIC_WARNINGS "启用 CAORS 目标严格标准扩展警告" OFF)
-option(CAORS_WARNINGS_AS_ERRORS "将 CAORS 目标编译警告视为错误" OFF)
+option(CAORS_WARNINGS_AS_ERRORS "将 CAORS 目标编译警告视为错误" ON)
 
 function(caors_target_compile_warnings target)
   if(NOT TARGET ${target})
@@ -24,6 +24,14 @@ function(caors_target_compile_warnings target)
       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wall>
       $<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-Wextra>
       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wextra>
+  )
+
+  # CAORS 的 C++ DLL 要求宿主统一重编译；不导出 STL 实现类型，也保留显式对齐填充。
+  # 仅豁免这三个布局诊断，其他 /W4 诊断仍由 /WX 拦截，选项不传给下游。
+  target_compile_options(${target} PRIVATE
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/wd4251>
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/wd4275>
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/wd4324>
   )
 
   if(CAORS_ENABLE_PEDANTIC_WARNINGS)

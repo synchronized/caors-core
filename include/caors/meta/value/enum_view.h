@@ -21,9 +21,12 @@ namespace caors::meta {
 class CAORS_API enum_view final : public capability_view_base<enum_ops> {
 public:
   using base_type = capability_view_base<enum_ops>;
-  using base_type::base_type;
 
   enum_view() noexcept = default;
+
+  /** @brief 绑定类型、操作表及借用实例，不接管实例所有权。 */
+  enum_view(meta::type type, const enum_ops* ops, any_ref source) noexcept
+      : base_type(type, ops, source) {}
 
   [[nodiscard]] std::optional<std::int64_t> to_i64() const noexcept {
     const detail::layer_call_guard guard{raw_type()};

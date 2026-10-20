@@ -9,7 +9,8 @@
 
 ## Unreleased
 
-暂无条目。
+- 修复空参数包实例化的未使用诊断，以及 identity 测试插件以 C linkage 按值返回 C++ 类型的警告。
+- 默认将 CAORS 自有目标已启用的编译警告视为错误，可通过 `CAORS_WARNINGS_AS_ERRORS=OFF` 关闭；修复构造函数导出、名称遮蔽及 JSON 控制字符转义诊断，工具链例外见构建指南。
 
 ## v0.5.0 — 2026-10-20（alpha，已发布）
 

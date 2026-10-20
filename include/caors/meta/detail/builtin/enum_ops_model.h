@@ -28,35 +28,35 @@ template <typename T> struct enum_ops_model {
         static_cast<underlying_type>(*static_cast<const type*>(storage)));
   }
 
-  [[nodiscard]] static bool from_i64(void* storage, std::int64_t value) noexcept {
+  [[nodiscard]] static bool from_i64(void* storage, std::int64_t source) noexcept {
     if (storage == nullptr) {
       return false;
     }
 
     if constexpr (std::is_signed_v<underlying_type>) {
-      if (value < static_cast<std::int64_t>(std::numeric_limits<underlying_type>::min()) ||
-          value > static_cast<std::int64_t>(std::numeric_limits<underlying_type>::max())) {
+      if (source < static_cast<std::int64_t>(std::numeric_limits<underlying_type>::min()) ||
+          source > static_cast<std::int64_t>(std::numeric_limits<underlying_type>::max())) {
         return false;
       }
     } else {
-      if (value < 0 ||
-          static_cast<std::uint64_t>(value) >
+      if (source < 0 ||
+          static_cast<std::uint64_t>(source) >
               static_cast<std::uint64_t>(std::numeric_limits<underlying_type>::max())) {
         return false;
       }
     }
 
-    *static_cast<type*>(storage) = static_cast<type>(static_cast<underlying_type>(value));
+    *static_cast<type*>(storage) = static_cast<type>(static_cast<underlying_type>(source));
     return true;
   }
 
-  [[nodiscard]] static bool from_u64(void* storage, std::uint64_t value) noexcept {
+  [[nodiscard]] static bool from_u64(void* storage, std::uint64_t source) noexcept {
     if (storage == nullptr ||
-        value > static_cast<std::uint64_t>(std::numeric_limits<underlying_type>::max())) {
+        source > static_cast<std::uint64_t>(std::numeric_limits<underlying_type>::max())) {
       return false;
     }
 
-    *static_cast<type*>(storage) = static_cast<type>(static_cast<underlying_type>(value));
+    *static_cast<type*>(storage) = static_cast<type>(static_cast<underlying_type>(source));
     return true;
   }
 

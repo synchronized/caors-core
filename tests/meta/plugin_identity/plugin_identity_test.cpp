@@ -114,11 +114,18 @@ int main(int argc, char** argv) {
     return fail("相同静态类型模型被错误诊断为冲突");
   }
 
-  using name_fn = caors::string_name (*)();
+  using name_fn = void (*)(caors::string_name*);
   const auto name_a = reloaded_plugin_a.find_function<name_fn>("caors_test_plugin_a_name");
   const auto name_b = plugin_b.find_function<name_fn>("caors_test_plugin_b_name");
   const caors::string_name host_name{"caors.identity.shared.name"};
-  if (!name_a || !name_b || name_a() != host_name || name_b() != host_name) {
+  if (!name_a || !name_b) {
+    return fail("无法查找插件字符串身份函数");
+  }
+  caors::string_name plugin_a_name;
+  caors::string_name plugin_b_name;
+  name_a(&plugin_a_name);
+  name_b(&plugin_b_name);
+  if (plugin_a_name != host_name || plugin_b_name != host_name) {
     return fail("跨模块字符串驻留身份不一致");
   }
   const auto create = reloaded_plugin_a.find_function<void* (*)()>("caors_test_plugin_a_create");

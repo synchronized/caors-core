@@ -56,6 +56,6 @@ CAORS_TEST_PLUGIN_EXPORT std::uint64_t caors_test_plugin_b_capability_key() noex
       .value();
 }
 
-CAORS_TEST_PLUGIN_EXPORT caors::string_name caors_test_plugin_b_name() {
-  return caors::string_name{"caors.identity.shared.name"};
+CAORS_TEST_PLUGIN_EXPORT void caors_test_plugin_b_name(caors::string_name* result) {
+  *result = caors::string_name{"caors.identity.shared.name"};
 }

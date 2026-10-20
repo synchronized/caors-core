@@ -55,7 +55,9 @@ public:
   using ops_type = typename base_type::ops_type;
   using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
 
-  using base_type::base_type;
+  type_capability_base() noexcept = default;
+
+  explicit type_capability_base(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] view_type bind(any_ref source) const;
 };
