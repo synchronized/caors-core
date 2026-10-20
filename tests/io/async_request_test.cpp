@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/config.h"
 #include "caors/io/async_request.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/external_executor.h"
@@ -115,6 +116,7 @@ TEST_CASE("io - notification allocation failure reports out of memory", "[io][as
   CHECK(called == 0);
   CHECK(notifications.pending() == 0);
 }
+#if CAORS_HAS_BACKGROUND_THREADS
 TEST_CASE("io - concurrent cancellation and delivery make one terminal decision", "[io][async]") {
   for (int round = 0; round < 100; ++round) {
     tasks::execution_context notifications;
@@ -152,6 +154,8 @@ TEST_CASE("io - concurrent cancellation and delivery make one terminal decision"
   }
 }
 
+#endif
+
 namespace {
 class dropping_context final : public tasks::external_executor_context {
 public:
@@ -183,5 +187,30 @@ TEST_CASE("io - notification dropped before post returns follows acceptance hand
     CHECK(request->result()->error().value ==
           (throw_allocation ? io_errc::out_of_memory : io_errc::completion_rejected));
     CHECK(called == 0);
+  }
+}
+
+TEST_CASE("io - terminal delivery releases callback captures while request survives",
+          "[io][async]") {
+  for (bool drop : {false, true}) {
+    CAPTURE(drop);
+    tasks::execution_context executor;
+    auto owner = std::make_shared<int>(7);
+    std::weak_ptr<int> weak = owner;
+    auto request = start_io<int>(
+        executor.get_executor(), [owner](const auto&) { CHECK(*owner == 7); },
+        [](io_completion<int> receipt) {
+          CHECK(receipt.complete({{}, 42}));
+          return io_error{};
+        });
+    REQUIRE(request);
+    owner.reset();
+    REQUIRE_FALSE(weak.expired());
+    if (drop)
+      executor.clear();
+    else
+      REQUIRE(executor.drain() == 1);
+    REQUIRE(request->result());
+    CHECK(weak.expired());
   }
 }

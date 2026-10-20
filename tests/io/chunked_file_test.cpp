@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/config.h"
 #include "caors/io/chunked_file.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/thread_pool.h"
@@ -178,6 +179,7 @@ TEST_CASE("io - chunk consumption uses selected executor and applies backpressur
 TEST_CASE("io - chunk cancellation and dropped notification produce observable terminal state",
           "[io][chunks]") {
   for (int mode : {0, 1, 2}) {
+    CAPTURE(mode);
     auto file = std::make_shared<pattern_file>();
     file->delayed = mode != 2;
     tasks::execution_context executor;
@@ -271,6 +273,7 @@ TEST_CASE("io - chunk allocation failure and cancellation during consumption are
   CHECK(file->calls == 1);
 }
 
+#if CAORS_HAS_BACKGROUND_THREADS
 TEST_CASE("io - concurrent completion executor serializes chunk progression and cancellation",
           "[io][chunks][concurrency]") {
   for (bool cancel : {false, true}) {
@@ -301,3 +304,5 @@ TEST_CASE("io - concurrent completion executor serializes chunk progression and 
     CHECK(consumed <= file->bytes);
   }
 }
+
+#endif

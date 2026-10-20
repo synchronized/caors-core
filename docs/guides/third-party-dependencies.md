@@ -3,9 +3,12 @@
 
 # 第三方依赖与源码缓存
 
-本页维护 CAORS 开发依赖的获取、复用、离线、并发和缓存恢复规则。
+本页维护 CAORS C++ 开发依赖的获取、复用、离线、并发和缓存恢复规则。
 版本、上游提交、下载地址、SHA-256、入口和许可证标识唯一维护在
 [依赖清单](../../cmake/caors_dependency_catalog.cmake)，目标组装在 [vendor](../../vendor/CMakeLists.txt)。
+
+浏览器测试驱动独立使用 tests/web/package.json 与 package-lock.json 锁定，不进入 CMake 源码缓存或安装包；
+用途与获取方式见 [Web 指南](emscripten.md)。
 
 ## 范围与目标复用
 

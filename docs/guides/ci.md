@@ -13,6 +13,7 @@
 | --- | --- | --- |
 | [Linux](../../.github/workflows/linux.yml) | 手动；每周一北京时间 02:00 | 下列 5 组；普通 Release 验证安装迁移，动态 Release 审计符号与依赖 |
 | [Windows](../../.github/workflows/windows.yml) | 手动；每周一北京时间 02:00 | 下列 3 组，均验证安装与迁移 consumer |
+| [Emscripten](../../.github/workflows/emscripten.yml) | 手动；每周一北京时间 02:00 | 单组静态 Release：完整库、公共头、Node 协议测试、浏览器与安装迁移 consumer |
 | [Linux Stress](../../.github/workflows/linux-stress.yml) | 手动 | Clang Shared ASan；插件卸载 20 轮；内存与 MessagePack 10 轮 |
 | [MSVC 包装脚本](../../scripts/msvc.ps1) | 本地调用 | 初始化 Visual Studio 环境，按 preset 配置、构建与测试 |
 | [安装包验证](../../cmake/caors_verify_installed_package.cmake) | 本地或 Linux 工作流调用 | 基础、Tasks、Tasks coroutine、Resources coroutine、共享宿主、静态宿主六类 consumer，原始与迁移前缀 |
@@ -26,6 +27,7 @@
 Linux 共 5 组：`linux-clang-release`、`linux-gcc-release`、`linux-clang-asan`、
 `linux-clang-ubsan`、`linux-clang-static-release`。
 Windows 共 3 组：`windows-clang-release`、`windows-msvc-release`、`windows-clang-static-release`。
+Emscripten 另设一组 `emscripten-static-release`，使用固定工具链；操作与平台边界见 [Web 指南](emscripten.md)。
 没有 static 的名称均为动态库。ASan 与 UBSan 保持独立 Debug 配置，分别检查内存和未定义行为。
 普通 Release 覆盖两种编译器与两种链接方式，不再排列全部 Debug/Release 笛卡尔积。
 
@@ -50,6 +52,7 @@ Debug、GCC static、MSVC static、clang-cl、Visual Studio generator presets �
 gh workflow run linux.yml --ref <branch>
 gh workflow run windows.yml --ref <branch>
 gh workflow run linux-stress.yml --ref <branch>
+gh workflow run emscripten.yml --ref <branch>
 gh run list --workflow linux.yml --branch <branch>
 ```
 

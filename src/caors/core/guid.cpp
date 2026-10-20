@@ -109,13 +109,17 @@ std::string guid::string() const {
 }
 
 std::size_t guid_hash::operator()(const guid& value) const noexcept {
-  std::size_t hash = 1469598103934665603ULL;
+  std::uint64_t hash = 1469598103934665603ULL;
   for (const std::uint8_t byte : value.bytes()) {
     hash ^= byte;
     hash *= 1099511628211ULL;
   }
 
-  return hash;
+  // 先固定 64 位混合，再折叠到目标位宽，避免 wasm32 隐式截断。
+  if constexpr (sizeof(std::size_t) < sizeof(std::uint64_t)) {
+    return static_cast<std::size_t>(hash ^ (hash >> 32U));
+  }
+  return static_cast<std::size_t>(hash);
 }
 
 }

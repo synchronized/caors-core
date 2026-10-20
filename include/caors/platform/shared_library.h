@@ -44,6 +44,7 @@ public:
    * @param path 动态库文件路径。Windows 接受原生宽字符路径。
    * @param mode POSIX 符号可见范围；Windows 当前忽略该选项。
    * @return 成功时返回持有动态库的对象；失败时返回 platform 错误。
+   * @note Web 单线程目标对非空路径返回 unsupported，空路径仍为 invalid_argument。
    */
   [[nodiscard]] static result<shared_library>
   open(const std::filesystem::path& path, library_load_mode mode = library_load_mode::local);

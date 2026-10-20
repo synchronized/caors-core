@@ -94,7 +94,8 @@ template <typename T> struct io_state : std::enable_shared_from_this<io_state<T>
       discarded = std::move(value);
       value.emplace(io_failure<T>({reason, 0, native_code}));
       terminal = true;
-      abandoned = std::move(callback);
+      // std::function 的移动不保证清空源；交换到空槽以解除回调拥有的循环引用。
+      abandoned.swap(callback);
     }
   }
   void deliver() {
@@ -109,7 +110,7 @@ template <typename T> struct io_state : std::enable_shared_from_this<io_state<T>
         value.emplace(io_failure<T>({io_errc::cancelled}));
       }
       terminal = true;
-      notify = std::move(callback);
+      notify.swap(callback);
     }
     if (notify)
       notify(*value);

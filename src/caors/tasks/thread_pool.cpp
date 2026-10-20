@@ -4,6 +4,7 @@
 #include "caors/tasks/thread_pool.h"
 
 #include "caors/config.h"
+#if CAORS_HAS_BACKGROUND_THREADS
 #include "executor_control_block.h"
 #include "task_queue.h"
 
@@ -176,3 +177,26 @@ bool thread_pool::stopping() const noexcept {
 void thread_pool::shutdown(shutdown_mode mode) noexcept { as_pool(control_)->shutdown(mode); }
 
 } // namespace caors::tasks
+
+#else
+#include <exception>
+#include <system_error>
+namespace caors::tasks {
+std::size_t thread_pool::default_thread_count() noexcept { return 0; }
+thread_pool::thread_pool(std::size_t, memory_resource*) {
+#if CAORS_HAS_EXCEPTIONS
+  throw std::system_error{std::make_error_code(std::errc::operation_not_supported)};
+#else
+  std::terminate();
+#endif
+}
+thread_pool::thread_pool(memory_resource* resource) : thread_pool(0, resource) {}
+thread_pool::~thread_pool() noexcept = default;
+executor thread_pool::get_executor() const noexcept { return {}; }
+memory_resource* thread_pool::resource() const noexcept { return nullptr; }
+std::size_t thread_pool::thread_count() const noexcept { return 0; }
+std::size_t thread_pool::pending() const noexcept { return 0; }
+bool thread_pool::stopping() const noexcept { return true; }
+void thread_pool::shutdown(shutdown_mode) noexcept {}
+} // namespace caors::tasks
+#endif

@@ -4,7 +4,9 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Threads)
+if(NOT "@EMSCRIPTEN@")
+  find_dependency(Threads)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/caorsTargets.cmake")
 

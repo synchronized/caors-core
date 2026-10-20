@@ -476,6 +476,35 @@
       "cacheVariables": {
         "CAORS_LIBRARY_TYPE": "SHARED"
       }
+    },
+    {
+      "name": "platform-emscripten",
+      "hidden": true,
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "CAORS_LIBRARY_TYPE": "STATIC",
+        "CAORS_BUILD_TESTING": true,
+        "CAORS_BUILD_EXAMPLES": false,
+        "CAORS_BUILD_EXAMPLE_TESTING": false,
+        "CAORS_BUILD_BENCHMARKS": false,
+        "CMAKE_CXX_FLAGS": "-fexceptions",
+        "CMAKE_EXE_LINKER_FLAGS": "-sDISABLE_EXCEPTION_CATCHING=0"
+      }
+    },
+    {
+      "name": "emscripten-static-debug",
+      "inherits": [
+        "platform-emscripten",
+        "config-debug"
+      ]
+    },
+    {
+      "name": "emscripten-static-release",
+      "inherits": [
+        "platform-emscripten",
+        "config-release"
+      ]
     }
   ],
   "buildPresets": [
@@ -640,6 +669,14 @@
       "name": "linux-gcc-release",
       "inherits": "build-linux",
       "configurePreset": "linux-gcc-release"
+    },
+    {
+      "name": "emscripten-static-debug",
+      "configurePreset": "emscripten-static-debug"
+    },
+    {
+      "name": "emscripten-static-release",
+      "configurePreset": "emscripten-static-release"
     }
   ],
   "testPresets": [
@@ -807,6 +844,20 @@
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
       "inherits": "test-linux"
+    },
+    {
+      "name": "emscripten-static-debug",
+      "configurePreset": "emscripten-static-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "emscripten-static-release",
+      "configurePreset": "emscripten-static-release",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }

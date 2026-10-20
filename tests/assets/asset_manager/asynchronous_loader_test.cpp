@@ -357,6 +357,7 @@ TEST_CASE("assets - completed I/O retains activity through owned progress channe
   CHECK_FALSE(f.assets.database().has_active_operations());
 }
 
+#if CAORS_HAS_BACKGROUND_THREADS
 TEST_CASE("assets - native async completion on another thread is serialized to cache owner",
           "[assets][native-async]") {
   fixture f;
@@ -375,6 +376,8 @@ TEST_CASE("assets - native async completion on another thread is serialized to c
   REQUIRE(f.completion.drain() == 1);
   CHECK(request.loaded());
 }
+
+#endif
 
 TEST_CASE("assets - changing defaults keeps existing group scheduling", "[assets][native-async]") {
   fixture f;
@@ -409,6 +412,7 @@ TEST_CASE("assets - closed completion preserves frozen error and releases native
   CHECK_FALSE(f.assets.database().has_active_operations());
 }
 
+#if CAORS_HAS_BACKGROUND_THREADS
 TEST_CASE("assets - native callback races subscription cancellation without committing",
           "[assets][native-async]") {
   for (int round = 0; round < 32; ++round) {
@@ -433,6 +437,8 @@ TEST_CASE("assets - native callback races subscription cancellation without comm
 }
 
 #if CAORS_HAS_EXCEPTIONS
+#endif
+
 TEST_CASE("assets - native completion allocation failure preserves out of memory",
           "[assets][native-async]") {
   bool fail_next = false;

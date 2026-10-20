@@ -14,8 +14,10 @@
 #include <charconv>
 #include <cmath>
 #include <limits>
+#include <locale>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -220,13 +222,38 @@ template <typename Target>
   }
 }
 
+template <typename Float>
+inline constexpr bool floating_from_chars_supported = requires(
+    const char* first, const char* last, Float& value) { std::from_chars(first, last, value); };
+
 template <typename Target>
 [[nodiscard]] bool parse_floating_argument(std::string_view text, Target& output) noexcept {
-  long double parsed = 0.0;
-  const auto* first = text.data();
-  const auto* last = text.data() + text.size();
-  const auto [position, error] = std::from_chars(first, last, parsed);
-  if (error != std::errc{} || position != last || !std::isfinite(parsed) ||
+  // 使用依赖类型探测，避免某些 libc++ 的 long double 重载被显式删除。
+  using parse_type =
+      std::conditional_t<floating_from_chars_supported<long double>, long double, Target>;
+  parse_type parsed = 0;
+  if constexpr (requires { std::from_chars(text.data(), text.data() + text.size(), parsed); }) {
+    const auto [position, error] = std::from_chars(text.data(), text.data() + text.size(), parsed);
+    if (error != std::errc{} || position != text.data() + text.size())
+      return false;
+  } else {
+    if (text.empty() || text.front() == '+')
+      return false;
+#if CAORS_HAS_EXCEPTIONS
+    try {
+#endif
+      std::istringstream stream{std::string{text}};
+      stream.imbue(std::locale::classic());
+      stream >> std::noskipws >> parsed;
+      if (stream.fail() || !stream.eof())
+        return false;
+#if CAORS_HAS_EXCEPTIONS
+    } catch (...) {
+      return false;
+    }
+#endif
+  }
+  if (!std::isfinite(parsed) ||
       parsed < -static_cast<long double>(std::numeric_limits<Target>::max()) ||
       parsed > static_cast<long double>(std::numeric_limits<Target>::max())) {
     return false;

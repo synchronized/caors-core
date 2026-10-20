@@ -4,6 +4,7 @@
 #ifndef CAORS_TASKS_THREAD_POOL_H_
 #define CAORS_TASKS_THREAD_POOL_H_
 
+#include "caors/config.h"
 #include "caors/export.h"
 #include "caors/memory/resource.h"
 #include "caors/tasks/executor.h"
@@ -23,6 +24,11 @@ enum class shutdown_mode {
 /** @brief 基于标准库线程的固定线程数后台执行环境。 */
 class CAORS_API thread_pool final {
 public:
+  /** @brief 当前目标是否提供后台线程；Web 单线程目标为 false。 */
+  [[nodiscard]] static constexpr bool supported() noexcept {
+    return config::has_background_threads;
+  }
+  /** @brief 不支持线程的目标返回 0，构造抛出 operation_not_supported；禁用异常时终止。 */
   [[nodiscard]] static std::size_t default_thread_count() noexcept;
 
   explicit thread_pool(std::size_t thread_count = default_thread_count(),
@@ -49,7 +55,9 @@ public:
   void shutdown(shutdown_mode mode = shutdown_mode::drain) noexcept;
 
 private:
+#if CAORS_HAS_BACKGROUND_THREADS
   detail::executor_control_block* control_ = nullptr;
+#endif
   executor executor_;
 };
 

@@ -6,6 +6,8 @@
 
 #include "caors/io/file_system.h"
 
+#include "caors/core/detail/shared_snapshot.h"
+
 #include <atomic>
 #include <cstddef>
 #include <memory>
@@ -80,7 +82,7 @@ private:
                                   std::shared_ptr<void> owner);
   using route_table = core::vector<mount_entry>;
   memory_resource* resource_;
-  std::atomic<std::shared_ptr<const route_table>> mounts_;
+  ::caors::detail::shared_snapshot<const route_table> mounts_;
 };
 
 } // namespace caors::io
