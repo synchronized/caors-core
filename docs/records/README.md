@@ -9,6 +9,7 @@
 
 ## 版本验收
 
+- [Emscripten 兼容性评估](2026-10-20-emscripten-assessment.md)：当前 main 复现、Granit 参考和限制。
 - [v0.6.0 发布验收](2026-10-20-v0.6.0-acceptance.md)：最终提交验收与公开制品复核通过。
 - [第三方依赖缓存迁移](2026-10-20-dependency-source-cache.md)：v0.6.0 缓存迁移与跨平台集成验收记录。
 - [v0.5.0 VFS 后续开发](2026-10-20-v0.5.0-vfs-followups.md)：已发布并完成公开下载复核；最终跨平台验收通过，固定 Linux 性能复验延期。
