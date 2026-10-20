@@ -279,3 +279,61 @@ TEST_CASE("resources - cache uses requested memory resource", "[resources]") {
   CHECK(cache.index().resource() == &tracking);
   CHECK(tracking.statistics().allocation_count > 0);
 }
+
+namespace {
+class cache_failure_resource final : public caors::memory_resource {
+public:
+  int remaining = -1;
+
+private:
+  void* do_try_allocate(std::size_t bytes, std::size_t alignment) noexcept override {
+    // MSVC Debug 容器代理的 noexcept 小型分配不属于本专项注入范围。
+    if (bytes > 32 && remaining >= 0 && remaining-- == 0)
+      return nullptr;
+    return caors::get_system_memory_resource().try_allocate(bytes, alignment);
+  }
+  void do_deallocate(void* value, std::size_t bytes, std::size_t alignment) noexcept override {
+    caors::get_system_memory_resource().deallocate(value, bytes, alignment);
+  }
+  bool do_is_equal(const caors::memory_resource& other) const noexcept override {
+    return this == &other;
+  }
+};
+}
+TEST_CASE("resources - cache publication allocation failures leave both indices consistent",
+          "[resources][refresh][memory]") {
+  for (int failure = 0; failure < 10; ++failure) {
+    cache_failure_resource memory;
+    caors::resources::cache<texture_resource> cache{&memory};
+    auto value = caors::resources::make_handle<texture_resource>(nullptr, test_guid_a);
+    memory.remaining = failure;
+    bool inserted = false;
+    try {
+      inserted = cache.insert(value);
+    } catch (const std::bad_alloc&) {
+    }
+    memory.remaining = -1;
+    CHECK(cache.contains(test_guid_a) == inserted);
+    CHECK(cache.index().contains(test_guid_a) == inserted);
+    if (!inserted) {
+      CHECK_FALSE(cache.index().contains(value.get()));
+      CHECK(cache.insert(value));
+    }
+    auto original = cache.find_handle(test_guid_a);
+    const auto generation = cache.generation_of(test_guid_a);
+    auto replacement = caors::resources::make_handle<texture_resource>(nullptr, test_guid_a);
+    memory.remaining = failure;
+    bool replaced = false;
+    try {
+      replaced = cache.replace(replacement);
+    } catch (const std::bad_alloc&) {
+    }
+    memory.remaining = -1;
+    auto* expected = replaced ? replacement.get() : original.get();
+    CHECK(cache.find(test_guid_a) == expected);
+    CHECK(cache.index().find(test_guid_a) == expected);
+    CHECK(cache.index().contains(original.get()) == !replaced);
+    if (!replaced)
+      CHECK(cache.generation_of(test_guid_a) == generation);
+  }
+}
