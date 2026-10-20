@@ -15,7 +15,7 @@
 
 ## 当前版本
 
-下一版本 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)主实现已完成，正在收口验收；固定 Linux 性能复验已获准延期，设计见关联开发计划。
+当前版本 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；固定 Linux 性能复验延期，设计见关联开发计划。
 
 [v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；设计与范围见[实施计划](plans/asynchronous-vfs.md)。
 宿主原生 I/O 接入见[异步 VFS 指南](guides/async-vfs-integration.md)。

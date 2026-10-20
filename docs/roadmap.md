@@ -7,10 +7,10 @@
 单项任务的范围与状态由[计划索引](plans/README.md)指向的 Plan 维护，当前能力见
 [文档中心](README.md)，稳定性边界见[API 政策](reference/api-stability.md)。
 
-最新版本为 [v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)，
+最新版本为 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)，
 已发布 alpha 源码并完成验收与公开下载复核；详细范围与发布证据由版本页关联。
 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)保留其范围及发布证据。
-下一目标为 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)，主实现已完成，正在收口验收；固定 Linux 性能复验已获准延期。
+[v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)保留其范围及发布证据；固定 Linux 性能复验继续由[来源快照计划](plans/provider-snapshot-cost.md)跟踪。
 [v0.2.0](versions/v0.2.0.md) 已完成实现验收，公开发布状态由其版本页维护，既有延期复验继续由原计划跟踪。
 以下其他候选方向尚不构成承诺排期，启动时再明确范围和验收。
 原有逐 API 完成清单归档到[整理前基线](records/history/2026-10-19-roadmap-baseline.md)。
