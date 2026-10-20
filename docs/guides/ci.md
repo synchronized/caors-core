@@ -71,3 +71,9 @@ gh run list --workflow linux.yml --branch <branch>
 当前没有发布工作流，发布者需在最终 SHA 的干净工作树完成验证和制品检查。
 
 自动化目标与未实施项见[发布自动化计划](../plans/release-automation.md)。
+
+## 快照基准可运行性
+
+既有 linux-clang-release 和 windows-msvc-release 任务复用已构建库，额外编译
+caors_provider_snapshot_benchmarks，并运行 1000 绑定、3 样本的最小 smoke，上传汇总与逐次 CSV。
+不增加常规矩阵组合，不设耗时阈值；这些数据只证明程序可运行，不能代替固定环境性能验收。

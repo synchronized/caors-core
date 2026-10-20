@@ -50,6 +50,25 @@ jobs:
             -DCAORS_SHARED=${{ matrix.shared }} `
             -P cmake/caors_verify_installed_package.cmake
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: 来源快照基准可运行性（不作为性能验收）
+        if: matrix.preset == 'windows-msvc-release'
+        shell: pwsh
+        run: |
+          .\scripts\msvc.ps1 -Action configure -Preset windows-msvc-release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --preset windows-msvc-release -DCAORS_BUILD_BENCHMARKS=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build --preset windows-msvc-release --target caors_provider_snapshot_benchmarks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PATH = (Resolve-Path build/windows-msvc-release/src).Path + ';' + $env:PATH
+          & build/windows-msvc-release/benchmarks/caors_provider_snapshot_benchmarks.exe 3 1000 build/snapshot-smoke-raw.csv > build/snapshot-smoke.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: 上传快照基准 smoke 数据
+        if: matrix.preset == 'windows-msvc-release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-snapshot-smoke
+          path: build/snapshot-smoke*.csv
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4

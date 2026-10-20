@@ -73,6 +73,18 @@ jobs:
         run: cmake --build --preset "${{ matrix.preset }}"
       - name: 测试
         run: ctest --preset "${{ matrix.preset }}" --timeout 120
+      - name: 来源快照基准可运行性（不作为性能验收）
+        if: matrix.preset == 'linux-clang-release'
+        run: |
+          cmake --preset linux-clang-release -DCAORS_BUILD_BENCHMARKS=ON
+          cmake --build --preset linux-clang-release --target caors_provider_snapshot_benchmarks
+          build/linux-clang-release/benchmarks/caors_provider_snapshot_benchmarks 3 1000 build/snapshot-smoke-raw.csv > build/snapshot-smoke.csv
+      - name: 上传快照基准 smoke 数据
+        if: matrix.preset == 'linux-clang-release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-snapshot-smoke
+          path: build/snapshot-smoke*.csv
       - name: 审计动态库符号与依赖
         if: ${{ !matrix.sanitizer && matrix.shared == 'ON' }}
         run: python3 scripts/verify_shared_symbols.py build/${{ matrix.preset }}/src/libcaors.so build/symbol-audit

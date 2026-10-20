@@ -1180,3 +1180,8 @@ cache 本身仍不支持无协调的并发访问。发起请求、查询 cache �
 或由宿主统一串行化；不能把发布资格保护理解为整个 cache 变成线程安全。
 直接同步修改 cache、运行时配置替换和依赖批次事务需宿主协调。
 来源快照固定路由，不保证依赖缓存或磁盘内容属于同一修订。
+
+同一次 provider 快照捕获只调用每个 source 的 freeze_routes 一次，GUID 位置仍逐项复制。
+临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
+因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
+该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。

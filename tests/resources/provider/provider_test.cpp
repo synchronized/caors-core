@@ -340,3 +340,89 @@ TEST_CASE("resources - borrowed leaf snapshot fails explicitly while synchronous
   CHECK(snapshot->resolve(test_guid_a).error().value() == caors::errc::unsupported);
   CHECK(provider.read(test_guid_a).succeeded());
 }
+
+namespace {
+class freeze_counting_source final : public caors::resources::source {
+public:
+  explicit freeze_counting_source(std::shared_ptr<caors::io::file_system> root)
+      : file_(std::move(root)) {}
+  mutable int calls = 0;
+  bool return_null = false;
+  bool reject = false;
+  bool exists(caors::io::location_view location) const override { return file_.exists(location); }
+  caors::io::byte_buffer_result read(caors::io::location_view location,
+                                     caors::memory_resource* memory) override {
+    return file_.read(location, memory);
+  }
+  caors::result<std::shared_ptr<caors::io::file_system>>
+  freeze_routes(caors::io::detail::snapshot_context& context) const override {
+    ++calls;
+    if (reject)
+      return caors::fail<std::shared_ptr<caors::io::file_system>>(
+          {caors::error_domain::resources, caors::errc::unsupported});
+    if (return_null)
+      return caors::ok(std::shared_ptr<caors::io::file_system>{});
+    return file_.freeze_routes(context);
+  }
+
+private:
+  caors::resources::file_source file_;
+};
+}
+TEST_CASE("resources - snapshot freezes each source once but never reuses across captures",
+          "[resources][snapshot]") {
+  auto router = std::make_shared<caors::io::mount_file_system>();
+  auto old_files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(old_files->write_all("data", std::string_view{"old"}));
+  REQUIRE_FALSE(router->mount("assets", old_files));
+  freeze_counting_source source{router};
+  caors::resources::provider provider;
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(provider.bind(test_guid_b, source, "assets/data"));
+  auto old = provider.snapshot();
+  CHECK(source.calls == 1);
+  auto before = old->resolve(test_guid_a);
+  REQUIRE(before);
+  REQUIRE(router->unmount("assets"));
+  auto new_files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(new_files->write_all("data", std::string_view{"new"}));
+  REQUIRE_FALSE(router->mount("assets", new_files));
+  auto fresh = provider.snapshot();
+  CHECK(source.calls == 2);
+  auto after = fresh->resolve(test_guid_b);
+  REQUIRE(after);
+  CHECK(before->source_id != after->source_id);
+  CHECK(bytes_to_string(*before->backend->read_all(before->path)) == "old");
+  CHECK(bytes_to_string(*after->backend->read_all(after->path)) == "new");
+  REQUIRE(provider.unbind(test_guid_b));
+  REQUIRE_FALSE(provider.rebind(test_guid_a, source, "assets/missing"));
+  auto changed = provider.snapshot();
+  CHECK(source.calls == 3);
+  CHECK(changed->resolve(test_guid_b).error().value() == caors::errc::not_found);
+  CHECK(changed->resolve(test_guid_a)->path.string_view() == "missing");
+  CHECK(old->resolve(test_guid_b));
+}
+TEST_CASE(
+    "resources - source freeze rejection and null success are shared diagnostics only per capture",
+    "[resources][snapshot]") {
+  freeze_counting_source source{std::make_shared<caors::io::memory_file_system>()};
+  caors::resources::provider provider;
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "a"));
+  REQUIRE_FALSE(provider.bind(test_guid_b, source, "b"));
+  source.reject = true;
+  auto rejected = provider.snapshot();
+  CHECK(source.calls == 1);
+  CHECK(rejected->resolve(test_guid_a).error().value() == caors::errc::unsupported);
+  CHECK(rejected->resolve(test_guid_b).error().value() == caors::errc::unsupported);
+  source.reject = false;
+  source.return_null = true;
+  auto invalid = provider.snapshot();
+  CHECK(source.calls == 2);
+  CHECK(invalid->resolve(test_guid_a).error().value() == caors::errc::backend_failure);
+  CHECK(invalid->resolve(test_guid_b).error().value() == caors::errc::backend_failure);
+  source.return_null = false;
+  auto valid = provider.snapshot();
+  CHECK(source.calls == 3);
+  CHECK(valid->resolve(test_guid_a));
+  CHECK(rejected->resolve(test_guid_a).error().value() == caors::errc::unsupported);
+}
