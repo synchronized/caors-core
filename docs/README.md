@@ -15,6 +15,8 @@
 
 ## 当前版本
 
+下一目标 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)规划中；当前无 pthread 编译限制与证据见[评估记录](records/2026-10-20-emscripten-assessment.md)。
+
 依赖的首次获取、离线和恢复见[第三方依赖指南](guides/third-party-dependencies.md)。
 
 当前版本 [v0.6.0：依赖源码缓存与构建诊断治理](versions/v0.6.0.md)已发布 alpha 源码，最终验收与公开下载复核通过。

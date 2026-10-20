@@ -13,6 +13,10 @@
 
 ## 状态索引
 
+### v0.7.0 规划中
+
+- [Emscripten 单线程平台接入](emscripten-single-thread-platform.md)：共享快照、平台能力、协作调度与浏览器验收。
+
 ### v0.6.0 范围实现已验收
 
 - [第三方依赖源码缓存迁移](dependency-source-cache.md)：锁定下载、离线、并发发布与父项目复用。
