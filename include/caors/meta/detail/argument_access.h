@@ -438,27 +438,29 @@ argument_pass_type<Parameter> argument_value(const argument& value) noexcept {
   }
 }
 
+// 空参数包展开后不会访问匹配选项或游标。
 template <typename... Arguments>
 [[nodiscard]] bool arguments_match(std::span<const argument> arguments,
-                                   argument_match_options options = {}) noexcept {
+                                   [[maybe_unused]] argument_match_options options = {}) noexcept {
   if (arguments.size() != sizeof...(Arguments)) {
     return false;
   }
 
-  std::size_t index = 0;
+  [[maybe_unused]] std::size_t index = 0;
   return ((argument_rank<Arguments>(arguments[index++], options) != argument_match_rank::none) &&
           ...);
 }
 
 template <typename... Arguments>
-[[nodiscard]] argument_match_rank arguments_rank(std::span<const argument> arguments,
-                                                 argument_match_options options = {}) noexcept {
+[[nodiscard]] argument_match_rank
+arguments_rank(std::span<const argument> arguments,
+               [[maybe_unused]] argument_match_options options = {}) noexcept {
   if (arguments.size() != sizeof...(Arguments)) {
     return argument_match_rank::none;
   }
 
   argument_match_rank result = argument_match_rank::exact;
-  std::size_t index = 0;
+  [[maybe_unused]] std::size_t index = 0;
   (([&] {
      const argument_match_rank rank = argument_rank<Arguments>(arguments[index++], options);
      if (rank == argument_match_rank::none) {
@@ -481,7 +483,7 @@ template <typename... Arguments>
 
   vector<argument> result{memory::allocator<argument>{options.scratch_resource}};
   result.reserve(sizeof...(Arguments));
-  std::size_t index = 0;
+  [[maybe_unused]] std::size_t index = 0;
   bool succeeded = true;
   (([&] {
      argument prepared = prepare_argument<Arguments>(arguments[index++], options);
