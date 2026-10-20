@@ -6,6 +6,7 @@
 #include "serialization_test_support.h"
 
 #include "caors/io/memory_file_system.h"
+#include "caors/serialization/json_writer.h"
 
 #include <string>
 
@@ -333,15 +334,16 @@ TEST_CASE("serialization - JSON escapes every ASCII control byte", "[serializati
     control.push_back(static_cast<char>(byte));
   }
 
-  const auto encoded = caors::to_json(control);
-  REQUIRE(encoded.succeeded());
-  CHECK(encoded->find("\\u0000") != caors::string::npos);
-  CHECK(encoded->find("\\u001f") != caors::string::npos);
-  for (const unsigned char byte : *encoded) {
+  caors::string encoded;
+  caors::serialization::json_writer writer{encoded};
+  REQUIRE(writer.write_string(control).succeeded());
+  CHECK(encoded.find("\\u0000") != caors::string::npos);
+  CHECK(encoded.find("\\u001f") != caors::string::npos);
+  for (const unsigned char byte : encoded) {
     CHECK(byte >= 0x20U);
   }
 
-  const auto decoded = caors::serialization::parse_json(*encoded);
+  const auto decoded = caors::serialization::parse_json(encoded);
   REQUIRE(decoded.succeeded());
   REQUIRE(decoded->is_string());
   CHECK(decoded->as_string() == control);
