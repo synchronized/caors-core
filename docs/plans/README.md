@@ -34,8 +34,8 @@
 
 ### v0.5.0 待验收
 
-- [资源显式刷新](resource-refresh.md)：C51-08，已实现并通过本机验证，跨平台集成待验收。
-- [分块读取与逐块消费](chunked-file-reading.md)：C51-09，已实现并通过本机验证，跨平台集成待验收。
+- [资源显式刷新](resource-refresh.md)：C51-08，已完成本机及跨平台集成验收。
+- [分块读取与逐块消费](chunked-file-reading.md)：C51-09，已完成本机及跨平台集成验收。
 - [来源快照成本评估](provider-snapshot-cost.md)：C51-10，Windows 对比与同次捕获优化已完成，固定 Linux 性能复验未完成。
 
 ### 待实施
