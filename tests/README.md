@@ -22,6 +22,8 @@ cmake --preset windows-clang-debug -DCAORS_BUILD_TESTING=OFF
 
 测试框架使用锁定的 Catch2 源码缓存，优先复用父项目完整目标；首次获取、离线与并发规则见[依赖指南](../docs/guides/third-party-dependencies.md)。
 
+Emscripten 使用独立的公共头与协议测试集合，真实浏览器和安装消费端另行验证；范围与命令见 [Web 指南](../docs/guides/emscripten.md)。
+
 ## CMake 集成检查
 
 `caors.cmake.parent_project` 通过独立父工程配置验证 `add_subdirectory()` 接入：父工程同名通用函数

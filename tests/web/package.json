@@ -1,0 +1,12 @@
+{
+  "name": "caors-web-tests",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node browser_test.cjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.1"
+  }
+}

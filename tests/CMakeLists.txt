@@ -132,6 +132,12 @@ function(caors_add_test_tree TEST_DIRECTORY)
   caors_add_test_directory("${TEST_DIRECTORY}")
 endfunction()
 
+if(EMSCRIPTEN)
+  caors_add_test_directory("headers")
+  add_subdirectory(web)
+  return()
+endif()
+
 file(GLOB CAORS_TEST_DIRECTORIES CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*")
 list(SORT CAORS_TEST_DIRECTORIES)
 

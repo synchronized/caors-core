@@ -15,7 +15,7 @@
 
 ## 当前版本
 
-下一目标 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)规划中；当前无 pthread 编译限制与证据见[评估记录](records/2026-10-20-emscripten-assessment.md)。
+下一目标 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)的 CAORS 平台集成已完成，待 Gneiss 联合验收；构建与调度见 [Web 指南](guides/emscripten.md)，验收进展见[集成记录](records/2026-10-20-emscripten-integration.md)。
 
 依赖的首次获取、离线和恢复见[第三方依赖指南](guides/third-party-dependencies.md)。
 

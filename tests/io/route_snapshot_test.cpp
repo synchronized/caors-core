@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/config.h"
 #include "io_test_support.h"
 
 #include <atomic>
@@ -102,6 +103,7 @@ TEST_CASE("io - snapshots reject borrowed edges and diagnose nested cycles", "[i
   CHECK_FALSE(route_snapshot{}.resolve("x"));
 }
 
+#if CAORS_HAS_BACKGROUND_THREADS
 TEMPLATE_TEST_CASE("io - concurrent publication preserves independent mount updates",
                    "[io][snapshot]", mount_file_system, file_system_resolver) {
   TestType router;
@@ -130,3 +132,5 @@ TEMPLATE_TEST_CASE("io - concurrent publication preserves independent mount upda
   CHECK(valid.load());
   CHECK(router.mount_count() == 0);
 }
+
+#endif

@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 CAORS contributors
+
+name: Emscripten
+on:
+  workflow_dispatch:
+  schedule:
+    # 每周一北京时间 02:00，与原生常规矩阵独立。
+    - cron: "0 18 * * 0"
+concurrency:
+  group: emscripten-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+env:
+  EMSCRIPTEN_VERSION: "5.0.6"
+  EMSDK_DIR: ${{ github.workspace }}/build/emsdk-5.0.6
+  CMAKE_BUILD_PARALLEL_LEVEL: "2"
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/cache@v5
+        with:
+          path: ${{ env.EMSDK_DIR }}
+          key: caors-emsdk-${{ runner.os }}-${{ env.EMSCRIPTEN_VERSION }}
+      - uses: actions/cache@v5
+        with:
+          path: |
+            vendor/cache/archives
+            vendor/cache/sources
+          key: ${{ runner.os }}-caors-source-catch2-${{ hashFiles('cmake/caors_dependency_catalog.cmake', 'cmake/caors_dependency_cache.cmake') }}
+      - name: 安装并记录工具链
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x "$EMSDK_DIR/upstream/emscripten/emcc" ]]; then
+            mkdir -p "$(dirname "$EMSDK_DIR")"
+            git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
+            "$EMSDK_DIR/emsdk" install "$EMSCRIPTEN_VERSION"
+          fi
+          "$EMSDK_DIR/emsdk" activate "$EMSCRIPTEN_VERSION"
+          source "$EMSDK_DIR/emsdk_env.sh"
+          emcc --version
+          node --version
+      - name: 完整静态库、公共头和 Node 协议
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$EMSDK_DIR/emsdk_env.sh"
+          emcmake cmake --preset emscripten-static-release -G Ninja
+          cmake --build --preset emscripten-static-release
+          ctest --preset emscripten-static-release --timeout 90
+      - name: 拒绝动态库与同目录切换 pthread
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$EMSDK_DIR/emsdk_env.sh"
+          if emcmake cmake -S . -B build/web-reject-shared -G Ninja \
+            -DCAORS_LIBRARY_TYPE=SHARED > build/web-reject-shared.log 2>&1; then
+            echo "Unexpected shared library acceptance"; exit 1
+          fi
+          grep -F 'CAORS_LIBRARY_TYPE=STATIC' build/web-reject-shared.log
+          emcmake cmake -S . -B build/web-reject-pthread -G Ninja \
+            -DCAORS_LIBRARY_TYPE=STATIC -DCAORS_BUILD_TESTING=OFF -DBUILD_TESTING=OFF \
+            -DCAORS_BUILD_EXAMPLES=OFF
+          if emcmake cmake -S . -B build/web-reject-pthread -G Ninja \
+            -DCMAKE_CXX_FLAGS=-pthread > build/web-reject-pthread.log 2>&1; then
+            echo "Unexpected pthread acceptance"; exit 1
+          fi
+          grep -F -- '-pthread' build/web-reject-pthread.log
+      - name: 安装与迁移消费端
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$EMSDK_DIR/emsdk_env.sh"
+          cmake --install build/emscripten-static-release --prefix "$PWD/build/web-installed"
+          for phase in original relocated; do
+            prefix="$PWD/build/web-installed"
+            if [[ "$phase" == relocated ]]; then
+              cmake -E rename build/web-installed build/web-relocated
+              prefix="$PWD/build/web-relocated"
+            fi
+            emcmake cmake -S tests/web/consumer -B "build/web-consumer-$phase" -G Ninja \
+              -Dcaors_DIR="$prefix/lib/cmake/caors" -DCMAKE_CXX_FLAGS=-fexceptions \
+              -DCMAKE_EXE_LINKER_FLAGS=-sDISABLE_EXCEPTION_CATCHING=0
+            cmake --build "build/web-consumer-$phase"
+            ctest --test-dir "build/web-consumer-$phase" --output-on-failure --timeout 60
+          done
+      - name: 浏览器跨事件循环生命周期
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$EMSDK_DIR/emsdk_env.sh"
+          npm ci --prefix tests/web --ignore-scripts
+          node tests/web/browser_test.cjs build/emscripten-static-release/tests/web
+      - name: 上传失败日志
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: emscripten-test-log
+          path: build/emscripten-static-release/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore

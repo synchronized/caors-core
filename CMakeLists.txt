@@ -69,6 +69,7 @@ if(CAORS_ENABLE_ASAN AND
 endif()
 
 set(CAORS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+include("${CAORS_ROOT_DIR}/cmake/caors_platform.cmake")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

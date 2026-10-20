@@ -9,6 +9,7 @@
 
 ## 版本验收
 
+- [Emscripten 平台实施与验收](2026-10-20-emscripten-integration.md)：v0.7.0 开发与真实验证状态。
 - [Emscripten 兼容性评估](2026-10-20-emscripten-assessment.md)：当前 main 复现、Granit 参考和限制。
 - [v0.6.0 发布验收](2026-10-20-v0.6.0-acceptance.md)：最终提交验收与公开制品复核通过。
 - [第三方依赖缓存迁移](2026-10-20-dependency-source-cache.md)：v0.6.0 缓存迁移与跨平台集成验收记录。

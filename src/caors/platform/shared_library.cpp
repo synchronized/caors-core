@@ -3,6 +3,9 @@
 
 #include "caors/platform/shared_library.h"
 
+#include "caors/config.h"
+
+#if CAORS_HAS_DYNAMIC_LIBRARIES
 #include <string>
 #include <utility>
 
@@ -109,3 +112,17 @@ error shared_library::close() noexcept {
 }
 
 } // namespace caors::platform
+
+#else
+namespace caors::platform {
+shared_library::shared_library(shared_library&& other) noexcept = default;
+shared_library& shared_library::operator=(shared_library&& other) noexcept = default;
+shared_library::~shared_library() = default;
+result<shared_library> shared_library::open(const std::filesystem::path& path, library_load_mode) {
+  return fail<shared_library>(
+      {error_domain::platform, path.empty() ? errc::invalid_argument : errc::unsupported});
+}
+void* shared_library::find_symbol(std::string_view) const { return nullptr; }
+error shared_library::close() noexcept { return {}; }
+} // namespace caors::platform
+#endif

@@ -11,6 +11,8 @@
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 
+#include "caors/core/detail/shared_snapshot.h"
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -176,7 +178,7 @@ private:
   memory::memory_resource* state_resource_ = nullptr;
   registry_options options_{};
   std::shared_ptr<detail::registry_layer_state> primary_layer_{};
-  std::atomic<std::shared_ptr<detail::registry_snapshot>> snapshot_{};
+  ::caors::detail::shared_snapshot<detail::registry_snapshot> snapshot_{};
   detail::registry_state* state_ = nullptr;
 };
 

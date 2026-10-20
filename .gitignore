@@ -25,3 +25,6 @@ compile_commands.json
 
 # 可重新填充的依赖源码缓存不进入仓库。
 vendor/cache/
+
+# 浏览器测试驱动只保留锁定清单。
+node_modules/
