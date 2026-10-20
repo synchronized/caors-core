@@ -9,7 +9,7 @@
 
 ## 版本验收
 
-- [v0.7.0 发布验收](2026-10-21-v0.7.0-acceptance.md)：独立平台 alpha 源码候选与最终提交验证。
+- [v0.7.0 发布验收](2026-10-21-v0.7.0-acceptance.md)：独立平台 alpha 源码最终提交验收与公开下载复核通过。
 - [Emscripten 平台实施与验收](2026-10-20-emscripten-integration.md)：v0.7.0 开发与真实验证状态。
 - [Emscripten 兼容性评估](2026-10-20-emscripten-assessment.md)：当前 main 复现、Granit 参考和限制。
 - [v0.6.0 发布验收](2026-10-20-v0.6.0-acceptance.md)：最终提交验收与公开制品复核通过。

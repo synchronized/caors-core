@@ -15,11 +15,11 @@
 
 ## 当前版本
 
-下一目标 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)的 CAORS 平台集成已完成，准备独立平台 alpha 发布，Gneiss 联调延期；构建与调度见 [Web 指南](guides/emscripten.md)，验收进展见[集成记录](records/2026-10-20-emscripten-integration.md)。
+当前版本 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)的 CAORS 平台集成已完成，已发布独立平台 alpha 源码，Gneiss 联调延期；构建与调度见 [Web 指南](guides/emscripten.md)，验收进展见[集成记录](records/2026-10-20-emscripten-integration.md)。
 
 依赖的首次获取、离线和恢复见[第三方依赖指南](guides/third-party-dependencies.md)。
 
-当前版本 [v0.6.0：依赖源码缓存与构建诊断治理](versions/v0.6.0.md)已发布 alpha 源码，最终验收与公开下载复核通过。
+上一版本 [v0.6.0：依赖源码缓存与构建诊断治理](versions/v0.6.0.md)已发布 alpha 源码，最终验收与公开下载复核通过。
 
 上一版本 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；固定 Linux 性能复验延期，设计见关联开发计划。
 
