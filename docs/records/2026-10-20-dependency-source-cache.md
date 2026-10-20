@@ -12,7 +12,7 @@ PR #47 在确认 e6c1f487 的 Linux 5/Windows 3 全部通过后合入 main，合
 
 ## 环境与执行
 
-Windows x64，PowerShell；CMake、Clang/MSVC，相关验证结果完成后补齐。
+Windows x64，PowerShell；本机 Clang 23.1.1、MSVC 14.41；最终跨平台环境由下列 CI 日志固定。
 Granit/Gneiss 仅作本地实现参考，未修改相邻项目。
 
 ## 来源核对与首批验证
@@ -29,7 +29,7 @@ CMake 仍以 TLS_VERIFY ON 完成两个真实冷下载、SHA 校验、解压及�
 日志 build/dependency-migration/prepare-real.log；归档和比对元数据在同目录。
 
 独立缓存契约脚本通过，覆盖本地归档冷/暖/离线、坏摘要、不完整源码、并发发布、锁超时、
-进程释放及按项隔离。全仓构建、两个基准和安装/跨平台验收尚在收口，未声明通过。
+进程释放及按项隔离。全仓构建、两个基准和安装/跨平台结果见下列集成验收。
 
 ## 本机集成验收
 
@@ -45,7 +45,7 @@ Clang 23.1.1 / MSVC ABI / Shared Debug，build/v030-clang-debug：全仓及两�
 缩短 staging 名称，保留完整锁键与发布摘要后，在相同深层目录复验通过。未通过缩短测试路径绕过。
 归档重命名使用 NO_REPLACE；源码目录在持锁期间再次检查目标不存在，再原子重命名发布；仅清理本次创建并确认仍位于 staging 内的暂存目录，不递归删除已有归档或源码目录。
 
-跨平台验收尚未完成；计划中的正式 v0.6.0 发布仍未执行。
+本机验收完成；跨平台结果见下文，计划中的正式 v0.6.0 发布仍未执行。
 
 ## 源码归档预验收
 
@@ -60,3 +60,20 @@ Clang 23.1.1 / MSVC ABI / Shared Debug，build/v030-clang-debug：全仓及两�
 Linux 首轮 39403850029 在配置期发现目录 RENAME NO_REPLACE 返回 Operation not permitted；
 Windows 同提交已进入构建。改为同项锁下再次检查目标不存在，再执行普通目录 rename；
 已有源码仍明确拒绝覆盖，归档文件保留 NO_REPLACE。修复后重新执行受影响的缓存契约与最终矩阵。
+
+## 最终跨平台集成验收
+
+代码提交 118c82af1a1dac189f14b0c7149d4cc39b15b213，PR [#48](https://github.com/synchronized/caors-core/pull/48)。
+修复后本机深层路径缓存契约复验通过；最终矩阵：
+
+- [Linux 39404160675](https://github.com/synchronized/caors-core/actions/runs/39404160675)：5/5 通过；Clang/GCC Release、ASan、UBSan 各 99/99，Clang Static Release 96/96。
+- [Windows 39404159815](https://github.com/synchronized/caors-core/actions/runs/39404159815)：3/3 通过；Clang/MSVC Release 各 99/99，Clang Static Release 96/96。
+- 六个非 sanitizer 组合均完成原始与迁移安装 consumer，各 6/6；Linux Clang Release 与 Windows MSVC Release 均完成两个基准 smoke 和完整缓存 OFFLINE=ON 重新配置。
+
+完整日志保存在 build/dependency-migration/final-ci-linux.log、final-ci-windows.log；
+两者的 C++ 编译 warning 诊断匹配数均为 0。Actions 自身 Node 弃用提示不属于 C++ 诊断。
+缓存服务已保存 Linux/Windows 各自的 Catch2 与含 ctrack 两类缓存键；本轮不声称已验证后续运行的服务端恢复命中。
+首轮 Windows 因同分支最终运行启动而自动取消，不计为通过；首轮 Linux 失败及修复已保留在上文。
+
+DC-01 至 DC-06 均完成。最终验收后仅补充文档状态和证据，不重复运行未变化代码的矩阵。
+工程版本仍为 0.5.0，v0.6.0 未建立标签或 Release；发布前仍需按发布流程冻结最终 main SHA 并验收制品。
