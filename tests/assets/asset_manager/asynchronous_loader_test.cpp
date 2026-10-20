@@ -666,3 +666,120 @@ TEST_CASE("assets - configured owning route cycles fail before publishing edges"
     {"name":"b","type":"mount_file_system","routes":[{"prefix":"b","target":"a"}]}]})"));
   CHECK(assets.build(config).value() == caors::errc::cycle_detected);
 }
+
+TEST_CASE("assets - refresh chooses new source while old load remains independently usable",
+          "[assets][refresh]") {
+  fixture f;
+  auto router = std::make_shared<caors::io::mount_file_system>();
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
+  caors::resources::file_source source{router};
+  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  auto old = f.assets.request_load<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(router->unmount("assets"));
+  REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
+  auto fresh = f.assets.create_group(f.worker.get_executor(), f.completion.get_executor())
+                   .request_refresh<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 2);
+  CHECK(snapshot_text(f.loader.pending[0].context, test_guid_a) == "old");
+  CHECK(snapshot_text(f.loader.pending[1].context, test_guid_a) == "new");
+  auto joined = f.assets.request_load<texture>(test_guid_a);
+  CHECK(f.worker.pending() == 0);
+  std::swap(f.loader.pending[0], f.loader.pending[1]);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(fresh.loaded());
+  REQUIRE(joined.loaded());
+  CHECK(fresh.try_get().get() == joined.try_get().get());
+  auto published = fresh.try_get();
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(old.loaded());
+  CHECK(old.try_get().get() != published.get());
+  CHECK(f.cache.find(test_guid_a) == published.get());
+}
+
+TEST_CASE("assets - failed latest refresh never restores an older publication intent",
+          "[assets][refresh]") {
+  fixture f;
+  auto original = f.cache.create_handle(test_guid_a, test_guid_a);
+  REQUIRE(original);
+  auto older = f.assets.request_refresh<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  auto latest = f.assets.request_refresh<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 2);
+  CHECK(f.assets.request_load<texture>(test_guid_a).try_get().get() == original.get());
+  std::swap(f.loader.pending[0], f.loader.pending[1]);
+  f.loader.finish({caors::error_domain::io, caors::errc::not_found});
+  REQUIRE(latest.failed());
+  CHECK(f.cache.find(test_guid_a) == original.get());
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(older.loaded());
+  CHECK(older.try_get().get() != original.get());
+  CHECK(f.cache.find(test_guid_a) == original.get());
+  auto retry = f.assets.request_refresh<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(retry.loaded());
+  CHECK(f.cache.find(test_guid_a) == retry.try_get().get());
+  CHECK(original->guid() == test_guid_a);
+}
+
+TEST_CASE("assets - refresh supersedes an already queued reload commit", "[assets][refresh]") {
+  fixture f;
+  auto original = f.cache.create_handle(test_guid_a, test_guid_a);
+  auto old = f.assets.request_reload<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  f.loader.finish();
+  REQUIRE(f.completion.pending() == 1);
+  auto fresh = f.assets.request_refresh<texture>(test_guid_a);
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(old.loaded());
+  CHECK(f.cache.find(test_guid_a) == original.get());
+  REQUIRE(f.worker.drain() == 1);
+  auto shared = f.assets.request_reload<texture>(test_guid_a);
+  CHECK(f.worker.pending() == 0);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(shared.loaded());
+  CHECK(shared.try_get().get() == fresh.try_get().get());
+  CHECK(f.cache.find(test_guid_a) == fresh.try_get().get());
+}
+
+TEST_CASE("assets - rejected and cancelled refresh preserve cache and supersede older work",
+          "[assets][refresh]") {
+  for (int mode : {0, 1, 2}) {
+    fixture f;
+    auto original = f.cache.create_handle(test_guid_a, test_guid_a);
+    auto older = f.assets.request_refresh<texture>(test_guid_a);
+    REQUIRE(f.worker.drain() == 1);
+    caors::tasks::execution_context worker;
+    caors::tasks::execution_context completion;
+    auto latest = f.assets.request_refresh<texture>(
+        test_guid_a, mode == 0 ? caors::tasks::executor{} : worker.get_executor(),
+        completion.get_executor());
+    if (mode == 0) {
+      CHECK(latest.failed());
+    } else {
+      REQUIRE(worker.drain() == 1);
+      REQUIRE(f.loader.pending.size() == 2);
+      std::swap(f.loader.pending[0], f.loader.pending[1]);
+      if (mode == 1)
+        REQUIRE(latest.cancel());
+      f.loader.finish();
+      if (mode == 2)
+        completion.clear();
+      else
+        (void)completion.drain();
+      CHECK(latest.done());
+    }
+    f.loader.finish();
+    REQUIRE(f.completion.drain() == 1);
+    REQUIRE(older.loaded());
+    CHECK(f.cache.find(test_guid_a) == original.get());
+  }
+}

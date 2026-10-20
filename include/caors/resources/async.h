@@ -205,7 +205,7 @@ struct preload_request_state {
 template <typename T>
 [[nodiscard]] error commit_loaded_resource(cache<T>& target, resource_guid guid,
                                            memory::unique_ptr<T> loaded, bool replace,
-                                           handle<T>& committed) {
+                                           handle<T>& committed, bool publish = true) {
   if (loaded == nullptr) {
     return {error_domain::resources, errc::backend_failure};
   }
@@ -223,7 +223,7 @@ template <typename T>
   }
 
   const bool committed_to_cache =
-      replace ? target.replace(loaded_handle) : target.insert(loaded_handle);
+      !publish || (replace ? target.replace(loaded_handle) : target.insert(loaded_handle));
   if (!committed_to_cache) {
     return {error_domain::resources, replace ? errc::backend_failure : errc::already_exists};
   }
@@ -420,7 +420,17 @@ private:
           waiters(allocator<detail::request_waiter>{resource}),
           subscribers(allocator<std::shared_ptr<state_type>>{resource}) {}
 
+    ~state_type() {
+      // 不让 cache 中的内部弱引用把请求控制块及其模块代码保留到 cache 析构。
+      if (refresh && publication) {
+        auto selection = std::static_pointer_cast<detail::refresh_selection>(publication);
+        std::lock_guard lock{selection->mutex};
+        selection->request.reset();
+      }
+    }
     std::weak_ptr<state_type> operation;
+    std::shared_ptr<void> publication;
+    bool refresh = false;
     bool subscription_operation = false;
     bool abandoned = false;
     bool committing = false;
@@ -732,6 +742,39 @@ template <typename T> class load_request_access {
 public:
   using request_type = load_request<T>;
   using state_type = typename request_type::state_type;
+
+  // 与 cache 的查询/修改一样，以下操作须在其所属线程执行，或由调用方统一串行化。
+  static std::shared_ptr<void> publication(cache<T>& target, resource_guid guid) {
+    const auto found = target.publications_.find(guid);
+    return found == target.publications_.end() ? std::shared_ptr<void>{}
+                                               : std::shared_ptr<void>{found->second};
+  }
+  static bool may_publish(const std::shared_ptr<state_type>& state, cache<T>& target,
+                          resource_guid guid) {
+    return state->publication == publication(target, guid);
+  }
+  static request_type current_refresh(cache<T>& target, resource_guid guid) {
+    const auto found = target.publications_.find(guid);
+    if (found == target.publications_.end())
+      return {};
+    std::shared_ptr<void> selected;
+    {
+      std::lock_guard lock{found->second->mutex};
+      selected = found->second->request.lock();
+    }
+    auto state = std::static_pointer_cast<state_type>(std::move(selected));
+    request_type request{std::move(state)};
+    return request && accepts_subscriptions(request) ? request : request_type{};
+  }
+  static void select_refresh(cache<T>& target, resource_guid guid,
+                             const std::shared_ptr<state_type>& state) {
+    auto token = std::allocate_shared<detail::refresh_selection>(
+        allocator<detail::refresh_selection>{target.resource()});
+    token->request = state;
+    target.publications_[guid] = token;
+    state->publication = std::move(token);
+    state->refresh = true;
+  }
 
   [[nodiscard]] static request_type make(memory_resource* resource = nullptr) {
     memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
@@ -1526,8 +1569,10 @@ void finish_resource_load(const StatePtr& state, cache<T>& target, resource_guid
 #if CAORS_HAS_EXCEPTIONS
           try {
 #endif
-            status = commit_loaded_resource(target, guid, std::move(loaded_resource), replace,
-                                            committed);
+            const bool publish = load_request_access<T>::may_publish(state, target, guid);
+            status = commit_loaded_resource(target, guid, std::move(loaded_resource),
+                                            state->refresh ? target.contains(guid) : replace,
+                                            committed, publish);
 #if CAORS_HAS_EXCEPTIONS
           } catch (const std::bad_alloc&) {
             status = {error_domain::resources, errc::out_of_memory};
@@ -1663,8 +1708,15 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
     return request;
   }
 
+  if (auto refresh = load_request_access<T>::current_refresh(target, guid)) {
+    if (auto subscriber = load_request_access<T>::subscribe(refresh, commit_unconditionally,
+                                                            preload_observer_item, preload_state))
+      return subscriber;
+  }
   if (requests != nullptr) {
-    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid)) {
+    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid);
+        pending &&
+        load_request_access<T>::may_publish(load_request_access<T>::state(pending), target, guid)) {
       if (auto subscriber = load_request_access<T>::subscribe(
               pending, commit_unconditionally, preload_observer_item, preload_state)) {
         return subscriber;
@@ -1677,6 +1729,7 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
+  state->publication = load_request_access<T>::publication(target, guid);
   auto subscriber = load_request_access<T>::subscribe(
       request, commit_unconditionally, preload_observer_item, std::move(preload_state));
   if (requests != nullptr) {
@@ -1716,18 +1769,26 @@ template <typename T>
     cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
     const tasks::executor& completion_executor, load_request_table<T>* requests,
     std::shared_ptr<void> activity = {}, std::shared_ptr<const provider_snapshot> sources = {},
-    const provider* snapshot_provider = nullptr) {
+    const provider* snapshot_provider = nullptr, bool refresh = false) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
   }
 
-  if (!target.contains(guid)) {
+  if (!refresh && !target.contains(guid)) {
     return load_request<T>::failed({error_domain::resources, errc::not_found}, target.resource());
   }
 
-  if (requests != nullptr) {
-    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid)) {
+  if (!refresh) {
+    if (auto selected = load_request_access<T>::current_refresh(target, guid)) {
+      if (auto subscriber = load_request_access<T>::subscribe(selected, true))
+        return subscriber;
+    }
+  }
+  if (!refresh && requests != nullptr) {
+    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid);
+        pending &&
+        load_request_access<T>::may_publish(load_request_access<T>::state(pending), target, guid)) {
       if (auto subscriber = load_request_access<T>::subscribe(pending, true)) {
         return subscriber;
       }
@@ -1739,6 +1800,7 @@ template <typename T>
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
+  state->publication = load_request_access<T>::publication(target, guid);
   auto subscriber = load_request_access<T>::subscribe(request, true);
   if (requests != nullptr) {
     requests->store(guid, request);
@@ -1750,14 +1812,27 @@ template <typename T>
                     load_request_access<T>::fail(state, {error_domain::resources, errc::cancelled});
                     load_request_access<T>::notify_preload_observers(state);
                   }});
-  error submit_status = executor.post(tasks::task{
-      target.resource(),
-      [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
-       sources, abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
-        load_resource_in_background(state, target, source, guid, executor, completion_executor,
-                                    true, requests, request, activity, sources);
-        abandoned.release();
-      }});
+  error submit_status;
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    if (refresh)
+      load_request_access<T>::select_refresh(target, guid, state);
+    submit_status = executor.post(tasks::task{
+        target.resource(),
+        [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
+         sources, abandoned = tasks::detail::abandon_guard{abandonment}]() mutable {
+          load_resource_in_background(state, target, source, guid, executor, completion_executor,
+                                      true, requests, request, activity, sources);
+          abandoned.release();
+        }});
+#if CAORS_HAS_EXCEPTIONS
+  } catch (const std::bad_alloc&) {
+    submit_status = {error_domain::resources, errc::out_of_memory};
+  } catch (...) {
+    submit_status = {error_domain::resources, errc::backend_failure};
+  }
+#endif
   if (!submit_status) {
     abandonment->arm();
   }
@@ -1821,6 +1896,20 @@ template <typename T>
                                                   load_request_table<T>& requests) {
   return detail::request_reload_into_impl(target, source, guid, executor, completion_executor,
                                           &requests);
+}
+
+/**
+ * @brief 显式选择新来源并发起独立加载，成功后发布为默认绑定；不要求已有缓存。
+ * @note 最新登记的刷新意图拥有发布资格；失败保留旧缓存，不恢复更早操作的资格。
+ * 旧请求仍可返回自己的结果。仅刷新单资源；调用与 cache 提交须在同一所属线程或统一串行化。
+ */
+template <typename T>
+[[nodiscard]] load_request<T> request_refresh_into(cache<T>& target, loader<T>& source,
+                                                   resource_guid guid, tasks::executor worker,
+                                                   tasks::executor completion,
+                                                   load_request_table<T>& requests) {
+  return detail::request_reload_into_impl(target, source, guid, worker, completion, &requests, {},
+                                          {}, nullptr, true);
 }
 
 } // namespace caors::resources

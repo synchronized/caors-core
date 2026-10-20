@@ -10,10 +10,19 @@
 #include "caors/resources/manager.h"
 
 #include <cstddef>
+#include <memory>
+#include <mutex>
 #include <type_traits>
 #include <utility>
 
 namespace caors::resources {
+namespace detail {
+template <typename T> class load_request_access;
+struct refresh_selection {
+  std::mutex mutex;
+  std::weak_ptr<void> request;
+};
+}
 
 /**
  * @brief 拥有式资源缓存。
@@ -30,7 +39,8 @@ public:
 
   explicit cache(memory_resource* resource = nullptr)
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-        index_(resource_), resources_by_guid_(typename resource_map::allocator_type{resource_}) {}
+        index_(resource_), resources_by_guid_(typename resource_map::allocator_type{resource_}),
+        publications_(typename publication_map::allocator_type{resource_}) {}
 
   cache(const cache&) = delete;
   cache& operator=(const cache&) = delete;
@@ -112,16 +122,8 @@ public:
       owned->set_guid(guid);
     }
 
-    resource_type* stored = owned.get();
-    if (!index_.bind(guid, stored)) {
+    if (!insert(owned))
       return {};
-    }
-
-    const auto [_, inserted] = resources_by_guid_.emplace(guid, owned);
-    if (!inserted) {
-      index_.unbind(guid);
-      return {};
-    }
 
     return owned;
   }
@@ -149,16 +151,21 @@ public:
     }
 
     const resource_guid guid = owned->guid();
-    resource_type* stored = owned.get();
-    if (!index_.bind(guid, stored)) {
+    const auto [_, inserted] = resources_by_guid_.emplace(guid, owned);
+    if (!inserted)
       return false;
-    }
-
-    const auto [_, inserted] = resources_by_guid_.emplace(guid, std::move(owned));
-    if (!inserted) {
-      index_.unbind(guid);
+    struct rollback {
+      resource_map& values;
+      resource_guid guid;
+      bool committed = false;
+      ~rollback() {
+        if (!committed)
+          values.erase(guid);
+      }
+    } guard{resources_by_guid_, guid};
+    if (!index_.bind(guid, owned.get()))
       return false;
-    }
+    guard.committed = true;
 
     return true;
   }
@@ -194,16 +201,10 @@ public:
       return false;
     }
 
-    resource_type* stored = owned.get();
-    if (!index_.unbind(guid)) {
+    if (!index_.replace_binding(guid, owned.get()))
       return false;
-    }
-
-    if (!index_.bind(guid, stored)) {
-      (void)index_.bind(guid, position->second.get());
-      return false;
-    }
-
+    // 完成两张索引的切换后再析构旧对象，避免析构重入观察到半发布状态。
+    auto retired = std::move(position->second);
     position->second = std::move(owned);
     return true;
   }
@@ -259,11 +260,16 @@ public:
   }
 
 private:
+  friend class detail::load_request_access<T>;
+  using publication_map =
+      core::hash_map<resource_guid, std::shared_ptr<detail::refresh_selection>, resource_guid_hash>;
   using resource_map = core::hash_map<resource_guid, handle<resource_type>, resource_guid_hash>;
 
   memory_resource* resource_ = nullptr;
   manager index_;
   resource_map resources_by_guid_;
+  // 每个刷新过的 GUID 保留当前凭据，旧操作全部结束前不能因 erase/clear 恢复其发布资格。
+  publication_map publications_;
 };
 
 } // namespace caors::resources

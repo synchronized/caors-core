@@ -655,6 +655,26 @@ public:
         completion_executor, requests, make_activity(), {}, provider_);
   }
 
+  /** @brief 独立刷新单资源，捕获新来源；失败保留旧绑定，不刷新依赖闭包。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_refresh(resource_guid guid, tasks::executor executor,
+                                                tasks::executor completion_executor) {
+    type_entry* entry = find_entry<T>();
+    if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
+    }
+
+    auto* requests = static_cast<resources::load_request_table<T>*>(entry->load_requests.get());
+    if (requests == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
+    }
+
+    return detail::request_reload_into_impl(
+        *static_cast<resources::cache<T>*>(entry->cache),
+        *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
+        completion_executor, requests, make_activity(), {}, provider_, true);
+  }
+
   /**
    * @brief 按同一资源类型异步预加载依赖闭包。
    *

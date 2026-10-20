@@ -458,6 +458,14 @@ public:
     }
     return request_reload<T>(guid, execution_.worker, execution_.completion);
   }
+  /** @brief 使用默认调度独立刷新单资源；失败保留旧绑定。 */
+  template <typename T> [[nodiscard]] load_request<T> request_refresh(resource_guid guid) {
+    if (!execution_configured_) {
+      return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
+    }
+    return request_refresh<T>(guid, execution_.worker, execution_.completion);
+  }
+
   /** @brief 使用默认调度预加载同类型依赖闭包。 */
   template <typename T> [[nodiscard]] preload_request request_preload(resource_guid root) {
     if (!execution_configured_) {
@@ -493,6 +501,16 @@ public:
                   "T must derive from caors::resources::resource");
     return database_.request_reload<T>(guid, std::move(background_executor),
                                        std::move(completion_executor));
+  }
+  /** @brief 在后台 executor 独立刷新单资源，最新意图成功后发布默认绑定。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_refresh(resource_guid guid,
+                                                tasks::executor background_executor,
+                                                tasks::executor completion_executor) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.request_refresh<T>(guid, std::move(background_executor),
+                                        std::move(completion_executor));
   }
 
   /** @brief 按同一资源类型异步预加载依赖闭包。 */
@@ -796,6 +814,15 @@ public:
     }
     return manager_->request_reload<T>(guid, execution_.worker, execution_.completion);
   }
+  /** @brief 独立刷新单资源，不加入旧操作；不刷新依赖闭包。 */
+  template <typename T>
+  [[nodiscard]] resources::load_request<T> request_refresh(resources::resource_guid guid) const {
+    if (auto status = check()) {
+      return resources::load_request<T>::failed(status, resource());
+    }
+    return manager_->request_refresh<T>(guid, execution_.worker, execution_.completion);
+  }
+
   /** @brief 预加载根资源的同类型依赖闭包，不强制刷新已有缓存。 */
   template <typename T>
   [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
