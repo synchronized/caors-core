@@ -406,3 +406,23 @@ worker 适配器析构投递不等待的清理任务；队列拒绝/丢弃或分
 范围/预算失败在启动前返回；底层失败通过接受请求的结果返回。后端诊断不被转换为临时文本。
 控制块或任务构造仍可能因分配失败抛出 bad_alloc；已接受操作的通知分配失败以 out_of_memory 收尾。
 不承诺稳定 C++ ABI，升级须统一重编译库、宿主和插件。
+
+## 串行分块读取
+
+`chunked_file.h` 提供 `read_all_chunked` 与 `consume_chunks`，均复用 request_read，
+不改变 read_all_bounded 的单次完整范围语义，也不引入另一套挂载或打开能力。
+`chunk_read_options` 显式提供 max_bytes（总处理预算）与非零 chunk_bytes（单块上限），
+实际块还受后端 max_read_size、剩余长度及本机可表示范围限制。
+
+- read_all_chunked 返回完整 byte_buffer；结果需 size_t/PTRDIFF_MAX 可表示，驻留内存为完整结果加常数个临时块。
+- consume_chunks 返回 chunk_summary.bytes；消费者在指定 completion executor 上同步执行，
+  仅在调用期间借用 offset/const span，返回 io_error 表示停止；不能保存该视图。
+- 读完并消费/合并当前块后才启动下一块，最多一个未完成范围；慢消费者不会导致无界预读。
+  当前通知退出前可能仍持有上一块，因此辅助结果缓冲为常数个块，不宣称严格只有一份分配。
+- 总处理预算不等于峰值内存预算，allocator、请求/通知控制块及后端内部缓冲需另计；不将其宣称为进程总内存上限。
+- chunk_progress 报告已消费/合并字节与固定总量，不统计排队字节；空文件可直接成功，不调用消费者。
+- 取消阻止新块启动，并协作停止在途读取；不能抢占正在执行的同步消费者，消费副作用不会回滚。
+- 消费者或进度回调抛出 bad_alloc 归类 out_of_memory，其他异常归类 backend_failure；
+  消费者返回的后端错误码原样保留。读取、取消和通知拒绝/丢弃都有唯一可查询终态。
+- helper 持有文件以覆盖实际清理，但不隐式关闭共享文件；宿主仍负责显式 request_close 和 loop 寿命。
+- inline executor 与即时后端使用迭代推进，不随块数递归增长；原生后端及 executor 的线程约束仍成立。

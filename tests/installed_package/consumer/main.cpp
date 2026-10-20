@@ -46,6 +46,35 @@ struct consumer_record {
     std::cerr << "安装包拥有式挂载读取失败\n";
     return false;
   }
+  {
+    auto snapshot = resolver.snapshot();
+    if (!snapshot)
+      return false;
+    auto resolved = snapshot->resolve("caors://assets/data");
+    if (!resolved)
+      return false;
+    auto opened =
+        caors::io::request_open(std::move(resolved.value), caors::tasks::inline_executor());
+    if (!opened || !opened->result() || !*opened->result())
+      return false;
+    auto file = opened->result()->value;
+    auto all = caors::io::read_all_chunked(file, {7, 2}, caors::tasks::inline_executor());
+    if (!all || !all->result() || !*all->result() || all->result()->value.size() != 7)
+      return false;
+    std::size_t consumed = 0;
+    auto stream = caors::io::consume_chunks(
+        file, {7, 3}, caors::tasks::inline_executor(), [&](auto offset, auto block) {
+          if (offset != consumed)
+            return caors::io::io_error{caors::io::io_errc::backend_failure};
+          consumed += block.size();
+          return caors::io::io_error{};
+        });
+    if (!stream || !stream->result() || !*stream->result() || consumed != 7)
+      return false;
+    auto closed = caors::io::request_close(file, caors::tasks::inline_executor());
+    if (!closed || !closed->result() || !*closed->result())
+      return false;
+  }
   resolver.clear();
   return weak.expired();
 }

@@ -47,3 +47,5 @@ cmake --build --preset windows-clang-debug --target caors_example_beta_config_sc
 cmake --build --preset windows-clang-debug --target caors_example_beta_assets_async_vfs
 cmake --build --preset windows-clang-debug --target caors_example_beta_assets_native_async
 ```
+
+- [io_chunked_read.cpp](io_chunked_read.cpp)：在同一文件上执行串行逐块消费和完整结果聚合，由调用者显式关闭文件。
