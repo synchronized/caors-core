@@ -60,3 +60,5 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 
 不含 `static` 的 preset 现在构建动态库。直接启动示例前，按[Shared 运行时库](../docs/guides/build.md#shared-运行时库)
 配置动态库搜索路径；需要独立静态链接时使用对应的 `*-static-debug/release` preset。
+
+分块读取与消费见 [io_chunked_read.cpp](beta/io_chunked_read.cpp)，完整 API 契约见 [IO 参考](../docs/reference/io.md)。
