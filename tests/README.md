@@ -20,7 +20,7 @@ ctest --preset linux-gcc-static-debug
 cmake --preset windows-clang-debug -DCAORS_BUILD_TESTING=OFF
 ```
 
-测试框架使用仓库内置的 Catch2，目前位于 `3rd/catch-v3.15.0/`。
+测试框架使用锁定的 Catch2 源码缓存，优先复用父项目完整目标；首次获取、离线与并发规则见[依赖指南](../docs/guides/third-party-dependencies.md)。
 
 ## CMake 集成检查
 

@@ -9,6 +9,8 @@
 | 文件 | 职责 |
 | --- | --- |
 | [caors_version.cmake](caors_version.cmake) | 唯一维护工程版本；根 `project()` 读取 `CAORS_PROJECT_VERSION`，派生版本组件、生成头和包版本 |
+| [caors_dependency_catalog.cmake](caors_dependency_catalog.cmake) | 唯一维护开发依赖版本、固定提交、下载地址、摘要及许可证 |
+| [caors_dependency_cache.cmake](caors_dependency_cache.cmake) | 共享只读源码、离线、摘要校验与按项并发锁 |
 | [caors_warnings.cmake](caors_warnings.cmake) | 警告选项与 `caors_target_compile_warnings()`，选项只作用于目标自身 |
 | [caors_verify_memory_domains.cmake](caors_verify_memory_domains.cmake) | 配置期间检查内存域声明 |
 | [caors_verify_installed_package.cmake](caors_verify_installed_package.cmake) | 检查安装包及迁移后的独立 consumer |

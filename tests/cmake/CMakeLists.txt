@@ -26,13 +26,22 @@ foreach(CAORS_TEST_LIBRARY_TYPE IN ITEMS STATIC SHARED)
       "-DCAORS_TEST_LIBRARY_TYPE=${CAORS_TEST_LIBRARY_TYPE}")
 endforeach()
 
-foreach(CAORS_DEPENDENCY_CASE IN ITEMS complete base_only incompatible unknown)
+foreach(CAORS_DEPENDENCY_CASE IN ITEMS complete base_only incompatible unknown
+                                      ctrack_complete ctrack_incompatible ctrack_unknown)
   add_test(NAME caors.cmake.catch_${CAORS_DEPENDENCY_CASE}
     COMMAND ${CAORS_PARENT_PROJECT_TEST_COMMAND}
       -S "${CMAKE_CURRENT_SOURCE_DIR}/dependency_project"
       -B "${CMAKE_CURRENT_BINARY_DIR}/catch_${CAORS_DEPENDENCY_CASE}"
       "-DCAORS_DEPENDENCY_CASE=${CAORS_DEPENDENCY_CASE}")
-  if(NOT CAORS_DEPENDENCY_CASE STREQUAL "complete")
+  if(NOT CAORS_DEPENDENCY_CASE STREQUAL "complete" AND
+     NOT CAORS_DEPENDENCY_CASE STREQUAL "ctrack_complete")
     set_tests_properties(caors.cmake.catch_${CAORS_DEPENDENCY_CASE} PROPERTIES WILL_FAIL TRUE)
   endif()
 endforeach()
+
+add_test(NAME caors.cmake.dependency_cache
+  COMMAND "${CMAKE_COMMAND}"
+    "-DCAORS_SOURCE_DIR=${CAORS_ROOT_DIR}"
+    "-DCAORS_TEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/dependency-cache-contract"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/dependency_cache_test.cmake")
+set_tests_properties(caors.cmake.dependency_cache PROPERTIES TIMEOUT 90)

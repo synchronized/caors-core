@@ -3,9 +3,9 @@
 
 # Benchmarking
 
-CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具。`ctrack` 以源码形式放在
-`3rd/ctrack-1.1.0`，CMake 中包装为 `ctrack::ctrack` interface 目标；不会构建
-`ctrack` 自带示例、测试和 benchmark。
+CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具，按需从锁定源码缓存创建
+`ctrack::ctrack` interface 目标；不构建其上游示例、测试和 benchmark。获取、版本复用及离线准备
+见[第三方依赖指南](third-party-dependencies.md)。
 
 源码分组和目标入口见[基准目录](../../benchmarks/README.md)，历史数据与记录格式见
 [结果索引](../../benchmarks/results/README.md)。本页统一维护构建、用例和统计范围。

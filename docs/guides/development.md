@@ -12,7 +12,7 @@
 
 ```text
 .
-├── 3rd/                    # 第三方依赖，当前包含 Catch2
+├── vendor/                 # 第三方目标入口与忽略的只读源码缓存
 ├── cmake/                  # 项目 CMake 工具函数
 ├── docs/                   # 按职责分类的文档
 ├── examples/               # 可运行示例
@@ -91,7 +91,7 @@ clang-format -i src/caors/version.cpp
 clang-tidy src/caors/version.cpp -p build
 ```
 
-`clang-tidy` 依赖 `compile_commands.json`，当前 preset 已开启 `CMAKE_EXPORT_COMPILE_COMMANDS`。第三方目录 `3rd/` 不作为项目代码检查目标。
+`clang-tidy` 依赖 `compile_commands.json`，当前 preset 已开启 `CMAKE_EXPORT_COMPILE_COMMANDS`。第三方源码缓存 `vendor/cache/` 不作为项目代码检查目标。
 
 `include/caors/version.h.in` 包含 CMake 占位符，不直接使用 `clang-format` 格式化；需要检查时以生成后的 `version.h` 为准。
 
