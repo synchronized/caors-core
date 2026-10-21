@@ -9,7 +9,7 @@
 
 ## Unreleased
 
-暂无。
+- 加载上下文的 `sources` 改为通用 `snapshot`；VFS loader 使用 `snapshot_as<resources::provider_snapshot>()` 并检查结果。loader 协议头不再传递包含具体文件来源；自定义快照可按批次保活。此变更需迁移调用代码并统一重编译库及使用方，尚未发布。
 
 ## v0.7.0 — 2026-10-21（alpha，已发布）
 

@@ -5,7 +5,7 @@
 #define CAORS_RESOURCES_IO_H_
 
 #include "caors/resources/cache.h"
-#include "caors/resources/source.h"
+#include "caors/resources/load_snapshot.h"
 #include "caors/result.h"
 #include "caors/tasks/executor.h"
 
@@ -102,8 +102,15 @@ struct async_load_context {
   std::stop_token stop{};
   /** @brief 可复制、拥有状态的进度通道，不能形成强引用环。 */
   load_progress progress{};
-  /** @brief 同次加载及依赖共享的来源快照；无 provider 的独立调用为空，旧 loader 可忽略。 */
-  std::shared_ptr<const provider_snapshot> sources{};
+  /** @brief 同次加载及依赖共享的不可变批次数据；不使用来源适配时可为空。 */
+  std::shared_ptr<const load_snapshot> snapshot{};
+
+  /** @brief 取得适配器的具体快照；为空或类型不匹配时返回空指针，不访问原来源。 */
+  template <typename Snapshot>
+  [[nodiscard]] std::shared_ptr<const Snapshot> snapshot_as() const noexcept {
+    static_assert(std::is_base_of_v<load_snapshot, Snapshot>);
+    return std::dynamic_pointer_cast<const Snapshot>(snapshot);
+  }
 };
 
 namespace detail {

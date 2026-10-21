@@ -84,6 +84,14 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 | io_error 与同步 error | 定义统一转换规则，保留 native_code 和 backend_id |
 | path/uri/location | 审查隐式转换和拥有/借用，不直接替换为 string |
 
+### 解耦原型进展
+
+实际本机验证与限制见[原型记录](../records/2026-10-22-load-snapshot-prototype.md)。
+第一步以 load_snapshot 多态基类和 context.snapshot_as<T>() 替代上下文的 VFS 具体类型；
+现有 provider 捕获时机和批次共享规则不变。此接口为 feature 分支原型，尚未合并或发布。
+宿主快照注入目前只在内部管线测试，不新增公共 manager 注入 API；database/async 实现仍依赖 provider，
+配置装配迁出尚未实施，不宣称整个资源核心已与 VFS 解耦。
+
 ### 调用点迁移边界
 
 核心变更同时检查 resources/database.h、resources/async.h、resources/detail/type_entry_ops.h；

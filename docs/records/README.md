@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [加载快照解耦原型验证](2026-10-22-load-snapshot-prototype.md)：loader 协议去除 VFS 头依赖，本机相关目标通过，完整平台验收待执行。
+
 - [IO 与资源 API 整理基线](2026-10-22-io-assets-api-baseline.md)：迁移清单与现有宿主/VFS 路径本机基线，新架构尚未实现。
 - [v0.7.0 发布验收](2026-10-21-v0.7.0-acceptance.md)：独立平台 alpha 源码最终提交验收与公开下载复核通过。
 - [Emscripten 平台实施与验收](2026-10-20-emscripten-integration.md)：v0.7.0 开发与真实验证状态。

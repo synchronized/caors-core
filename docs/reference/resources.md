@@ -1138,13 +1138,17 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 `provider_snapshot::resolve(guid)` 返回诊断，不隐式退回原借用 source。旧同步 loader 可继续使用原 provider。
 单次捕获共用嵌套路由节点；同步读取也可使用解析结果 backend/path，保持与异步读取相同来源。
 
-database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.sources`。
+`async_load_context` 仅持有 `load_snapshot` 基类，不要求文件系统。VFS loader 显式调用
+`snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
+基类只保证共享保活，不自动冻结自定义对象的外部数据；当前 database 仍负责捕获 provider 快照。
+
+database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
 预加载根和依赖共用一份快照；缓存命中和同 GUID 在途共享不重新选择来源，显式 reload 的新操作才捕获新状态。
 不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
 独立 `request_load_into` 没有 provider 时该字段为空；自定义 loader 需要快照时应检查并明确失败。
 旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
 内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
-读取 `context.sources` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
+读取 `context.snapshot_as<resources::provider_snapshot>()` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
 
 内置 asset_manager 文件系统工厂和来源工厂提供拥有式后端，配置路由在挂载前检查循环。
 自定义 factory 可通过 `bind_file_system(name, shared_ptr<file_system>, lifetime)` 提供完整寿命；
@@ -1159,7 +1163,7 @@ database 有 provider 时，新异步操作在排队前捕获来源，传入 `as
 `database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
 manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
 刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
-loader 必须使用 context.sources 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
+loader 必须使用 context.snapshot_as<resources::provider_snapshot>() 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
 仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
 
 | 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |

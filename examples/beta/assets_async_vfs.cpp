@@ -74,9 +74,10 @@ public:
   explicit text_loader(bool use_worker) : use_worker_(use_worker) {}
   caors::error start(caors::resources::async_load_context context,
                      caors::resources::load_completion<text_asset> completion) override {
-    if (!context.sources)
+    auto sources = context.snapshot_as<caors::resources::provider_snapshot>();
+    if (!sources)
       return {caors::error_domain::resources, caors::errc::unsupported};
-    auto resolved = context.sources->resolve(context.guid);
+    auto resolved = sources->resolve(context.guid);
     if (!resolved)
       return resolved.error();
     auto op = std::make_shared<operation>();

@@ -998,7 +998,7 @@ private:
                         const tasks::executor& executor, const tasks::executor& completion_executor,
                         const std::shared_ptr<detail::preload_request_state>& state,
                         std::shared_ptr<void> activity,
-                        std::shared_ptr<const provider_snapshot> sources) {
+                        std::shared_ptr<const load_snapshot> sources) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
     if (!item.guid) {

@@ -562,8 +562,9 @@ TEST_CASE("assets - preload failure cancels remaining I/O without cancelling sta
 namespace {
 std::string snapshot_text(const caors::resources::async_load_context& context,
                           caors::resource_guid guid) {
-  REQUIRE(context.sources);
-  auto file = context.sources->resolve(guid);
+  auto sources = context.snapshot_as<caors::resources::provider_snapshot>();
+  REQUIRE(sources);
+  auto file = sources->resolve(guid);
   REQUIRE(file);
   auto bytes = file->backend->read_all(file->path);
   REQUIRE(bytes);
@@ -617,7 +618,7 @@ TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[a
   REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 2);
-  CHECK(f.loader.pending[0].context.sources == f.loader.pending[1].context.sources);
+  CHECK(f.loader.pending[0].context.snapshot == f.loader.pending[1].context.snapshot);
   for (auto& op : f.loader.pending)
     CHECK(snapshot_text(op.context, op.context.guid) == "old");
   f.assets.provider().clear();
@@ -808,4 +809,43 @@ TEST_CASE("assets - refresh root does not silently refresh cached dependency clo
   CHECK(f.cache.find(test_guid_a) != old_root.get());
   CHECK(f.cache.find(test_guid_b) == dependency.get());
   CHECK(f.loader.starts == 1);
+}
+
+namespace {
+struct host_snapshot final : caors::resources::load_snapshot {
+  explicit host_snapshot(int value) : revision(value) {}
+  const int revision;
+};
+} // namespace
+
+TEST_CASE("assets - load pipeline retains a typed host snapshot without VFS",
+          "[assets][native-async][snapshot]") {
+  fixture f;
+  auto snapshot = std::make_shared<host_snapshot>(7);
+  std::weak_ptr<const host_snapshot> lifetime = snapshot;
+  // 直接验证内部批次传递边界，不把原型注入入口作为新的公共 manager API。
+  auto request = caors::resources::detail::request_load_into_impl<texture>(
+      f.cache, f.loader, test_guid_a, f.worker.get_executor(), f.completion.get_executor(), nullptr,
+      true, {}, {}, {}, snapshot);
+  snapshot.reset();
+  CHECK_FALSE(lifetime.expired());
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  const auto& context = f.loader.pending.front().context;
+  auto host = context.snapshot_as<host_snapshot>();
+  REQUIRE(host);
+  CHECK(host->revision == 7);
+  CHECK_FALSE(context.snapshot_as<caors::resources::provider_snapshot>());
+  host.reset();
+  f.loader.finish();
+  CHECK(lifetime.expired());
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(request.loaded());
+}
+
+TEST_CASE("assets - absent batch data has no implicit VFS requirement",
+          "[assets][native-async][snapshot]") {
+  caors::resources::async_load_context context;
+  CHECK_FALSE(context.snapshot_as<host_snapshot>());
+  CHECK_FALSE(context.snapshot_as<caors::resources::provider_snapshot>());
 }

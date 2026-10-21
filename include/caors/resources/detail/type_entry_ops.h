@@ -18,7 +18,7 @@ class executor;
 namespace caors::resources {
 
 class resource;
-class provider_snapshot;
+class load_snapshot;
 
 namespace detail {
 
@@ -33,7 +33,7 @@ struct type_entry_ops {
                                     const tasks::executor& completion_executor,
                                     const std::shared_ptr<preload_request_state>& state,
                                     std::shared_ptr<void> activity,
-                                    std::shared_ptr<const provider_snapshot> sources);
+                                    std::shared_ptr<const load_snapshot> sources);
   using resolve_fn = bool (*)(void* cache, void* reference);
   using is_current_fn = bool (*)(void* cache, const void* reference);
 
