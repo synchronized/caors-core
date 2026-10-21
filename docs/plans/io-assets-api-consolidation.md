@@ -5,8 +5,8 @@
 
 ## 状态与范围
 
-讨论中；2026-10-22 基于 main 3b543eb1 的公开接口审计。用户要求先整理 API 对照与调用示例，
-本批仅维护方案，不改变实现，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的契约。
+方案已获准按批次推进；2026-10-22 基于 main 3b543eb1 的公开接口审计。用户要求先整理 API 对照与调用示例，
+当前处于迁移清单与基线验证阶段，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的契约。
 当前行为见 [IO 参考](../reference/io.md)、[资源参考索引](../reference/README.md)及公共头。
 本页为后续收敛方案的维护入口，之前 VFS/异步 loader 计划仍保留其已实现设计和历史证据。
 
@@ -40,6 +40,57 @@
 database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
 loader 可以忽略 sources，但当前 manager/配置/请求协议结构上仍依赖 VFS。
 provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes 和 resolved_file 的具体实现。
+
+## 已确认的 API 迁移清单
+
+2026-10-22 用户确认按详细清单推进；以下是目标方向，不表示候选 API 已实现。
+
+| 当前 API/字段 | 处理方式与前置条件 |
+| --- | --- |
+| request_load / request_reload / request_refresh | 保留不同请求语义；refresh 与 reload 的区别单独核对，禁止机械合并 |
+| request_preload / plan_preload | 保留依赖闭包加载与纯计划查询两种职责 |
+| create_group / set_execution_options | 保留默认与分组调度；检查重配置时的活动操作限制 |
+| request_* 的逐次 worker/completion 重载 | 调用点迁移到默认策略或 group 后收敛；内部仍可保留必要调度入口 |
+| load / load_handle / reload / reload_handle / preload | 迁移到异步请求主线后退出主要公共入口；不得用 loop 内阻塞等待模拟 |
+| find / resolve(ref) / is_current | 保留；明确裸指针非拥有及旧引用有效性 |
+| register_type(cache, loader, type) | 保留唯一手动类型注册主线；不再增加 register_loader 同义接口 |
+| bind/find/find_owned/unbind/clear_file_system(s)、file_system_count | 移至可选工程装配/VFS 注册组件，迁移借用和拥有式绑定 |
+| bind/find/unbind/clear_source(s)、source_count | 移至来源适配，避免与核心资源注册混放 |
+| register_file_system_factory / register_source_factory 及 typed 版本 | 工程装配层维护 |
+| register_type_factory 及 typed 版本 | 配置创建层维护，与手动注册分开 |
+| build / build_detailed | 工程装配层维护；迁移时保持失败诊断及手工绑定保留规则 |
+| provider() | 随可选来源层迁出 |
+| manifest() / dependency_graph() / database() | 审查可变逃逸入口，按实际调用需求收敛，暂不全部删除 |
+| loader::load / loader::start / async_loader::start | 统一异步实现协议；同步 loader 经 worker 适配后迁移，最终不长期保留双轨 |
+| context.guid / resource / stop / progress | 保留通用加载信息，明确借用和回调寿命 |
+| context.worker | 区分解析调度与宿主 I/O 绑定，原型后确定保留范围 |
+| context.sources | 核心去除具体 VFS 类型；批次与依赖来源一致性验证通过后才移除 |
+| provider.bind/rebind/unbind/clear/find/contains/size/empty | 留在定位职责；source_location 返回类型与所有权一起审查 |
+| provider.exists/read/open_read/write/open_write | 移出定位职责，归具体字节访问适配 |
+| provider.snapshot / provider_snapshot.resolve | 映射固定与 VFS 路由冻结分清；保留语义至批次适配替代通过 |
+| file_system.exists/status/list | 功能保留，异步替代需定义缺失、权限和路径错误区别 |
+| file_system.read_all/open_read | 公共读取迁移至异步主线；同步实现作为 worker 适配细节 |
+| file_system.write_all/open_write | 异步写入/提交/关闭尚未设计完成，禁止提前删除 |
+| file_system.start_open/open_random_read | 移至后端接入协议 |
+| snapshot/routes_paths/resolve_owned/freeze_routes | 从普通文件访问中下沉到 VFS 路由与适配 |
+| resolver 与 mount_file_system 的 mount/unmount/clear/mount_count | 保留配置职责；URI 与虚拟路径匹配语义不机械合并 |
+| async_file.start_read/start_close | 后端协议，不作为普通用户主入口 |
+| async_file.size/source_id/max_read_size | 保留必要查询；来源诊断和预算限制与常规操作区分 |
+| request_open/request_read/request_close | 围绕打开后的文件收敛；请求句柄统一报告发起、执行与通知失败 |
+| request_open_on_worker/make_worker_file/random_access_reader | 下沉到后端适配，worker 在适配构造时绑定 |
+| read_all_bounded/read_all_chunked | 候选合为带预算和策略选项的整文件读取；不丢失预算或内存峰值约束 |
+| consume_chunks | 保留逐块消费和背压，不与整文件结果混淆 |
+| io_request/io_completion | 区分用户控制句柄与后端完成凭证；内部状态下沉 detail/实现文件 |
+| io_error 与同步 error | 定义统一转换规则，保留 native_code 和 backend_id |
+| path/uri/location | 审查隐式转换和拥有/借用，不直接替换为 string |
+
+### 调用点迁移边界
+
+核心变更同时检查 resources/database.h、resources/async.h、resources/detail/type_entry_ops.h；
+来源适配检查 resources/source.h/.cpp、manifest_file_system、JSON/序列化 loader 与工程配置解析。
+示例检查 beta/assets_native_async、assets_async_vfs、asset_pipeline、config_schema；
+测试检查 assets/asset_manager、assets/io、io、Web 协议与真实浏览器 smoke，随后检查安装 consumer。
+Gneiss 只记录迁移需求，不未经范围确认修改上游依赖锁定或宣称联合验收。
 
 ## 建议边界
 
@@ -135,11 +186,12 @@ auto closing = file.close(on_close);
 后续代码验收至少覆盖：无 VFS 的 loader、VFS 根/依赖来源一致性、跨组请求合并、重载失败、
 取消竞争、队列拒绝与丢弃、关闭及迟到回调、模块/资源保活；覆盖 Windows/Linux 与真实 Web 事件循环。
 按受影响机制执行原生矩阵、sanitizer、压力及安装迁移；纯方案文档不重复完整 CI。
-当前没有执行以上代码验收，不把计划项目记为通过。
+现有路径的本机基线已验证，见[整理基线](../records/2026-10-22-io-assets-api-baseline.md)。
+尚未执行新架构代码验收，不把既有路径通过记为重构完成。
 
 ## 未决与不纳入本批的事项
 
 - 核心与 VFS 适配之间如何传递批次一致性：先做原型，不能仅靠 loader 构造注入解决依赖共享。
-- 是否保留资源同步入口、如何补齐文件异步写入/枚举：未决定，不授权直接删除现有能力。
+- 资源同步主入口在替代完成后迁移退出；文件异步写入/枚举方案仍未决定，禁止提前删除现有能力。
 - 文件操作对象与函数命名：概念示例仅作评审，不提前形成兼容承诺。
 - 下一版本号、最终破坏性范围及 Gneiss 迁移：原型和调用点审计完成后确定；本批不修改上游。

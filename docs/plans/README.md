@@ -13,10 +13,9 @@
 
 ## 状态索引
 
-### 讨论中
+### 方案确认与基线验证
 
-- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：公开接口审计、职责对照与目标调用示例，尚未改动实现。
-
+- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：详细迁移清单已确认，现有路径本机基线通过，解耦原型尚未实现。
 
 ### v0.7.0 独立平台范围已完成
 

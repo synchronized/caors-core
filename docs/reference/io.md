@@ -3,8 +3,8 @@
 
 # IO
 
-本文档说明 CAORS IO 主题的当前边界。IO 层只提供同步字节访问抽象，目标是为资源系统、配置、
-资源包和后续远程来源提供统一底座。
+本文档说明 CAORS IO 主题的当前边界。IO 层提供同步字节访问、异步只读文件协议和可选虚拟文件路由，为资源系统、配置及宿主来源接入提供底座。
+普通同步访问见下文 file_system；异步读取见本页后半部分，宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
 
 ## 当前范围
 
@@ -16,7 +16,7 @@
 - `io::input_stream`：同步输入字节流接口。
 - `io::output_stream`：同步输出字节流接口。
 - `io::input_stream_ptr` / `io::output_stream_ptr`：拥有式流指针。
-- `io::file_system`：同步文件系统抽象。
+- `io::file_system`：同步文件系统访问与后端异步打开接入。
 - `io::file_system_capabilities`：文件系统后端能力声明。
 - `io::directory_entry` / `io::directory_entry_list`：非递归目录枚举结果。
 - `io::file_status`：文件或目录的基础属性查询结果。
@@ -27,16 +27,16 @@
 - `io::memory_file_system`：基于内存哈希表的虚拟文件系统实现。
 - `io::mount_file_system`：基于虚拟路径前缀转发到其他文件系统。
 
-当前不会实现：
+当前未提供：
 
-- 异步 IO。
+- 内置通用异步写入，以及内置 HTTP/libuv 等具体宿主异步后端。
 - 文件监听。
 - 后端原生递归枚举、完整文件属性查询和权限模型。
 - 资源包格式。
 - HTTP、对象存储或其他远程协议。
 - 完整 RFC3986 URI 语义、百分号解码、查询参数和片段语义。
 
-这些能力后续应建立在 `io::file_system` 和资源层 `resources::source` / `resources::provider` 之上。
+宿主可实现异步读取后端；现有协议不等于已内置网络或文件监听实现。资源 loader 也可以直接使用宿主服务。
 
 ## 命名空间
 
