@@ -13,6 +13,11 @@
 
 ## 状态索引
 
+### 讨论中
+
+- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：公开接口审计、职责对照与目标调用示例，尚未改动实现。
+
+
 ### v0.7.0 独立平台范围已完成
 
 - [Emscripten 单线程平台接入](emscripten-single-thread-platform.md)：共享快照、平台能力、协作调度与浏览器验收。

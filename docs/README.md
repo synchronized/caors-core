@@ -13,6 +13,10 @@
 - 参与开发：[开发规范](guides/development.md) → [文档规范](../DOCUMENTATION_GUIDE.md) →
   [路线图](roadmap.md) → [相关计划](plans/README.md) → [测试组织](../tests/README.md)。
 
+## API 整理方案
+
+[IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)维护职责审计与候选调用示例；尚未实现，不替代当前参考。
+
 ## 当前版本
 
 当前版本 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)的 CAORS 平台集成已完成，已发布独立平台 alpha 源码，Gneiss 联调延期；构建与调度见 [Web 指南](guides/emscripten.md)，验收进展见[集成记录](records/2026-10-20-emscripten-integration.md)。
