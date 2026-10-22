@@ -17,6 +17,8 @@
 
 [IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)和[VFS 文件访问收敛](plans/vfs-api-consolidation.md)维护分批迁移方案；首批快照和工程装配入口已实现并验收，后续统一仍在推进，当前用法见模块参考。
 
+IO 接入从[统一文件访问](reference/io.md)开始；实现宿主后端见[后端协议](reference/io-backends.md)，维护旧工具见[兼容接口](reference/io-legacy.md)。
+
 ## 当前版本
 
 当前版本 [v0.7.0：Emscripten 单线程平台接入](versions/v0.7.0.md)的 CAORS 平台集成已完成，已发布独立平台 alpha 源码，Gneiss 联调延期；构建与调度见 [Web 指南](guides/emscripten.md)，验收进展见[集成记录](records/2026-10-20-emscripten-integration.md)。

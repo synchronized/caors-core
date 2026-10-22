@@ -14,7 +14,9 @@
 - [统一错误](error.md)：error、错误域、result 和 std::error_code 适配。
 - [内存系统](memory.md)：resource、allocator、策略、调试与线程约束。
 - [数学类型](math.md)：值类型、变换、投影、几何及 Meta/序列化适配。
-- [IO](io.md)：路径、URI、字节流、文件系统和路由。
+- [IO](io.md)：统一文件访问、范围读写、挂载和请求结果。
+- [文件后端协议](io-backends.md)：宿主 backend/async_file、可写协议与 worker 适配。
+- [IO 兼容接口](io-legacy.md)：旧文件系统、同步流、路由器与显式组合函数。
 - [Traits 与适配](traits.md)：扩展点、adapters 边界和特化规则。
 
 ## 类型、对象与数据

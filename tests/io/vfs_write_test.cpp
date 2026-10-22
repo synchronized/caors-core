@@ -4,6 +4,7 @@
 #include "caors/io/context.h"
 #include "caors/tasks/execution_context.h"
 #include <algorithm>
+#include <cstdio>
 #if !defined(__EMSCRIPTEN__)
 #include <chrono>
 #include <filesystem>
@@ -242,5 +243,45 @@ TEST_CASE("io - native writable open does not truncate existing unless explicitl
   drain(close);
   REQUIRE(*close.result());
   CHECK(std::filesystem::file_size(root / "file") == 0);
+}
+#endif
+
+#if defined(__EMSCRIPTEN__)
+TEST_CASE("io - Emscripten native adapter writes virtual filesystem through an explicit worker",
+          "[io][vfs-write][web]") {
+  struct cleanup {
+    ~cleanup() { (void)std::remove("caors-web-write.bin"); }
+  } guard;
+  tasks::execution_context worker, completion;
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("data", make_native_backend({}, worker.get_executor())));
+  io_context io{routes, {completion.get_executor()}};
+  auto drain = [&](auto& value) {
+    for (int i = 0; i < 16 && !value.done(); ++i) {
+      (void)worker.drain();
+      (void)completion.drain();
+    }
+  };
+  auto opened = io.open("data/caors-web-write.bin", {.access = file_access::read_write,
+                                                     .creation = file_creation::create_always});
+  drain(opened);
+  REQUIRE(opened.result());
+  REQUIRE(*opened.result());
+  auto bytes = make_byte_buffer();
+  bytes.push_back(std::byte{43});
+  auto written = opened.result()->value.write({}, std::move(bytes));
+  drain(written);
+  REQUIRE(written.result());
+  REQUIRE(*written.result());
+  auto closed = opened.result()->value.close();
+  drain(closed);
+  REQUIRE(closed.result());
+  REQUIRE(*closed.result());
+  auto read = io.read("data/caors-web-write.bin");
+  drain(read);
+  REQUIRE(read.result());
+  REQUIRE(*read.result());
+  REQUIRE(read.result()->value.size() == 1);
+  CHECK(read.result()->value[0] == std::byte{43});
 }
 #endif
