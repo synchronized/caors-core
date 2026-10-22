@@ -73,6 +73,20 @@ manager 析构后自定义资源的在用字节归零。状态封装及头文件
 具体容器和各阶段实现仍保留私有工程状态，builder 借用 manager，不改变创建对象的生命周期。
 迁移公开入口并新增边界检查后重新构建，原生相关 CTest 9/9，宿主/VFS、配置诊断与 alpha/beta 工程示例通过。
 
+## 安装消费端收口与平台验证
+
+81c26ba0 的消费端审计发现 resources_coroutine.cpp 仍使用 context->sources，先前点号搜索遗漏了此指针路径。
+迁移为 snapshot_as<provider_snapshot>()，并补安装包侧 builder 的工程构建、拥有对象创建与后端绑定调用。
+本机使用新建的 build/api-installed-* 输出目录执行 caors_verify_installed_package.cmake，
+Windows x64 Clang 共享 Debug 六类 consumer 在原安装前缀 6/6、迁移前缀 6/6 通过。
+
+该遗漏发现后主动停止旧 SHA 的 Linux、Windows、Web 和 Stress 运行，四轮均 cancelled，不作为通过证据：
+[Linux](https://github.com/synchronized/caors-core/actions/runs/39704210730)、
+[Windows](https://github.com/synchronized/caors-core/actions/runs/39704214742)、
+[Web](https://github.com/synchronized/caors-core/actions/runs/39704219255)、
+[Stress](https://github.com/synchronized/caors-core/actions/runs/39704257535)。
+修正提交后重新固定 SHA 执行平台验证，结果随后回写；不沿用已取消运行作为验收。
+
 ## 限制与下一步
 
 这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，
