@@ -849,3 +849,72 @@ TEST_CASE("assets - absent batch data has no implicit VFS requirement",
   CHECK_FALSE(context.snapshot_as<host_snapshot>());
   CHECK_FALSE(context.snapshot_as<caors::resources::provider_snapshot>());
 }
+
+TEST_CASE("assets - host capture shares preload batch and refreshes only new operations",
+          "[assets][native-async][snapshot]") {
+  fixture f;
+  int captures = 0;
+  int revision = 1;
+  REQUIRE_FALSE(f.assets.database().set_snapshot_capture([&] {
+    ++captures;
+    return std::make_shared<host_snapshot>(revision);
+  }));
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
+  REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
+  REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
+  auto batch = GENERATE(false, true) ? f.assets.request_preload(test_guid_a)
+                                     : f.assets.request_preload<texture>(test_guid_a);
+  CHECK(captures == 1);
+  revision = 2;
+  auto subscriber = f.assets.request_load<texture>(test_guid_a);
+  CHECK(captures == 1);
+  CHECK(f.assets.database().set_snapshot_capture({}) ==
+        caors::error{caors::error_domain::resources, caors::errc::frozen});
+  REQUIRE(f.worker.drain() == 2);
+  REQUIRE(f.loader.pending.size() == 2);
+  CHECK(f.loader.pending[0].context.snapshot == f.loader.pending[1].context.snapshot);
+  for (const auto& operation : f.loader.pending) {
+    auto host = operation.context.snapshot_as<host_snapshot>();
+    REQUIRE(host);
+    CHECK(host->revision == 1);
+    CHECK_FALSE(operation.context.snapshot_as<caors::resources::provider_snapshot>());
+  }
+  f.loader.finish();
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 2);
+  CHECK(batch.loaded());
+  CHECK(subscriber.loaded());
+  auto cached = f.assets.request_load<texture>(test_guid_a);
+  CHECK(cached.loaded());
+  CHECK(captures == 1);
+  auto refreshed = f.assets.request_refresh<texture>(test_guid_a);
+  CHECK(captures == 2);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.front().context.snapshot_as<host_snapshot>());
+  CHECK(f.loader.pending.front().context.snapshot_as<host_snapshot>()->revision == 2);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(refreshed.loaded());
+  REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+}
+
+TEST_CASE("assets - explicit empty host capture does not fall back to VFS",
+          "[assets][native-async][snapshot]") {
+  fixture f;
+  REQUIRE_FALSE(f.assets.database().set_snapshot_capture(
+      [] { return std::shared_ptr<const caors::resources::load_snapshot>{}; }));
+  auto request = f.assets.request_load<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK_FALSE(f.loader.pending.front().context.snapshot);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(request.loaded());
+  REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+  auto reload = f.assets.request_reload<texture>(test_guid_a);
+  REQUIRE(f.worker.drain() == 1);
+  CHECK(f.loader.pending.front().context.snapshot_as<caors::resources::provider_snapshot>());
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(reload.loaded());
+}

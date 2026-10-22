@@ -28,13 +28,24 @@ ctest --test-dir build/v030-clang-debug -R '^caors\.(assets\.(asset_manager|io|i
 上述相关 CTest 目标 9/9 通过。宿主异步示例输出 width=256；VFS 示例原生与 worker 两种路径均输出
 hello VFS，重新构建和运行成功。宿主示例仍是模拟事件，不是真实 libuv 读取。
 
+## 后续捕获策略原型
+
+同一 feature 分支继续引入 snapshot_capture 和 database::set_snapshot_capture：
+异步管线移除 source.h 与 provider 类型，默认 provider 捕获保留在 database 适配中。
+自定义捕获器优先，空返回不回退，清空捕获器恢复默认适配；活动操作期间禁止更换。
+边界翻译单元进一步改为包含 resources/async.h，验证整个异步管线头不包含 VFS。
+
+新增公开 database 路径测试覆盖两种预加载闭包一次捕获、根/依赖共享、合并及缓存命中不重复捕获、
+refresh 捕获新版本、活动期修改拒绝、显式空结果和恢复 provider 默认行为。
+本次修改后重新构建并运行同样的 9 个相关 CTest 目标，9/9 通过；两条宿主/VFS 示例也重新构建运行通过。
+
 ## 限制与下一步
 
 这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，
-配置工厂和来源装配尚未迁出；宿主快照注入目前通过内部测试入口，没有新增公共 manager 注入接口。
+配置工厂和来源装配尚未迁出；宿主注入已可通过 database 捕获器配置，没有新增公共 manager 配置外观。
 快照基类与 const 共享所有权不自动冻结派生对象引用的外部可变数据，也不自动 pin 动态模块。
 类型查询依赖 RTTI，沿用项目已有 RTTI 使用，不承诺稳定跨编译器 C++ ABI。
 
 本批未运行 Linux、Windows MSVC、Web、插件跨模块专项或完整矩阵。原型完成评审并准备合并前，
 须执行受影响平台 CI 与必要生命周期专项；不得用本机 9 个目标替代这些门槛。
-下一步是根据原型结果确定捕获策略如何从 database 的具体 provider 迁往可选适配，并保持依赖批次语义。
+下一步继续将 database 的默认 provider 及工程装配职责迁往可选适配，并保持依赖批次语义。

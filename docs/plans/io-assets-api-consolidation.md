@@ -89,7 +89,8 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 实际本机验证与限制见[原型记录](../records/2026-10-22-load-snapshot-prototype.md)。
 第一步以 load_snapshot 多态基类和 context.snapshot_as<T>() 替代上下文的 VFS 具体类型；
 现有 provider 捕获时机和批次共享规则不变。此接口为 feature 分支原型，尚未合并或发布。
-宿主快照注入目前只在内部管线测试，不新增公共 manager 注入 API；database/async 实现仍依赖 provider，
+后续原型已提供 database::set_snapshot_capture；异步请求管线只接收通用捕获器，不再依赖 provider。
+database 暂时保留默认 provider 适配和既有同步访问，不新增公共 manager 配置外观；
 配置装配迁出尚未实施，不宣称整个资源核心已与 VFS 解耦。
 
 ### 调用点迁移边界

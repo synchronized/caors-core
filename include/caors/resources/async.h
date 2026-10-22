@@ -10,7 +10,6 @@
 #include "caors/memory/resource.h"
 #include "caors/resources/io.h"
 #include "caors/resources/preload.h"
-#include "caors/resources/source.h"
 #include "caors/tasks.h"
 #include "caors/tasks/detail/abandon_guard.h"
 
@@ -1683,14 +1682,12 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 }
 
 template <typename T>
-[[nodiscard]] load_request<T>
-request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
-                       const tasks::executor& executor, const tasks::executor& completion_executor,
-                       load_request_table<T>* requests, bool commit_unconditionally = true,
-                       std::shared_ptr<preload_request_state> preload_state = {},
-                       preload_item preload_observer_item = {}, std::shared_ptr<void> activity = {},
-                       std::shared_ptr<const load_snapshot> sources = {},
-                       const provider* snapshot_provider = nullptr) {
+[[nodiscard]] load_request<T> request_load_into_impl(
+    cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
+    const tasks::executor& completion_executor, load_request_table<T>* requests,
+    bool commit_unconditionally = true, std::shared_ptr<preload_request_state> preload_state = {},
+    preload_item preload_observer_item = {}, std::shared_ptr<void> activity = {},
+    std::shared_ptr<const load_snapshot> sources = {}, const snapshot_capture& capture = {}) {
   if (!guid) {
     load_request<T> request = load_request<T>::failed(
         {error_domain::resources, errc::invalid_argument}, target.resource());
@@ -1722,8 +1719,8 @@ request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
     }
   }
 
-  if (!sources && snapshot_provider)
-    sources = snapshot_provider->snapshot();
+  if (!sources && capture)
+    sources = capture();
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
@@ -1767,7 +1764,7 @@ template <typename T>
     cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
     const tasks::executor& completion_executor, load_request_table<T>* requests,
     std::shared_ptr<void> activity = {}, std::shared_ptr<const load_snapshot> sources = {},
-    const provider* snapshot_provider = nullptr, bool refresh = false) {
+    const snapshot_capture& capture = {}, bool refresh = false) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
@@ -1793,8 +1790,8 @@ template <typename T>
     }
   }
 
-  if (!sources && snapshot_provider)
-    sources = snapshot_provider->snapshot();
+  if (!sources && capture)
+    sources = capture();
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);

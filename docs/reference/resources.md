@@ -1142,7 +1142,17 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 `snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
 基类只保证共享保活，不自动冻结自定义对象的外部数据；当前 database 仍负责捕获 provider 快照。
 
-database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
+低层 `database::set_snapshot_capture(snapshot_capture)` 可配置宿主批次捕获策略；
+非空捕获器优先于 provider，返回空快照也不回退。传入空捕获器恢复默认 provider 适配。
+配置和捕获在发起线程进行，捕获器不得重入或修改加载配置；活动操作未清理时设置返回 frozen。
+捕获异常沿发起调用传播，沿用既有 provider 捕获的异常边界，不自动转换为完成回调错误。
+捕获器自身可持有宿主凭据，不得形成所有权环；已经交付的快照独立保活。
+此入口为底层装配原型，尚未提供新的 asset_manager 配置外观。
+
+单次新 load/reload 在缓存与请求合并判断之后捕获；refresh 独立捕获；一次预加载闭包共用一次捕获结果。
+已经合并到在途操作的订阅者继承原操作快照，不为每个订阅者重新捕获。
+
+未配置自定义捕获器且 database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
 预加载根和依赖共用一份快照；缓存命中和同 GUID 在途共享不重新选择来源，显式 reload 的新操作才捕获新状态。
 不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
 独立 `request_load_into` 没有 provider 时该字段为空；自定义 loader 需要快照时应检查并明确失败。

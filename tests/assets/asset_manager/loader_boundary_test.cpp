@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/resources/io.h"
+#include "caors/resources/async.h"
 
 // 单独翻译单元验证 loader 协议不再通过传递包含依赖具体来源或文件系统。
 #if defined(CAORS_RESOURCES_SOURCE_H_) || defined(CAORS_IO_FILE_SYSTEM_H_)
