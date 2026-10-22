@@ -5,7 +5,7 @@
 
 本页维护旧文件系统、同步工具和显式组合函数。使用时包含 `caors/io/legacy.h` 或对应单头，
 普通调用者从 [io_context/file](io.md) 开始；请求状态与错误约束也以主参考为准。
-保留原因与退出条件由 [VFS 计划](../plans/vfs-api-consolidation.md#兼容退出的延期范围)维护。
+保留原因与退出条件由 [VFS 计划](../plans/vfs-api-consolidation.md#兼容退出的剩余范围)维护。
 
 ## 当前范围
 
