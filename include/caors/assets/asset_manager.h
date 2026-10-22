@@ -352,7 +352,8 @@ private:
 public:
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& loader,
+  [[nodiscard]] error register_type(resources::cache<T>& cache,
+                                    resources::sync_loader_adapter<T>& loader,
                                     core::string_name resource_type) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
@@ -367,7 +368,7 @@ public:
 
   /** @brief 注册异步 loader 与 cache，可与同类型同步 loader 并存。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::async_loader<T>& source,
+  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& source,
                                     core::string_name type) {
     if (auto status = database_.register_type(cache, source, type)) {
       return status;
@@ -681,13 +682,15 @@ private:
     if (loader) {
       if (auto status =
               manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
-                                              *static_cast<resources::loader<T>*>(loader), type)) {
+                                              *static_cast<resources::sync_loader_adapter<T>*>(
+                                                  static_cast<resources::loader<T>*>(loader)),
+                                              type)) {
         return status;
       }
     }
     return async_loader ? manager.database_.register_type(
                               *static_cast<resources::cache<T>*>(cache),
-                              *static_cast<resources::async_loader<T>*>(
+                              *static_cast<resources::loader<T>*>(
                                   static_cast<resources::loader<T>*>(async_loader)),
                               type)
                         : error{};

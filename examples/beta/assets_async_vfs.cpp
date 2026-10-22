@@ -15,7 +15,7 @@ public:
 };
 
 // 示例只解析 UTF-8 文本；真实格式校验、摘要复验和全局在途预算由宿主管理。
-class text_loader final : public caors::resources::async_loader<text_asset> {
+class text_loader final : public caors::resources::loader<text_asset> {
   struct operation {
     caors::resources::async_load_context context;
     caors::resources::load_completion<text_asset> completion;

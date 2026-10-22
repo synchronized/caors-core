@@ -103,6 +103,10 @@ project_builder；工厂通过 context.project() 使用装配入口。各阶段�
 第二批实现及本机结果见[来源边界记录](../records/2026-10-22-resource-source-boundary.md)；
 远端平台验收尚未执行，不沿用第一批结果作为本批通过。
 
+统一 loader 的实现已进入同分支，证据见[统一协议记录](../records/2026-10-22-unified-loader-protocol.md)：loader 仅提供异步 start，原同步实现迁移到 sync_loader_adapter；
+删除独立 async_loader 类型。兼容注册槽和旧同步辅助入口暂保留，不以阻塞等待模拟异步。
+provider 的 find/快照查询仍同步，字节访问协议拆分尚未实施。
+
 ### 调用点迁移边界
 
 核心变更同时检查 resources/database.h、resources/async.h、resources/detail/type_entry_ops.h；

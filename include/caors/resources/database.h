@@ -154,7 +154,8 @@ public:
   }
 
   /** @brief 注册某个资源类型的加载器。 */
-  template <typename T> [[nodiscard]] error register_loader(resources::loader<T>& source) {
+  template <typename T>
+  [[nodiscard]] error register_loader(resources::sync_loader_adapter<T>& source) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
 
@@ -164,18 +165,19 @@ public:
       return status;
     }
 
-    if (entry->loader != nullptr && entry->loader != &source) {
+    auto* base = static_cast<resources::loader<T>*>(&source);
+    if (entry->loader != nullptr && entry->loader != base) {
       return {error_domain::resources, errc::already_exists};
     }
 
-    entry->loader = &source;
+    entry->loader = base;
     entry->ops.load = &load_in_cache<T>;
     entry->ops.request_load = &request_load_in_cache<T>;
     return {};
   }
 
   /** @brief 注册原生异步能力；不替换已有同步 loader。 */
-  template <typename T> [[nodiscard]] error register_loader(resources::async_loader<T>& source) {
+  template <typename T> [[nodiscard]] error register_loader(resources::loader<T>& source) {
     type_entry* entry = nullptr;
     if (auto status = ensure_entry<T>(entry)) {
       return status;
@@ -191,7 +193,7 @@ public:
   }
   /** @brief 注册异步 loader 并绑定资源类型。 */
   template <typename T>
-  [[nodiscard]] error register_loader(resources::async_loader<T>& source, core::string_name type) {
+  [[nodiscard]] error register_loader(resources::loader<T>& source, core::string_name type) {
     if (auto status = register_loader(source)) {
       return status;
     }
@@ -199,7 +201,7 @@ public:
   }
   /** @brief 注册异步 loader 并绑定资源类型。 */
   template <typename T>
-  [[nodiscard]] error register_loader(resources::async_loader<T>& source, type_guid type) {
+  [[nodiscard]] error register_loader(resources::loader<T>& source, type_guid type) {
     if (auto status = register_loader(source)) {
       return status;
     }
@@ -207,8 +209,7 @@ public:
   }
   /** @brief 注册 cache 与异步 loader。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target,
-                                    resources::async_loader<T>& source) {
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source) {
     if (auto status = register_cache(target)) {
       return status;
     }
@@ -216,7 +217,7 @@ public:
   }
   /** @brief 注册 cache、异步 loader 及资源类型。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target, resources::async_loader<T>& source,
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
                                     core::string_name type) {
     if (auto status = register_type(target, source)) {
       return status;
@@ -225,7 +226,7 @@ public:
   }
   /** @brief 注册 cache、异步 loader 及资源类型。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target, resources::async_loader<T>& source,
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
                                     type_guid type) {
     if (auto status = register_type(target, source)) {
       return status;
@@ -234,7 +235,7 @@ public:
   }
   /** @brief 注册某个资源类型的加载器，并绑定 manifest type。 */
   template <typename T>
-  [[nodiscard]] error register_loader(resources::loader<T>& source,
+  [[nodiscard]] error register_loader(resources::sync_loader_adapter<T>& source,
                                       core::string_name resource_type) {
     error status = register_loader(source);
     if (status) {
@@ -246,7 +247,7 @@ public:
 
   /** @brief 注册某个资源类型的加载器，并绑定稳定 type_guid。 */
   template <typename T>
-  [[nodiscard]] error register_loader(resources::loader<T>& source, type_guid guid) {
+  [[nodiscard]] error register_loader(resources::sync_loader_adapter<T>& source, type_guid guid) {
     error status = register_loader(source);
     if (status) {
       return status;
@@ -257,7 +258,8 @@ public:
 
   /** @brief 同时注册某个资源类型的 cache 和 loader。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source) {
+  [[nodiscard]] error register_type(resources::cache<T>& target,
+                                    resources::sync_loader_adapter<T>& source) {
     error status = register_cache(target);
     if (status) {
       return status;
@@ -268,7 +270,8 @@ public:
 
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
+  [[nodiscard]] error register_type(resources::cache<T>& target,
+                                    resources::sync_loader_adapter<T>& source,
                                     core::string_name resource_type) {
     error status = register_type(target, source);
     if (status) {
@@ -280,8 +283,8 @@ public:
 
   /** @brief 同时注册某个资源类型的 cache、loader 和稳定 type_guid。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
-                                    type_guid guid) {
+  [[nodiscard]] error register_type(resources::cache<T>& target,
+                                    resources::sync_loader_adapter<T>& source, type_guid guid) {
     error status = register_type(target, source);
     if (status) {
       return status;

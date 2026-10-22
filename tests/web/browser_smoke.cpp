@@ -15,7 +15,7 @@ class texture final : public caors::resource {
 public:
   using resource::resource;
 };
-class delayed_loader final : public caors::resources::async_loader<texture> {
+class delayed_loader final : public caors::resources::loader<texture> {
 public:
   struct operation {
     caors::resources::async_load_context context;

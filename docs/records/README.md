@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [统一 loader 协议](2026-10-22-unified-loader-protocol.md)：统一异步入口与显式同步适配，本机原生/Web/浏览器/安装通过，远端验收待执行。
+
 - [资源核心与来源适配边界](2026-10-22-resource-source-boundary.md)：第二批 provider 边界迁移，本机原生/Web/安装通过，远端验收待执行。
 
 - [加载快照解耦原型验证](2026-10-22-load-snapshot-prototype.md)：首批快照/工程装配迁移，原生矩阵、Web、安装与压力验证通过。

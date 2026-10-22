@@ -26,7 +26,7 @@ public:
   int value = 0;
 };
 
-class consumer_loader final : public caors::resources::loader<consumer_resource> {
+class consumer_loader final : public caors::resources::sync_loader_adapter<consumer_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<consumer_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -36,7 +36,7 @@ public:
   }
 };
 
-class native_loader final : public caors::resources::async_loader<consumer_resource> {
+class native_loader final : public caors::resources::loader<consumer_resource> {
 public:
   caors::error start(caors::resources::async_load_context value,
                      caors::resources::load_completion<consumer_resource> token) override {

@@ -472,9 +472,10 @@ caors::error saved = saver.save(**loaded);
 - `resources::source`：把 file_system 或其他字节来源适配给资源层，提供 `open_read()` /
   `open_write()`。一个 source 可以指向 VFS，也可以指向普通 native/memory file_system。
 - `resources::provider`：保存 `guid -> source + location` 绑定。它不解析格式，也不持有资源对象。
-- `resources::loader<T>`：从 provider 打开输入流，并把字节反序列化为 `T`。
+- `resources::loader<T>`：按 GUID 异步交付资源对象，可直接调用宿主服务，不要求 provider。
+- `resources::sync_loader_adapter<T>`：将已有同步构造逻辑接入统一请求协议；内置 JSON loader 使用此适配。
 - `resources::cache<T>`：按 GUID 持有已经加载完成的 `T`。
-- `resources::database` / `assets::asset_manager`：把 manifest、provider、loader 和 cache 拼起来，提供
+- `resources::database` / `assets::asset_manager`：协调 manifest、依赖、loader 和 cache；provider 由可选工程适配提供，保留
   `load()`、`reload()`、`preload()` 和异步请求入口。
 
 因此 VFS 不替代 source；VFS 解决“从哪里打开字节”，source 解决“资源层如何统一打开字节”。配置中

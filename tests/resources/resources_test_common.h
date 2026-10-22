@@ -71,7 +71,8 @@ public:
   int width = 0;
 };
 
-class counting_texture_loader final : public caors::resources::loader<texture_resource> {
+class counting_texture_loader final
+    : public caors::resources::sync_loader_adapter<texture_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {

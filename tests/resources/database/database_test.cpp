@@ -34,7 +34,8 @@ public:
   using caors::resource::resource;
 };
 
-class counting_material_loader final : public caors::resources::loader<material_resource> {
+class counting_material_loader final
+    : public caors::resources::sync_loader_adapter<material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {

@@ -33,7 +33,7 @@ public:
  * `assets::load_serialized<T>()` 反序列化为资源对象。它不拥有 provider，调用方需要保证 provider
  * 生命周期。
  */
-template <typename T> class loader final : public resources::loader<T> {
+template <typename T> class loader final : public resources::sync_loader_adapter<T> {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
 

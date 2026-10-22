@@ -297,7 +297,7 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 
 异步资源 API 分为发起/加载与提交两个阶段：
 
-- 加载阶段：worker 调用 `loader<T>::start()`。同步 loader 默认适配到 `load()`；原生异步 loader 发起宿主 I/O 后返回，通过完成凭证稍后交付结果。
+- 加载阶段：worker 调用 `loader<T>::start()`。显式同步适配器执行 `load()`；原生异步 loader 发起宿主 I/O 后返回，通过完成凭证稍后交付结果。
 - 提交阶段：通过调用方指定的 completion executor 把加载结果提交到 `cache<T>`，执行 insert 或
   replace；通常由主线程 `execution_context` 提供该 executor。
 
@@ -953,15 +953,17 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 
 ### 原生异步 loader
 
-迁移时已有同步 loader 源码无需修改；本次为 loader 增加虚函数并扩展相关类型布局，
-不兼容旧二进制。库、宿主与所有使用这些头文件的插件应一起重新编译，不能混用旧对象文件或 SDK。
+`resources::loader<T>` 是唯一的加载协议，只需实现
+`start(async_load_context, load_completion<T>)`。原生异步实现直接继承它，不再有独立的 async_loader 类型，
+也无需实现返回 unsupported 的同步 load。库、宿主和插件必须一起重新编译。
 
-`resources::async_loader<T>` 继承 `loader<T>`，覆盖 `start(async_load_context, load_completion<T>)`，
-无需实现同步 load；其默认同步 load 返回 `resources / unsupported`，不会阻塞等待宿主 loop。
-`database.register_loader()` / `register_type()` 有异步能力重载，可与同类型的同步 loader 同时注册。
-异步请求优先异步能力，只有同步能力时在 worker 适配；失败不自动改用另一 loader 重试。
-同步加载仍使用同步能力；async-only 的已缓存资源可通过同步 load_handle 获取，缓存未命中返回 unsupported。
-同步 preload 遇到 async-only 的未缓存项也返回 unsupported，调用方可统一改用 request_preload。
+已有阻塞构造逻辑改继承 `resources::sync_loader_adapter<T>`，覆盖 load 钩子；适配器的 final start
+在请求管线指定的 worker 上执行该钩子，再通过相同完成凭证交付。它不创建线程，不等待异步操作。
+阻塞来源须配置可阻塞的 worker；不能在 Web 主线程用它等待网络。
+
+迁移期保留同步适配与原生实现同时注册的兼容能力：异步请求优先原生实现，无原生实现时使用同步适配，
+失败不会偷偷切换实现重试。旧同步入口仅可使用同步适配能力；纯异步资源缓存未命中时返回 unsupported，
+不阻塞宿主 loop。缓存命中仍可直接取得已有资源。
 
 `async_load_context` 提供 GUID、非拥有结果 resource、worker、协作取消的 `std::stop_token` 与拥有状态的 `load_progress`。
 context 和进度通道可跨异步边界保存；原 `progress_reporter` 仍只在同步 load 调用期间有效，不能留到 I/O 回调使用。
@@ -989,13 +991,13 @@ cache 提交仍遵循原线性化边界，开始提交后不承诺回滚。
 完整示例见 [assets_native_async.cpp](../../examples/beta/assets_native_async.cpp)。示例模拟延迟事件，
 不代表 libuv 实际接入；CAORS 不包含 libuv 类型或依赖，loop 线程投递、请求清理和缓冲区由宿主适配器管理。
 
-### 同步 loader 与 saver
+### 同步适配器与 saver（兼容入口）
 
-`resources::loader<T>` 和 `resources::saver<T>` 是类型化资源 IO 接口。它们只描述“按 GUID 加载一个
-资源”和“保存一个已有资源”，不规定路径、文件格式、资源包、缓存策略或异步调度：
+`resources::sync_loader_adapter<T>` 为已有同步资源构造逻辑提供迁移桥接；普通加载通过 loader::start
+和 request_* 使用统一协议。saver 仍保持已有保存接口，本批未迁移异步写入。同步钩子的实现示例：
 
 ```cpp
-class texture_loader : public caors::resources::loader<texture> {
+class texture_loader : public caors::resources::sync_loader_adapter<texture> {
 public:
   caors::resources::load_result<texture>
   load(caors::resource_guid id, caors::memory_resource* resource) override;
@@ -1023,6 +1025,7 @@ caors::error saved = caors::resources::save_from(cache, saver, id);
 `load_handle_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
+- 缓存未命中且 loader 不具备同步适配能力时返回 unsupported，绝不等待异步完成。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
 - 成功后资源所有权转入 cache，`load_handle_into()` 返回强 handle。需要临时指针时可从 handle

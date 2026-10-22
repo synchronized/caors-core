@@ -36,3 +36,5 @@ Web 核心及 caors_web_protocol_test 重新构建，Node 协议 CTest 1/1 通�
 provider 仍包含定位和读写协议，本批是让资源核心不再持有该适配，不是完成 provider 内部职责拆分。
 manifest 仍使用 location 字符串，不承诺任意数据库标识语义；manager 仍兼容安装工程捕获策略，未完成完全按需创建工程状态。
 loader 同步/异步协议统一、同步资源入口退出与独立文件 API 整理仍待后续批次；不删除既有写入能力。
+
+同分支随后继续统一 loader，后续实现与验证另见[统一协议记录](2026-10-22-unified-loader-protocol.md)，本记录保留来源边界批次的验证范围。

@@ -24,7 +24,7 @@ public:
   int value = 0;
 };
 
-class async_loader final : public caors::resources::loader<async_resource> {
+class async_loader final : public caors::resources::sync_loader_adapter<async_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -53,7 +53,8 @@ public:
   using caors::resource::resource;
 };
 
-class async_material_loader final : public caors::resources::loader<async_material_resource> {
+class async_material_loader final
+    : public caors::resources::sync_loader_adapter<async_material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -70,7 +71,7 @@ public:
   caors::error status{};
 };
 
-class progress_async_loader final : public caors::resources::loader<async_resource> {
+class progress_async_loader final : public caors::resources::sync_loader_adapter<async_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -90,7 +91,8 @@ public:
   int next_value = 0;
 };
 
-class progress_texture_loader final : public caors::resources::loader<texture_resource> {
+class progress_texture_loader final
+    : public caors::resources::sync_loader_adapter<texture_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -109,7 +111,8 @@ public:
   int load_count = 0;
 };
 
-class progress_material_loader final : public caors::resources::loader<async_material_resource> {
+class progress_material_loader final
+    : public caors::resources::sync_loader_adapter<async_material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {

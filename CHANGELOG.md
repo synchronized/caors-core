@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 加载协议统一为 `resources::loader<T>::start`，删除独立 `async_loader<T>`。原生异步实现改继承 loader；已有同步实现改继承 `sync_loader_adapter<T>` 并保留 load 钩子。旧同步入口仅使用显式适配能力，不等待异步 loader。
+
 - database 移除 provider 设置及清单绑定接口；清单绑定函数迁入 `resources/manifest_binding.h`。工程来源改由 `project_builder::provider()` 访问。空快照捕获器现在关闭捕获，恢复工程来源须显式调用 `use_provider_snapshot()`。
 
 - 文件系统/source 绑定、配置工厂注册、`create_owned` 和工厂扩展类型的公开入口迁至 `project_builder`；工厂通过 `context.project()` 使用装配操作。JSON/通用类型工厂 helper 改为接收 builder，manager 保留手动资源类型注册和请求主线。

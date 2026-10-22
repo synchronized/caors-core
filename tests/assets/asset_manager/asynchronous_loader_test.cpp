@@ -14,7 +14,7 @@ using namespace caors::tests::resources;
 namespace {
 using texture = texture_resource;
 
-class delayed_loader final : public caors::resources::async_loader<texture> {
+class delayed_loader final : public caors::resources::loader<texture> {
 public:
   struct operation {
     caors::resources::async_load_context context;
@@ -319,7 +319,7 @@ TEST_CASE("assets - shared cancellation and late progress keep operation alive",
 TEST_CASE("assets - mixed preload uses native async and synchronous loaders",
           "[assets][native-async]") {
   fixture f;
-  class other_loader final : public caors::resources::loader<observed_resource> {
+  class other_loader final : public caors::resources::sync_loader_adapter<observed_resource> {
   public:
     caors::resources::load_result<observed_resource>
     load(caors::resource_guid guid, caors::memory_resource* resource) override {
@@ -490,7 +490,7 @@ TEST_CASE("assets - terminal callback may release native completion owner",
 
 TEST_CASE("assets - generic owned type factory accepts native async loader",
           "[assets][native-async]") {
-  class factory_loader final : public caors::resources::async_loader<texture> {
+  class factory_loader final : public caors::resources::loader<texture> {
   public:
     explicit factory_loader(const caors::resources::provider&) {}
     caors::error start(caors::resources::async_load_context context,
@@ -944,4 +944,45 @@ TEST_CASE("resources - standalone database loads without a provider or capture s
   REQUIRE(f.completion.drain() == 1);
   CHECK(request.loaded());
   CHECK_FALSE(database.has_active_operations());
+}
+
+namespace {
+struct loader_prefix {
+  virtual ~loader_prefix() = default;
+  int marker = 9;
+};
+class offset_sync_loader final : public loader_prefix,
+                                 public caors::resources::sync_loader_adapter<texture> {
+public:
+  caors::resources::load_result<texture> load(caors::resource_guid guid,
+                                              caors::memory_resource* resource = nullptr) override {
+    ++calls;
+    return {{}, caors::memory::make_unique<texture>(resource, guid)};
+  }
+  int calls = 0;
+};
+template <typename T>
+concept has_synchronous_load = requires(T& value) { value.load(test_guid_a); };
+static_assert(!has_synchronous_load<caors::resources::loader<texture>>);
+static_assert(has_synchronous_load<caors::resources::sync_loader_adapter<texture>>);
+} // namespace
+
+TEST_CASE("assets - synchronous adapter preserves adjusted loader pointers across rebuild",
+          "[assets][native-async][adapter]") {
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::resources::cache<texture> cache;
+  offset_sync_loader loader;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  REQUIRE_FALSE(assets.register_type(cache, loader, caors::string_name{"adapter.texture"}));
+  REQUIRE_FALSE(caors::assets::project_builder{assets}.build(caors::assets::project_config{}));
+  auto request = assets.request_load<texture>(test_guid_a);
+  CHECK(loader.calls == 0);
+  REQUIRE(worker.drain() == 1);
+  CHECK(loader.calls == 1);
+  CHECK_FALSE(request.done());
+  REQUIRE(completion.drain() == 1);
+  CHECK(request.loaded());
+  CHECK(assets.load_handle<texture>(test_guid_b).succeeded());
+  CHECK(loader.calls == 2);
 }
