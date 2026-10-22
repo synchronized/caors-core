@@ -22,5 +22,6 @@
 #include "caors/resources/reload.h"
 #include "caors/resources/resource.h"
 #include "caors/resources/source.h"
+#include "caors/resources/vfs_source.h"
 
 #endif

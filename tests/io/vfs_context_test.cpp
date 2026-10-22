@@ -213,9 +213,14 @@ TEST_CASE("io - context open forwards cooperative cancellation to a host backend
   opening.cancel();
   CHECK(host->pending.stop_token().stop_requested());
   CHECK(host->pending.complete(io_failure<std::shared_ptr<async_file>>({io_errc::cancelled})));
+  host->pending = {};
   pump(opening, completion);
   REQUIRE(opening.result());
   CHECK(opening.result()->error().value == io_errc::cancelled);
+  std::weak_ptr<backend> weak = host;
+  routes.clear();
+  host.reset();
+  CHECK(weak.expired());
 }
 
 TEST_CASE("io - opened files retain backend and module pin after unmount", "[io][vfs-context]") {
@@ -247,4 +252,210 @@ TEST_CASE("io - opened files retain backend and module pin after unmount", "[io]
   }
   opened = {};
   CHECK(pin.expired());
+}
+
+TEST_CASE("io - context writes owned bytes and remaps metadata paths", "[io][vfs-context]") {
+  tasks::execution_context completion;
+  vfs routes;
+  auto memory = make_memory_backend();
+  REQUIRE_FALSE(routes.mount("assets://game", memory, "pack"));
+  io_context io{routes, {completion.get_executor()}};
+  auto bytes = make_byte_buffer();
+  for (char c : std::string{"written"})
+    bytes.push_back(static_cast<std::byte>(c));
+  auto written = io.write("assets://game/data", std::move(bytes));
+  pump(written, completion);
+  REQUIRE(written.result());
+  REQUIRE(*written.result());
+  CHECK(written.result()->value == 7);
+  auto status = io.stat("assets://game/data");
+  pump(status, completion);
+  REQUIRE(status.result());
+  REQUIRE(*status.result());
+  CHECK(status.result()->value.has_size);
+  CHECK(status.result()->value.size == 7);
+  auto entries = io.list("assets://game");
+  pump(entries, completion);
+  REQUIRE(entries.result());
+  REQUIRE(*entries.result());
+  REQUIRE(entries.result()->value.size() == 1);
+  CHECK(entries.result()->value.front().name.string_view() == "data");
+  CHECK(entries.result()->value.front().path.string_view() == "assets://game/data");
+  REQUIRE_FALSE(memory->store("pack/with:colon", "colon"));
+  auto names = io.list("assets://game");
+  pump(names, completion);
+  REQUIRE(names.result());
+  REQUIRE(*names.result());
+  bool found = false;
+  for (const auto& entry : names.result()->value) {
+    if (entry.name.string_view() == "with:colon") {
+      found = true;
+      CHECK(entry.path.string_view() == "assets://game/with:colon");
+    }
+  }
+  CHECK(found);
+  auto read = io.read("assets://game/data");
+  pump(read, completion);
+  REQUIRE(read.result());
+  REQUIRE(*read.result());
+  CHECK(text(*read.result()) == "written");
+}
+TEST_CASE("io - metadata optional capabilities report unsupported without fallback",
+          "[io][vfs-context]") {
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("readonly", std::make_shared<refusing_backend>()));
+  io_context io{routes, {tasks::inline_executor()}};
+  auto write = io.write("readonly/data", make_byte_buffer());
+  REQUIRE(write.done());
+  CHECK(write.result()->error().value == io_errc::unsupported);
+  auto status = io.stat("readonly/data");
+  REQUIRE(status.done());
+  CHECK(status.result()->error().value == io_errc::unsupported);
+  auto entries = io.list("readonly");
+  REQUIRE(entries.done());
+  CHECK(entries.result()->error().value == io_errc::unsupported);
+}
+#if !defined(__EMSCRIPTEN__)
+TEST_CASE("io - native whole write cancellation and commit semantics", "[io][vfs-context]") {
+  const auto location =
+      std::filesystem::temp_directory_path() /
+      ("caors-vfs-write-" +
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".txt");
+  struct cleanup {
+    std::filesystem::path location;
+    ~cleanup() {
+      std::error_code error;
+      std::filesystem::remove(location, error);
+    }
+  } cleanup{location};
+  tasks::execution_context worker, completion;
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("files", make_native_backend(location.parent_path().generic_string(),
+                                                          worker.get_executor())));
+  io_context io{routes, {completion.get_executor()}};
+  auto logical = std::string{"files/"} + location.filename().generic_string();
+  auto make = [] {
+    auto bytes = make_byte_buffer();
+    bytes.push_back(std::byte{42});
+    return bytes;
+  };
+  auto cancelled = io.write(logical, make());
+  cancelled.cancel();
+  (void)worker.drain();
+  pump(cancelled, completion);
+  REQUIRE(cancelled.result());
+  CHECK(cancelled.result()->error().value == io_errc::cancelled);
+  CHECK_FALSE(std::filesystem::exists(location));
+  auto written = io.write(logical, make());
+  REQUIRE(worker.drain() == 1);
+  CHECK(std::filesystem::exists(location));
+  written.cancel();
+  pump(written, completion);
+  REQUIRE(written.result());
+  CHECK(written.result()->error().value == io_errc::cancelled);
+  CHECK(std::filesystem::file_size(location) == 1);
+  auto status = io.stat(logical);
+  (void)worker.drain();
+  pump(status, completion);
+  REQUIRE(status.result());
+  REQUIRE(*status.result());
+  CHECK(status.result()->value.size == 1);
+}
+#endif
+#if defined(__linux__)
+TEST_CASE("io - native buffered close failure is not reported as write success",
+          "[io][vfs-context]") {
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("local", make_native_backend("/", tasks::inline_executor())));
+  io_context io{routes, {tasks::inline_executor()}};
+  auto bytes = make_byte_buffer();
+  bytes.push_back(std::byte{1});
+  auto written = io.write("local/dev/full", std::move(bytes));
+  REQUIRE(written.done());
+  CHECK_FALSE(*written.result());
+}
+#endif
+
+TEST_CASE("io - metadata operations retain backend until host cleanup and result release",
+          "[io][vfs-context]") {
+  class host_backend final : public backend {
+  public:
+    io_completion<file_status> pending;
+    io_error open(path, open_options, memory_resource*,
+                  io_completion<std::shared_ptr<async_file>>) override {
+      return {io_errc::unsupported};
+    }
+    io_error stat(path, io_completion<file_status> receipt) override {
+      pending = std::move(receipt);
+      return {};
+    }
+  };
+  tasks::execution_context completion;
+  request<file_status> status;
+  std::weak_ptr<host_backend> weak;
+  {
+    vfs routes;
+    auto host = std::make_shared<host_backend>();
+    weak = host;
+    REQUIRE_FALSE(routes.mount("host", host));
+    io_context io{routes, {completion.get_executor()}};
+    status = io.stat("host/data");
+    routes.clear();
+    host.reset();
+    auto retained = weak.lock();
+    REQUIRE(retained);
+    CHECK(retained->pending.complete({{}, {}}));
+    retained->pending = {};
+  }
+  pump(status, completion);
+  REQUIRE(status.result());
+  REQUIRE(*status.result());
+  CHECK_FALSE(weak.expired());
+  status = {};
+  CHECK(weak.expired());
+}
+
+TEST_CASE("io - logical directory enumeration rejects non-child backend names",
+          "[io][vfs-context]") {
+  class malformed_backend final : public backend {
+  public:
+    io_error open(path, open_options, memory_resource*,
+                  io_completion<std::shared_ptr<async_file>>) override {
+      return {io_errc::unsupported};
+    }
+    io_error list(path, memory_resource*, io_completion<directory_entry_list> receipt) override {
+      directory_entry_list entries;
+      entries.push_back({path{"../outside"}, path{"outside"}, file_kind::file});
+      (void)receipt.complete({{}, std::move(entries)});
+      return {};
+    }
+  };
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("files", std::make_shared<malformed_backend>()));
+  io_context io{routes, {tasks::inline_executor()}};
+  auto listed = io.list("files");
+  REQUIRE(listed.done());
+  CHECK(listed.result()->error().value == io_errc::backend_failure);
+}
+
+TEST_CASE("io - whole write rejects a backend reporting incomplete success", "[io][vfs-context]") {
+  class short_backend final : public backend {
+  public:
+    io_error open(path, open_options, memory_resource*,
+                  io_completion<std::shared_ptr<async_file>>) override {
+      return {io_errc::unsupported};
+    }
+    io_error write(path, byte_buffer, io_completion<std::uint64_t> receipt) override {
+      (void)receipt.complete({{}, 0});
+      return {};
+    }
+  };
+  vfs routes;
+  REQUIRE_FALSE(routes.mount("files", std::make_shared<short_backend>()));
+  io_context io{routes, {tasks::inline_executor()}};
+  auto bytes = make_byte_buffer();
+  bytes.push_back(std::byte{42});
+  auto written = io.write("files/data", std::move(bytes));
+  REQUIRE(written.done());
+  CHECK(written.result()->error().value == io_errc::backend_failure);
 }

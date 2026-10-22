@@ -455,6 +455,10 @@ error native_file_system::write_all(path_view path, std::span<const std::byte> b
     }
   }
 
+  // 输出缓冲可能直到关闭才失败，必须在交付成功之前观察提交错误。
+  output.close();
+  if (!output)
+    return {error_domain::io, errc::backend_failure};
   return {};
 }
 

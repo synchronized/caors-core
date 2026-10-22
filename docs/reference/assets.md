@@ -522,3 +522,11 @@ manager 和 group 的请求入口只有 `request_load<T>(guid)`、`request_reloa
 原 request_refresh 改用 request_reload，原“仅重载已有缓存、合并在途重载”的语义退出。
 逐次传 worker/completion 改成先 create_group(worker, completion)，再在 group 上发请求。
 同类型 `request_preload<T>` 仅保留在低层 database，由调用方显式传递调度；manager/group 不再暴露它。
+
+
+### 新 VFS 来源
+
+`resources::vfs_source` 借用 `io::vfs` 用于捕获，每次新根请求固定一份路由；已发请求拥有实际后端，
+reload 捕获新路由。它可直接绑定到 project_builder 的 provider，配合默认异步 JSON 工厂使用，
+示例见[资源 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。该兼容桥只支持异步快照访问，
+同步 source 的 read/write/exists 不适用；需要同步 saver 的旧配置继续使用 file_source 兼容路径。

@@ -2,9 +2,11 @@
 // Copyright (c) 2026 CAORS contributors
 #ifndef CAORS_IO_FILE_H_
 #define CAORS_IO_FILE_H_
-#include "caors/io/async_file.h"
 #include "caors/io/request.h"
+#include <cstdint>
+
 namespace caors::io {
+class async_file;
 /** @brief 精确范围读取；先检查预算再分配，短读为失败。 */
 struct file_read_options {
   std::uint64_t offset = 0;

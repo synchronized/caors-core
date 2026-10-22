@@ -11,8 +11,6 @@
 #include <span>
 
 namespace caors::io {
-/** @brief 显式关闭成功时的结果。 */
-struct close_result {};
 /**
  * @brief 拥有式异步随机读取文件协议；宿主可用 libuv 等实现，不向 CAORS 暴露其类型。
  * @note 接受的读必须拥有真实操作缓冲；多个 offset 互不干扰。关闭后拒绝新读，等待在途清理，

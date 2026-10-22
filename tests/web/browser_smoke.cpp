@@ -56,6 +56,9 @@ struct state {
   caors::resources::file_byte_reader byte_reader;
   caors::io::io_request<caors::io::byte_buffer> bytes;
   caors::io::request<caors::io::byte_buffer> context_read;
+  caors::io::request<std::uint64_t> context_write;
+  caors::io::request<caors::io::file_status> context_status;
+  caors::io::request<caors::io::directory_entry_list> context_entries;
   int phase = 0;
   void begin() {
     cache = std::make_unique<caors::resources::cache<texture>>();
@@ -156,6 +159,11 @@ void tick(void*) {
         check(!routes.mount("assets", memory));
         caors::io::io_context io{routes, {value.completion.get_executor()}};
         value.context_read = io.read("assets/data");
+        auto bytes = caors::io::make_byte_buffer();
+        bytes.push_back(std::byte{42});
+        value.context_write = io.write("assets/extra", std::move(bytes));
+        value.context_status = io.stat("assets/extra");
+        value.context_entries = io.list("assets");
       }
       break;
     case 6:
@@ -166,6 +174,11 @@ void tick(void*) {
       }
       check(static_cast<bool>(*value.context_read.result()));
       check(value.context_read.result()->value.size() == 7);
+      check(value.context_write.done() && static_cast<bool>(*value.context_write.result()));
+      check(value.context_status.done() && static_cast<bool>(*value.context_status.result()));
+      check(value.context_status.result()->value.size == 1);
+      check(value.context_entries.done() && static_cast<bool>(*value.context_entries.result()));
+      check(value.context_entries.result()->value.size() == 2);
       current.reset();
       EM_ASM({
         document.body.dataset.caorsStatus = "passed";

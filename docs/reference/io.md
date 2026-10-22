@@ -4,12 +4,12 @@
 # IO
 
 本文档说明 CAORS IO 主题的当前边界。IO 层提供同步字节访问、异步只读文件协议和可选虚拟文件路由，为资源系统、配置及宿主来源接入提供底座。
-新只读访问优先使用下方 vfs/io_context；旧 file_system、路由器及同步流保留为迁移兼容与工具能力。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
+新文件访问优先使用下方 vfs/io_context；旧 file_system、路由器及同步流保留为迁移兼容与工具能力，使用时显式包含 `caors/io/legacy.h` 或对应单头。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
 
 ## VFS 与统一文件访问
 
-推荐只读入口包含四个概念：vfs 配置挂载，io_context 配置完成调度，file 持有打开文件，request 持有操作控制及结果。
-公共头 `caors/io/context.h` 不包含旧 file_system 或 resolver 定义，后端协议见 `caors/io/backend.h`。
+推荐入口包含四个概念：vfs 配置挂载，io_context 配置完成调度，file 持有打开文件，request 持有操作控制及结果。
+公共聚合头 `caors/io.h` 和 `caors/io/context.h` 不包含旧 file_system/resolver 或原始文件协议定义，后端协议见 `caors/io/backend.h`。
 完整可运行示例见 [vfs_basic.cpp](../../examples/beta/vfs_basic.cpp)。
 
 ```cpp
@@ -31,7 +31,7 @@ request 的布尔值仅表示有效句柄，不表示成功；done/result 查看
 读取必须读满范围，短读失败；size 为打开时长度。复制共享关闭状态，显式 close 作用于全部副本，析构非阻塞兜底。
 
 io_context.read 组合打开、有界整文件读取、关闭；资源 byte_reader 复用同一内部状态机。
-当前中间 IO 结果只读，交付前复制，结果峰值约为两份预算，另有后端和状态开销，预算不是全局在途限制。
+读取的中间 IO 结果只读，交付前复制，结果峰值约为两份预算，另有后端和状态开销，预算不是全局在途限制。
 只读阶段取消在步骤边界观察，不承诺强制终止在途读取；open 的协作取消会传递至后端完成凭证。
 
 vfs 只配置挂载，不继承 backend。挂载拥有 backend 和可选 lifetime，已有请求与快照不受 unmount/clear 影响。
@@ -50,15 +50,29 @@ io::io_context batch{std::move(snapshot.value), {.completion = main_executor}};
 snapshot 固定路由、后端与 lifetime，不冻结磁盘内容或任意后端可变状态。
 allocator 和 executor/宿主循环必须覆盖真实操作及结果清理；vfs 的 allocator 也须覆盖仍持有的快照。
 
-本批完成只读调用方主线，旧配置工厂、嵌套路由、同步写入/目录/元数据尚未全部迁移；
-它们继续使用下文兼容接口，不能将只读主线等同于整个 IO 改造完成。
+新主线另提供 `io.write(path, byte_buffer, callback)`、`io.stat(path, callback)` 和
+`io.list(path, callback)`，同样返回单层 request，不逐次传 executor。
+write 消费拥有式缓冲，创建或截断整个目标文件，成功值为写入字节数；不保证原子替换或掉电持久化。
+原生后端在成功交付前检查关闭错误；取消只影响请求，不回滚已经发生的写入。
+需要依赖前一个操作的结果时，在完成回调/await 后发起下一操作，不依赖异步调用的排列顺序。
+
+stat 区分结果失败与不存在，不再用普通 exists 布尔值掩盖错误。list 仅枚举后端目录的直接子项，
+返回路径映射到请求的逻辑目录，保留带冒号的文件名，拒绝后端返回的非直接子项名；不合并虚拟挂载覆盖目录。
+元数据类型定义在 metadata.h，底层缺失能力返回 unsupported，不静默同步回退。
+内存后端索引串行化且不持锁回调，打开文件保留当时的内存内容；原生后端在构造绑定的 worker 执行操作。
+分配器可能跨 worker/完成线程分配及释放，须支持相应线程访问，并覆盖输入缓冲、结果与控制清理。
+
+资源侧可使用 `resources::vfs_source` 将 VFS 接入 provider 的批次快照，默认 JSON loader 无需修改。
+该来源只服务异步快照读取，不支持旧 source 同步 read/write/exists，不能用于同步 JSON saver。
+旧项目配置工厂与同步流继续使用显式兼容入口；file 的可写打开模式及流式写入尚未实现，
+不提前开放不可用的选项。它们有独立迁移与验收要求，不能把新调用方主线等同于旧接口全部删除。
 
 ## 当前范围
 
 当前已实现：
 
 - `io::vfs` / `io::backend`：拥有式挂载与独立后端协议。
-- `io::io_context` / `io::file` / `io::request<T>`：统一只读调用方入口与单层请求。
+- `io::io_context` / `io::file` / `io::request<T>`：统一文件访问、只读文件句柄与单层请求。
 
 - `io::byte_buffer`：使用 CAORS allocator 的字节缓冲区。
 - `io::path_view`：非拥有路径视图。

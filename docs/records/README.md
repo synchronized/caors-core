@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [VFS 整体操作与消费迁移](2026-10-22-vfs-operations-migration.md)：整文件写入、元数据、新来源与兼容头隔离，本机验收通过，远端待重新验收。
+
 - [VFS 统一只读入口](2026-10-22-vfs-read-context.md)：vfs/backend/io_context/file/request 主线与共享读取编排，本机原生/Web/安装通过，整体迁移仍实施中。
 
 - [三类日常资源请求接口迁移](2026-10-22-three-request-api.md)：合并 reload/refresh、特殊调度转 group、修复来源快照基准；新代码远端验收待完成。

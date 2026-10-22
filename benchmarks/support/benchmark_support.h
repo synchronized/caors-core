@@ -5,7 +5,7 @@
 #define CAORS_BENCHMARKS_SUPPORT_BENCHMARK_SUPPORT_H_
 
 #include "caors/assets/json.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
 #include "caors/resources.h"

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/memory/tracking.h"
 
 #include <catch2/catch_all.hpp>

@@ -9,7 +9,7 @@
 #include "caors/resources/serialization.h"
 
 #include "caors/core/containers.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
 #include "caors/registration.h"

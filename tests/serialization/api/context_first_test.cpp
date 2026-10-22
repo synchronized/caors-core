@@ -5,7 +5,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/resources.h"
 
 #include <limits>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/tasks/execution_context.h"
 #include <iostream>
 

@@ -3,8 +3,8 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io.h"
 #include "caors/io/context.h"
+#include "caors/io/legacy.h"
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
@@ -123,6 +123,15 @@ int main() {
     auto reading = io.read("assets/data");
     if (!reading.done() || !*reading.result() || reading.result()->value.size() != 9)
       return 14;
+    auto bytes = caors::io::make_byte_buffer();
+    bytes.push_back(std::byte{42});
+    auto written = io.write("assets/extra", std::move(bytes));
+    auto status = io.stat("assets/extra");
+    auto entries = io.list("assets");
+    if (!written.done() || !*written.result() || !status.done() || !*status.result() ||
+        status.result()->value.size != 1 || !entries.done() || !*entries.result() ||
+        entries.result()->value.size() != 2)
+      return 15;
   }
   caors::resource_cache<consumer_resource> cache;
   consumer_loader loader;

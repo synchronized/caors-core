@@ -30,6 +30,18 @@ public:
   read(path_view location, read_options options = {},
        std::function<void(const io_result<byte_buffer>&)> callback = {}) const;
 
+  /** @brief 创建或截断整文件写入；输入拥有至完成，取消不能回滚已经发生的写入。 */
+  [[nodiscard]] request<std::uint64_t>
+  write(path_view location, byte_buffer bytes,
+        std::function<void(const io_result<std::uint64_t>&)> callback = {}) const;
+  /** @brief 异步查询属性，缺失、权限及后端失败通过结果报告。 */
+  [[nodiscard]] request<file_status>
+  stat(path_view location, std::function<void(const io_result<file_status>&)> callback = {}) const;
+  /** @brief 枚举直接子项，结果路径属于本次逻辑目录，不暴露后端本地路径。 */
+  [[nodiscard]] request<directory_entry_list>
+  list(path_view location,
+       std::function<void(const io_result<directory_entry_list>&)> callback = {}) const;
+
 private:
   [[nodiscard]] result<resolved_file> resolve(path_view location) const;
   const vfs* routes_ = nullptr;

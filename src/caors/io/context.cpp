@@ -3,6 +3,8 @@
 #include "caors/io/context.h"
 #include "caors/io/detail/error.h"
 #include "caors/io/detail/read_operation.h"
+#include "caors/io/detail/vfs_operations.h"
+#include "caors/io/location.h"
 namespace caors::io {
 io_context::io_context(const vfs& routes, io_context_options options)
     : routes_(&routes), options_(std::move(options)) {}
@@ -69,6 +71,80 @@ io_context::read(path_view location, read_options options,
         return detail::start_read_file(std::move(resolved.value), config.completion,
                                        options.max_bytes, config.resource, std::move(receipt));
       });
+}
+request<std::uint64_t>
+io_context::write(path_view location, byte_buffer bytes,
+                  std::function<void(const io_result<std::uint64_t>&)> callback) const {
+  const auto expected = bytes.size();
+  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  return detail::submit_request<std::uint64_t>(
+      options_.completion, std::move(callback),
+      [this, location, lifetime,
+       bytes = std::move(bytes)](io_completion<std::uint64_t> receipt) mutable {
+        auto resolved = resolve(location);
+        if (!resolved)
+          return detail::convert_error(resolved.error());
+        *lifetime = resolved->backend;
+        return detail::start_write(std::move(resolved.value), std::move(bytes), std::move(receipt));
+      },
+      [expected](io_result<std::uint64_t>& value) {
+        if (value && value.value != expected)
+          value = io_failure<std::uint64_t>({io_errc::backend_failure});
+      },
+      lifetime);
+}
+request<file_status>
+io_context::stat(path_view location,
+                 std::function<void(const io_result<file_status>&)> callback) const {
+  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  return detail::submit_request<file_status>(
+      options_.completion, std::move(callback),
+      [this, location, lifetime](io_completion<file_status> receipt) {
+        auto resolved = resolve(location);
+        if (!resolved)
+          return detail::convert_error(resolved.error());
+        *lifetime = resolved->backend;
+        return detail::start_stat(std::move(resolved.value), std::move(receipt));
+      },
+      {}, lifetime);
+}
+request<directory_entry_list>
+io_context::list(path_view location,
+                 std::function<void(const io_result<directory_entry_list>&)> callback) const {
+  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  auto directory = path{location, options_.resource};
+  return detail::submit_request<directory_entry_list>(
+      options_.completion, std::move(callback),
+      [this, location, lifetime](io_completion<directory_entry_list> receipt) {
+        auto resolved = resolve(location);
+        if (!resolved)
+          return detail::convert_error(resolved.error());
+        *lifetime = resolved->backend;
+        return detail::start_list(std::move(resolved.value), options_.resource, std::move(receipt));
+      },
+      [directory = std::move(directory),
+       resource = options_.resource](io_result<directory_entry_list>& value) {
+        if (!value)
+          return;
+        const auto base = normalize_location(location_view{directory.view()}, resource);
+        const uri_view parsed{base.string_view()};
+        for (auto& entry : value.value) {
+          const auto name = entry.name.string_view();
+          if (name.empty() || name == "." || name == ".." ||
+              name.find_first_of("/\\") != std::string_view::npos) {
+            value.status = {io_errc::backend_failure};
+            value.value.clear();
+            return;
+          }
+          // 子项名称是文件名，即使带冒号也不能当成新 URI 覆盖所属目录。
+          auto joined = join_path(path_view{parsed.path()}, entry.name.view(), resource);
+          auto logical =
+              detail::make_location_from_parts(parsed.scheme(), detail::uses_authority_form(parsed),
+                                               parsed.authority(), joined, resource);
+          entry.path = path{logical.string_view(), resource};
+        }
+      },
+      lifetime);
 }
 std::uint64_t file::size() const noexcept { return handle_ ? handle_->size() : 0; }
 request<byte_buffer> file::read(file_read_options options,

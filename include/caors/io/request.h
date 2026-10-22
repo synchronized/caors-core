@@ -22,8 +22,11 @@ request<T> unwrap_request(io_result<io_request<T>> started, tasks::executor exec
 }
 template <typename T, typename Starter>
 request<T> submit_request(tasks::executor executor,
-                          std::function<void(const io_result<T>&)> callback, Starter&& starter) {
-  auto started = start_io<T>(executor, callback, std::forward<Starter>(starter));
+                          std::function<void(const io_result<T>&)> callback, Starter&& starter,
+                          std::function<void(io_result<T>&)> prepare = {},
+                          std::shared_ptr<void> lifetime = {}) {
+  auto started = start_io<T>(executor, callback, std::forward<Starter>(starter),
+                             std::move(lifetime), std::move(prepare));
   return unwrap_request(std::move(started), std::move(executor), std::move(callback));
 }
 } // namespace detail

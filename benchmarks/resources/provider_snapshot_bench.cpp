@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets/asset_manager.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/tasks/execution_context.h"
 #include <algorithm>
 #include <chrono>

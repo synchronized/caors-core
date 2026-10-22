@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/resources/source.h"

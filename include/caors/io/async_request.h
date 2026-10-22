@@ -13,6 +13,8 @@
 #include <optional>
 #include <stop_token>
 
+#include <cstdint>
+
 namespace caors::io {
 /** @brief IO 失败分类；后端原始诊断独立保留，不要求分配错误字符串。 */
 enum class io_errc {

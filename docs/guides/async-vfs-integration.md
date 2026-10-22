@@ -7,15 +7,15 @@
 [资源参考](../reference/resources.md#加载来源快照)维护；固定版本、提交及实际验证见
 [v0.4.0 记录](../records/2026-10-19-v0.4.0-async-vfs.md)。CAORS 不包含 libuv 后端。
 
-## 新的只读 backend 接入
+## 新的 backend 接入
 
 新代码可以实现 `io::backend::open(path, open_options, resource, completion)` 并绑定自己的宿主 loop，
 再通过 `io::vfs::mount(prefix, shared_backend, target_prefix, lifetime)` 挂载。
 调用方使用 `io_context` 的单层 request，普通访问不接触 file_system、resolve_owned 或 start_io。
-后端接受后必须完成或销毁凭证，拒绝时不能保留；实际文件沿用 async_file 的范围读取与关闭协议。
+后端接受后必须完成或销毁凭证，拒绝时不能保留；完成后须清理宿主操作并释放其凭证，不能将后端永久保存在自己的完成状态中；实际文件沿用 async_file 的范围读取与关闭协议，实现该协议时显式包含 `caors/io/async_file.h`，普通调用方不需要该头。
 完成凭证的 stop_token 用于观察协作取消，不能把请求取消理解成真实 I/O 已清理。
 
-目前只读 open/read/close 主线可用；旧配置工厂、嵌套路由及写入等迁移仍按[VFS 计划](../plans/vfs-api-consolidation.md)推进。
+目前只读 open/read/close 和整文件 write/stat/list 可用；可写打开模式、旧配置工厂及嵌套路由迁移仍按[VFS 计划](../plans/vfs-api-consolidation.md)推进。
 下文为现有 file_system 后端和资源配置兼容接入，已有宿主无需在未完成验收前整体替换。
 
 ## 兼容后端接入步骤

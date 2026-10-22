@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 新增 io_context 整文件 write/stat/list，输入与结果拥有数据，元数据路径回映到逻辑目录；原生写入检查关闭错误。io.h 仅聚合新主线，旧路由/同步文件系统与原始文件组合显式使用 io/legacy.h。新增 resources::vfs_source，将新 VFS 批次路由接入默认 JSON loader。
+
 - 新增只读 vfs/backend/io_context/file 访问主线；open 统一命名、默认只读已有文件，操作返回单层 request。native 后端在构造时绑定 worker；资源 byte_reader 复用 IO 整体读取状态机。旧写入、目录、属性及配置接口保留迁移，见[IO 参考](docs/reference/io.md#vfs-与统一文件访问)。
 
 - 日常请求收敛为 load/reload/preload 三类：request_refresh 合入 request_reload，每次重载独立启动、无缓存也可创建、最新重载决定默认绑定。manager/group 删除逐次 worker/completion 参数和模板 preload，特殊调度使用 group，同类型 preload 在低层 database 使用。

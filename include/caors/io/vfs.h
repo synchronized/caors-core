@@ -8,6 +8,10 @@
 namespace caors::io {
 class file_system_resolver;
 class io_context;
+class vfs_snapshot;
+namespace detail {
+[[nodiscard]] CAORS_API std::shared_ptr<file_system> legacy_snapshot(vfs_snapshot snapshot);
+}
 /** @brief 拥有式不可变路由快照；固定后端和路由，不冻结文件内容或 allocator。 */
 class CAORS_API vfs_snapshot {
 public:
@@ -16,6 +20,7 @@ public:
 private:
   friend class vfs;
   friend class io_context;
+  friend std::shared_ptr<file_system> detail::legacy_snapshot(vfs_snapshot snapshot);
   [[nodiscard]] result<resolved_file> resolve(path_view location) const;
   explicit vfs_snapshot(route_snapshot value) : routes_(std::move(value)) {}
   route_snapshot routes_;

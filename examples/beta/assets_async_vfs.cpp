@@ -4,6 +4,7 @@
 #include "caors/assets.h"
 #include "caors/io.h"
 #include "caors/resources/byte_reader.h"
+#include "caors/resources/vfs_source.h"
 #include "caors/tasks.h"
 
 #include <iostream>
@@ -18,9 +19,6 @@ public:
 // 示例只解析 UTF-8 文本；真实格式校验、摘要复验和全局在途预算由宿主管理。
 class text_loader final : public caors::resources::loader<text_asset> {
 public:
-  explicit text_loader(bool use_worker)
-      : reader_(use_worker ? caors::resources::file_read_mode::worker_adapter
-                           : caors::resources::file_read_mode::native_async) {}
   caors::error start(caors::resources::async_load_context context,
                      caors::resources::load_completion<text_asset> completion) override {
     auto sources = context.snapshot_as<caors::resources::provider_snapshot>();
@@ -63,19 +61,19 @@ private:
   caors::resources::file_byte_reader reader_;
 };
 
-int run_example(bool use_worker) {
+int run_example() {
   caors::tasks::execution_context worker;
   caors::tasks::execution_context completion;
   caors::resources::cache<text_asset> cache;
-  text_loader loader{use_worker};
+  text_loader loader;
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
-  auto memory = std::make_shared<caors::io::memory_file_system>();
-  if (memory->write_all("hello", std::string_view{"hello VFS"}))
+  caors::io::vfs files;
+  auto memory = caors::io::make_memory_backend();
+  if (memory->store("hello", "hello VFS"))
     return 1;
-  auto router = std::make_shared<caors::io::file_system_resolver>();
-  if (router->mount("caors://assets", memory))
+  if (files.mount("caors://assets", memory))
     return 2;
-  caors::resources::file_source source{router};
+  caors::resources::vfs_source source{files};
   const caors::resource_guid guid{caors::guid::from_bytes(caors::guid::byte_array{4})};
   if (caors::assets::project_builder{assets}.provider().bind(guid, source,
                                                              "caors://assets/hello") ||
@@ -96,8 +94,4 @@ int run_example(bool use_worker) {
 
 } // namespace
 
-int main() {
-  if (const auto status = run_example(false))
-    return status;
-  return run_example(true);
-}
+int main() { return run_example(); }

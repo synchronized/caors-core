@@ -32,5 +32,22 @@ int main() {
   auto closing = file.close();
   for (int frame = 0; frame < 32 && !closing.done(); ++frame)
     (void)completion.drain();
-  return closing.result() && *closing.result() ? 0 : 5;
+  if (!closing.result() || !*closing.result())
+    return 5;
+  auto bytes = caors::io::make_byte_buffer();
+  bytes.push_back(std::byte{42});
+  auto written = io.write("assets://game/created.bin", std::move(bytes));
+  for (int frame = 0; frame < 32 && !written.done(); ++frame)
+    (void)completion.drain();
+  if (!written.result() || !*written.result())
+    return 6;
+  auto status = io.stat("assets://game/created.bin");
+  for (int frame = 0; frame < 32 && !status.done(); ++frame)
+    (void)completion.drain();
+  if (!status.result() || !*status.result() || status.result()->value.size != 1)
+    return 7;
+  auto entries = io.list("assets://game");
+  for (int frame = 0; frame < 32 && !entries.done(); ++frame)
+    (void)completion.drain();
+  return entries.result() && *entries.result() && entries.result()->value.size() == 2 ? 0 : 8;
 }
