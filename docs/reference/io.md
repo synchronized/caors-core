@@ -174,3 +174,5 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 如果要保持旧批次来源，使用拥有式 VFS 快照构造 io_context；资源 loader 使用捕获的来源与 request_bytes，
 不把已经解析的来源重新投给活跃路由。详细字节协议见[资源参考](resources.md#统一字节读取适配)。
 库内部仍复用有界读取与关闭编排，但对应头仅位于 src，不安装为调用方接口。
+
+本批属于破坏性接口删除，库与调用方须统一重编译；安装到干净前缀，避免保留已删除的内部头。

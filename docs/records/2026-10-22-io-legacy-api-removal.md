@@ -22,7 +22,7 @@ Node 协议 1/1，真实 Chrome 155.0.8059.85 通过；九个相关公共头独�
 两个基准目标编译及来源快照烟测通过，不作为性能验收。
 
 源码/安装消费/Web 都编译负向约束：即使包含 legacy.h，也不能调用已删除的五个名字。
-新安装包及搬迁包不含两个内部编排头；Windows DLL 导出检查不含旧公共函数符号。
+新安装包及搬迁包不含本批三个私有编排头；Windows DLL 导出检查不含旧公共函数符号。
 本批是破坏性公共 API 清理，库、宿主和插件须按当前接口统一重编译。
 
 日志：build/io-removal-native.log、io-removal-special.log、io-removal-installed.log、
@@ -30,7 +30,15 @@ io-removal-web.log、io-removal-browser.log、io-removal-headers.log、io-remova
 
 ## 平台验收
 
-本批最终代码尚待 Linux、Windows、Emscripten 常规 CI，不以前批通过替代。
+代码提交 34de1d37626539ab2cda7e48a86bb61b2bae3d6b 已完成本批验收：
+
+| 验收 | 结果 |
+| --- | --- |
+| [Linux 五组](https://github.com/synchronized/caors-core/actions/runs/39738261343) | 全部成功，含 ASan、UBSan 和安装消费 |
+| [Windows 三组](https://github.com/synchronized/caors-core/actions/runs/39738266216) | 全部成功，含 MSVC、Clang 动态/静态 |
+| [Emscripten](https://github.com/synchronized/caors-core/actions/runs/39738271428) | 成功，含公共头、Node 协议及真实浏览器 |
+
+后续验收记录和迁移文字不改变本次代码，不重复运行完整矩阵。
 本批不改变在途计数、取消和关闭算法；完成本机插件专项并运行含 ASan/UBSan 的常规 CI，
 不为仅接口删除重复另开 Linux Stress 矩阵。
 
