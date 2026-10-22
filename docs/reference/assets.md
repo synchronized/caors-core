@@ -165,7 +165,8 @@ if (detailed.failed()) {
   // detailed.stage / index / name / type / guid / reasons 可用于工具层诊断。
 }
 
-caors::resources::preload_result result = assets.preload(texture_id);
+auto request = assets.request_preload(texture_id);
+// 使用初始化的 worker/completion 推进请求，再读取 request.result()。
 ```
 
 工程装配由 `assets::project_builder` 执行；它借用 manager，析构不销毁已创建对象。
@@ -199,10 +200,8 @@ caors::resources::preload_result result = assets.preload(texture_id);
 资源使用入口（属于 manager）：
 
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
-- `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
-- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
 - `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
-- `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
+- `plan_preload(root)` / `request_preload(root)`：按 manifest type 跨类型分派预加载。
 - `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度，也保留显式 worker/completion 重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
 - `create_group(worker, completion)`：创建复用固定调度组合的 asset_group，详见下节。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
@@ -475,7 +474,7 @@ caors::error saved = saver.save(**loaded);
 - `resources::sync_loader_adapter<T>`：将已有同步构造逻辑接入统一请求协议；JSON 的 sync_loader 兼容路径使用此适配。
 - `resources::cache<T>`：按 GUID 持有已经加载完成的 `T`。
 - `resources::database` / `assets::asset_manager`：协调 manifest、依赖、loader 和 cache；provider 由可选工程适配提供，保留
-  `load()`、`reload()`、`preload()` 和异步请求入口。
+  request_* 请求入口及同步的 find/resolve/plan_preload 查询。
 
 因此 VFS 不替代 source；VFS 解决“从哪里打开字节”，source 解决“资源层如何统一打开字节”。配置中
 `file_systems[]` 先描述可访问的文件系统，再由 `sources[]` 选择其中一个 file_system 形成资源来源。
@@ -507,7 +506,7 @@ auto status = manager.register_type(cache, loader, string_name{"texture"});
 `resources::file_read_mode::worker_adapter`，并配置可阻塞 worker；Web 网络不得使用阻塞适配。
 
 原 `json::loader(provider)` 调用迁移为 `json::sync_loader(provider)`，或改用异步 loader 和 request 接口；
-原短期 `json::byte_loader` 更名为 `json::loader`。同步 `load/reload/preload` 不等待异步工厂，
+原短期 `json::byte_loader` 更名为 `json::loader`。manager/database 的同步 `load/load_handle/reload/reload_handle/preload` 已删除，
 应迁移到 `request_load/request_reload/request_preload`，执行所配置的 worker/completion 后再读取 result。
 通用 `register_cached_type_factory<T, Loader>` 仍服务于接受 provider 构造的自定义实现；
 JSON 默认工厂使用独立构造逻辑，不再通过该 helper 创建同步 loader。

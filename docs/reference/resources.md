@@ -5,7 +5,7 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、同步预加载计划和
+加载/保存接口、非拥有资源 database 编排入口、异步 reload、同步兼容通知、预加载计划和
 第一版异步加载请求；资源包后续再补。高层工程配置、asset manager 和 JSON 适配见
 [assets.md](assets.md)。
 
@@ -205,7 +205,7 @@ if (auto locked = weak.lock()) {
 - `cache<T>` 内部持有强 handle。`erase()`、`clear()` 或 `replace()` 只释放 cache 自己的强引用；
   如果外部仍持有 `resource_handle<T>`，旧资源会继续存活到最后一个强引用释放。
 
-## 同步预加载
+## 预加载计划与执行
 
 `resources::dependency_graph` 记录资源 GUID 之间的依赖边：`resource -> dependency`。资源引用关系可以
 出现循环，但打包、预加载和拓扑排序这类“需要依赖先于使用者”的流程必须显式检测环：
@@ -219,7 +219,7 @@ if (graph.has_cycle(material_id)) {
 }
 ```
 
-`resources::database` 提供两类同步预加载入口。
+`resources::database` 保留同步计算计划，实际加载统一使用请求入口；计划计算不执行 I/O。
 
 明确知道整个依赖闭包都由同一个资源类型处理时，可以使用模板入口：
 
@@ -228,8 +228,8 @@ caors::resources::preload_plan plan =
     database.plan_preload<texture>(texture_id);
 
 if (plan.succeeded()) {
-  caors::resources::preload_result result =
-      database.preload<texture>(texture_id);
+  auto request = database.request_preload<texture>(texture_id, worker, completion);
+  // 保留 request 并推进 executor/宿主循环，完成后读取 request.result()。
 }
 ```
 
@@ -245,7 +245,8 @@ manifest.bind(material_id, "materials/body.json", material_type);
 database.register_type(texture_cache, texture_loader, texture_type);
 database.register_type(material_cache, material_loader, material_type);
 
-caors::resources::preload_result result = database.preload(material_id);
+auto request = database.request_preload(material_id, worker, completion);
+// 推进配置的 executor 或宿主循环后再读取 request.result()。
 ```
 
 如果外部资源数据库使用另一套类型 token，可以把外部 token 映射到已有 manifest type：
@@ -679,7 +680,7 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
 普通项目入口优先使用 `assets::asset_manager`，由它持有 manifest、provider、dependency graph
 和内部 database。`resources::database` 是高级组合入口：它不会创建全局单例，也不会拥有
 manifest、provider、cache、loader 或 dependency graph；调用方把这些组件挂进去后，database
-只负责把常见同步流程串起来：
+只负责把资源请求、缓存提交和引用查询串起来：
 
 ```cpp
 caors::resource_manifest manifest;
@@ -696,7 +697,8 @@ caors::resource_cache<texture> cache;
 texture_loader loader{provider};
 database.register_type(cache, loader);
 
-auto loaded = database.load<texture>(texture_id);
+auto request = database.request_load<texture>(texture_id, worker, completion);
+// 执行 worker/completion 或宿主循环后再读取 request.result()。
 auto resolver = caors::resources::make_resource_resolver(database);
 ```
 
@@ -709,8 +711,8 @@ auto resolver = caors::resources::make_resource_resolver(database);
   cache 和 loader。
 - `bind_resource_type_alias()` / `bind_resource_type_guid()`：把外部类型 token 或稳定 type_guid 映射到已注册
   cache/loader，供跨类型预加载分派使用。
-- `load<T>(guid)` / `load_handle<T>(guid)`：通过已注册 loader 加载资源并转入对应 cache。
-- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
+- `request_load<T>(guid, worker, completion)`：通过统一 loader 加载并在完成 executor 提交缓存。
+- `request_reload<T>()` / `request_refresh<T>()`：重载或独立刷新，失败保留已发布资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
@@ -721,7 +723,7 @@ auto resolver = caors::resources::make_resource_resolver(database);
 - `database` 是编排器，不是拥有式全局资源缓存。资源生命周期仍由 `cache<T>` / `handle<T>` 决定。
 - 手动组合适合嵌入已有引擎资源系统、定制 cache/loader/provider、测试资源管线或需要绕过
   `asset_manager` 工厂配置的场景。
-- 普通 `load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
+- 普通 `request_load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
   跨类型预加载入口会按 `register_type<T>(cache, loader, type)` 的 manifest type 绑定分派。
 - `resources::make_resource_resolver(database)` 位于 `caors/resources/serialization.h`，只返回
   `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
@@ -961,9 +963,9 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 在请求管线指定的 worker 上执行该钩子，再通过相同完成凭证交付。它不创建线程，不等待异步操作。
 阻塞来源须配置可阻塞的 worker；不能在 Web 主线程用它等待网络。
 
-迁移期保留同步适配与原生实现同时注册的兼容能力：异步请求优先原生实现，无原生实现时使用同步适配，
-失败不会偷偷切换实现重试。旧同步入口仅可使用同步适配能力；纯异步资源缓存未命中时返回 unsupported，
-不阻塞宿主 loop。缓存命中仍可直接取得已有资源。
+每个资源类型只有一个 loader 注册槽。同一对象重复注册保持幂等，不同对象返回 already_exists，
+不再同时注册同步/原生实现或按能力优先选择。manager/database 的 load、load_handle、reload、
+reload_handle 和 preload 同步执行入口已删除；缓存查询仍使用 find，加载统一使用 request_*。
 
 `async_load_context` 提供 GUID、非拥有结果 resource、worker、协作取消的 `std::stop_token` 与拥有状态的 `load_progress`。
 context 和进度通道可跨异步边界保存；原 `progress_reporter` 仍只在同步 load 调用期间有效，不能留到 I/O 回调使用。
@@ -1025,7 +1027,7 @@ caors::error saved = caors::resources::save_from(cache, saver, id);
 `load_handle_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
-- 缓存未命中且 loader 不具备同步适配能力时返回 unsupported，绝不等待异步完成。
+- 同步组合函数只接受 sync_loader_adapter，原生异步 loader 在编译期不可传入；不提供阻塞等待。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
 - 成功后资源所有权转入 cache，`load_handle_into()` 返回强 handle。需要临时指针时可从 handle

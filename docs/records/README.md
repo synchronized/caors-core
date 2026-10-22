@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [统一资源请求入口收口](2026-10-22-single-load-entry.md)：移除 manager/database 同步加载与双注册槽，本机原生、安装和 Web 通过，远端验收待完成。
+
 - [默认 JSON 工厂异步迁移](2026-10-22-json-factory-migration.md)：统一 JSON loader 名称与默认工厂，原生、安装和 Web 通过，旧同步入口退出及远端验收待完成。
 
 - [异步字节读取协议](2026-10-22-byte-reader-protocol.md)：reader/VFS/JSON 显式异步接入，本机原生、安装与 Web 通过，默认工厂迁移及远端验收待完成。

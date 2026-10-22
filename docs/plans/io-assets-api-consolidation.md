@@ -16,7 +16,7 @@
 
 字节读取批新增统一 reader、VFS 编排适配和显式 JSON 异步接入，当前 API 见[资源参考](../reference/resources.md#统一字节读取适配)。
 本批实现与验证见[字节读取记录](../records/2026-10-22-byte-reader-protocol.md)。
-默认 JSON 工厂已迁移到异步 loader，旧 JSON 实现显式更名 sync_loader，见[迁移记录](../records/2026-10-22-json-factory-migration.md)；旧同步入口退出和远端验收仍待完成，不记为整个重构完成。
+默认 JSON 工厂已迁移到异步 loader，旧 JSON 实现显式更名 sync_loader，见[迁移记录](../records/2026-10-22-json-factory-migration.md)；manager/database 旧同步执行入口及双注册槽已移除；低层同步组合仅接受显式 adapter，见[收口记录](../records/2026-10-22-single-load-entry.md)。远端验收和最终范围审计仍待完成，不记为整个重构完成。
 
 ## 当前职责与问题
 

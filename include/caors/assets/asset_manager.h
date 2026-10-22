@@ -350,31 +350,14 @@ private:
   }
 
 public:
-  /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
-  template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& cache,
-                                    resources::sync_loader_adapter<T>& loader,
-                                    core::string_name resource_type) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    error status = database_.register_type(cache, loader, resource_type);
-    if (status) {
-      return status;
-    }
-
-    return is_building_project() ? error{}
-                                 : remember_manual_type_binding<T>(cache, loader, resource_type);
-  }
-
-  /** @brief 注册异步 loader 与 cache，可与同类型同步 loader 并存。 */
+  /** @brief 注册统一 loader 与 cache；同类型绑定冲突返回 already_exists。 */
   template <typename T>
   [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& source,
                                     core::string_name type) {
     if (auto status = database_.register_type(cache, source, type)) {
       return status;
     }
-    return is_building_project() ? error{}
-                                 : remember_manual_type_binding<T>(cache, source, type, true);
+    return is_building_project() ? error{} : remember_manual_type_binding<T>(cache, source, type);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -387,34 +370,6 @@ public:
   /** @brief 按 GUID 在全部已注册 cache 中查询资源。 */
   [[nodiscard]] resources::resource* find(resource_guid guid) const { return database_.find(guid); }
 
-  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回强 handle。 */
-  template <typename T> [[nodiscard]] handle_result<T> load_handle(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.load_handle<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回非拥有指针。 */
-  template <typename T> [[nodiscard]] result<T*> load(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.load<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
-  template <typename T> [[nodiscard]] handle_result<T> reload_handle(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.reload_handle<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
-  template <typename T> [[nodiscard]] result<T*> reload(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.reload<T>(guid);
-  }
-
   /** @brief 为指定根资源生成同类型预加载计划。 */
   template <typename T> [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
     static_assert(std::is_base_of_v<resources::resource, T>,
@@ -426,16 +381,6 @@ public:
   [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
     return database_.plan_preload(root);
   }
-
-  /** @brief 按同一资源类型同步预加载资源。 */
-  template <typename T> [[nodiscard]] preload_result preload(resource_guid root) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.preload<T>(root);
-  }
-
-  /** @brief 按 manifest type 同步预加载资源。 */
-  [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
 
   /** @brief 使用默认调度获取资源；未配置时返回失败请求，缓存命中可立即完成。 */
   template <typename T> [[nodiscard]] load_request<T> request_load(resource_guid guid) {
@@ -580,12 +525,11 @@ private:
 
 private:
   struct manual_type_binding {
-    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader, void* async_loader,
+    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader,
                               core::string_name resource_type);
 
     void* cache = nullptr;
     void* loader = nullptr;
-    void* async_loader = nullptr;
     bind_fn bind = nullptr;
   };
 
@@ -678,31 +622,16 @@ private:
 
   template <typename T>
   [[nodiscard]] static error rebind_manual_type(asset_manager& manager, void* cache, void* loader,
-                                                void* async_loader, core::string_name type) {
-    if (loader) {
-      if (auto status =
-              manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
-                                              *static_cast<resources::sync_loader_adapter<T>*>(
-                                                  static_cast<resources::loader<T>*>(loader)),
-                                              type)) {
-        return status;
-      }
-    }
-    return async_loader ? manager.database_.register_type(
-                              *static_cast<resources::cache<T>*>(cache),
-                              *static_cast<resources::loader<T>*>(
-                                  static_cast<resources::loader<T>*>(async_loader)),
-                              type)
-                        : error{};
+                                                core::string_name type) {
+    return manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
+                                           *static_cast<resources::loader<T>*>(loader), type);
   }
 
   template <typename T>
-  [[nodiscard]] error
-  remember_manual_type_binding(resources::cache<T>& cache, resources::loader<T>& loader,
-                               core::string_name type, bool asynchronous = false) {
-    manual_type_binding binding{&cache, asynchronous ? nullptr : &loader,
-                                asynchronous ? &loader : nullptr,
-                                &asset_manager::rebind_manual_type<T>};
+  [[nodiscard]] error remember_manual_type_binding(resources::cache<T>& cache,
+                                                   resources::loader<T>& loader,
+                                                   core::string_name type) {
+    manual_type_binding binding{&cache, &loader, &asset_manager::rebind_manual_type<T>};
     return remember_manual_type_binding_erased(type, binding);
   }
 

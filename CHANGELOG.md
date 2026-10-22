@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 删除 asset_manager/database 的同步 load、load_handle、reload、reload_handle、preload 执行入口，统一使用 request_*；find/resolve/plan_preload 查询保留。loader 注册和手动重建绑定收敛到单槽，不同实例重复注册返回 already_exists；低层同步组合函数仅接受 sync_loader_adapter，不再运行时探测原生异步实现。
+
 - 默认 JSON 工厂迁至异步请求快照路径：`json::loader<T>` 现在接受 reader 或文件读取模式；原 provider 构造实现更名为 `json::sync_loader<T>`，短期 `json::byte_loader<T>` 更名为 loader。默认原生异步，阻塞文件后端须显式选择 worker_adapter；工厂调用方改用 request_load/reload/preload，详见[迁移参考](docs/reference/assets.md#json-异步字节接入)。
 
 - 新增统一 `resources::byte_reader` 协议、`request_bytes` 与 VFS 原生/显式 worker 适配；`assets::json::loader<T>` 使用请求快照异步读字节并构造资源。同步读写兼容路径仍保留，迁移与预算限制见[资源参考](docs/reference/resources.md#统一字节读取适配)。

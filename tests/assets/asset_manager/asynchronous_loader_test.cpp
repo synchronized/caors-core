@@ -94,7 +94,7 @@ TEST_CASE("assets - native async loader releases worker while I/O waits",
   CHECK(f.completion.drain() == 1);
   CHECK(request.loaded());
   CHECK_FALSE(f.assets.database().has_active_operations());
-  CHECK(f.assets.load_handle<texture>(test_guid_a).succeeded());
+  CHECK(f.assets.request_load<texture>(test_guid_a).loaded());
   CHECK(f.assets.request_load<texture>(test_guid_a).loaded());
 }
 
@@ -184,22 +184,21 @@ TEST_CASE(
   CHECK(renewed.request_load<texture>(test_guid_a).loaded());
 }
 
-TEST_CASE("assets - async capability wins requests and keeps synchronous capability",
+TEST_CASE("assets - one loader registration rejects conflicting adapters and survives rebuild",
           "[assets][native-async]") {
   fixture f;
-  CHECK(f.assets.load_handle<texture>({}).status.value() == caors::errc::invalid_argument);
-  CHECK(f.assets.reload_handle<texture>({}).status.value() == caors::errc::invalid_argument);
-  CHECK(f.assets.load_handle<texture>(test_guid_a).status.value() == caors::errc::unsupported);
+  CHECK(f.assets.request_load<texture>({}).error().value() == caors::errc::invalid_argument);
+  CHECK(f.assets.request_reload<texture>({}).error().value() == caors::errc::invalid_argument);
   counting_texture_loader synchronous;
-  REQUIRE_FALSE(f.assets.register_type(f.cache, synchronous, caors::string_name{"group.texture"}));
+  CHECK(f.assets.register_type(f.cache, synchronous, caors::string_name{"group.texture"}).value() ==
+        caors::errc::already_exists);
+  REQUIRE_FALSE(f.assets.register_type(f.cache, f.loader, caors::string_name{"group.texture"}));
   auto request = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   CHECK(synchronous.load_count == 0);
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
-  CHECK(request.loaded());
-  CHECK(f.assets.load_handle<texture>(test_guid_b).succeeded());
-  CHECK(synchronous.load_count == 1);
+  REQUIRE(request.loaded());
   caors::assets::project_config config;
   REQUIRE_FALSE(caors::assets::project_builder{f.assets}.build(config));
   auto reload = f.assets.request_reload<texture>(test_guid_a);
@@ -516,7 +515,10 @@ TEST_CASE("assets - generic owned type factory accepts native async loader",
   REQUIRE(worker.drain() == 1);
   REQUIRE(completion.drain() == 1);
   CHECK(request.loaded());
-  CHECK(assets.load_handle<texture>(test_guid_b).status.value() == caors::errc::unsupported);
+  auto second = group.request_load<texture>(test_guid_b);
+  (void)worker.drain();
+  (void)completion.drain();
+  CHECK(second.loaded());
 }
 
 TEST_CASE("assets - preload cancellation and abandonment signal only unused native operations",
@@ -963,6 +965,16 @@ public:
 };
 template <typename T>
 concept has_synchronous_load = requires(T& value) { value.load(test_guid_a); };
+template <typename T>
+concept has_sync_orchestration =
+    requires(T& value) { value.template load<texture>(test_guid_a); } ||
+    requires(T& value) { value.template load_handle<texture>(test_guid_a); } ||
+    requires(T& value) { value.template reload<texture>(test_guid_a); } ||
+    requires(T& value) { value.template reload_handle<texture>(test_guid_a); } ||
+    requires(T& value) { value.preload(test_guid_a); } ||
+    requires(T& value) { value.template preload<texture>(test_guid_a); };
+static_assert(!has_sync_orchestration<caors::assets::asset_manager>);
+static_assert(!has_sync_orchestration<caors::resources::database>);
 static_assert(!has_synchronous_load<caors::resources::loader<texture>>);
 static_assert(has_synchronous_load<caors::resources::sync_loader_adapter<texture>>);
 } // namespace
@@ -983,7 +995,10 @@ TEST_CASE("assets - synchronous adapter preserves adjusted loader pointers acros
   CHECK_FALSE(request.done());
   REQUIRE(completion.drain() == 1);
   CHECK(request.loaded());
-  CHECK(assets.load_handle<texture>(test_guid_b).succeeded());
+  auto second = assets.request_load<texture>(test_guid_b);
+  (void)worker.drain();
+  (void)completion.drain();
+  CHECK(second.loaded());
   CHECK(loader.calls == 2);
 }
 

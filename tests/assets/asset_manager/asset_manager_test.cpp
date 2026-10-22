@@ -526,7 +526,11 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
-  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  caors::resources::preload_result loaded =
+      assets
+          .request_preload(test_guid_b, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.loaded.size() == 2);
   CHECK(loaded.loaded[0] ==
@@ -931,7 +935,10 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  auto loaded_request = assets.request_load<serialized_resource>(
+      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  caors::result<serialized_resource*> loaded{loaded_request.error(),
+                                             loaded_request.try_get().get()};
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 512);
@@ -950,7 +957,10 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
 
   REQUIRE(files->write_all("assets/resource-a.json", std::string_view{R"({"width":2048})"})
               .succeeded());
-  caors::result<serialized_resource*> reloaded = assets.reload<serialized_resource>(test_guid_a);
+  auto reloaded_request = assets.request_reload<serialized_resource>(
+      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  caors::result<serialized_resource*> reloaded{reloaded_request.error(),
+                                               reloaded_request.try_get().get()};
   REQUIRE(reloaded.succeeded());
   REQUIRE(reloaded.value != nullptr);
   CHECK(reloaded.value->width == 2048);
@@ -1277,7 +1287,11 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   REQUIRE(
       files->write_all("assets/resource-b.json", std::string_view{R"({"width":256})"}).succeeded());
 
-  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  caors::resources::preload_result loaded =
+      assets
+          .request_preload(test_guid_b, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
   REQUIRE(state.cache->find(test_guid_a) != nullptr);
@@ -1344,7 +1358,11 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
-  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  caors::resources::preload_result loaded =
+      assets
+          .request_preload(test_guid_b, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(cache.find(test_guid_a) != nullptr);
 

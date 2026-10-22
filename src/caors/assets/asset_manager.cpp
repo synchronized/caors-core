@@ -278,8 +278,8 @@ error asset_manager::remember_manual_type_binding_erased(core::string_name type,
   auto& binding = position->second;
   if (binding.cache != next.cache || binding.bind != next.bind)
     return {error_domain::resources, errc::already_exists};
-  void*& slot = next.async_loader ? binding.async_loader : binding.loader;
-  void* value = next.async_loader ? next.async_loader : next.loader;
+  void*& slot = binding.loader;
+  void* value = next.loader;
   if (slot && slot != value)
     return {error_domain::resources, errc::already_exists};
   slot = value;
@@ -746,13 +746,11 @@ error asset_manager::clear_config_runtime() {
 error asset_manager::rebuild_manual_type_bindings() {
   for (const auto& pair : project_->manual_type_bindings_) {
     const manual_type_binding& binding = pair.second;
-    if (binding.bind == nullptr || binding.cache == nullptr ||
-        (binding.loader == nullptr && binding.async_loader == nullptr)) {
+    if (binding.bind == nullptr || binding.cache == nullptr || binding.loader == nullptr) {
       return {error_domain::resources, errc::invalid_argument};
     }
 
-    const error status =
-        binding.bind(*this, binding.cache, binding.loader, binding.async_loader, pair.first);
+    const error status = binding.bind(*this, binding.cache, binding.loader, pair.first);
     if (status) {
       return status;
     }

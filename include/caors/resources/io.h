@@ -331,7 +331,7 @@ public:
  * 如果 cache 已包含该 GUID，直接返回已有强 handle。否则调用 loader 加载资源并把所有权转入 cache。
  */
 template <typename T>
-[[nodiscard]] handle_result<T> load_handle_into(cache<T>& target, loader<T>& source,
+[[nodiscard]] handle_result<T> load_handle_into(cache<T>& target, sync_loader_adapter<T>& source,
                                                 resource_guid guid) {
   if (!guid) {
     return {{error_domain::resources, errc::invalid_argument}, {}};
@@ -341,10 +341,7 @@ template <typename T>
     return {{}, existing};
   }
 
-  auto* synchronous = dynamic_cast<sync_loader_adapter<T>*>(&source);
-  if (!synchronous)
-    return {{error_domain::resources, errc::unsupported}, {}};
-  load_result<T> loaded = synchronous->load(guid, target.resource());
+  load_result<T> loaded = source.load(guid, target.resource());
   if (loaded.failed()) {
     return {loaded.status, {}};
   }
@@ -381,7 +378,7 @@ template <typename T>
  * 重新解析相关 `resource_ref<T>`。
  */
 template <typename T>
-[[nodiscard]] handle_result<T> reload_handle_into(cache<T>& target, loader<T>& source,
+[[nodiscard]] handle_result<T> reload_handle_into(cache<T>& target, sync_loader_adapter<T>& source,
                                                   resource_guid guid) {
   if (!guid) {
     return {{error_domain::resources, errc::invalid_argument}, {}};
@@ -391,10 +388,7 @@ template <typename T>
     return {{error_domain::resources, errc::not_found}, {}};
   }
 
-  auto* synchronous = dynamic_cast<sync_loader_adapter<T>*>(&source);
-  if (!synchronous)
-    return {{error_domain::resources, errc::unsupported}, {}};
-  load_result<T> loaded = synchronous->load(guid, target.resource());
+  load_result<T> loaded = source.load(guid, target.resource());
   if (loaded.failed()) {
     return {loaded.status, {}};
   }

@@ -845,14 +845,14 @@ caors::resources::replace_resource_dependencies(graph, material_resource_guid, d
 是运行期资源数据库里的关系索引。需要把事实写入索引时，应显式调用
 `resources::add_resource_dependencies()` 或 `resources::replace_resource_dependencies()`。
 
-推荐的同步预加载链路是：
+推荐的预加载链路是：
 
 1. 先用带 `context.resolvers.external_refs.collector` 的序列化或反序列化遍历收集所有资源 GUID。
 2. 如果当前遍历对象本身是资源，调用 `replace_resource_dependencies(graph, resource_guid, dependencies)`
    刷新依赖图。
 3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
-4. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
-5. 使用 `resources::load_handle_into(cache, loader, guid)` 把资源放入拥有式 cache。
+4. 调用 `request_preload`，通过匹配 loader 异步读取并构造资源；来源策略由工程配置提供。
+5. 推进所配置的 worker/completion 或宿主循环，检查请求结果后使用已提交的拥有式 cache。
 6. 创建 `resources::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
    `resolvers.external_refs.resolver` 和 `resolvers.external_refs.resolution`。
 
