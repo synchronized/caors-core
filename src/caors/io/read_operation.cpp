@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/io/detail/read_operation.h"
+#include "read_operation.h"
+#include "file_requests.h"
 
 namespace caors::io::detail {
 namespace {
@@ -27,15 +28,15 @@ void finish(const std::shared_ptr<read_operation>& op, io::io_error status = {})
   (void)completion.complete(std::move(op->result));
 }
 void close(const std::shared_ptr<read_operation>& op) {
-  auto closed = io::request_close(op->file, op->context.worker,
-                                  [op](const auto& value) { finish(op, value.error()); });
+  auto closed = io::detail::close_file(op->file, op->context.worker,
+                                       [op](const auto& value) { finish(op, value.error()); });
   if (!closed)
     finish(op, closed.error());
   else
     op->closing = std::move(closed.value);
 }
 void begin_read(const std::shared_ptr<read_operation>& op) {
-  auto reading = io::read_all_bounded(
+  auto reading = io::detail::read_file_bounded(
       op->file, op->context.max_bytes, op->context.worker,
       [op](const auto& bytes) {
 #if CAORS_HAS_EXCEPTIONS
@@ -91,11 +92,12 @@ io_error start_read_file(resolved_file source, tasks::executor executor, std::ui
       begin_read(op);
     }
   };
-  auto opened = !worker_mode
-                    ? io::request_open(std::move(op->context.source), op->context.worker, on_open,
-                                       op->context.resource)
-                    : io::request_open_on_worker(std::move(op->context.source), op->context.worker,
-                                                 op->context.worker, on_open, op->context.resource);
+  auto opened =
+      !worker_mode
+          ? io::detail::open_file(std::move(op->context.source), op->context.worker, on_open,
+                                  op->context.resource)
+          : io::detail::open_file_on_worker(std::move(op->context.source), op->context.worker,
+                                            op->context.worker, on_open, op->context.resource);
   if (!opened)
     return opened.error();
   op->opening = std::move(opened.value);

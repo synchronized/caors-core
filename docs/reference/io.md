@@ -157,3 +157,20 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 
 宿主实现见[文件后端协议](io-backends.md)和[异步 VFS 指南](../guides/async-vfs-integration.md)。
 旧 file_system、resolver、同步流和组合函数见[IO 兼容接口](io-legacy.md)，不属于普通文件访问入口。
+
+## 已移除入口的迁移
+
+以下五个旧公共函数已经删除，不提供兼容别名：
+
+| 旧入口 | 当前替代 |
+| --- | --- |
+| request_open | io_context.open |
+| request_open_on_worker | 构造 backend 时绑定 worker，再通过 io_context.open 打开 |
+| request_read | file.read；预算与完成调度在打开时绑定 |
+| read_all_bounded | 路径整体读取用 io_context.read；已有句柄用 file.read({0, file.size()}) |
+| request_close | file.close |
+
+普通操作直接返回单层 request，发起失败也通过请求查询或完成通知报告，不再检查外层 io_result<request>。
+如果要保持旧批次来源，使用拥有式 VFS 快照构造 io_context；资源 loader 使用捕获的来源与 request_bytes，
+不把已经解析的来源重新投给活跃路由。详细字节协议见[资源参考](resources.md#统一字节读取适配)。
+库内部仍复用有界读取与关闭编排，但对应头仅位于 src，不安装为调用方接口。

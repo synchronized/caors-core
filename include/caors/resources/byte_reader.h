@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_BYTE_READER_H_
 
 #include "caors/io/async_file.h"
+#include "caors/io/route_snapshot.h"
 
 namespace caors::resources {
 /** @brief 拥有式读取来源及单次预算；worker 必须支持后端要求的执行方式。 */

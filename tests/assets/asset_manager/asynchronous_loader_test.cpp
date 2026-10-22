@@ -664,20 +664,14 @@ TEST_CASE("assets - configured builtins expose owning snapshots after manager de
   }
   auto file = snapshot->resolve(test_guid_a);
   REQUIRE(file);
-  auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
-  REQUIRE(opened);
-  REQUIRE(opened->result());
-  REQUIRE(*opened->result());
-  auto stream = opened->result()->value;
-  auto read = caors::io::read_all_bounded(stream, 7, caors::tasks::inline_executor());
+  caors::resources::file_byte_reader reader;
+  auto read = caors::resources::request_bytes(
+      reader, {std::move(file.value), caors::tasks::inline_executor(), 7, nullptr},
+      caors::tasks::inline_executor());
   REQUIRE(read);
   REQUIRE(read->result());
   REQUIRE(*read->result());
   CHECK(read->result()->value.size() == 7);
-  auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
-  REQUIRE(closed);
-  REQUIRE(closed->result());
-  CHECK(*closed->result());
 }
 TEST_CASE("assets - configured owning route cycles fail before publishing edges", "[assets][vfs]") {
   caors::assets::asset_manager assets;

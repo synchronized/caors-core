@@ -3,6 +3,7 @@
 
 #include "caors/io/async_file.h"
 #include "caors/io/file_system.h"
+#include "file_requests.h"
 
 #include <algorithm>
 #include <atomic>
@@ -341,11 +342,11 @@ std::shared_ptr<async_file> make_worker_file(std::shared_ptr<random_access_reade
     return {};
   return std::make_shared<worker_file>(std::move(reader), std::move(worker), std::move(lifetime));
 }
+namespace detail {
 io_result<io_request<byte_buffer>>
-request_read(std::shared_ptr<async_file> file, std::uint64_t offset, std::uint64_t length,
-             std::uint64_t max_bytes, tasks::executor completion,
-             std::function<void(const io_result<byte_buffer>&)> callback,
-             memory_resource* resource) {
+read_file(std::shared_ptr<async_file> file, std::uint64_t offset, std::uint64_t length,
+          std::uint64_t max_bytes, tasks::executor completion,
+          std::function<void(const io_result<byte_buffer>&)> callback, memory_resource* resource) {
   if (!file)
     return io_failure<io_request<byte_buffer>>({io_errc::invalid_argument});
   if (offset > file->size() || length > file->size() - offset)
@@ -368,16 +369,16 @@ request_read(std::shared_ptr<async_file> file, std::uint64_t offset, std::uint64
         result = io_failure<byte_buffer>({reason});
       });
 }
-io_result<io_request<byte_buffer>> read_all_bounded(
+io_result<io_request<byte_buffer>> read_file_bounded(
     std::shared_ptr<async_file> file, std::uint64_t max_bytes, tasks::executor completion,
     std::function<void(const io_result<byte_buffer>&)> callback, memory_resource* resource) {
   const auto length = file ? file->size() : 0;
-  return request_read(std::move(file), 0, length, max_bytes, std::move(completion),
-                      std::move(callback), resource);
+  return read_file(std::move(file), 0, length, max_bytes, std::move(completion),
+                   std::move(callback), resource);
 }
 io_result<io_request<close_result>>
-request_close(std::shared_ptr<async_file> file, tasks::executor completion,
-              std::function<void(const io_result<close_result>&)> callback) {
+close_file(std::shared_ptr<async_file> file, tasks::executor completion,
+           std::function<void(const io_result<close_result>&)> callback) {
   if (!file)
     return io_failure<io_request<close_result>>({io_errc::invalid_argument});
   return start_io<close_result>(
@@ -385,9 +386,9 @@ request_close(std::shared_ptr<async_file> file, tasks::executor completion,
       [file](auto receipt) { return file->start_close(std::move(receipt)); }, file);
 }
 io_result<io_request<std::shared_ptr<async_file>>>
-request_open(resolved_file file, tasks::executor completion,
-             std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
-             memory_resource* resource, open_options options) {
+open_file(resolved_file file, tasks::executor completion,
+          std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
+          memory_resource* resource, open_options options) {
   if (!file.backend)
     return io_failure<io_request<std::shared_ptr<async_file>>>({io_errc::invalid_argument});
   auto lifetime = file.backend;
@@ -410,9 +411,9 @@ request_open(resolved_file file, tasks::executor completion,
       });
 }
 io_result<io_request<std::shared_ptr<async_file>>>
-request_open_on_worker(resolved_file file, tasks::executor worker, tasks::executor completion,
-                       std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
-                       memory_resource* resource) {
+open_file_on_worker(resolved_file file, tasks::executor worker, tasks::executor completion,
+                    std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
+                    memory_resource* resource) {
   if (!file.backend || !worker)
     return io_failure<io_request<std::shared_ptr<async_file>>>({io_errc::invalid_argument});
   auto lifetime = file.backend;
@@ -459,4 +460,5 @@ request_open_on_worker(resolved_file file, tasks::executor worker, tasks::execut
         result.value = std::make_shared<pinned_file>(lifetime, std::move(result.value), source_id);
       });
 }
+} // namespace detail
 } // namespace caors::io

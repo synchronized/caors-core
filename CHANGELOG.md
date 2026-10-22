@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 删除 IO 旧公共 request_open、request_open_on_worker、request_read、read_all_bounded、request_close，无兼容别名；调用方改用 io_context/file，发起失败统一由单层 request 报告。内部编排头移出安装包，迁移见 [IO 参考](docs/reference/io.md#已移除入口的迁移)。
+
 - IO：统一 open 支持显式读写权限与创建/截断选项，file.write 提供有预算的范围写入并复用关闭清理。
 - 新增 io_context 整文件 write/stat/list，输入与结果拥有数据，元数据路径回映到逻辑目录；原生写入检查关闭错误。io.h 仅聚合新主线，旧路由/同步文件系统与原始文件组合显式使用 io/legacy.h。新增 resources::vfs_source，将新 VFS 批次路由接入默认 JSON loader。
 

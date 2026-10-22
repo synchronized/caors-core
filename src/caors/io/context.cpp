@@ -2,9 +2,10 @@
 // Copyright (c) 2026 CAORS contributors
 #include "caors/io/context.h"
 #include "caors/io/detail/error.h"
-#include "caors/io/detail/read_operation.h"
-#include "caors/io/detail/vfs_operations.h"
 #include "caors/io/location.h"
+#include "file_requests.h"
+#include "read_operation.h"
+#include "vfs_operations.h"
 namespace caors::io {
 io_context::io_context(const vfs& routes, io_context_options options)
     : routes_(&routes), options_(std::move(options)) {}
@@ -35,7 +36,7 @@ request<file> io_context::open(path_view location, open_options options,
         auto op = std::make_shared<operation>();
         auto stop = receipt.stop_token();
         op->receipt = std::move(receipt);
-        auto opened = request_open(
+        auto opened = detail::open_file(
             std::move(resolved.value), config.completion,
             [op, config, budget = options.max_read_bytes, write_budget = options.max_write_bytes,
              access = options.access](const auto& value) {
@@ -152,8 +153,8 @@ request<byte_buffer> file::read(file_read_options options,
   if (handle_ && access_ == file_access::write)
     return detail::unwrap_request(io_failure<io_request<byte_buffer>>({io_errc::permission_denied}),
                                   executor_, std::move(callback));
-  auto started = request_read(handle_, options.offset, options.length, budget_, executor_, callback,
-                              resource_);
+  auto started = detail::read_file(handle_, options.offset, options.length, budget_, executor_,
+                                   callback, resource_);
   return detail::unwrap_request(std::move(started), executor_, std::move(callback));
 }
 request<std::uint64_t>
@@ -182,7 +183,7 @@ file::write(file_write_options options, byte_buffer bytes,
 }
 request<close_result>
 file::close(std::function<void(const io_result<close_result>&)> callback) const {
-  auto started = request_close(handle_, executor_, callback);
+  auto started = detail::close_file(handle_, executor_, callback);
   return detail::unwrap_request(std::move(started), executor_, std::move(callback));
 }
 } // namespace caors::io

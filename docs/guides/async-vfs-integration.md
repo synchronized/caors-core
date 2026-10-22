@@ -28,10 +28,11 @@
    只将完整 byte_buffer 交给完成凭证；短段继续读取，提前 EOF 返回 short_read。
 4. 将 IO 通知投递到宿主 completion executor。保留请求至所需通知结束，并处理请求可查询的拒绝/丢弃失败。
    不依赖“函数返回后才回调”，不在 I/O 线程补调用户通知。
-5. loader 通过 `context.snapshot_as<resources::provider_snapshot>()` 取得并检查快照，再调用 `resolve(guid)`，把拥有式路径交给 request_open。
-   需要同步适配时由宿主明确选择 request_open_on_worker，不能在 unsupported 后偷偷阻塞或 read_all 回退。
-6. 解析结束或取消后显式 request_close，排空真实 I/O 与关闭，再释放文件、回调和模块/allocator。
-   新来源使用 remount 加明确 reload，或创建独立资源上下文。
+5. loader 从 `context.snapshot_as<resources::provider_snapshot>()` 取得并检查快照，通过 resolve(guid) 固定来源，
+   交给 resources::request_bytes 与 file_byte_reader。不要为了使用新入口而从活跃 VFS 再解析一次，改变在途来源。
+   新后端构造时绑定 worker；只有旧同步随机读来源才显式选择 file_read_mode::worker_adapter，不作自动回退。
+6. file_byte_reader 统一编排打开、限量读取与关闭，宿主须维持真实 I/O 和关闭清理所需循环与凭据。
+   普通文件访问通过 io_context.open 得到 file，并显式 file.close；来源切换使用 remount 加明确 reload。
 
 可运行的 manager → loader → 快照 → 读取/关闭示例见
 [assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。来源可同时提供同步与异步能力，

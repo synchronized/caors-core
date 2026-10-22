@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "../../../src/caors/io/file_requests.h"
 #include "caors/io/legacy.h"
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_host.h"
@@ -94,7 +95,8 @@ bool verify_io(const char* path, bool discard) {
       return false;
     if (!resolved)
       return false;
-    auto opening = caors::io::request_open(std::move(resolved.value), notifications.get_executor());
+    auto opening =
+        caors::io::detail::open_file(std::move(resolved.value), notifications.get_executor());
     if (!opening)
       return false;
     request = std::move(opening.value);
@@ -119,7 +121,7 @@ bool verify_io(const char* path, bool discard) {
     request = {};
     if (unloaded || destroyed)
       return false;
-    auto read = caors::io::request_read(file, 1, 2, 2, caors::tasks::inline_executor());
+    auto read = caors::io::detail::read_file(file, 1, 2, 2, caors::tasks::inline_executor());
     if (!read || !read->result() || !*read->result() || read->result()->value.size() != 2)
       return false;
     std::uint64_t consumed = 0;
@@ -130,7 +132,7 @@ bool verify_io(const char* path, bool discard) {
                                             });
     if (!stream || !stream->result() || !*stream->result() || consumed != file->size())
       return false;
-    auto close = caors::io::request_close(file, caors::tasks::inline_executor());
+    auto close = caors::io::detail::close_file(file, caors::tasks::inline_executor());
     if (!close || !close->result() || !*close->result())
       return false;
     // read/close 请求也持有文件，离开作用域后才释放最后后端和模块凭据。

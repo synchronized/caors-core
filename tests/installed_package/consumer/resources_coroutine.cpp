@@ -56,16 +56,12 @@ public:
                         : caors::fail<caors::io::resolved_file>(
                               {caors::error_domain::io, caors::errc::unsupported});
     if (file) {
-      auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
-      if (opened && opened->result() && *opened->result()) {
-        auto stream = opened->result()->value;
-        auto read = caors::io::request_read(stream, 0, 1, 1, caors::tasks::inline_executor());
-        if (read && read->result() && *read->result())
-          value->value = std::to_integer<int>(read->result()->value[0]);
-        auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
-        if (!closed || !closed->result() || !*closed->result())
-          value->value = -2;
-      }
+      caors::resources::file_byte_reader reader;
+      auto read = caors::resources::request_bytes(
+          reader, {std::move(file.value), caors::tasks::inline_executor(), 1, nullptr},
+          caors::tasks::inline_executor());
+      if (read && read->result() && *read->result() && read->result()->value.size() == 1)
+        value->value = std::to_integer<int>(read->result()->value[0]);
     }
     context.reset();
     (void)token.complete({{}, std::move(value)});

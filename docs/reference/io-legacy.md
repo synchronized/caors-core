@@ -281,8 +281,9 @@ resolver 和 mount 均增加 `mount(prefix, shared_ptr<file_system>, target_pref
 
 ## 串行分块读取
 
-`chunked_file.h` 提供 `read_all_chunked` 与 `consume_chunks`，均复用 request_read，
-不改变 read_all_bounded 的单次完整范围语义，也不引入另一套挂载或打开能力。
+`chunked_file.h` 仍为底层适配器提供 read_all_chunked 与 consume_chunks，复用内部精确范围读取，
+支持后端单次读取上限、进度通知及不会递归增长的逐块消费；这些能力尚未完整迁入普通 file 接口，暂保留。
+普通调用者按 file.read 逐块处理，见 [io_chunked_read.cpp](../../examples/beta/io_chunked_read.cpp)。
 `chunk_read_options` 显式提供 max_bytes（总处理预算）与非零 chunk_bytes（单块上限），
 实际块还受后端 max_read_size、剩余长度及本机可表示范围限制。
 
@@ -296,6 +297,6 @@ resolver 和 mount 均增加 `mount(prefix, shared_ptr<file_system>, target_pref
 - 取消阻止新块启动，并协作停止在途读取；不能抢占正在执行的同步消费者，消费副作用不会回滚。
 - 消费者或进度回调抛出 bad_alloc 归类 out_of_memory，其他异常归类 backend_failure；
   消费者返回的后端错误码原样保留。读取、取消和通知拒绝/丢弃都有唯一可查询终态。
-- helper 持有文件以覆盖实际清理，但不隐式关闭共享文件；宿主仍负责显式 request_close 和 loop 寿命；外部关闭可使尚未启动的后续块返回 closed。
+- helper 持有文件以覆盖实际清理，但不隐式关闭共享文件；底层适配器仍负责通过 async_file::start_close 关闭及维持 loop 寿命；外部关闭可使尚未启动的后续块返回 closed。
   allocator 可能在发起、后端或完成线程使用，宿主须满足对应线程安全要求。
 - inline executor 与即时后端使用迭代推进，不随块数递归增长；原生后端及 executor 的线程约束仍成立。

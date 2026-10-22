@@ -28,18 +28,10 @@ size 对只读保持打开长度，对可写反映本句柄已成功写入的扩
 
 ## 异步文件与精确范围
 
-以下是兼容打开桥，新宿主优先实现上面的 backend。旧原生异步能力是 `file_system::start_open(resolved_file, resource, io_completion<shared_ptr<async_file>>)`；
-默认 unsupported。先解析拥有式路径，再使用 `request_open()`。结果文件自动保留解析来源的寿命与 source_id，
-宿主操作仍须正确持有其 loop、原生句柄和 allocator 至真实清理。完整加载示例见
-[assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。
-
-| 入口 | 行为 |
-| --- | --- |
-| request_open | 调用后端原生异步能力，无同步回退；内存后端可立即提供结果 |
-| request_open_on_worker | 显式占用 worker，仅调用可选 open_random_read；不使用 open_read/read_all 默认实现 |
-| request_read | 按 offset/length 精确读取独立范围，成功结果必须恰好等于 length |
-| read_all_bounded | 从 0 读取句柄已知长度，只读为打开长度，沿用范围与单请求预算，不绕过总结果上限 |
-| request_close | 发起或订阅异步关闭，关闭错误通过请求结果查询 |
+普通访问统一使用 io_context.open 与 file.read/write/close；不再公开独立的打开、读取、关闭请求函数。
+后端通过 async_file 的 start_read/start_write/start_close 接收实际操作和完成凭证。
+VFS 打开结果在内部保留解析来源的寿命与 source_id；宿主仍须持有 loop、原生句柄和 allocator 至真实清理。
+完整加载示例见 [assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。
 
 范围为 uint64；分配前检查打开长度、整数边界、size_t/ptrdiff_t、后端单次上限及明确的 `max_bytes`。
 零长度可位于 EOF，超出 EOF 仍失败；只读文件增长不扩大打开长度，可写句柄计入自身已成功写入的扩展；提前 EOF 返回 short_read，不返回伪完整缓冲。
@@ -53,7 +45,7 @@ worker 适配器累积短段，内部串行 seek/read，允许多个范围在途
 
 关闭开始后拒绝新读写，已接受操作真实清理后仅关闭一次，重复关闭复用关闭结果，各自拥有通知请求。
 worker 适配器析构投递不等待的清理任务；队列拒绝/丢弃或分配失败时，由 reader 的 RAII 析构兜底。
-析构没有错误接收者，观察关闭错误必须显式 request_close；宿主必须维持 loop/worker 至关闭结束。
+析构没有错误接收者，观察关闭错误必须显式 file.close；宿主必须维持 loop/worker 至关闭结束。
 
 
 旧 file_system 只有 start_open 时仅支持默认只读选项；支持可写模式需实现 start_open_options。

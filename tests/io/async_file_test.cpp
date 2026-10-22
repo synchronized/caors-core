@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "../../src/caors/io/file_requests.h"
 #include "caors/tasks/execution_context.h"
 #include "io_test_support.h"
 
@@ -17,7 +18,7 @@ std::shared_ptr<async_file> open_memory(std::string_view text) {
   REQUIRE(snapshot);
   auto resolved = snapshot->resolve("data");
   REQUIRE(resolved);
-  auto open = request_open(std::move(resolved.value), tasks::inline_executor());
+  auto open = caors::io::detail::open_file(std::move(resolved.value), tasks::inline_executor());
   REQUIRE(open);
   auto result = open->result();
   REQUIRE(result);
@@ -57,30 +58,33 @@ TEST_CASE("io - exact range validates bounds and budget before allocation", "[io
   auto file = open_memory("abcdefgh");
   CHECK(file->source_id() != 0);
   auto executor = tasks::inline_executor();
-  auto range = request_read(file, 2, 3, 3, executor);
+  auto range = caors::io::detail::read_file(file, 2, 3, 3, executor);
   REQUIRE(range);
   CHECK(text_of(*range) == "cde");
-  auto zero = request_read(file, 8, 0, 0, executor);
+  auto zero = caors::io::detail::read_file(file, 8, 0, 0, executor);
   REQUIRE(zero);
   REQUIRE(zero->result());
   CHECK(zero->result()->value.empty());
-  CHECK(request_read(file, 9, 0, 1, executor).error().value == io_errc::out_of_range);
-  CHECK(request_read(file, 1, (std::numeric_limits<std::uint64_t>::max)(),
-                     (std::numeric_limits<std::uint64_t>::max)(), executor)
+  CHECK(caors::io::detail::read_file(file, 9, 0, 1, executor).error().value ==
+        io_errc::out_of_range);
+  CHECK(caors::io::detail::read_file(file, 1, (std::numeric_limits<std::uint64_t>::max)(),
+                                     (std::numeric_limits<std::uint64_t>::max)(), executor)
             .error()
             .value == io_errc::out_of_range);
-  CHECK(request_read(file, 2, 4, 3, executor).error().value == io_errc::limit_exceeded);
-  CHECK(read_all_bounded(file, 7, executor).error().value == io_errc::limit_exceeded);
+  CHECK(caors::io::detail::read_file(file, 2, 4, 3, executor).error().value ==
+        io_errc::limit_exceeded);
+  CHECK(caors::io::detail::read_file_bounded(file, 7, executor).error().value ==
+        io_errc::limit_exceeded);
 }
 TEST_CASE("io - worker accumulates short chunks and diagnoses premature EOF", "[io][async-file]") {
   auto reader = std::make_shared<chunk_reader>();
   auto file = make_worker_file(reader, tasks::inline_executor());
-  auto full = request_read(file, 0, 8, 8, tasks::inline_executor());
+  auto full = caors::io::detail::read_file(file, 0, 8, 8, tasks::inline_executor());
   REQUIRE(full);
   CHECK(text_of(*full) == "abcdefgh");
   CHECK(reader->reads == 4);
   reader->available = 3;
-  auto short_read = request_read(file, 0, 8, 8, tasks::inline_executor());
+  auto short_read = caors::io::detail::read_file(file, 0, 8, 8, tasks::inline_executor());
   REQUIRE(short_read);
   REQUIRE(short_read->result());
   CHECK(short_read->result()->error().value == io_errc::short_read);
@@ -91,16 +95,17 @@ TEST_CASE("io - close waits for accepted reads and executes once", "[io][async-f
   auto reader = std::make_shared<chunk_reader>();
   reader->close_error = {io_errc::backend_failure, 57, 91};
   auto file = make_worker_file(reader, worker.get_executor());
-  auto first = request_read(file, 0, 2, 2, tasks::inline_executor());
-  auto second = request_read(file, 6, 2, 2, tasks::inline_executor());
-  auto close = request_close(file, tasks::inline_executor());
-  auto duplicate = request_close(file, tasks::inline_executor());
+  auto first = caors::io::detail::read_file(file, 0, 2, 2, tasks::inline_executor());
+  auto second = caors::io::detail::read_file(file, 6, 2, 2, tasks::inline_executor());
+  auto close = caors::io::detail::close_file(file, tasks::inline_executor());
+  auto duplicate = caors::io::detail::close_file(file, tasks::inline_executor());
   REQUIRE(first);
   REQUIRE(second);
   REQUIRE(close);
   REQUIRE(duplicate);
   CHECK_FALSE(close->result());
-  CHECK(request_read(file, 0, 1, 1, tasks::inline_executor()).error().value == io_errc::closed);
+  CHECK(caors::io::detail::read_file(file, 0, 1, 1, tasks::inline_executor()).error().value ==
+        io_errc::closed);
   REQUIRE(worker.drain() == 2);
   CHECK(text_of(*first) == "ab");
   CHECK(text_of(*second) == "gh");
@@ -111,7 +116,7 @@ TEST_CASE("io - close waits for accepted reads and executes once", "[io][async-f
   CHECK(close->result()->error().native_code == 91);
   CHECK(duplicate->result()->error().backend_id == 57);
   CHECK(reader->closes == 1);
-  auto late = request_close(file, tasks::inline_executor());
+  auto late = caors::io::detail::close_file(file, tasks::inline_executor());
   REQUIRE(late);
   REQUIRE(late->result());
   CHECK(late->result()->error().native_code == 91);
@@ -122,8 +127,8 @@ TEST_CASE("io - worker drop and cancellation retain cleanup without pending fore
   tasks::execution_context worker;
   auto reader = std::make_shared<chunk_reader>();
   auto file = make_worker_file(reader, worker.get_executor());
-  auto first = request_read(file, 0, 4, 4, tasks::inline_executor());
-  auto second = request_read(file, 4, 4, 4, tasks::inline_executor());
+  auto first = caors::io::detail::read_file(file, 0, 4, 4, tasks::inline_executor());
+  auto second = caors::io::detail::read_file(file, 4, 4, 4, tasks::inline_executor());
   REQUIRE(first);
   REQUIRE(second);
   first->cancel();
@@ -131,12 +136,12 @@ TEST_CASE("io - worker drop and cancellation retain cleanup without pending fore
   REQUIRE(first->result());
   CHECK(first->result()->error().value == io_errc::cancelled);
   CHECK(text_of(*second) == "efgh");
-  auto dropped = request_read(file, 0, 4, 4, tasks::inline_executor());
+  auto dropped = caors::io::detail::read_file(file, 0, 4, 4, tasks::inline_executor());
   REQUIRE(dropped);
   worker.clear();
   REQUIRE(dropped->result());
   CHECK(dropped->result()->error().value == io_errc::cancelled);
-  auto close = request_close(file, tasks::inline_executor());
+  auto close = caors::io::detail::close_file(file, tasks::inline_executor());
   REQUIRE(close);
   worker.clear();
   REQUIRE(close->result());
@@ -161,21 +166,21 @@ TEST_CASE("io - native file small ranges use explicit worker adapter", "[io][asy
   REQUIRE(snapshot);
   auto resolved = snapshot->resolve("data");
   REQUIRE(resolved);
-  CHECK(request_open(resolved.value, tasks::inline_executor()).error().value ==
+  CHECK(caors::io::detail::open_file(resolved.value, tasks::inline_executor()).error().value ==
         io_errc::unsupported);
-  auto opened = request_open_on_worker(std::move(resolved.value), tasks::inline_executor(),
-                                       tasks::inline_executor());
+  auto opened = caors::io::detail::open_file_on_worker(
+      std::move(resolved.value), tasks::inline_executor(), tasks::inline_executor());
   REQUIRE(opened);
   REQUIRE(opened->result());
   REQUIRE(*opened->result());
   auto file = opened->result()->value;
-  auto first = request_read(file, 5, 3, 3, tasks::inline_executor());
-  auto second = request_read(file, 0, 2, 2, tasks::inline_executor());
+  auto first = caors::io::detail::read_file(file, 5, 3, 3, tasks::inline_executor());
+  auto second = caors::io::detail::read_file(file, 0, 2, 2, tasks::inline_executor());
   REQUIRE(first);
   REQUIRE(second);
   CHECK(text_of(*first) == "fgh");
   CHECK(text_of(*second) == "ab");
-  auto close = request_close(file, tasks::inline_executor());
+  auto close = caors::io::detail::close_file(file, tasks::inline_executor());
   REQUIRE(close);
   REQUIRE(close->result());
   CHECK(*close->result());
@@ -233,7 +238,7 @@ TEST_CASE("io - native opening and delivered file pin backend beyond unmount", "
     REQUIRE(snapshot);
     auto file = snapshot->resolve("assets/data");
     REQUIRE(file);
-    auto opened = request_open(std::move(file.value), tasks::inline_executor());
+    auto opened = caors::io::detail::open_file(std::move(file.value), tasks::inline_executor());
     REQUIRE(opened);
     request = std::move(opened.value);
     router.clear();
@@ -249,7 +254,7 @@ TEST_CASE("io - native opening and delivered file pin backend beyond unmount", "
   request = {};
   CHECK_FALSE(weak.expired());
   CHECK_FALSE(pin.expired());
-  auto read = request_read(file, 0, 1, 1, tasks::inline_executor());
+  auto read = caors::io::detail::read_file(file, 0, 1, 1, tasks::inline_executor());
   REQUIRE(read);
   REQUIRE(read->result());
   CHECK(*read->result());
@@ -289,12 +294,12 @@ public:
 }
 TEST_CASE("io - native success must deliver exactly the requested byte count", "[io][async-file]") {
   auto file = std::make_shared<malformed_file>();
-  auto short_read = request_read(file, 0, 3, 3, tasks::inline_executor());
+  auto short_read = caors::io::detail::read_file(file, 0, 3, 3, tasks::inline_executor());
   REQUIRE(short_read);
   REQUIRE(short_read->result());
   CHECK(short_read->result()->error().value == io_errc::short_read);
   file->result_length = 4;
-  auto oversized = request_read(file, 0, 3, 3, tasks::inline_executor());
+  auto oversized = caors::io::detail::read_file(file, 0, 3, 3, tasks::inline_executor());
   REQUIRE(oversized);
   REQUIRE(oversized->result());
   CHECK(oversized->result()->error().value == io_errc::backend_failure);

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 #include "caors/io/vfs.h"
-#include "caors/io/detail/vfs_operations.h"
 #include "caors/io/file_system_resolver.h"
+#include "vfs_operations.h"
 namespace caors::io {
 namespace {
 // 旧路由算法仅作为私有传输适配，新的 backend 不继承 file_system。
