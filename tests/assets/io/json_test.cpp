@@ -370,7 +370,7 @@ TEST_CASE("assets - byte loader reads snapshot using native or worker reader",
   }
   REQUIRE(request.loaded());
   CHECK(request.try_get()->width == 123);
-  auto refreshed = assets.request_refresh<serialized_resource>(test_guid_a);
+  auto refreshed = assets.request_reload<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !refreshed.done(); ++i) {
     (void)worker.drain();
     (void)completion.drain();
@@ -378,7 +378,7 @@ TEST_CASE("assets - byte loader reads snapshot using native or worker reader",
   REQUIRE(refreshed.loaded());
   CHECK(refreshed.try_get()->width == 456);
   REQUIRE_FALSE(files->write_all("new", "{"));
-  auto invalid = assets.request_refresh<serialized_resource>(test_guid_a);
+  auto invalid = assets.request_reload<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !invalid.done(); ++i) {
     (void)worker.drain();
     (void)completion.drain();

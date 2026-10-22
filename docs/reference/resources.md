@@ -337,12 +337,12 @@ database.register_type(cache, loader);
 auto request = database.request_load<texture>(texture_id, worker, completion);
 ```
 
-`database.request_load<T>()` 和 `database.request_reload<T>()` 会按资源类型和 GUID 复用进行中的请求：
+`database.request_load<T>()` 复用同类型/GUID 的进行中加载，`request_reload<T>()` 每次独立启动：
 
 - cache 已经有同 GUID 资源时，`request_load<T>()` 立即返回 loaded 请求，不提交后台任务。
 - 同一个资源类型、同一个 GUID 的 queued/loading load 复用一次底层加载，各次调用返回独立订阅。
-- 同一个资源类型、同一个 GUID 的 queued/loading reload 同样复用底层操作并返回独立订阅。
-- load 和 reload 使用独立请求表；同 GUID 的首次加载和重载不会互相复用。
+- 同 GUID 的多次 reload 各自构造结果，只有最新登记的重载可以更新默认缓存绑定。
+- 无缓存时后续 load 可以订阅最新重载；有缓存时 load 仍立即返回旧的已发布资源。
 - `cancel()` 只取消当前订阅；普通句柄复制共享该订阅，其他独立调用不受影响。`cancel_shared()` 显式取消底层操作的全部订阅。
 - 请求 loaded、failed 或 cancelled 后会从请求表移除，后续同 GUID 请求可以重新提交。
 
@@ -712,7 +712,7 @@ auto resolver = caors::resources::make_resource_resolver(database);
 - `bind_resource_type_alias()` / `bind_resource_type_guid()`：把外部类型 token 或稳定 type_guid 映射到已注册
   cache/loader，供跨类型预加载分派使用。
 - `request_load<T>(guid, worker, completion)`：通过统一 loader 加载并在完成 executor 提交缓存。
-- `request_reload<T>()` / `request_refresh<T>()`：重载或独立刷新，失败保留已发布资源。
+- `request_reload<T>()`：独立重载，无缓存也可创建，失败保留已发布资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
@@ -1176,19 +1176,18 @@ asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定�
 
 ## 显式刷新与默认绑定
 
-`database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
-manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
-刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
-loader 必须使用 context.snapshot_as<resources::provider_snapshot>() 才获得来源冻结保证；JSON sync_loader 兼容 adapter 或忽略该字段的自定义 loader
-仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
+`database`、`asset_manager` 和 `asset_group` 使用统一 `request_reload<T>`。
+manager/group 使用已配置调度；database 和低层 request_reload_into 显式接收调度。
+每次重载独立捕获来源，不要求缓存已存在，不加入旧操作；仅作用于单资源，不刷新依赖闭包。
+loader 必须使用请求快照才获得来源冻结保证，sync_loader 兼容路径仍读取实时 provider。
 
-| 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |
+| 调用 | 已有缓存 | 无缓存且重载在途 | 旧操作在途 |
 | --- | --- | --- | --- |
-| request_load | 立即返回已发布缓存 | 订阅当前刷新 | 没有刷新选择时保留原共享规则 |
-| request_reload | 无当前刷新时保留原重载规则 | 无缓存仍报 not_found | 有当前刷新时订阅它，否则保留原共享规则 |
-| request_refresh | 独立准备新对象 | 独立创建更新的刷新意图 | 不加入旧操作 |
+| request_load | 返回已发布缓存 | 订阅最新重载 | 没有重载选择时按原加载共享规则 |
+| request_reload | 独立构造并准备替换 | 独立构造新对象 | 不加入旧操作，最新登记者拥有发布资格 |
+| request_preload | 复用已有缓存 | 按 load 规则订阅 | 不强制重载依赖 |
 
-最新登记的刷新意图拥有默认绑定发布资格；首次 load 和旧 reload 的提交也必须检查该资格。
+最新登记的刷新意图拥有默认绑定发布资格；首次 load 和较早 reload 的提交也必须检查该资格。
 旧请求仍可返回自己加载的拥有式 handle，但不能更新默认 cache。
 成功在 completion 所属线程切换单资源绑定，失败保留旧对象；最新意图失败、操作取消、投递拒绝/丢弃，
 均不恢复更早意图的资格。独立订阅取消继续遵循既有共享规则，有其他订阅时不必取消底层操作。

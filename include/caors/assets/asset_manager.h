@@ -387,87 +387,21 @@ public:
     if (!execution_configured_) {
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_load<T>(guid, execution_.worker, execution_.completion);
+    return database_.request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 使用默认调度重载资源；符合当前发布资格时替换绑定，失败保留旧对象。 */
+  /** @brief 独立重载单资源；无缓存时创建，最新意图发布绑定，失败保留旧对象。 */
   template <typename T> [[nodiscard]] load_request<T> request_reload(resource_guid guid) {
     if (!execution_configured_) {
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_reload<T>(guid, execution_.worker, execution_.completion);
-  }
-  /** @brief 使用默认调度独立刷新单资源；失败保留旧绑定。 */
-  template <typename T> [[nodiscard]] load_request<T> request_refresh(resource_guid guid) {
-    if (!execution_configured_) {
-      return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
-    }
-    return request_refresh<T>(guid, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 使用默认调度预加载同类型依赖闭包。 */
-  template <typename T> [[nodiscard]] preload_request request_preload(resource_guid root) {
-    if (!execution_configured_) {
-      return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
-    }
-    return request_preload<T>(root, execution_.worker, execution_.completion);
+    return database_.request_reload<T>(guid, execution_.worker, execution_.completion);
   }
   /** @brief 使用默认调度按 manifest type 预加载依赖闭包。 */
   [[nodiscard]] preload_request request_preload(resource_guid root) {
     if (!execution_configured_) {
       return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_preload(root, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 在后台 executor 加载资源，并在完成 executor 提交到对应 cache。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_load(resource_guid guid,
-                                             tasks::executor background_executor,
-                                             tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_load<T>(guid, std::move(background_executor),
-                                     std::move(completion_executor));
-  }
-
-  /** @brief 在后台 executor 重载资源，拥有发布资格时在完成 executor 替换绑定。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_reload(resource_guid guid,
-                                               tasks::executor background_executor,
-                                               tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_reload<T>(guid, std::move(background_executor),
-                                       std::move(completion_executor));
-  }
-  /** @brief 在后台 executor 独立刷新单资源，最新意图成功后发布默认绑定。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_refresh(resource_guid guid,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_refresh<T>(guid, std::move(background_executor),
-                                        std::move(completion_executor));
-  }
-
-  /** @brief 按同一资源类型异步预加载依赖闭包。 */
-  template <typename T>
-  [[nodiscard]] preload_request request_preload(resource_guid root,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_preload<T>(root, std::move(background_executor),
-                                        std::move(completion_executor));
-  }
-
-  /** @brief 按 manifest type 异步预加载跨类型依赖闭包。 */
-  [[nodiscard]] preload_request request_preload(resource_guid root,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    return database_.request_preload(root, std::move(background_executor),
-                                     std::move(completion_executor));
+    return database_.request_preload(root, execution_.worker, execution_.completion);
   }
 
   /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */
@@ -677,39 +611,22 @@ public:
     if (auto status = check()) {
       return resources::load_request<T>::failed(status, resource());
     }
-    return manager_->request_load<T>(guid, execution_.worker, execution_.completion);
+    return manager_->database_.request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 重载单资源；被新刷新取代时可返回未发布的旧结果，失败保留原绑定。 */
+  /** @brief 独立重载单资源；无缓存时创建，旧请求不覆盖最新重载绑定。 */
   template <typename T>
   [[nodiscard]] resources::load_request<T> request_reload(resources::resource_guid guid) const {
     if (auto status = check()) {
       return resources::load_request<T>::failed(status, resource());
     }
-    return manager_->request_reload<T>(guid, execution_.worker, execution_.completion);
-  }
-  /** @brief 独立刷新单资源，不加入旧操作；不刷新依赖闭包。 */
-  template <typename T>
-  [[nodiscard]] resources::load_request<T> request_refresh(resources::resource_guid guid) const {
-    if (auto status = check()) {
-      return resources::load_request<T>::failed(status, resource());
-    }
-    return manager_->request_refresh<T>(guid, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 预加载根资源的同类型依赖闭包，不强制刷新已有缓存。 */
-  template <typename T>
-  [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
-    if (auto status = check()) {
-      return resources::preload_request::failed(status, resource());
-    }
-    return manager_->request_preload<T>(root, execution_.worker, execution_.completion);
+    return manager_->database_.request_reload<T>(guid, execution_.worker, execution_.completion);
   }
   /** @brief 按 manifest type 预加载根资源及跨类型依赖闭包。 */
   [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
     if (auto status = check()) {
       return resources::preload_request::failed(status, resource());
     }
-    return manager_->request_preload(root, execution_.worker, execution_.completion);
+    return manager_->database_.request_preload(root, execution_.worker, execution_.completion);
   }
 
 private:

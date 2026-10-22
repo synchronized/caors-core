@@ -392,30 +392,10 @@ public:
         requests, true, {}, {}, make_activity(), {}, [this] { return capture_load_snapshot(); });
   }
 
-  /** @brief 异步重载资源；拥有当前发布资格时通过指定执行目标替换 cache 绑定。 */
+  /** @brief 独立刷新单资源，捕获新来源；失败保留旧绑定，不刷新依赖闭包。 */
   template <typename T>
   [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor executor,
                                                tasks::executor completion_executor) {
-    type_entry* entry = find_entry<T>();
-    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
-      return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
-    }
-
-    auto* requests = static_cast<resources::load_request_table<T>*>(entry->reload_requests.get());
-    if (requests == nullptr) {
-      return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
-    }
-
-    return detail::request_reload_into_impl(
-        *static_cast<resources::cache<T>*>(entry->cache),
-        *static_cast<resources::loader<T>*>(entry->loader), guid, executor, completion_executor,
-        requests, make_activity(), {}, [this] { return capture_load_snapshot(); });
-  }
-
-  /** @brief 独立刷新单资源，捕获新来源；失败保留旧绑定，不刷新依赖闭包。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_refresh(resource_guid guid, tasks::executor executor,
-                                                tasks::executor completion_executor) {
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
@@ -429,7 +409,7 @@ public:
     return detail::request_reload_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->loader), guid, executor, completion_executor,
-        requests, make_activity(), {}, [this] { return capture_load_snapshot(); }, true);
+        requests, make_activity(), {}, [this] { return capture_load_snapshot(); });
   }
 
   /**
@@ -573,7 +553,6 @@ private:
     void* cache = nullptr;
     void* loader = nullptr;
     std::shared_ptr<void> load_requests{};
-    std::shared_ptr<void> reload_requests{};
     detail::type_entry_ops ops{};
   };
 
@@ -601,8 +580,6 @@ private:
     type_entry created{};
     created.id = id;
     created.load_requests = std::allocate_shared<resources::load_request_table<T>>(
-        allocator<resources::load_request_table<T>>{resource_}, resource_);
-    created.reload_requests = std::allocate_shared<resources::load_request_table<T>>(
         allocator<resources::load_request_table<T>>{resource_}, resource_);
     const auto [inserted, _] = entries_.emplace(id.value(), created);
     entry = &inserted->second;

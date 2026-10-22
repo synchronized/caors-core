@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 日常请求收敛为 load/reload/preload 三类：request_refresh 合入 request_reload，每次重载独立启动、无缓存也可创建、最新重载决定默认绑定。manager/group 删除逐次 worker/completion 参数和模板 preload，特殊调度使用 group，同类型 preload 在低层 database 使用。
+
 - 删除 asset_manager/database 的同步 load、load_handle、reload、reload_handle、preload 执行入口，统一使用 request_*；find/resolve/plan_preload 查询保留。loader 注册和手动重建绑定收敛到单槽，不同实例重复注册返回 already_exists；低层同步组合函数仅接受 sync_loader_adapter，不再运行时探测原生异步实现。
 
 - 默认 JSON 工厂迁至异步请求快照路径：`json::loader<T>` 现在接受 reader 或文件读取模式；原 provider 构造实现更名为 `json::sync_loader<T>`，短期 `json::byte_loader<T>` 更名为 loader。默认原生异步，阻塞文件后端须显式选择 worker_adapter；工厂调用方改用 request_load/reload/preload，详见[迁移参考](docs/reference/assets.md#json-异步字节接入)。

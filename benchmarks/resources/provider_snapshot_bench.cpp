@@ -205,7 +205,7 @@ class bench_resource final : public caors::resource {
 public:
   using resource::resource;
 };
-class bench_loader final : public caors::resources::async_loader<bench_resource> {
+class bench_loader final : public caors::resources::loader<bench_resource> {
 public:
   caors::resources::load_completion<bench_resource> pending;
   caors::error start(caors::resources::async_load_context,
@@ -220,7 +220,7 @@ void request_paths(std::size_t count, int samples) {
   bench_loader loader;
   caors::tasks::execution_context worker, completion;
   caors::assets::asset_manager manager{{worker.get_executor(), completion.get_executor()}};
-  manager.database().set_provider(f.provider);
+  require(!manager.database().set_snapshot_capture([&f] { return f.provider.snapshot(); }));
   const caors::string_name type{"bench.snapshot"};
   require(!manager.register_type(cache, loader, type));
   require(cache.create(make_guid(1), make_guid(1)) != nullptr);
@@ -242,7 +242,8 @@ void request_paths(std::size_t count, int samples) {
         require(mode == 0 ? request.loaded() : !request.done());
       } else {
         const auto root = make_guid(mode >= 6 ? 3 : mode >= 4 ? 2 : 1);
-        auto request = mode % 2 == 0 ? manager.request_preload<bench_resource>(root)
+        auto request = mode % 2 == 0 ? manager.database().request_preload<bench_resource>(
+                                           root, worker.get_executor(), completion.get_executor())
                                      : manager.request_preload(root);
         require(mode < 4 ? request.loaded() : !request.done());
       }

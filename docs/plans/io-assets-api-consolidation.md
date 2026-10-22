@@ -18,6 +18,8 @@
 本批实现与验证见[字节读取记录](../records/2026-10-22-byte-reader-protocol.md)。
 默认 JSON 工厂已迁移到异步 loader，旧 JSON 实现显式更名 sync_loader，见[迁移记录](../records/2026-10-22-json-factory-migration.md)；manager/database 旧同步执行入口及双注册槽已移除；低层同步组合仅接受显式 adapter，见[收口记录](../records/2026-10-22-single-load-entry.md)。远端验收和最终范围审计仍待完成，不记为整个重构完成。
 
+日常请求进一步收敛为 load/reload/preload 三类：refresh 合入 reload，manager/group 移除逐次调度参数及模板 preload；当前语义以参考为准，本批证据见[三类请求迁移记录](../records/2026-10-22-three-request-api.md)。
+
 ## 当前职责与问题
 
 | 当前入口 | 实际职责 | 整理方向 |

@@ -172,7 +172,7 @@ int main() {
     return 11;
   auto group =
       assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
-  auto reload = group.request_refresh<consumer_resource>(consumer_guid);
+  auto reload = group.request_reload<consumer_resource>(consumer_guid);
   caors::resources::handle_result<consumer_resource> native_result;
   probe_coroutine native_operation = wait_for_resource(reload, &native_result);
   if (native_operation.done() || !native.context) {

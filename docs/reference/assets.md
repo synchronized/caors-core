@@ -200,9 +200,9 @@ auto request = assets.request_preload(texture_id);
 资源使用入口（属于 manager）：
 
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
-- `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
+- `plan_preload<T>(root)`：按同一资源类型计算依赖计划；无 manifest 的同类型执行在低层 database 使用。
 - `plan_preload(root)` / `request_preload(root)`：按 manifest type 跨类型分派预加载。
-- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度，也保留显式 worker/completion 重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
+- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度；特殊调度通过 asset_group，不提供逐次调度参数重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
 - `create_group(worker, completion)`：创建复用固定调度组合的 asset_group，详见下节。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
@@ -212,7 +212,7 @@ auto request = assets.request_preload(texture_id);
 在途工作。需要 coroutine 等待时显式包含 `caors/resources/coroutine.h`：
 
 ```cpp
-auto request = assets.request_load<texture>(texture_id, worker, main_executor);
+auto request = assets.create_group(worker, main_executor).request_load<texture>(texture_id);
 auto result = co_await caors::resources::async_wait(request);
 ```
 
@@ -235,7 +235,7 @@ auto batch = group.request_preload(root_id);
 
 原无调度配置的构造继续可用。set_execution_options() 可在所属线程初始化/修改默认值；
 实际操作未清理时返回 frozen，无效组合返回 invalid_argument。未配置默认值的便捷异步入口返回失败请求，
-不隐式创建线程池；同步接口、显式传参入口和显式创建的 group 仍可使用。
+不隐式创建线程池；find/resolve 等查询和显式创建的 group 仍可使用。
 manager/group 只保存 executor 句柄，不拥有线程或队列；completion 必须运行在 cache 所属线程。
 修改默认调度不迁移 cache 线程，也不会修改既有 group 的固定组合。
 
@@ -243,7 +243,7 @@ manager/group 只保存 executor 句柄，不拥有线程或队列；completion 
 | --- | --- |
 | request_load<T>(guid) | 获取单个资源，命中缓存直接完成，否则发起或订阅共享加载 |
 | request_reload<T>(guid) | 重新读取，成功替换缓存，失败保留旧资源 |
-| request_preload(root) / request_preload<T>(root) | 按已登记依赖图预加载跨类型/同类型闭包，复用缓存，不强制刷新 |
+| request_preload(root) | 按 manifest 和已登记依赖图预加载闭包，复用缓存，不强制重载 |
 
 group 关联同一 manager/cache/请求表，可复制或移动；复制不复制资源，析构不取消已发请求。
 manager 必须覆盖所有 group 访问及实际工作寿命，不保证 manager 销毁后 group 可访问。
@@ -511,3 +511,14 @@ auto status = manager.register_type(cache, loader, string_name{"texture"});
 通用 `register_cached_type_factory<T, Loader>` 仍服务于接受 provider 构造的自定义实现；
 JSON 默认工厂使用独立构造逻辑，不再通过该 helper 创建同步 loader。
 JSON saver 与写入行为保持原契约。
+
+
+### 三个日常请求入口
+
+manager 和 group 的请求入口只有 `request_load<T>(guid)`、`request_reload<T>(guid)`、
+`request_preload(root)`。load 复用缓存与已有加载；reload 每次独立捕获来源并启动，不要求缓存存在，
+只有最新重载拥有默认绑定发布资格；preload 复用已有缓存，按 manifest 加载依赖闭包，不强制重载。
+
+原 request_refresh 改用 request_reload，原“仅重载已有缓存、合并在途重载”的语义退出。
+逐次传 worker/completion 改成先 create_group(worker, completion)，再在 group 上发请求。
+同类型 `request_preload<T>` 仅保留在低层 database，由调用方显式传递调度；manager/group 不再暴露它。

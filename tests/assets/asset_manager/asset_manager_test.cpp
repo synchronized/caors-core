@@ -527,9 +527,8 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
   caors::resources::preload_result loaded =
-      assets
-          .request_preload(test_guid_b, caors::tasks::inline_executor(),
-                           caors::tasks::inline_executor())
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_preload(test_guid_b)
           .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.loaded.size() == 2);
@@ -641,10 +640,10 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
   REQUIRE(location);
   CHECK(location.location.string_view() == std::string_view{"caors://assets/resource-a.json"});
 
-  auto loaded = assets
-                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
-                                                       caors::tasks::inline_executor())
-                    .result();
+  auto loaded =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_load<serialized_resource>(test_guid_a)
+          .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 300);
@@ -722,10 +721,10 @@ TEST_CASE("resources - asset_manager accepts external file system factory", "[re
   REQUIRE(state.file_system->write_all("resource-a.json", std::string_view{R"({"width":301})"})
               .succeeded());
 
-  auto loaded = assets
-                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
-                                                       caors::tasks::inline_executor())
-                    .result();
+  auto loaded =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_load<serialized_resource>(test_guid_a)
+          .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 301);
@@ -807,10 +806,10 @@ TEST_CASE("resources - asset_manager routes source through resolver and mount fi
   REQUIRE(vfs != nullptr);
   CHECK(vfs->exists("caors://game/assets/resource-a.json"));
 
-  auto loaded = assets
-                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
-                                                       caors::tasks::inline_executor())
-                    .result();
+  auto loaded =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_load<serialized_resource>(test_guid_a)
+          .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 302);
@@ -840,10 +839,10 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  auto loaded = assets
-                    .request_preload(test_guid_b, caors::tasks::inline_executor(),
-                                     caors::tasks::inline_executor())
-                    .result();
+  auto loaded =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_preload(test_guid_b)
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
 
@@ -891,13 +890,11 @@ TEST_CASE("resources - asset_manager builds multiple sources and resource types"
   REQUIRE(dlc_files->write_all("packs/resource-c.json", std::string_view{R"({"width":128})"})
               .succeeded());
 
-  auto base = assets
-                  .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
-                                                     caors::tasks::inline_executor())
+  auto base = assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+                  .request_load<serialized_resource>(test_guid_a)
                   .result();
-  auto dlc = assets
-                 .request_load<secondary_serialized_resource>(
-                     test_guid_c, caors::tasks::inline_executor(), caors::tasks::inline_executor())
+  auto dlc = assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+                 .request_load<secondary_serialized_resource>(test_guid_c)
                  .result();
 
   REQUIRE(base.succeeded());
@@ -935,8 +932,9 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  auto loaded_request = assets.request_load<serialized_resource>(
-      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  auto loaded_request =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_load<serialized_resource>(test_guid_a);
   caors::result<serialized_resource*> loaded{loaded_request.error(),
                                              loaded_request.try_get().get()};
   REQUIRE(loaded.succeeded());
@@ -957,8 +955,9 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
 
   REQUIRE(files->write_all("assets/resource-a.json", std::string_view{R"({"width":2048})"})
               .succeeded());
-  auto reloaded_request = assets.request_reload<serialized_resource>(
-      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  auto reloaded_request =
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_reload<serialized_resource>(test_guid_a);
   caors::result<serialized_resource*> reloaded{reloaded_request.error(),
                                                reloaded_request.try_get().get()};
   REQUIRE(reloaded.succeeded());
@@ -1013,7 +1012,8 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   caors::tasks::execution_context completions;
 
   caors::resources::load_request<serialized_resource> loaded =
-      assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor())
+          .request_load<serialized_resource>(test_guid_a);
   REQUIRE(loaded);
   CHECK(loaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
@@ -1024,7 +1024,8 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":256})"}).succeeded());
   caors::resources::load_request<serialized_resource> reloaded =
-      assets.request_reload<serialized_resource>(test_guid_a, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor())
+          .request_reload<serialized_resource>(test_guid_a);
   REQUIRE(reloaded);
   CHECK(reloaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
@@ -1032,7 +1033,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   CHECK(reloaded.try_get()->width == 256);
 
   caors::resources::preload_request preloaded =
-      assets.request_preload(test_guid_b, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor()).request_preload(test_guid_b);
   REQUIRE(preloaded);
   CHECK(completions.drain() == 1);
   REQUIRE(preloaded.loaded());
@@ -1288,9 +1289,8 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
       files->write_all("assets/resource-b.json", std::string_view{R"({"width":256})"}).succeeded());
 
   caors::resources::preload_result loaded =
-      assets
-          .request_preload(test_guid_b, caors::tasks::inline_executor(),
-                           caors::tasks::inline_executor())
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_preload(test_guid_b)
           .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
@@ -1359,9 +1359,8 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
 
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
   caors::resources::preload_result loaded =
-      assets
-          .request_preload(test_guid_b, caors::tasks::inline_executor(),
-                           caors::tasks::inline_executor())
+      assets.create_group(caors::tasks::inline_executor(), caors::tasks::inline_executor())
+          .request_preload(test_guid_b)
           .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(cache.find(test_guid_a) != nullptr);
@@ -1538,7 +1537,7 @@ TEST_CASE("assets - default JSON factory freezes source and rejects rebuild whil
   }
   REQUIRE(request.loaded());
   CHECK(request.try_get()->width == 123);
-  auto refresh = assets.request_refresh<serialized_resource>(test_guid_a);
+  auto refresh = assets.request_reload<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !refresh.done(); ++i) {
     (void)worker.drain();
     (void)completion.drain();

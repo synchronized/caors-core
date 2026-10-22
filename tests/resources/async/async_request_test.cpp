@@ -715,7 +715,8 @@ TEST_CASE("resources - database async load keeps newer request after cancelled t
   CHECK(third.cancelled());
 }
 
-TEST_CASE("resources - database async reload reuses pending request for same guid", "[resources]") {
+TEST_CASE("resources - database reload starts independent requests and publishes the latest",
+          "[resources]") {
   require_async_resource_metadata();
 
   caors::resource_cache<async_resource> cache;
@@ -737,18 +738,18 @@ TEST_CASE("resources - database async reload reuses pending request for same gui
 
   CHECK(first.status() == caors::resources::request_status::loading);
   CHECK(second.status() == caors::resources::request_status::loading);
-  CHECK(loader.load_count.load() == 1);
-  CHECK(completions.pending() == 1);
+  CHECK(loader.load_count.load() == 2);
+  CHECK(completions.pending() == 2);
 
-  CHECK(completions.drain() == 1);
+  CHECK(completions.drain() == 2);
 
   REQUIRE(first.loaded());
   REQUIRE(second.loaded());
   REQUIRE(first.try_get());
-  CHECK(first.try_get().get() == second.try_get().get());
+  CHECK(first.try_get().get() != second.try_get().get());
   CHECK(first.try_get()->value == 22);
-  CHECK(first.try_get().get() == cache.find(test_guid_a));
-  CHECK(loader.load_count.load() == 1);
+  CHECK(second.try_get().get() == cache.find(test_guid_a));
+  CHECK(loader.load_count.load() == 2);
 }
 
 TEST_CASE("resources - database async load reports missing registration", "[resources]") {
