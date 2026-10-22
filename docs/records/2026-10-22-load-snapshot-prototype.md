@@ -52,6 +52,18 @@ project_builder 非拥有，配置对象继续由 manager 保活；builder 析�
 配置诊断示例按预期阻止无效 options 进入 factory，两个工程管线示例完成加载、依赖处理与保存，退出码均为 0。
 这些是本机原生验证，未替代 Web、MSVC 或 Linux 门槛。
 
+## 工程状态封装
+
+注册表、工厂、配置拥有对象表、手工类型绑定表及构建标记集中到私有 project_state，
+定义在 asset_manager.cpp；公共头仅保留不完整类型和带内存资源的专用 deleter。
+状态通过 manager 的 memory_resource 分配释放，生命周期仍由 manager 持有；
+析构时保持清空 database/provider、来源/注册表，再销毁拥有对象的既有顺序。
+本步不是把注册 API 或整个状态所有权转交给 builder；相关公共接口仍待迁移。
+
+create_owned 先用 RAII 持有新对象，登记到拥有表成功后才放弃临时所有权。
+新增定向失败测试：对象构造后拒绝下一次表扩容分配，确认抛出 bad_alloc、对象析构且内存回到登记前，
+manager 析构后自定义资源的在用字节归零。状态封装及头文件隐藏后重新构建，相关 CTest 9/9、\n宿主/VFS 与三个工程示例全部通过；未执行完整跨平台矩阵。
+
 ## 限制与下一步
 
 这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，

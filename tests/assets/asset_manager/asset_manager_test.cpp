@@ -1396,3 +1396,45 @@ TEST_CASE("resources - project config validates schema and options", "[resources
           R"({"resource_types":[{"type":"game.serialized","loader":"json","cache":"memory","options":["bad"]}]})") ==
       caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
 }
+
+#if CAORS_HAS_EXCEPTIONS
+namespace {
+struct project_allocation_probe {
+  caors::memory::tracking_resource upstream;
+  bool fail = false;
+  int alive = 0;
+};
+struct owned_registration_probe {
+  explicit owned_registration_probe(project_allocation_probe& state) : state(state) {
+    ++state.alive;
+    // 对象已经构造，下一次拥有对象表扩容失败。
+    state.fail = true;
+  }
+  ~owned_registration_probe() { --state.alive; }
+  project_allocation_probe& state;
+};
+} // namespace
+
+TEST_CASE("assets - project ownership registration failure releases constructed object",
+          "[assets][memory][project]") {
+  project_allocation_probe probe;
+  caors::memory::callback_memory_resource resource{
+      [](std::size_t size, std::size_t alignment, void* value) -> void* {
+        auto& state = *static_cast<project_allocation_probe*>(value);
+        return state.fail ? nullptr : state.upstream.try_allocate(size, alignment);
+      },
+      [](void* ptr, std::size_t size, std::size_t alignment, void* value) {
+        static_cast<project_allocation_probe*>(value)->upstream.deallocate(ptr, size, alignment);
+      },
+      &probe};
+  {
+    caors::assets::asset_manager assets{&resource};
+    const auto before = probe.upstream.statistics().bytes_in_use;
+    REQUIRE_THROWS_AS(assets.create_owned<owned_registration_probe>(probe), std::bad_alloc);
+    CHECK(probe.alive == 0);
+    CHECK(probe.upstream.statistics().bytes_in_use == before);
+    probe.fail = false;
+  }
+  CHECK(probe.upstream.statistics().bytes_in_use == 0);
+}
+#endif

@@ -169,7 +169,9 @@ caors::resources::preload_result result = assets.preload(texture_id);
 ```
 
 工程装配由 `assets::project_builder` 执行；它借用 manager，析构不销毁已创建对象。
-当前配置对象、注册表和工厂仍由 manager 保持；这是分阶段迁移，不是完整的 VFS 解耦。
+当前配置对象、注册表和工厂集中在 manager 持有的私有工程状态中；公共注册入口尚未迁出。
+工程状态使用 manager 的 memory_resource 分配和释放，并新增一次状态对象分配；未测量性能收益。
+这是分阶段迁移，不是完整的 VFS 解耦。
 构建失败保留既有逐阶段结果，不提供事务回滚。
 
 常用入口（前两项属于 builder，其余仍属于 manager）：

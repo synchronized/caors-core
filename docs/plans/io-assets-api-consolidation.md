@@ -92,7 +92,8 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 后续原型已提供 database::set_snapshot_capture；异步请求管线只接收通用捕获器，不再依赖 provider。
 database 暂时保留默认 provider 适配和既有同步访问，不新增公共 manager 配置外观；
 配置装配第一步已将 build/build_detailed 的编排、路由图校验和失败诊断实现迁到 project_builder；
-已移除 manager 的对应公共入口并迁移测试/示例。注册表、工厂、对象所有权及各阶段创建函数仍在 manager，
+已移除 manager 的对应公共入口并迁移测试/示例。注册表、工厂、拥有对象表和配置标记已收进
+私有 project_state，具体容器与对象销毁类型移出公共头；状态仍由 manager 保活，注册 API 和各阶段创建函数尚未迁出，
 后续继续迁移，不宣称整个资源核心已与 VFS 解耦。
 
 ### 调用点迁移边界

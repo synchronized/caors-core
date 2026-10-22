@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 工程注册与配置对象状态移入私有实现，保持既有生命周期；修复 `create_owned` 在拥有表扩容失败时新对象未释放的问题。
+
 - 工程构建入口迁至 `assets::project_builder{manager}.build(config)` / `build_detailed(config)`，删除 manager 上的同名入口；配置对象仍由 manager 保活。已有配置驱动接入需要迁移调用点。
 
 - 异步加载管线改用通用快照捕获器；低层 database 可配置宿主策略，默认保留 provider 适配。缓存命中与共享请求不重复捕获，预加载闭包共享批次结果。
