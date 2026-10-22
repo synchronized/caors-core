@@ -20,6 +20,8 @@
 
 日常请求进一步收敛为 load/reload/preload 三类：refresh 合入 reload，manager/group 移除逐次调度参数及模板 preload；当前语义以参考为准，本批证据见[三类请求迁移记录](../records/2026-10-22-three-request-api.md)。
 
+VFS 主体重构按[VFS 收敛计划](vfs-api-consolidation.md)实施，本页保留资源侧与原始审计依据。
+
 ## 当前职责与问题
 
 | 当前入口 | 实际职责 | 整理方向 |

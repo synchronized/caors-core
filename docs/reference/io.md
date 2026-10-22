@@ -4,11 +4,61 @@
 # IO
 
 本文档说明 CAORS IO 主题的当前边界。IO 层提供同步字节访问、异步只读文件协议和可选虚拟文件路由，为资源系统、配置及宿主来源接入提供底座。
-普通同步访问见下文 file_system；异步读取见本页后半部分，宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
+新只读访问优先使用下方 vfs/io_context；旧 file_system、路由器及同步流保留为迁移兼容与工具能力。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
+
+## VFS 与统一文件访问
+
+推荐只读入口包含四个概念：vfs 配置挂载，io_context 配置完成调度，file 持有打开文件，request 持有操作控制及结果。
+公共头 `caors/io/context.h` 不包含旧 file_system 或 resolver 定义，后端协议见 `caors/io/backend.h`。
+完整可运行示例见 [vfs_basic.cpp](../../examples/beta/vfs_basic.cpp)。
+
+```cpp
+io::vfs files;
+files.mount("assets://game", io::make_native_backend("assets", worker));
+io::io_context io{files, {.completion = main_executor, .resource = resource}};
+auto reading = io.read("assets://game/hero.png", {.max_bytes = 8 * 1024 * 1024}, on_bytes);
+auto opening = io.open("assets://game/base.pack", {.access = io::file_access::read}, on_open);
+```
+
+这是接入片段，须检查 mount 返回值，并持有 reading/opening 至所需通知结束；两次操作相互独立。
+open 默认 `read + open_existing`，不会创建或截断文件；写入模式尚未开放，不增加 open_write 名称。
+结果类型为 `io_result<T>`，文件操作直接返回 `request<T>`；即使发起拒绝也通过请求报告，
+错误回调经配置的 completion 投递。completion 无效、拒绝或丢弃时不能保证回调执行，应查询结果。
+request 的布尔值仅表示有效句柄，不表示成功；done/result 查看终态，cancel 为协作取消，析构不等待清理。
+
+打开成功后，从结果取出 file（值类型、共享实际文件），再使用 `file.read({offset, length}, callback)`
+和 `file.close(callback)`。文件已经绑定 completion、字节 allocator 和单次范围预算，操作不逐次传 executor。
+读取必须读满范围，短读失败；size 为打开时长度。复制共享关闭状态，显式 close 作用于全部副本，析构非阻塞兜底。
+
+io_context.read 组合打开、有界整文件读取、关闭；资源 byte_reader 复用同一内部状态机。
+当前中间 IO 结果只读，交付前复制，结果峰值约为两份预算，另有后端和状态开销，预算不是全局在途限制。
+只读阶段取消在步骤边界观察，不承诺强制终止在途读取；open 的协作取消会传递至后端完成凭证。
+
+vfs 只配置挂载，不继承 backend。挂载拥有 backend 和可选 lifetime，已有请求与快照不受 unmount/clear 影响。
+make_native_backend 在构造时绑定可阻塞 worker；make_memory_backend 提供内存后端，store 用于配置内存数据。
+后端实现只实现 `backend::open` 并绑定自己的 loop/worker，不负责公共路由和用户完成调度。
+URI/普通路径匹配复用原路由算法，目前以私有传输适配连接旧路由实现，没有第二套路由算法。
+
+活跃 vfs 构造的 context 借用配置用于后续调用，每次发起捕获稳定路由；如需固定整批路由：
+
+```cpp
+auto snapshot = files.snapshot();
+// 检查 snapshot 成功后构造批次访问入口。
+io::io_context batch{std::move(snapshot.value), {.completion = main_executor}};
+```
+
+snapshot 固定路由、后端与 lifetime，不冻结磁盘内容或任意后端可变状态。
+allocator 和 executor/宿主循环必须覆盖真实操作及结果清理；vfs 的 allocator 也须覆盖仍持有的快照。
+
+本批完成只读调用方主线，旧配置工厂、嵌套路由、同步写入/目录/元数据尚未全部迁移；
+它们继续使用下文兼容接口，不能将只读主线等同于整个 IO 改造完成。
 
 ## 当前范围
 
 当前已实现：
+
+- `io::vfs` / `io::backend`：拥有式挂载与独立后端协议。
+- `io::io_context` / `io::file` / `io::request<T>`：统一只读调用方入口与单层请求。
 
 - `io::byte_buffer`：使用 CAORS allocator 的字节缓冲区。
 - `io::path_view`：非拥有路径视图。

@@ -11,3 +11,5 @@ caors_add_example(caors_example_beta_assets_native_async assets_native_async.cpp
 
 caors_add_example(caors_example_beta_assets_async_vfs assets_async_vfs.cpp)
 caors_add_example(caors_example_beta_io_chunked_read io_chunked_read.cpp)
+
+caors_add_example(caors_example_beta_vfs_basic vfs_basic.cpp)

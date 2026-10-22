@@ -4,6 +4,7 @@
 #include "caors/assets.h"
 #include "caors/assets/json.h"
 #include "caors/io.h"
+#include "caors/io/context.h"
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
@@ -113,6 +114,16 @@ probe_coroutine wait_for_resource(caors::resources::load_request<consumer_resour
 } // namespace
 
 int main() {
+  {
+    caors::io::vfs routes;
+    auto memory = caors::io::make_memory_backend();
+    if (memory->store("data", "installed") || routes.mount("assets", memory))
+      return 13;
+    caors::io::io_context io{routes, {caors::tasks::inline_executor()}};
+    auto reading = io.read("assets/data");
+    if (!reading.done() || !*reading.result() || reading.result()->value.size() != 9)
+      return 14;
+  }
   caors::resource_cache<consumer_resource> cache;
   consumer_loader loader;
   caors::resource_database database;

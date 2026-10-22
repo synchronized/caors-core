@@ -3,6 +3,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
+#include "caors/io/context.h"
 #include "caors/io/memory_file_system.h"
 #include "caors/registration.h"
 #include "caors/resources.h"
@@ -54,6 +55,7 @@ struct state {
   caors::resources::handle<texture> kept;
   caors::resources::file_byte_reader byte_reader;
   caors::io::io_request<caors::io::byte_buffer> bytes;
+  caors::io::request<caors::io::byte_buffer> context_read;
   int phase = 0;
   void begin() {
     cache = std::make_unique<caors::resources::cache<texture>>();
@@ -147,6 +149,23 @@ void tick(void*) {
       }
       check(value.request.loaded());
       check(!value.assets->database().has_active_operations());
+      {
+        caors::io::vfs routes;
+        auto memory = caors::io::make_memory_backend();
+        check(!memory->store("data", "browser"));
+        check(!routes.mount("assets", memory));
+        caors::io::io_context io{routes, {value.completion.get_executor()}};
+        value.context_read = io.read("assets/data");
+      }
+      break;
+    case 6:
+      (void)value.completion.drain();
+      if (!value.context_read.done()) {
+        --value.phase;
+        break;
+      }
+      check(static_cast<bool>(*value.context_read.result()));
+      check(value.context_read.result()->value.size() == 7);
       current.reset();
       EM_ASM({
         document.body.dataset.caorsStatus = "passed";

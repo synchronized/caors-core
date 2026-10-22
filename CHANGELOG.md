@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 新增只读 vfs/backend/io_context/file 访问主线；open 统一命名、默认只读已有文件，操作返回单层 request。native 后端在构造时绑定 worker；资源 byte_reader 复用 IO 整体读取状态机。旧写入、目录、属性及配置接口保留迁移，见[IO 参考](docs/reference/io.md#vfs-与统一文件访问)。
+
 - 日常请求收敛为 load/reload/preload 三类：request_refresh 合入 request_reload，每次重载独立启动、无缓存也可创建、最新重载决定默认绑定。manager/group 删除逐次 worker/completion 参数和模板 preload，特殊调度使用 group，同类型 preload 在低层 database 使用。
 
 - 删除 asset_manager/database 的同步 load、load_handle、reload、reload_handle、preload 执行入口，统一使用 request_*；find/resolve/plan_preload 查询保留。loader 注册和手动重建绑定收敛到单槽，不同实例重复注册返回 already_exists；低层同步组合函数仅接受 sync_loader_adapter，不再运行时探测原生异步实现。
