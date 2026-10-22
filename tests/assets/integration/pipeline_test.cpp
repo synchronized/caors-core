@@ -101,7 +101,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
               assets, serialized_manifest_type())
               .succeeded());
-  REQUIRE(assets.build(config).succeeded());
+  REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(
       assets.find_file_system(caors::string_name{"memory"}));

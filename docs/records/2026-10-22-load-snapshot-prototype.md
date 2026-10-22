@@ -39,13 +39,26 @@ hello VFS，重新构建和运行成功。宿主示例仍是模拟事件，不�
 refresh 捕获新版本、活动期修改拒绝、显式空结果和恢复 provider 默认行为。
 本次修改后重新构建并运行同样的 9 个相关 CTest 目标，9/9 通过；两条宿主/VFS 示例也重新构建运行通过。
 
+## 工程装配入口迁移
+
+同分支后续将 build/build_detailed、配置路由图校验和失败结果组装移至 project_builder.cpp，
+manager 删除这两个公共入口，测试和 alpha/beta 示例迁移至 project_builder{manager}。
+project_builder 非拥有，配置对象继续由 manager 保活；builder 析构不影响已装配环境。
+各阶段创建函数、注册表、工厂及对象所有权尚在 manager，这是独立编排入口的第一步，未完成整个装配拆分。
+失败语义沿用原逐阶段构建，不增加事务回滚保证。
+
+迁移后重新构建相关资源目标，CTest 9/9 通过；宿主加载及 VFS 两种读取示例通过。
+另外构建运行 beta/config_schema、beta/asset_pipeline、alpha/alpha_pipeline：
+配置诊断示例按预期阻止无效 options 进入 factory，两个工程管线示例完成加载、依赖处理与保存，退出码均为 0。
+这些是本机原生验证，未替代 Web、MSVC 或 Linux 门槛。
+
 ## 限制与下一步
 
 这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，
-配置工厂和来源装配尚未迁出；宿主注入已可通过 database 捕获器配置，没有新增公共 manager 配置外观。
+配置工厂和注册状态尚未迁出；装配编排已迁移至 project_builder，宿主注入可通过 database 捕获器配置。
 快照基类与 const 共享所有权不自动冻结派生对象引用的外部可变数据，也不自动 pin 动态模块。
 类型查询依赖 RTTI，沿用项目已有 RTTI 使用，不承诺稳定跨编译器 C++ ABI。
 
 本批未运行 Linux、Windows MSVC、Web、插件跨模块专项或完整矩阵。原型完成评审并准备合并前，
 须执行受影响平台 CI 与必要生命周期专项；不得用本机 9 个目标替代这些门槛。
-下一步继续将 database 的默认 provider 及工程装配职责迁往可选适配，并保持依赖批次语义。
+下一步继续迁移配置注册表、工厂与拥有对象状态，以及 database 默认 provider 适配，保持依赖批次与清理顺序。

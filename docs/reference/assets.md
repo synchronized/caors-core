@@ -154,12 +154,13 @@ caors::assets::json::register_type_factory<texture>(
     assets,
     caors::string_name{"game.texture"});
 
-caors::error built = assets.build(config);
+caors::assets::project_builder builder{assets};
+caors::error built = builder.build(config);
 if (built) {
   // 处理配置或运行期对象创建错误。
 }
 
-caors::assets::asset_build_result detailed = assets.build_detailed(config);
+caors::assets::asset_build_result detailed = builder.build_detailed(config);
 if (detailed.failed()) {
   // detailed.stage / index / name / type / guid / reasons 可用于工具层诊断。
 }
@@ -167,7 +168,11 @@ if (detailed.failed()) {
 caors::resources::preload_result result = assets.preload(texture_id);
 ```
 
-常用入口：
+工程装配由 `assets::project_builder` 执行；它借用 manager，析构不销毁已创建对象。
+当前配置对象、注册表和工厂仍由 manager 保持；这是分阶段迁移，不是完整的 VFS 解耦。
+构建失败保留既有逐阶段结果，不提供事务回滚。
+
+常用入口（前两项属于 builder，其余仍属于 manager）：
 
 - `build(config)`：按配置重建内部 manifest、provider 和 dependency graph，并按已注册 factory
   创建运行期 file_system、source、cache 和 loader。配置构建顺序是 file_system、source、
@@ -240,7 +245,7 @@ manager 必须覆盖所有 group 访问及实际工作寿命，不保证 manager
 cancel() 只取消订阅，cancel_shared() 影响共享操作，group 不提供统一取消、批量等待或独立缓存。
 等待方需要特定恢复线程时应显式调度，不能假设一定在本 group 的 completion 恢复。
 
-build/build_detailed() 在实际操作仍活跃时拒绝重配，返回 frozen。完成凭证或进度通道未释放也计入实际操作；
+project_builder::build/build_detailed() 在实际操作仍活跃时拒绝重配，返回 frozen。完成凭证或进度通道未释放也计入实际操作；
 仅 request.done() 不足以证明安全。清空 database 类型绑定或重新 build 后，旧 group 返回 frozen，须重新创建；
 只修改默认调度不会使 group 失效。宿主仍须在 manager 析构前清理 I/O、队列、结果内存与模块 pin。
 原生异步协议、错误及取消细节以[资源 loader 参考](resources.md#原生异步-loader)为准。

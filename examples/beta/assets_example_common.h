@@ -121,7 +121,7 @@ public:
   return check(assets::json::register_type_factory<texture_resource>(manager,
                                                                      texture_manifest_type()),
                "register texture factory") &&
-         check(manager.build(config), "build asset manager");
+         check(caors::assets::project_builder{manager}.build(config), "build asset manager");
 }
 
 [[nodiscard]] inline bool write_texture(assets::asset_manager& manager, int width, int height) {

@@ -98,7 +98,8 @@ int main() {
     return 1;
   }
 
-  const caors::assets::asset_build_result result = assets.build_detailed(config);
+  const caors::assets::asset_build_result result =
+      caors::assets::project_builder{assets}.build_detailed(config);
   std::cout << "schema validation status: " << static_cast<int>(result.status.value()) << '\n';
   std::cout << "factory calls: " << state.calls << '\n';
   for (const caors::string& reason : result.reasons) {

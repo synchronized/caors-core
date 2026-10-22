@@ -153,7 +153,7 @@ TEST_CASE("assets - cancelled I/O stays active until late callback and cleanup",
   CHECK(f.assets.set_execution_options({f.worker.get_executor(), f.completion.get_executor()})
             .value() == caors::errc::frozen);
   caors::assets::project_config config;
-  CHECK(f.assets.build(config).value() == caors::errc::frozen);
+  CHECK(caors::assets::project_builder{f.assets}.build(config).value() == caors::errc::frozen);
   f.loader.finish();
   CHECK(request.cancelled());
   CHECK_FALSE(f.cache.contains(test_guid_a));
@@ -178,7 +178,7 @@ TEST_CASE(
       f.assets.set_execution_options({f.worker.get_executor(), f.completion.get_executor()}));
   CHECK(copy.request_load<texture>(test_guid_a).loaded());
   caors::assets::project_config config;
-  REQUIRE_FALSE(f.assets.build(config));
+  REQUIRE_FALSE(caors::assets::project_builder{f.assets}.build(config));
   CHECK(copy.request_load<texture>(test_guid_a).error().value() == caors::errc::frozen);
   auto renewed = f.assets.create_group(f.worker.get_executor(), f.completion.get_executor());
   CHECK(renewed.request_load<texture>(test_guid_a).loaded());
@@ -201,7 +201,7 @@ TEST_CASE("assets - async capability wins requests and keeps synchronous capabil
   CHECK(f.assets.load_handle<texture>(test_guid_b).succeeded());
   CHECK(synchronous.load_count == 1);
   caors::assets::project_config config;
-  REQUIRE_FALSE(f.assets.build(config));
+  REQUIRE_FALSE(caors::assets::project_builder{f.assets}.build(config));
   auto reload = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   f.loader.finish({caors::error_domain::io, caors::errc::not_found});
@@ -510,7 +510,7 @@ TEST_CASE("assets - generic owned type factory accepts native async loader",
   REQUIRE_FALSE(caors::assets::register_cached_type_factory<texture, factory_loader>(
       assets, caors::string_name{"group.factory"}, caors::string_name{"memory"},
       caors::string_name{"native"}));
-  REQUIRE_FALSE(assets.build(config));
+  REQUIRE_FALSE(caors::assets::project_builder{assets}.build(config));
   auto group = assets.create_group(worker.get_executor(), completion.get_executor());
   auto request = group.request_load<texture>(test_guid_a);
   REQUIRE(worker.drain() == 1);
@@ -639,7 +639,7 @@ TEST_CASE("assets - configured builtins expose owning snapshots after manager de
       {"name":"vfs","type":"resolver","routes":[{"prefix":"caors://assets","target":"memory"}]}],
       "sources":[{"name":"assets","file_system":"vfs"}]})";
     REQUIRE_FALSE(caors::assets::json::load_project_config(config, json));
-    REQUIRE_FALSE(assets.build(config));
+    REQUIRE_FALSE(caors::assets::project_builder{assets}.build(config));
     auto* memory = assets.find_file_system(caors::string_name{"memory"});
     REQUIRE(memory);
     REQUIRE_FALSE(memory->write_all("data", std::string_view{"factory"}));
@@ -671,7 +671,8 @@ TEST_CASE("assets - configured owning route cycles fail before publishing edges"
   REQUIRE_FALSE(caors::assets::json::load_project_config(config, R"({"file_systems":[
     {"name":"a","type":"mount_file_system","routes":[{"prefix":"a","target":"b"}]},
     {"name":"b","type":"mount_file_system","routes":[{"prefix":"b","target":"a"}]}]})"));
-  CHECK(assets.build(config).value() == caors::errc::cycle_detected);
+  CHECK(caors::assets::project_builder{assets}.build(config).value() ==
+        caors::errc::cycle_detected);
 }
 
 TEST_CASE("assets - refresh chooses new source while old load remains independently usable",

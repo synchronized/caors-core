@@ -218,7 +218,8 @@ int main() {
       !check(caors::assets::json::register_type_factory<material_resource>(
                  assets, material_manifest_type()),
              "register material factory") ||
-      !check(assets.build(config), "build asset manager") || !fill_memory_assets(assets)) {
+      !check(caors::assets::project_builder{assets}.build(config), "build asset manager") ||
+      !fill_memory_assets(assets)) {
     return 1;
   }
 

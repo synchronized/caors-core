@@ -85,8 +85,8 @@ struct asset_build_result {
  * @brief 拥有式资源运行期外壳。
  *
  * `asset_manager` 持有 manifest、provider、dependency graph 和 database，解决 `database`
- * 非拥有指针的生命周期拼装问题。它可以根据 `project_config` 中的策略名创建内置 source，并可通过
- * 类型工厂把资源类型描述映射到运行期 cache/loader。
+ * 非拥有指针的生命周期拼装问题。工程配置装配由 project_builder 执行；
+ * 当前仍持有其创建的对象以及来源/类型注册状态，后续按迁移计划继续收敛。
  */
 class CAORS_API asset_manager final {
 public:
@@ -341,22 +341,6 @@ public:
     ops.loader_strategy = loader_strategy;
     return register_type_factory(resource_type, std::move(ops));
   }
-
-  /**
-   * @brief 根据工程配置重建 manifest、provider 和 dependency graph。
-   *
-   * 该函数会清空上一轮配置创建的 source/cache/loader 等运行期对象，并重建
-   * manifest/provider/dependency graph。用户手动 `bind_source()` 和 `register_type()`
-   * 的外部绑定会保留。
-   */
-  [[nodiscard]] error build(const project_config& config);
-
-  /**
-   * @brief 根据工程配置重建运行期资源环境，并返回详细诊断。
-   *
-   * 普通调用可以继续使用 `build()`。工具链、编辑器和测试需要定位失败阶段时使用该入口。
-   */
-  [[nodiscard]] asset_build_result build_detailed(const project_config& config);
 
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
@@ -771,6 +755,7 @@ private:
   }
 
   friend class asset_group;
+  friend class project_builder;
   asset_execution_options execution_;
   bool execution_configured_ = false;
   memory_resource* resource_ = nullptr;

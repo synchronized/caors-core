@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 工程构建入口迁至 `assets::project_builder{manager}.build(config)` / `build_detailed(config)`，删除 manager 上的同名入口；配置对象仍由 manager 保活。已有配置驱动接入需要迁移调用点。
+
 - 异步加载管线改用通用快照捕获器；低层 database 可配置宿主策略，默认保留 provider 适配。缓存命中与共享请求不重复捕获，预加载闭包共享批次结果。
 
 - 加载上下文的 `sources` 改为通用 `snapshot`；VFS loader 使用 `snapshot_as<resources::provider_snapshot>()` 并检查结果。loader 协议头不再传递包含具体文件来源；自定义快照可按批次保活。此变更需迁移调用代码并统一重编译库及使用方，尚未发布。
