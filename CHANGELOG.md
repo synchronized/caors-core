@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 新增统一 `resources::byte_reader` 协议、`request_bytes` 与 VFS 原生/显式 worker 适配；`assets::json::byte_loader<T>` 使用请求快照异步读字节并构造资源。旧 JSON 工厂和同步读写仍保留，迁移与预算限制见[资源参考](docs/reference/resources.md#统一字节读取适配)。
+
 - 加载协议统一为 `resources::loader<T>::start`，删除独立 `async_loader<T>`。原生异步实现改继承 loader；已有同步实现改继承 `sync_loader_adapter<T>` 并保留 load 钩子。旧同步入口仅使用显式适配能力，不等待异步 loader。
 
 - database 移除 provider 设置及清单绑定接口；清单绑定函数迁入 `resources/manifest_binding.h`。工程来源改由 `project_builder::provider()` 访问。空快照捕获器现在关闭捕获，恢复工程来源须显式调用 `use_provider_snapshot()`。

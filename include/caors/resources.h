@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_H_
 
 #include "caors/resources/async.h"
+#include "caors/resources/byte_reader.h"
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"

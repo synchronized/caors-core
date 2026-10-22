@@ -1162,7 +1162,7 @@ asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定�
 独立 `request_load_into` 未配置批次数据时该字段为空；自定义 loader 需要快照时应检查并明确失败。
 旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
 内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
-读取 `context.snapshot_as<resources::provider_snapshot>()` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
+`assets::json::byte_loader<T>` 或读取 `context.snapshot_as<resources::provider_snapshot>()` 的自定义 loader，不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
 
 内置 asset_manager 文件系统工厂和来源工厂提供拥有式后端，配置路由在挂载前检查循环。
 自定义 factory 可通过 `bind_file_system(name, shared_ptr<file_system>, lifetime)` 提供完整寿命；
@@ -1206,3 +1206,34 @@ allocator、GUID 访问器或哈希回调不得在容器更新期间重入修改
 临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
 因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
 该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。
+
+
+## 统一字节读取适配
+
+`resources/byte_reader.h` 提供 `byte_reader::read(read_context, read_completion)`。
+返回 `io_error` 表示是否接受；接受后通过唯一完成凭证交付拥有式字节或失败，销毁未完成凭证按取消收口。
+`request_bytes` 复用 IO 请求句柄，可查询取消、完成投递拒绝及队列丢弃，回调只在指定 executor 执行。
+持有返回句柄至实际完成，析构只请求取消，不等待后端清理。
+
+`read_context` 包含拥有式 `resolved_file`、内部 worker、结果预算和借用的结果分配器。
+GUID 定位由 provider 快照完成，reader 不访问实时 provider。宿主可以实现 reader，或直接实现资源 loader；
+内置文件适配之外不要求创建 VFS 后端。reader 实例、分配器和宿主循环必须覆盖真实完成。
+
+```cpp
+resources::file_byte_reader reader{resources::file_read_mode::native_async};
+auto reading = resources::request_bytes(
+    reader, {std::move(resolved.value), worker, 1024 * 1024, resource},
+    completion, on_bytes);
+```
+
+片段中的 `resolved` 来自 `provider_snapshot::resolve(guid)`，实际使用须先检查解析与发起结果。
+`file_byte_reader` 组合打开、限量读取、显式关闭；原生模式遇到 unsupported 直接失败。
+`worker_adapter` 显式使用同步随机读，需可阻塞 worker，不能在 Web 主线程用它阻塞网络。
+取消在阶段边界检查，不保证中断已在途的宿主读取；正常通知路径在交付字节前完成关闭，
+错误保留首次读取失败，成功读取后的关闭失败也会交付失败。投递丢弃时依赖文件 RAII 兜底。
+
+单次默认预算为 64 MiB，读取前由 IO 协议检查。当前只读中间结果需要复制后交付，峰值结果内存约为
+两份预算，另有后端和状态开销；此预算不等于全局在途预算。IO 请求保留 backend_id/native_code，
+`read_error` 转为资源管线通用错误时不能保留全部 IO 分类。
+
+现有 provider/source 同步读写和流接口仍是兼容路径，本批未删除；写入未改成异步。

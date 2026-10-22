@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets.h"
+#include "caors/io/memory_file_system.h"
 #include "caors/resources.h"
 #include "caors/tasks.h"
 #include <emscripten.h>
@@ -49,6 +50,8 @@ struct state {
   std::unique_ptr<caors::assets::asset_manager> assets;
   caors::resources::load_request<texture> request;
   caors::resources::handle<texture> kept;
+  caors::resources::file_byte_reader byte_reader;
+  caors::io::io_request<caors::io::byte_buffer> bytes;
   int phase = 0;
   void begin() {
     cache = std::make_unique<caors::resources::cache<texture>>();
@@ -87,10 +90,29 @@ void tick(void*) {
       value.cache.reset();
       value.begin();
       break;
-    case 3:
+    case 3: {
       value.loader.finish();
       value.completion.clear();
       check(value.request.failed() && !value.cache->contains(guid));
+      auto files = std::make_shared<caors::io::memory_file_system>();
+      check(!files->write_all("data", "abc"));
+      auto reading = caors::resources::request_bytes(
+          value.byte_reader,
+          {{files, caors::io::path{"data"}, 0}, value.worker.get_executor(), 3, nullptr},
+          value.completion.get_executor());
+      check(static_cast<bool>(reading));
+      value.bytes = std::move(reading.value);
+      break;
+    }
+    case 4:
+      (void)value.worker.drain();
+      (void)value.completion.drain();
+      if (!value.bytes.result()) {
+        --value.phase;
+        break;
+      }
+      check(static_cast<bool>(*value.bytes.result()));
+      check(value.bytes.result()->value.size() == 3);
       current.reset();
       EM_ASM({
         document.body.dataset.caorsStatus = "passed";

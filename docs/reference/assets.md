@@ -482,3 +482,26 @@ caors::error saved = saver.save(**loaded);
 `file_systems[]` 先描述可访问的文件系统，再由 `sources[]` 选择其中一个 file_system 形成资源来源。
 
 高层 assets 配置、JSON loader/saver 和 asset manager 测试位于 `tests/assets/`。
+
+
+## JSON 异步字节接入
+
+`assets::json::byte_loader<T>` 借用 `resources::byte_reader`，使用请求快照定位来源；
+读取后在请求 worker 上反序列化，再由资源管线提交到配置的 completion。
+
+```cpp
+resources::file_byte_reader reader{resources::file_read_mode::native_async};
+assets::json::byte_loader<texture> loader{reader, 8 * 1024 * 1024};
+// cache、loader 和 reader 须覆盖在途操作。
+auto status = manager.register_type(cache, loader, string_name{"texture"});
+```
+
+上面是接入片段，需已有 texture 反射信息、cache 和 manager，并检查 status。
+来源由工程 builder 配置，普通请求仍为 `manager.request_load<texture>(guid)`。
+字节协议、预算及 worker 模式限制见[资源参考](resources.md#统一字节读取适配)。
+该 loader 不提供同步 load，也不阻塞等待宿主 I/O。当前使用默认 serialization context；
+自定义 resolver 的资源可自行实现 loader。
+
+现有 `json::loader<T>` 和默认 JSON 配置工厂仍使用同步兼容适配器及实时 provider；
+本批通过显式注册 byte_loader 接入新路径，尚未替换默认工厂或删除同步入口。
+JSON saver 与写入行为保持原契约。

@@ -4,6 +4,7 @@
 #include "caors/assets.h"
 #include "caors/io.h"
 #include "caors/resources.h"
+#include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
@@ -155,6 +156,16 @@ int main() {
   caors::resources::file_source source{files};
   if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "data"))
     return 6;
+  caors::resources::file_byte_reader byte_reader;
+  auto resolved = project.provider().snapshot()->resolve(consumer_guid);
+  if (!resolved)
+    return 10;
+  auto bytes = caors::resources::request_bytes(
+      byte_reader, {std::move(resolved.value), caors::tasks::inline_executor(), 16, nullptr},
+      caors::tasks::inline_executor());
+  if (!bytes || !bytes.value.result() || !*bytes.value.result() ||
+      bytes.value.result()->value.size() != 1 || bytes.value.result()->value[0] != std::byte{64})
+    return 11;
   auto group =
       assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
   auto reload = group.request_refresh<consumer_resource>(consumer_guid);
