@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets.h"
+#include "caors/assets/json.h"
 #include "caors/io.h"
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
@@ -137,6 +138,9 @@ int main() {
   caors::assets::asset_manager assets{
       {caors::tasks::inline_executor(), completion_context.get_executor()}};
   caors::assets::project_builder project{assets};
+  if (caors::assets::json::register_type_factory<consumer_resource>(
+          project, caors::string_name{"consumer.json"}))
+    return 12;
   if (project.build_detailed(caors::assets::project_config{}).failed())
     return 7;
   auto* owned = project.create_owned<int>(42);

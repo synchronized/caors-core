@@ -31,7 +31,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 示例按主题目录组织：
 
 - `alpha/`：注册、资源配置、asset manager、资源加载、引用解析和保存的最小闭环。
-- `beta/`：beta 前主路径示例，包括资源同步加载、异步加载、同步重载、资源管线和 typed factory options；
+- `beta/`：beta 前主路径示例，包括队列加载、线程池异步加载、异步重载、资源管线和 typed factory options；
   阅读顺序见 [beta/README.md](beta/README.md)。
 - `version/`：版本信息 API。
 - `tasks/`：宿主队列适配为外部 executor 的基础用法。

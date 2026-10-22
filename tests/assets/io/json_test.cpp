@@ -23,7 +23,7 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
   caors::resources::handle_result<serialized_resource> loaded =
@@ -54,7 +54,7 @@ TEST_CASE("resources - json loader result survives scratch rewind", "[resources]
   context.resolvers.memory.result_resource = &result_tracking;
   context.resolvers.memory.scratch_resource = &scratch;
 
-  caors::assets::json::loader<serialized_resource> loader{context, provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{context, provider};
   caors::resources::load_result<serialized_resource> loaded =
       loader.load(test_guid_a, &result_tracking);
   REQUIRE(loaded.succeeded());
@@ -88,7 +88,7 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resources::load_result<serialized_resource> loaded = loader.load(test_guid_a);
 
   REQUIRE(loaded.failed());
@@ -149,7 +149,7 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         R"({"width":640})");
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
   caors::resources::handle_result<serialized_resource> loaded =
       caors::resources::load_handle_into(cache, loader, test_guid_a);
@@ -351,7 +351,7 @@ TEST_CASE("assets - byte loader reads snapshot using native or worker reader",
   caors::tasks::execution_context worker;
   caors::tasks::execution_context completion;
   caors::resources::file_byte_reader reader{mode};
-  caors::assets::json::byte_loader<serialized_resource> loader{reader};
+  caors::assets::json::loader<serialized_resource> loader{reader};
   caors::resources::cache<serialized_resource> cache;
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   auto files = std::make_shared<caors::io::memory_file_system>();

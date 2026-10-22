@@ -28,24 +28,25 @@ public:
 };
 
 /**
- * @brief 基于 `resources::provider` 的 JSON 资源加载器。
+ * @brief 基于实时 provider 的同步 JSON 兼容适配器。
  *
- * `json::loader<T>` 通过 provider 按 GUID 定位字节来源和位置，读取 JSON 文本后复用
+ * `json::sync_loader<T>` 是兼容路径，通过 provider 按 GUID 定位字节来源和位置，读取 JSON 文本后复用
  * `assets::load_serialized<T>()` 反序列化为资源对象。它不拥有 provider，调用方需要保证 provider
  * 生命周期。
  */
-template <typename T> class loader final : public resources::sync_loader_adapter<T> {
+template <typename T> class sync_loader final : public resources::sync_loader_adapter<T> {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
 
 public:
   using resource_type = T;
 
-  explicit loader(const resources::provider& provider, serialization::json_options options = {})
+  explicit sync_loader(const resources::provider& provider,
+                       serialization::json_options options = {})
       : provider_(&provider), options_(options) {}
 
-  loader(const serialization::context& context, const resources::provider& provider,
-         serialization::json_options options = {})
+  sync_loader(const serialization::context& context, const resources::provider& provider,
+              serialization::json_options options = {})
       : provider_(&provider), context_(context), options_(options) {}
 
   [[nodiscard]] resources::load_result<resource_type>
@@ -78,7 +79,7 @@ private:
  * @note 借用 reader，须覆盖实际操作。解析经 context.worker，资源提交经 manager 的 completion。
  * 不捕获实时 provider，不在 worker 上阻塞等待读取；max_bytes 为单次结果预算。
  */
-template <typename T> class byte_loader final : public resources::loader<T> {
+template <typename T> class loader final : public resources::loader<T> {
   struct operation {
     resources::async_load_context context;
     resources::load_completion<T> completion;
@@ -88,9 +89,14 @@ template <typename T> class byte_loader final : public resources::loader<T> {
   };
 
 public:
-  explicit byte_loader(resources::byte_reader& reader, std::uint64_t max_bytes = 64 * 1024 * 1024,
-                       serialization::json_options options = {})
+  explicit loader(resources::byte_reader& reader, std::uint64_t max_bytes = 64 * 1024 * 1024,
+                  serialization::json_options options = {})
       : reader_(&reader), max_bytes_(max_bytes), options_(options) {}
+  /** @brief 使用内置文件读取器；模式在构造时固定，不隐式回退。 */
+  explicit loader(resources::file_read_mode mode = resources::file_read_mode::native_async,
+                  std::uint64_t max_bytes = 64 * 1024 * 1024,
+                  serialization::json_options options = {})
+      : file_reader_(mode), reader_(&file_reader_), max_bytes_(max_bytes), options_(options) {}
   [[nodiscard]] error start(resources::async_load_context context,
                             resources::load_completion<T> completion) override {
     auto snapshot = context.template snapshot_as<resources::provider_snapshot>();
@@ -147,6 +153,7 @@ public:
   }
 
 private:
+  resources::file_byte_reader file_reader_;
   resources::byte_reader* reader_;
   std::uint64_t max_bytes_;
   serialization::json_options options_;
@@ -229,19 +236,40 @@ private:
 [[nodiscard]] CAORS_API serialization::serialization_text_result
 save_project_config(const project_config& source, serialization::json_options options = {});
 
-/**
- * @brief 注册默认 JSON 资源类型工厂。
- *
- * 该工厂支持 `cache = "memory"` 和 `loader = "json"`。它属于 JSON 适配层，因此不放在
- * `asset_manager` 本体中。
+namespace detail {
+template <typename T, resources::file_read_mode Mode>
+[[nodiscard]] error make_json_type(project_builder::type_factory_context& context,
+                                   const project_resource_type_config& config, void*) {
+  if (!config.type)
+    return {error_domain::resources, errc::invalid_argument};
+  auto* cache = context.project().create_owned<resources::cache<T>>(context.resource);
+  auto* source = context.project().create_owned<loader<T>>(Mode);
+  if (!cache || !source)
+    return {error_domain::resources, errc::out_of_memory};
+  return context.database.register_type(*cache, *source, config.type);
+}
+} // namespace detail
+
+/** @brief 注册异步 JSON 工厂；默认原生读取，阻塞文件后端须显式指定 worker_adapter 和合适 worker。
  */
 template <typename T>
-[[nodiscard]] error register_type_factory(project_builder project,
-                                          core::string_name resource_type) {
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
-  return assets::register_cached_type_factory<T, loader<T>>(
-      project, resource_type, core::string_name{"memory"}, core::string_name{"json"});
+[[nodiscard]] error
+register_type_factory(project_builder project, core::string_name resource_type,
+                      resources::file_read_mode mode = resources::file_read_mode::native_async) {
+  project_builder::type_factory factory;
+  switch (mode) {
+  case resources::file_read_mode::native_async:
+    factory.create = &detail::make_json_type<T, resources::file_read_mode::native_async>;
+    break;
+  case resources::file_read_mode::worker_adapter:
+    factory.create = &detail::make_json_type<T, resources::file_read_mode::worker_adapter>;
+    break;
+  default:
+    return {error_domain::resources, errc::invalid_argument};
+  }
+  factory.cache_strategy = core::string_name{"memory"};
+  factory.loader_strategy = core::string_name{"json"};
+  return project.register_type_factory(resource_type, std::move(factory));
 }
 
 } // namespace caors::assets::json

@@ -130,7 +130,7 @@ wrapper 的所有权与擦除结构。
   `write_value_to_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
   writer 写对象。这些用例用于判断完整 JSON 序列化成本主要来自 schema 注册表、字段查找、反射、DOM 构造、
   DOM 写出、reader 字段索引还是 writer 本身。
-- `resources::cache<T>` / `resources::provider` / `assets::json::loader<T>` /
+- `resources::cache<T>` / `resources::provider` / `assets::json::sync_loader<T>` /
   `resources::load_handle_into()`：cache 查找、已缓存加载、fake loader 未缓存加载、memory file system
   provider 读取，以及 provider -> JSON loader -> cache 的资源加载主路径。
 

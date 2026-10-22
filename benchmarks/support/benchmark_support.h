@@ -72,7 +72,8 @@ public:
   int height = 0;
 };
 
-class benchmark_texture_loader final : public caors::resources::loader<benchmark_texture_resource> {
+class benchmark_texture_loader final
+    : public caors::resources::sync_loader_adapter<benchmark_texture_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<benchmark_texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override;
@@ -85,7 +86,7 @@ struct benchmark_resource_io_fixture {
   caors::resources::provider provider;
   caors::resource_cache<benchmark_texture_resource> cache;
   caors::resources::file_source source;
-  caors::assets::json::loader<benchmark_texture_resource> loader;
+  caors::assets::json::sync_loader<benchmark_texture_resource> loader;
 };
 
 [[nodiscard]] caors::serialization::type_schema make_benchmark_actor_schema();

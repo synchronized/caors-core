@@ -986,3 +986,31 @@ TEST_CASE("assets - synchronous adapter preserves adjusted loader pointers acros
   CHECK(assets.load_handle<texture>(test_guid_b).succeeded());
   CHECK(loader.calls == 2);
 }
+
+TEST_CASE("assets - default JSON factory loads through configured asynchronous queues",
+          "[assets][json-factory][web]") {
+  require_serialized_resource_metadata();
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  caors::assets::project_builder project{assets};
+  const caors::string_name type{"json.protocol"};
+  REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(project, type));
+  caors::assets::project_config config;
+  config.resource_types.push_back(
+      {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
+  REQUIRE_FALSE(project.build(config));
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(files->write_all("data", R"({"width":321})"));
+  caors::resources::file_source source{files};
+  REQUIRE_FALSE(project.provider().bind(test_guid_a, source, "data"));
+  auto request = assets.request_load<serialized_resource>(test_guid_a);
+  CHECK_FALSE(request.done());
+  for (int i = 0; i < 32 && !request.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(request.loaded());
+  CHECK(request.try_get()->width == 321);
+  CHECK_FALSE(assets.database().has_active_operations());
+}

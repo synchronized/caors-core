@@ -36,3 +36,5 @@
 - 新 JSON byte_loader 目前使用默认 serialization context，自定义 resolver 需自定义 loader。
 - IO 中间结果只读，适配器交付时复制字节，峰值结果内存约两份预算；未做全局预算或性能验收。
 - 本批不修改版本号、已发布标签和上游 Gneiss。
+
+后续默认 JSON 工厂与名称迁移见[迁移记录](2026-10-22-json-factory-migration.md)，上述限制记录的是本批完成时的状态。

@@ -247,7 +247,7 @@ void require_typed_external_source_config_schema() {
 struct external_type_factory_state {
   int calls = 0;
   caors::resources::cache<serialized_resource>* cache = nullptr;
-  caors::assets::json::loader<serialized_resource>* loader = nullptr;
+  caors::assets::json::sync_loader<serialized_resource>* loader = nullptr;
   std::string format;
   std::uint64_t priority = 0;
 };
@@ -339,13 +339,10 @@ make_external_memory_source(caors::assets::project_builder::source_factory_conte
   state.resource = context.resource;
   state.label = options.label;
 
-  state.file_system =
-      context.project().create_owned<caors::io::memory_file_system>(context.resource);
-  if (state.file_system == nullptr) {
-    return {caors::error_domain::resources, caors::errc::out_of_memory};
-  }
-
-  return context.project().bind_file_system(config.name, *state.file_system);
+  auto files = std::allocate_shared<caors::io::memory_file_system>(
+      caors::allocator<caors::io::memory_file_system>{context.resource}, context.resource);
+  state.file_system = files.get();
+  return context.project().bind_file_system(config.name, std::move(files));
 }
 
 [[nodiscard]] caors::error
@@ -403,8 +400,9 @@ make_external_serialized_type(caors::assets::project_builder::type_factory_conte
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.loader = context.project().create_owned<caors::assets::json::loader<serialized_resource>>(
-      context.provider);
+  state.loader =
+      context.project().create_owned<caors::assets::json::sync_loader<serialized_resource>>(
+          context.provider);
   if (state.loader == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
@@ -431,8 +429,9 @@ make_typed_external_serialized_type(caors::assets::project_builder::type_factory
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.loader = context.project().create_owned<caors::assets::json::loader<serialized_resource>>(
-      context.provider);
+  state.loader =
+      context.project().create_owned<caors::assets::json::sync_loader<serialized_resource>>(
+          context.provider);
   if (state.loader == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
@@ -522,7 +521,7 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
       std::string_view{"assets/resource-b.json"});
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::assets::json::loader<serialized_resource> loader{
+  caors::assets::json::sync_loader<serialized_resource> loader{
       caors::assets::project_builder{assets}.provider()};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
@@ -638,7 +637,10 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
   REQUIRE(location);
   CHECK(location.location.string_view() == std::string_view{"caors://assets/resource-a.json"});
 
-  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  auto loaded = assets
+                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                       caors::tasks::inline_executor())
+                    .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 300);
@@ -716,7 +718,10 @@ TEST_CASE("resources - asset_manager accepts external file system factory", "[re
   REQUIRE(state.file_system->write_all("resource-a.json", std::string_view{R"({"width":301})"})
               .succeeded());
 
-  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  auto loaded = assets
+                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                       caors::tasks::inline_executor())
+                    .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 301);
@@ -798,7 +803,10 @@ TEST_CASE("resources - asset_manager routes source through resolver and mount fi
   REQUIRE(vfs != nullptr);
   CHECK(vfs->exists("caors://game/assets/resource-a.json"));
 
-  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  auto loaded = assets
+                    .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                       caors::tasks::inline_executor())
+                    .result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 302);
@@ -828,7 +836,10 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  auto loaded = assets
+                    .request_preload(test_guid_b, caors::tasks::inline_executor(),
+                                     caors::tasks::inline_executor())
+                    .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
 
@@ -876,9 +887,14 @@ TEST_CASE("resources - asset_manager builds multiple sources and resource types"
   REQUIRE(dlc_files->write_all("packs/resource-c.json", std::string_view{R"({"width":128})"})
               .succeeded());
 
-  caors::result<serialized_resource*> base = assets.load<serialized_resource>(test_guid_a);
-  caors::result<secondary_serialized_resource*> dlc =
-      assets.load<secondary_serialized_resource>(test_guid_c);
+  auto base = assets
+                  .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                                     caors::tasks::inline_executor())
+                  .result();
+  auto dlc = assets
+                 .request_load<secondary_serialized_resource>(
+                     test_guid_c, caors::tasks::inline_executor(), caors::tasks::inline_executor())
+                 .result();
 
   REQUIRE(base.succeeded());
   REQUIRE(dlc.succeeded());
@@ -897,12 +913,11 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::assets::asset_manager assets;
-  REQUIRE((
-      caors::assets::register_cached_type_factory<serialized_resource,
-                                                  caors::assets::json::loader<serialized_resource>>(
-          caors::assets::project_builder{assets}, serialized_manifest_type(),
-          caors::string_name{"memory"}, caors::string_name{"json"})
-          .succeeded()));
+  REQUIRE((caors::assets::register_cached_type_factory<
+               serialized_resource, caors::assets::json::sync_loader<serialized_resource>>(
+               caors::assets::project_builder{assets}, serialized_manifest_type(),
+               caors::string_name{"memory"}, caors::string_name{"json"})
+               .succeeded()));
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
@@ -1321,7 +1336,7 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
   caors::resource_cache<serialized_resource> cache;
 
   caors::assets::asset_manager assets;
-  caors::assets::json::loader<serialized_resource> loader{
+  caors::assets::json::sync_loader<serialized_resource> loader{
       caors::assets::project_builder{assets}.provider()};
   REQUIRE(caors::assets::project_builder{assets}
               .bind_source(caors::string_name{"assets"}, source)
@@ -1367,12 +1382,11 @@ TEST_CASE("resources - generic cached type factory requires matching cache and l
   config.resource_types[0].cache = caors::string_name{"external_memory"};
 
   caors::assets::asset_manager assets;
-  REQUIRE((
-      caors::assets::register_cached_type_factory<serialized_resource,
-                                                  caors::assets::json::loader<serialized_resource>>(
-          caors::assets::project_builder{assets}, serialized_manifest_type(),
-          caors::string_name{"memory"}, caors::string_name{"json"})
-          .succeeded()));
+  REQUIRE((caors::assets::register_cached_type_factory<
+               serialized_resource, caors::assets::json::sync_loader<serialized_resource>>(
+               caors::assets::project_builder{assets}, serialized_manifest_type(),
+               caors::string_name{"memory"}, caors::string_name{"json"})
+               .succeeded()));
 
   const caors::assets::asset_build_result result =
       caors::assets::project_builder{assets}.build_detailed(config);
@@ -1478,3 +1492,82 @@ static_assert(!exposes_provider<caors::resources::database>);
 static_assert(!exposes_provider<caors::assets::asset_manager>);
 static_assert(exposes_provider<caors::assets::project_builder>);
 } // namespace
+
+TEST_CASE("assets - default JSON factory freezes source and rejects rebuild while pending",
+          "[assets][json-factory]") {
+  require_serialized_resource_metadata();
+  caors::assets::project_config config;
+  REQUIRE_FALSE(caors::assets::json::load_project_config(config, make_project_config_json()));
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  caors::assets::project_builder project{assets};
+  REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(
+      project, serialized_manifest_type()));
+  REQUIRE_FALSE(project.build(config));
+  auto* source = dynamic_cast<caors::resources::file_source*>(
+      project.find_source(caors::string_name{"assets"}));
+  REQUIRE(source);
+  REQUIRE_FALSE(source->write("assets/resource-a.json", R"({"width":123})"));
+  REQUIRE_FALSE(source->write("assets/resource-b.json", R"({"width":456})"));
+  auto request = assets.request_load<serialized_resource>(test_guid_a);
+  REQUIRE_FALSE(request.done());
+  CHECK(project.build(config).value() == caors::errc::frozen);
+  REQUIRE_FALSE(project.provider().rebind(test_guid_a, *source, "assets/resource-b.json"));
+  for (int i = 0; i < 32 && !request.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(request.loaded());
+  CHECK(request.try_get()->width == 123);
+  auto refresh = assets.request_refresh<serialized_resource>(test_guid_a);
+  for (int i = 0; i < 32 && !refresh.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(refresh.loaded());
+  CHECK(refresh.try_get()->width == 456);
+  CHECK_FALSE(assets.database().has_active_operations());
+  CHECK_FALSE(project.build(config));
+  CHECK(request.try_get()->width == 123);
+}
+
+TEST_CASE("assets - JSON factory requires explicit worker mode for native files",
+          "[assets][json-factory]") {
+  require_serialized_resource_metadata();
+  const auto mode = GENERATE(caors::resources::file_read_mode::native_async,
+                             caors::resources::file_read_mode::worker_adapter);
+  const auto directory = make_temp_dir();
+  std::error_code ec;
+  std::filesystem::create_directories(directory, ec);
+  REQUIRE_FALSE(ec);
+  const auto location = path_string(directory / "json-factory.json");
+  auto files = std::make_shared<caors::io::native_file_system>();
+  REQUIRE_FALSE(files->write_all(location, R"({"width":789})"));
+  caors::resources::file_source source{files};
+  caors::assets::project_config config;
+  REQUIRE_FALSE(caors::assets::json::load_project_config(config, make_project_config_json()));
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  caors::assets::project_builder project{assets};
+  REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(
+      project, serialized_manifest_type(), mode));
+  REQUIRE_FALSE(project.build(config));
+  REQUIRE_FALSE(project.provider().rebind(test_guid_a, source, location));
+  auto request = assets.request_load<serialized_resource>(test_guid_a);
+  for (int i = 0; i < 32 && !request.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  if (mode == caors::resources::file_read_mode::native_async) {
+    REQUIRE(request.failed());
+    CHECK(request.error().value() == caors::errc::unsupported);
+  } else {
+    REQUIRE(request.loaded());
+    CHECK(request.try_get()->width == 789);
+  }
+  CHECK_FALSE(assets.database().has_active_operations());
+  std::filesystem::remove(location, ec);
+  CHECK_FALSE(ec);
+}

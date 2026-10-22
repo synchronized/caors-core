@@ -1161,8 +1161,8 @@ asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定�
 不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
 独立 `request_load_into` 未配置批次数据时该字段为空；自定义 loader 需要快照时应检查并明确失败。
 旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
-内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
-`assets::json::byte_loader<T>` 或读取 `context.snapshot_as<resources::provider_snapshot>()` 的自定义 loader，不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
+内置 `assets::json::loader<T>` 与默认 JSON 工厂使用请求快照和异步字节读取；
+`assets::json::sync_loader<T>` 是读取实时 provider 的同步兼容路径，不获得来源冻结保证。
 
 内置 asset_manager 文件系统工厂和来源工厂提供拥有式后端，配置路由在挂载前检查循环。
 自定义 factory 可通过 `bind_file_system(name, shared_ptr<file_system>, lifetime)` 提供完整寿命；
@@ -1177,7 +1177,7 @@ asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定�
 `database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
 manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
 刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
-loader 必须使用 context.snapshot_as<resources::provider_snapshot>() 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
+loader 必须使用 context.snapshot_as<resources::provider_snapshot>() 才获得来源冻结保证；JSON sync_loader 兼容 adapter 或忽略该字段的自定义 loader
 仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
 
 | 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |

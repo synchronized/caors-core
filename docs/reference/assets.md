@@ -433,18 +433,17 @@ typed factory options 按“先应用默认值、再用输入局部覆盖”的�
 - `assets::json::save_project_config()`：把 `project_config` 保存为 JSON 字符串。
 - `assets::json::save_project_config_to()`：把 `project_config` 写入调用方提供的字符串或 source。
 - `assets::json::project_config_loader`：把 JSON 配置适配到格式无关 `assets::project_config_loader` 接口。
-- `assets::json::loader<T>`：从 provider 打开 JSON 输入流，再通过 `assets::load_serialized<T>()`
-  构造资源。
+- `assets::json::loader<T>`：使用请求快照和 byte_reader 异步读取 JSON 并构造资源。
+- `assets::json::sync_loader<T>`：显式同步兼容适配器，读取实时 provider，不提供快照一致性。
 - `assets::json::saver<T>`：从 provider 打开 JSON 输出流，把资源对象属性序列化为 JSON 文本后显式
   `close()` 提交。
-- `assets::json::register_type_factory<T>()`：复用
-  `assets::register_cached_type_factory<T, assets::json::loader<T>>()`，固定匹配
-  `cache = "memory"`、`loader = "json"`。
+- `assets::json::register_type_factory<T>()`：创建 cache 与异步 JSON loader，固定匹配
+  `cache = "memory"`、`loader = "json"`；默认原生异步读取，可在注册时显式选择 worker 适配。
 
-示例：
+同步兼容示例（新工程优先使用下方异步接入）：
 
 ```cpp
-caors::assets::json::loader<texture> loader{provider};
+caors::assets::json::sync_loader<texture> loader{provider};
 caors::resource_cache<texture> cache;
 
 auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
@@ -458,7 +457,7 @@ caors::error saved = saver.save(**loaded);
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
 - 读写的资源类型仍需要完成 meta 属性和 serialization 注册。
 - helper 只读写资源对象属性；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
-- `json::loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
+- `json::sync_loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
   由调用方保证。
 - `json::saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
   `errc::unsupported`。
@@ -473,7 +472,7 @@ caors::error saved = saver.save(**loaded);
   `open_write()`。一个 source 可以指向 VFS，也可以指向普通 native/memory file_system。
 - `resources::provider`：保存 `guid -> source + location` 绑定。它不解析格式，也不持有资源对象。
 - `resources::loader<T>`：按 GUID 异步交付资源对象，可直接调用宿主服务，不要求 provider。
-- `resources::sync_loader_adapter<T>`：将已有同步构造逻辑接入统一请求协议；内置 JSON loader 使用此适配。
+- `resources::sync_loader_adapter<T>`：将已有同步构造逻辑接入统一请求协议；JSON 的 sync_loader 兼容路径使用此适配。
 - `resources::cache<T>`：按 GUID 持有已经加载完成的 `T`。
 - `resources::database` / `assets::asset_manager`：协调 manifest、依赖、loader 和 cache；provider 由可选工程适配提供，保留
   `load()`、`reload()`、`preload()` 和异步请求入口。
@@ -486,12 +485,12 @@ caors::error saved = saver.save(**loaded);
 
 ## JSON 异步字节接入
 
-`assets::json::byte_loader<T>` 借用 `resources::byte_reader`，使用请求快照定位来源；
+`assets::json::loader<T>` 借用 `resources::byte_reader`，使用请求快照定位来源；
 读取后在请求 worker 上反序列化，再由资源管线提交到配置的 completion。
 
 ```cpp
 resources::file_byte_reader reader{resources::file_read_mode::native_async};
-assets::json::byte_loader<texture> loader{reader, 8 * 1024 * 1024};
+assets::json::loader<texture> loader{reader, 8 * 1024 * 1024};
 // cache、loader 和 reader 须覆盖在途操作。
 auto status = manager.register_type(cache, loader, string_name{"texture"});
 ```
@@ -502,6 +501,14 @@ auto status = manager.register_type(cache, loader, string_name{"texture"});
 该 loader 不提供同步 load，也不阻塞等待宿主 I/O。当前使用默认 serialization context；
 自定义 resolver 的资源可自行实现 loader。
 
-现有 `json::loader<T>` 和默认 JSON 配置工厂仍使用同步兼容适配器及实时 provider；
-本批通过显式注册 byte_loader 接入新路径，尚未替换默认工厂或删除同步入口。
+默认 JSON 配置工厂现在构造异步 `json::loader<T>`，并拥有其内部 file_byte_reader。
+注册方式仍为 `json::register_type_factory<T>(project, type)`，默认 `native_async`，不作同步回退。
+对于 native_file_system 等同步随机读取后端，注册时显式传第三参数
+`resources::file_read_mode::worker_adapter`，并配置可阻塞 worker；Web 网络不得使用阻塞适配。
+
+原 `json::loader(provider)` 调用迁移为 `json::sync_loader(provider)`，或改用异步 loader 和 request 接口；
+原短期 `json::byte_loader` 更名为 `json::loader`。同步 `load/reload/preload` 不等待异步工厂，
+应迁移到 `request_load/request_reload/request_preload`，执行所配置的 worker/completion 后再读取 result。
+通用 `register_cached_type_factory<T, Loader>` 仍服务于接受 provider 构造的自定义实现；
+JSON 默认工厂使用独立构造逻辑，不再通过该 helper 创建同步 loader。
 JSON saver 与写入行为保持原契约。

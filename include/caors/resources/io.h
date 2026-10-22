@@ -34,7 +34,7 @@ struct progress_update {
 /**
  * @brief loader 可选使用的进度上报器。
  *
- * `progress_reporter` 是轻量非拥有回调视图，只在 `loader::load()` 调用期间有效。loader
+ * `progress_reporter` 是轻量非拥有回调视图，只在 `sync_loader_adapter::load()` 调用期间有效。loader
  * 不应保存它或跨线程延后调用。
  */
 class progress_reporter final {

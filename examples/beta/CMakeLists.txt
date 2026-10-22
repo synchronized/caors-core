@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 CAORS contributors
 
-caors_add_example(caors_example_beta_assets_sync_load assets_sync_load.cpp)
+caors_add_example(caors_example_beta_assets_load assets_load.cpp)
 caors_add_example(caors_example_beta_assets_async_load assets_async_load.cpp)
 caors_add_example(caors_example_beta_resource_reload resource_reload.cpp)
 caors_add_example(caors_example_beta_config_schema config_schema.cpp)

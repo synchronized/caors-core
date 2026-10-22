@@ -2,7 +2,9 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets.h"
+#include "caors/assets/json.h"
 #include "caors/io/memory_file_system.h"
+#include "caors/registration.h"
 #include "caors/resources.h"
 #include "caors/tasks.h"
 #include <emscripten.h>
@@ -113,6 +115,38 @@ void tick(void*) {
       }
       check(static_cast<bool>(*value.bytes.result()));
       check(value.bytes.result()->value.size() == 3);
+      value.request = {};
+      value.assets.reset();
+      value.cache.reset();
+      check(
+          !caors::registration::type_<texture>("web.json.texture").meta().serialization().commit());
+      value.assets =
+          std::make_unique<caors::assets::asset_manager>(caors::assets::asset_execution_options{
+              value.worker.get_executor(), value.completion.get_executor()});
+      {
+        caors::assets::project_builder project{*value.assets};
+        const caors::string_name type{"web.json.texture"};
+        check(!caors::assets::json::register_type_factory<texture>(project, type));
+        caors::assets::project_config config;
+        config.resource_types.push_back(
+            {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
+        check(!project.build(config));
+        auto files = std::make_shared<caors::io::memory_file_system>();
+        check(!files->write_all("texture", "{}"));
+        caors::resources::file_source source{files};
+        check(!project.provider().bind(guid, source, "texture"));
+        value.request = value.assets->request_load<texture>(guid);
+      }
+      break;
+    case 5:
+      (void)value.worker.drain();
+      (void)value.completion.drain();
+      if (!value.request.done()) {
+        --value.phase;
+        break;
+      }
+      check(value.request.loaded());
+      check(!value.assets->database().has_active_operations());
       current.reset();
       EM_ASM({
         document.body.dataset.caorsStatus = "passed";
