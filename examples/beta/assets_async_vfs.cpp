@@ -66,7 +66,6 @@ int run_example() {
   caors::tasks::execution_context completion;
   caors::resources::cache<text_asset> cache;
   text_loader loader;
-  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   caors::io::vfs files;
   auto memory = caors::io::make_memory_backend();
   if (memory->store("hello", "hello VFS"))
@@ -74,9 +73,20 @@ int run_example() {
   if (files.mount("caors://assets", memory))
     return 2;
   caors::resources::vfs_source source{files};
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   const caors::resource_guid guid{caors::guid::from_bytes(caors::guid::byte_array{4})};
-  if (caors::assets::project_builder{assets}.provider().bind(guid, source,
-                                                             "caors://assets/hello") ||
+  caors::assets::project_builder project{assets};
+  const caors::string_name source_name{"example.vfs"};
+  if (project.bind_source(source_name, source))
+    return 3;
+  caors::assets::project_config config;
+  caors::assets::project_resource_config entry;
+  entry.guid = guid;
+  entry.source = source_name;
+  entry.location = caors::io::location{"caors://assets/hello"};
+  entry.type = caors::string_name{"example.text"};
+  config.resources.push_back(std::move(entry));
+  if (project.build(config) ||
       assets.register_type(cache, loader, caors::string_name{"example.text"}))
     return 3;
   auto request = assets.create_group(worker.get_executor(), completion.get_executor())

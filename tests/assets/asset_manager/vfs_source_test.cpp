@@ -21,8 +21,17 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   caors::assets::project_config config;
   config.resource_types.push_back(
       {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
+  const caors::string_name source_name{"new.vfs.source"};
+  REQUIRE_FALSE(project.bind_source(source_name, source));
+  caors::assets::project_resource_config entry;
+  entry.guid = test_guid_a;
+  entry.source = source_name;
+  entry.location = caors::io::location{"assets/data"};
+  entry.type = type;
+  config.resources.push_back(std::move(entry));
   REQUIRE_FALSE(project.build(config));
-  REQUIRE_FALSE(project.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE(config.file_systems.empty());
+  REQUIRE(project.provider().contains(test_guid_a));
   auto request = assets.request_load<serialized_resource>(test_guid_a);
   REQUIRE(routes.unmount("assets"));
   REQUIRE_FALSE(routes.mount("assets", next));

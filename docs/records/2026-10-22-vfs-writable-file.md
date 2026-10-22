@@ -27,7 +27,11 @@ Node 协议 1/1，Chrome 155.0.8059.85 的独立事件循环打开/写入/读回
 
 日志：build/vfs-writable-final-native.log、vfs-writable-edge-native.log、vfs-writable-final-web.log、
 vfs-writable-edge-web.log、vfs-writable-browser.log、vfs-writable-installed.log、vfs-writable-headers.log、vfs-writable-bench.log。
-本批远端验收待执行，前批 baf593ad 的成功不能替代本批可写协议验收。
+a04e2eff 已启动远端验收；前批 baf593ad 的成功不能替代本批可写协议验收。
+
+后续仅迁移工程配置消费示例与测试，不修改库实现：手工 bind_source 注册命名 vfs_source，
+project_resource_config 指向来源及逻辑路径，config.file_systems 留空。
+Windows asset_manager 1/1 与示例通过，Node 1/1 通过，日志为 build/vfs-config-consumer.log、vfs-config-web.log。
 
 ## 保留与限制
 

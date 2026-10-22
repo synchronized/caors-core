@@ -527,6 +527,11 @@ manager 和 group 的请求入口只有 `request_load<T>(guid)`、`request_reloa
 ### 新 VFS 来源
 
 `resources::vfs_source` 借用 `io::vfs` 用于捕获，每次新根请求固定一份路由；已发请求拥有实际后端，
-reload 捕获新路由。它可直接绑定到 project_builder 的 provider，配合默认异步 JSON 工厂使用，
+reload 捕获新路由。工程配置可用 `project.bind_source(name, source)` 注册这个来源，
+让 `project_resource_config.source` 引用该名称并设置逻辑 location，再执行 `project.build(config)`。
+不再为新配置创建 file_system/resolver 工厂图；宿主通过 vfs.mount 配置后端与调度，
+config.file_systems 留空，资源类型照常使用默认异步 JSON 工厂。手工来源绑定在 build 后保留，
+但 vfs/source 是借用对象，必须覆盖 builder 后续构建及所有实际请求。
+仅少量手动资源也可直接绑定到 project_builder 的 provider，
 示例见[资源 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。该兼容桥只支持异步快照访问，
 同步 source 的 read/write/exists 不适用；需要同步 saver 的旧配置继续使用 file_source 兼容路径。
