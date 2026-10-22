@@ -144,8 +144,8 @@ status = caors::assets::json::save_project_config_to(config, source, "project.ca
 
 ## asset_manager
 
-`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
-`dependency_graph` 和内部 `resources::database`，减少手动拼装生命周期错误：
+`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、
+`dependency_graph` 和内部 `resources::database`；工程 provider 位于私有装配状态中，减少手动拼装生命周期错误：
 
 ```cpp
 caors::assets::asset_manager assets;
@@ -175,6 +175,9 @@ caors::resources::preload_result result = assets.preload(texture_id);
 构建失败保留既有逐阶段结果，不提供事务回滚。
 
 工程装配入口（均属于 builder）：
+
+- `provider()`：访问工程来源定位与字节适配，manager 不再公开该入口。
+- `use_provider_snapshot()`：显式恢复工程 VFS 批次捕获；活动操作未清理时返回 frozen。
 
 - `build(config)`：按配置重建内部 manifest、provider 和 dependency graph，并按已注册 factory
   创建运行期 file_system、source、cache 和 loader。配置构建顺序是 file_system、source、

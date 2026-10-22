@@ -115,7 +115,7 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(entry != nullptr);
   CHECK(entry->type == serialized_manifest_type());
   CHECK(entry->location.string_view() == std::string_view{"caors://assets/assets/resource-b.json"});
-  CHECK(assets.provider().contains(test_guid_a));
+  CHECK(caors::assets::project_builder{assets}.provider().contains(test_guid_a));
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
   caors::tasks::executor executor = caors::tasks::inline_executor();
@@ -165,7 +165,8 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(handle);
   handle->width = 4096;
 
-  caors::assets::json::saver<serialized_resource> saver{assets.provider()};
+  caors::assets::json::saver<serialized_resource> saver{
+      caors::assets::project_builder{assets}.provider()};
   REQUIRE(saver.save(*handle).succeeded());
 
   caors::io::byte_buffer_result saved = files->read_all("assets/resource-a.json");

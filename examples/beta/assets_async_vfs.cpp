@@ -134,7 +134,8 @@ int run_example(bool use_worker) {
     return 2;
   caors::resources::file_source source{router};
   const caors::resource_guid guid{caors::guid::from_bytes(caors::guid::byte_array{4})};
-  if (assets.provider().bind(guid, source, "caors://assets/hello") ||
+  if (caors::assets::project_builder{assets}.provider().bind(guid, source,
+                                                             "caors://assets/hello") ||
       assets.register_type(cache, loader, caors::string_name{"example.text"}))
     return 3;
   auto request = assets.create_group(worker.get_executor(), completion.get_executor())

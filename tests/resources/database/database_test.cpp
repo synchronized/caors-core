@@ -119,10 +119,9 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   caors::resource_dependency_graph graph;
   caors::resource_database database;
   database.set_manifest(manifest);
-  database.set_provider(provider);
   database.set_dependency_graph(graph);
 
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
   CHECK(provider.contains(test_guid_a));
 
   caors::assets::json::loader<serialized_resource> loader{provider};
@@ -181,7 +180,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   REQUIRE(files.write_all("assets/resource-v2.json", std::string_view{R"({"width":1024})"})
               .succeeded());
   REQUIRE(manifest.set(test_guid_a, "assets/resource-v2.json").succeeded());
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
   caors::result<serialized_resource*> reloaded = database.reload<serialized_resource>(test_guid_a);
 
@@ -200,7 +199,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(database.is_current(decoded.resource));
 
   REQUIRE(manifest.set(test_guid_a, "assets/missing.json").succeeded());
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
   caors::result<serialized_resource*> failed_reload =
       database.reload<serialized_resource>(test_guid_a);

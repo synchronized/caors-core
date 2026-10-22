@@ -516,12 +516,14 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(entry_a->type == serialized_manifest_type());
   CHECK(std::string_view{entry_a->hash.data(), entry_a->hash.size()} == "hash-a");
   CHECK(entry_a->version == 1);
-  CHECK(assets.provider().contains(test_guid_a));
-  CHECK(assets.provider().find(test_guid_b).location.string_view() ==
-        std::string_view{"assets/resource-b.json"});
+  CHECK(caors::assets::project_builder{assets}.provider().contains(test_guid_a));
+  CHECK(
+      caors::assets::project_builder{assets}.provider().find(test_guid_b).location.string_view() ==
+      std::string_view{"assets/resource-b.json"});
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::assets::json::loader<serialized_resource> loader{assets.provider()};
+  caors::assets::json::loader<serialized_resource> loader{
+      caors::assets::project_builder{assets}.provider()};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
@@ -631,7 +633,8 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
   REQUIRE(files != nullptr);
   REQUIRE(files->write_all("resource-a.json", std::string_view{R"({"width":300})"}).succeeded());
 
-  const caors::resources::source_location location = assets.provider().find(test_guid_a);
+  const caors::resources::source_location location =
+      caors::assets::project_builder{assets}.provider().find(test_guid_a);
   REQUIRE(location);
   CHECK(location.location.string_view() == std::string_view{"caors://assets/resource-a.json"});
 
@@ -883,8 +886,8 @@ TEST_CASE("resources - asset_manager builds multiple sources and resource types"
   REQUIRE(dlc.value != nullptr);
   CHECK(base.value->width == 64);
   CHECK(dlc.value->width == 128);
-  CHECK(assets.provider().find(test_guid_a).source == base_source);
-  CHECK(assets.provider().find(test_guid_c).source == dlc_source);
+  CHECK(caors::assets::project_builder{assets}.provider().find(test_guid_a).source == base_source);
+  CHECK(caors::assets::project_builder{assets}.provider().find(test_guid_c).source == dlc_source);
 }
 
 TEST_CASE("resources - asset_manager exposes high level resource operations", "[resources]") {
@@ -941,7 +944,8 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   CHECK(reference.get() == reloaded.value);
 
   reloaded.value->width = 4096;
-  caors::assets::json::saver<serialized_resource> saver{assets.provider()};
+  caors::assets::json::saver<serialized_resource> saver{
+      caors::assets::project_builder{assets}.provider()};
   REQUIRE(saver.save(*reloaded.value).succeeded());
   caors::io::byte_buffer_result saved = files->read_all("assets/resource-a.json");
   REQUIRE(saved.succeeded());
@@ -1317,7 +1321,8 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
   caors::resource_cache<serialized_resource> cache;
 
   caors::assets::asset_manager assets;
-  caors::assets::json::loader<serialized_resource> loader{assets.provider()};
+  caors::assets::json::loader<serialized_resource> loader{
+      caors::assets::project_builder{assets}.provider()};
   REQUIRE(caors::assets::project_builder{assets}
               .bind_source(caors::string_name{"assets"}, source)
               .succeeded());
@@ -1464,4 +1469,12 @@ static_assert(!exposes_project_binding<caors::assets::asset_manager>);
 static_assert(!exposes_project_creation<caors::assets::asset_manager>);
 static_assert(exposes_project_binding<caors::assets::project_builder>);
 static_assert(exposes_project_creation<caors::assets::project_builder>);
+} // namespace
+
+namespace {
+template <typename T>
+concept exposes_provider = requires(T& value) { value.provider(); };
+static_assert(!exposes_provider<caors::resources::database>);
+static_assert(!exposes_provider<caors::assets::asset_manager>);
+static_assert(exposes_provider<caors::assets::project_builder>);
 } // namespace

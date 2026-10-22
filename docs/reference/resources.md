@@ -688,10 +688,9 @@ caors::resource_dependency_graph graph;
 
 caors::resource_database database;
 database.set_manifest(manifest);
-database.set_provider(provider);
 database.set_dependency_graph(graph);
 
-database.sync_manifest(source);
+caors::resources::sync_manifest(provider, source, manifest);
 
 caors::resource_cache<texture> cache;
 texture_loader loader{provider};
@@ -703,9 +702,9 @@ auto resolver = caors::resources::make_resource_resolver(database);
 
 常用入口：
 
-- `set_manifest()` / `set_provider()` / `set_dependency_graph()`：挂接外部组件，不接管生命周期。
-- `bind_manifest(source)` / `sync_manifest(source)` / `replace_manifest(source)`：把当前 manifest 同步到当前
-  provider。
+- `set_manifest()` / `set_dependency_graph()`：挂接外部组件，不接管生命周期。
+- `set_snapshot_capture()`：配置通用批次数据捕获，不绑定 provider。
+- 清单到 provider 的绑定使用 `manifest_binding.h` 的 `bind_manifest` / `sync_manifest` / `replace_manifest` 自由函数，不通过 database。
 - `register_cache<T>()` / `register_loader<T>()` / `register_type<T>()`：按已注册 meta 类型挂接类型化
   cache 和 loader。
 - `bind_resource_type_alias()` / `bind_resource_type_guid()`：把外部类型 token 或稳定 type_guid 映射到已注册
@@ -1140,10 +1139,12 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 
 `async_load_context` 仅持有 `load_snapshot` 基类，不要求文件系统。VFS loader 显式调用
 `snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
-基类只保证共享保活，不自动冻结自定义对象的外部数据；当前 database 仍负责捕获 provider 快照。
+基类只保证共享保活，不自动冻结自定义对象的外部数据。database 不持有或选择 provider。
 
 低层 `database::set_snapshot_capture(snapshot_capture)` 可配置宿主批次捕获策略；
-非空捕获器优先于 provider，返回空快照也不回退。传入空捕获器恢复默认 provider 适配。
+捕获器返回空快照不触发回退；传入空捕获器关闭快照捕获。
+asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定义策略清空后，若需恢复，
+显式调用 `project_builder{assets}.use_provider_snapshot()` 并检查结果。
 配置和捕获在发起线程进行，捕获器不得重入或修改加载配置；活动操作未清理时设置返回 frozen。
 捕获异常沿发起调用传播，沿用既有 provider 捕获的异常边界，不自动转换为完成回调错误。
 捕获器自身可持有宿主凭据，不得形成所有权环；已经交付的快照独立保活。
@@ -1152,10 +1153,10 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 单次新 load/reload 在缓存与请求合并判断之后捕获；refresh 独立捕获；一次预加载闭包共用一次捕获结果。
 已经合并到在途操作的订阅者继承原操作快照，不为每个订阅者重新捕获。
 
-未配置自定义捕获器且 database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
+安装工程 provider 捕获策略时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
 预加载根和依赖共用一份快照；缓存命中和同 GUID 在途共享不重新选择来源，显式 reload 的新操作才捕获新状态。
 不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
-独立 `request_load_into` 没有 provider 时该字段为空；自定义 loader 需要快照时应检查并明确失败。
+独立 `request_load_into` 未配置批次数据时该字段为空；自定义 loader 需要快照时应检查并明确失败。
 旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
 内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
 读取 `context.snapshot_as<resources::provider_snapshot>()` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。

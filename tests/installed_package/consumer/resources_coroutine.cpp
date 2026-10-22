@@ -153,7 +153,7 @@ int main() {
       project.find_owned_file_system(backend_name) != files)
     return 9;
   caors::resources::file_source source{files};
-  if (assets.provider().bind(consumer_guid, source, "data"))
+  if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "data"))
     return 6;
   auto group =
       assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
@@ -163,7 +163,7 @@ int main() {
   if (native_operation.done() || !native.context) {
     return 3;
   }
-  assets.provider().clear();
+  caors::assets::project_builder{assets}.provider().clear();
   files.reset();
   native.finish();
   if (completion_context.drain() != 1 || !native_operation.done() || native_operation.failed() ||

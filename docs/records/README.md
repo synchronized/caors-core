@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [资源核心与来源适配边界](2026-10-22-resource-source-boundary.md)：第二批 provider 边界迁移，本机原生/Web/安装通过，远端验收待执行。
+
 - [加载快照解耦原型验证](2026-10-22-load-snapshot-prototype.md)：首批快照/工程装配迁移，原生矩阵、Web、安装与压力验证通过。
 
 - [IO 与资源 API 整理基线](2026-10-22-io-assets-api-baseline.md)：迁移清单与现有宿主/VFS 路径本机基线，新架构尚未实现。

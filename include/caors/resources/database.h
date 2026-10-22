@@ -13,7 +13,6 @@
 #include "caors/resources/io.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/preload.h"
-#include "caors/resources/source.h"
 
 #include <atomic>
 #include <cstdint>
@@ -39,7 +38,7 @@ struct resource_activity_lease final {
 /**
  * @brief 资源系统的轻量编排入口。
  *
- * `database` 不拥有 `manifest`、`provider`、`cache<T>` 或 `loader<T>`；它只保存这些对象的指针，
+ * `database` 不拥有 `manifest`、`cache<T>` 或 `loader<T>`；它只保存这些对象的指针，
  * 把清单同步、类型化加载、重载、引用解析和依赖图查询串成一条运行期主流程。调用方必须保证传入对象
  * 的生命周期长于 database 中对应绑定。
  */
@@ -73,9 +72,9 @@ public:
   [[nodiscard]] const resources::manifest* manifest() const noexcept { return manifest_; }
 
   /**
-   * @brief 设置可选批次捕获器；非空时优先于 provider，空捕获器恢复默认 provider 适配。
+   * @brief 设置批次捕获器；空捕获器表示不捕获来源数据，不隐式选择后端。
    * @note 在发起线程配置与调用，活动操作尚未清理时返回 frozen。捕获器可拥有宿主凭据，
-   * 不得捕获 database 的强所有权形成环。空快照结果不回退至 provider。
+   * 不得捕获 database 的强所有权形成环。空快照结果不隐式选择来源。
    */
   [[nodiscard]] error set_snapshot_capture(snapshot_capture capture) {
     if (has_active_operations())
@@ -83,11 +82,6 @@ public:
     snapshot_capture_ = std::move(capture);
     return {};
   }
-
-  /** @brief 设置当前字节 provider。database 不拥有该对象。 */
-  void set_provider(resources::provider* value) noexcept { provider_ = value; }
-  void set_provider(resources::provider& value) noexcept { set_provider(&value); }
-  [[nodiscard]] resources::provider* provider() const noexcept { return provider_; }
 
   /** @brief 设置当前资源依赖图。database 不拥有该对象。 */
   void set_dependency_graph(resources::dependency_graph* value) noexcept {
@@ -104,40 +98,13 @@ public:
    * @brief 清空已注册的资源类型绑定。
    *
    * 该函数只清除 cache、loader、manifest type alias、type_guid 和异步请求表绑定，不修改当前
-   * manifest、provider 或 dependency graph 指针。
+   * manifest、dependency graph 指针或快照捕获器。
    */
   void clear_registered_types() noexcept {
     ++generation_;
     entries_.clear();
     entries_by_resource_type_.clear();
     entries_by_type_guid_.clear();
-  }
-
-  /** @brief 使用当前 manifest 把 GUID/location 绑定到当前 provider。 */
-  [[nodiscard]] error bind_manifest(resources::source& source) const {
-    if (provider_ == nullptr || manifest_ == nullptr) {
-      return {error_domain::resources, errc::invalid_argument};
-    }
-
-    return resources::bind_manifest(*provider_, source, *manifest_);
-  }
-
-  /** @brief 使用当前 manifest 同步当前 provider 中的 GUID/location 绑定。 */
-  [[nodiscard]] error sync_manifest(resources::source& source) const {
-    if (provider_ == nullptr || manifest_ == nullptr) {
-      return {error_domain::resources, errc::invalid_argument};
-    }
-
-    return resources::sync_manifest(*provider_, source, *manifest_);
-  }
-
-  /** @brief 使用当前 manifest 替换当前 provider 中的全部 GUID/location 绑定。 */
-  [[nodiscard]] error replace_manifest(resources::source& source) const {
-    if (provider_ == nullptr || manifest_ == nullptr) {
-      return {error_domain::resources, errc::invalid_argument};
-    }
-
-    return resources::replace_manifest(*provider_, source, *manifest_);
   }
 
   /** @brief 注册某个资源类型的拥有式 cache。 */
@@ -1179,11 +1146,10 @@ private:
   [[nodiscard]] std::shared_ptr<const load_snapshot> capture_load_snapshot() const {
     if (snapshot_capture_)
       return snapshot_capture_();
-    return provider_ ? provider_->snapshot() : std::shared_ptr<const load_snapshot>{};
+    return {};
   }
 
   snapshot_capture snapshot_capture_;
-  resources::provider* provider_ = nullptr;
   resources::dependency_graph* dependency_graph_ = nullptr;
   entry_map entries_;
   resource_type_map entries_by_resource_type_;

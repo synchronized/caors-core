@@ -76,7 +76,7 @@ asset_build_result project_builder::build_detailed(const project_config& config)
   }
 
   manager_.manifest_.clear();
-  manager_.provider_.clear();
+  manager_.project_provider().clear();
   manager_.dependency_graph_.clear();
 
   for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
@@ -154,7 +154,8 @@ asset_build_result project_builder::build_detailed(const project_config& config)
       return result;
     }
 
-    status = manager_.provider_.rebind(resource_config.guid, *source, resource_config.location);
+    status =
+        manager_.project_provider().rebind(resource_config.guid, *source, resource_config.location);
     if (status) {
       set_build_failure(result, asset_build_stage::resource, index, status, resource_config.source,
                         resource_config.type, resource_config.guid, "绑定 provider source 失败");

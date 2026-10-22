@@ -4,6 +4,7 @@
 #ifndef CAORS_RESOURCES_MANIFEST_FILE_SYSTEM_H_
 #define CAORS_RESOURCES_MANIFEST_FILE_SYSTEM_H_
 
+#include "caors/io/file_system.h"
 #include "caors/resources/manifest.h"
 
 #include <span>

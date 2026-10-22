@@ -215,7 +215,7 @@ private:
         return {error_domain::resources, errc::unsupported};
       }
 
-      type_factory_context context{manager, manager.resource(), manager.provider(),
+      type_factory_context context{manager, manager.resource(), manager.project_provider(),
                                    manager.database(), reasons};
       return create(context, config, user_data);
     }
@@ -257,9 +257,6 @@ public:
 
   [[nodiscard]] resources::manifest& manifest() noexcept { return manifest_; }
   [[nodiscard]] const resources::manifest& manifest() const noexcept { return manifest_; }
-
-  [[nodiscard]] resources::provider& provider() noexcept { return provider_; }
-  [[nodiscard]] const resources::provider& provider() const noexcept { return provider_; }
 
   [[nodiscard]] resources::dependency_graph& dependency_graph() noexcept {
     return dependency_graph_;
@@ -712,7 +709,6 @@ private:
   bool execution_configured_ = false;
   memory_resource* resource_ = nullptr;
   resources::manifest manifest_;
-  resources::provider provider_;
   resources::dependency_graph dependency_graph_;
   resources::database database_;
   // 工程装配状态与日常请求状态分离；具体容器和配置标记不暴露在公共头中。
@@ -723,6 +719,9 @@ private:
   };
   std::unique_ptr<project_state, project_deleter> project_;
 
+  [[nodiscard]] resources::provider& project_provider() noexcept;
+  [[nodiscard]] const resources::provider& project_provider() const noexcept;
+  [[nodiscard]] error use_project_provider_snapshot();
   [[nodiscard]] bool is_building_project() const noexcept;
   using owned_destroy_fn = void (*)(memory_resource*, void*) noexcept;
   void retain_owned(void* value, owned_destroy_fn destroy);

@@ -14,6 +14,7 @@
 #include "caors/resources/io.h"
 #include "caors/resources/manager.h"
 #include "caors/resources/manifest.h"
+#include "caors/resources/manifest_binding.h"
 #include "caors/resources/manifest_file_system.h"
 #include "caors/resources/preload.h"
 #include "caors/resources/ref.h"

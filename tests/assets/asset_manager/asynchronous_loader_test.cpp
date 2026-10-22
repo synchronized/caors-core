@@ -582,7 +582,8 @@ TEST_CASE("assets - first GUID operation freezes source before worker and remoun
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
   auto first = f.assets.request_load<texture>(test_guid_a);
   router->clear();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
@@ -606,8 +607,10 @@ TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[a
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_b, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_b, source, "assets/data"));
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
   REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
@@ -621,7 +624,7 @@ TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[a
   CHECK(f.loader.pending[0].context.snapshot == f.loader.pending[1].context.snapshot);
   for (auto& op : f.loader.pending)
     CHECK(snapshot_text(op.context, op.context.guid) == "old");
-  f.assets.provider().clear();
+  caors::assets::project_builder{f.assets}.provider().clear();
   CHECK(snapshot_text(f.loader.pending.front().context, test_guid_a) == "old");
   f.loader.finish();
   f.loader.finish();
@@ -646,8 +649,9 @@ TEST_CASE("assets - configured builtins expose owning snapshots after manager de
     REQUIRE_FALSE(memory->write_all("data", std::string_view{"factory"}));
     auto* source = caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"});
     REQUIRE(source);
-    REQUIRE_FALSE(assets.provider().bind(test_guid_a, *source, "caors://assets/data"));
-    snapshot = assets.provider().snapshot();
+    REQUIRE_FALSE(caors::assets::project_builder{assets}.provider().bind(test_guid_a, *source,
+                                                                         "caors://assets/data"));
+    snapshot = caors::assets::project_builder{assets}.provider().snapshot();
   }
   auto file = snapshot->resolve(test_guid_a);
   REQUIRE(file);
@@ -682,7 +686,8 @@ TEST_CASE("assets - refresh chooses new source while old load remains independen
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
   auto old = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(router->unmount("assets"));
@@ -903,8 +908,12 @@ TEST_CASE("assets - host capture shares preload batch and refreshes only new ope
 TEST_CASE("assets - explicit empty host capture does not fall back to VFS",
           "[assets][native-async][snapshot]") {
   fixture f;
-  REQUIRE_FALSE(f.assets.database().set_snapshot_capture(
-      [] { return std::shared_ptr<const caors::resources::load_snapshot>{}; }));
+  if (GENERATE(false, true)) {
+    REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+  } else {
+    REQUIRE_FALSE(f.assets.database().set_snapshot_capture(
+        [] { return std::shared_ptr<const caors::resources::load_snapshot>{}; }));
+  }
   auto request = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 1);
@@ -912,11 +921,27 @@ TEST_CASE("assets - explicit empty host capture does not fall back to VFS",
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
   CHECK(request.loaded());
-  REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+  REQUIRE_FALSE(caors::assets::project_builder{f.assets}.use_provider_snapshot());
   auto reload = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   CHECK(f.loader.pending.front().context.snapshot_as<caors::resources::provider_snapshot>());
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
   CHECK(reload.loaded());
+}
+
+TEST_CASE("resources - standalone database loads without a provider or capture strategy",
+          "[resources][native-async][snapshot]") {
+  fixture f;
+  caors::resources::database database;
+  REQUIRE_FALSE(database.register_type(f.cache, f.loader, caors::string_name{"bare.texture"}));
+  auto request = database.request_load<texture>(test_guid_a, f.worker.get_executor(),
+                                                f.completion.get_executor());
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK_FALSE(f.loader.pending.front().context.snapshot);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(request.loaded());
+  CHECK_FALSE(database.has_active_operations());
 }

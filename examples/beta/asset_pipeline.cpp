@@ -96,7 +96,8 @@ int main() {
 
   texture_ref.get()->width = 2048;
   texture_ref.get()->height = 1024;
-  caors::assets::json::saver<texture_resource> saver{assets.provider()};
+  caors::assets::json::saver<texture_resource> saver{
+      caors::assets::project_builder{assets}.provider()};
   if (!check(saver.save(*texture_ref.get()), "save reloaded texture")) {
     return 1;
   }

@@ -91,12 +91,17 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 第一步以 load_snapshot 多态基类和 context.snapshot_as<T>() 替代上下文的 VFS 具体类型；
 现有 provider 捕获时机和批次共享规则不变。此批接口已通过平台验收，集成由 PR #57 跟踪；尚未发布。
 后续原型已提供 database::set_snapshot_capture；异步请求管线只接收通用捕获器，不再依赖 provider。
-database 暂时保留默认 provider 适配和既有同步访问，不新增公共 manager 配置外观；
+后续批次已从 database 移除 provider 与清单绑定方法，manifest_binding.h 提供可选绑定适配；
+工程 provider 移入私有工程状态，公开入口归 project_builder。manager 暂时安装兼容捕获策略，
+清空自定义捕获器即关闭捕获，use_provider_snapshot 可显式恢复；
 配置装配第一步已将 build/build_detailed 的编排、路由图校验和失败诊断实现迁到 project_builder；
 已移除 manager 的对应公共入口并迁移测试/示例。注册表、工厂、拥有对象表和配置标记已收进
 私有 project_state，具体容器与对象销毁类型移出公共头；状态仍由 manager 保活。公开绑定、配置工厂注册、create_owned 及工厂扩展类型已经归入
 project_builder；工厂通过 context.project() 使用装配入口。各阶段创建函数仍为 manager 私有实现，
 后续继续迁移，不宣称整个资源核心已与 VFS 解耦。
+
+第二批实现及本机结果见[来源边界记录](../records/2026-10-22-resource-source-boundary.md)；
+远端平台验收尚未执行，不沿用第一批结果作为本批通过。
 
 ### 调用点迁移边界
 

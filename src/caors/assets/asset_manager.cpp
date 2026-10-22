@@ -191,7 +191,7 @@ struct asset_manager::project_state {
   using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
 
   explicit project_state(memory_resource* resource)
-      : file_systems_(typename file_system_map::allocator_type{resource}),
+      : provider_(resource), file_systems_(typename file_system_map::allocator_type{resource}),
         sources_(typename source_map::allocator_type{resource}),
         file_system_factories_(typename file_system_factory_map::allocator_type{resource}),
         source_factories_(typename source_factory_map::allocator_type{resource}),
@@ -199,6 +199,7 @@ struct asset_manager::project_state {
         owned_objects_(typename owned_object_list::allocator_type{resource}),
         manual_type_bindings_(typename manual_type_map::allocator_type{resource}) {}
 
+  resources::provider provider_;
   file_system_map file_systems_;
   source_map sources_;
   file_system_factory_map file_system_factories_;
@@ -292,13 +293,20 @@ std::size_t asset_manager::file_system_count() const noexcept {
 void asset_manager::clear_sources() noexcept { project_->sources_.clear(); }
 std::size_t asset_manager::source_count() const noexcept { return project_->sources_.size(); }
 
+resources::provider& asset_manager::project_provider() noexcept { return project_->provider_; }
+const resources::provider& asset_manager::project_provider() const noexcept {
+  return project_->provider_;
+}
+error asset_manager::use_project_provider_snapshot() {
+  return database_.set_snapshot_capture([this] { return project_->provider_.snapshot(); });
+}
+
 asset_manager::asset_manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-      manifest_(resource_), provider_(resource_), dependency_graph_(resource_),
-      database_(resource_),
+      manifest_(resource_), dependency_graph_(resource_), database_(resource_),
       project_(memory::make<project_state>(resource_, resource_), project_deleter{resource_}) {
   database_.set_manifest(manifest_);
-  database_.set_provider(provider_);
+  (void)use_project_provider_snapshot();
   database_.set_dependency_graph(dependency_graph_);
   (void)register_builtin_file_system_factories();
   (void)register_builtin_source_factories();
@@ -306,7 +314,7 @@ asset_manager::asset_manager(memory_resource* resource)
 
 asset_manager::~asset_manager() {
   database_.clear_registered_types();
-  provider_.clear();
+  project_->provider_.clear();
   project_->sources_.clear();
   project_->file_systems_.clear();
   project_->type_factories_.clear();
