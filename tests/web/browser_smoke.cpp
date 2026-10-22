@@ -59,6 +59,10 @@ struct state {
   caors::io::request<std::uint64_t> context_write;
   caors::io::request<caors::io::file_status> context_status;
   caors::io::request<caors::io::directory_entry_list> context_entries;
+  caors::io::request<caors::io::file> context_open;
+  caors::io::request<std::uint64_t> range_write;
+  caors::io::request<caors::io::byte_buffer> range_read;
+  caors::io::request<caors::io::close_result> range_close;
   int phase = 0;
   void begin() {
     cache = std::make_unique<caors::resources::cache<texture>>();
@@ -164,11 +168,13 @@ void tick(void*) {
         value.context_write = io.write("assets/extra", std::move(bytes));
         value.context_status = io.stat("assets/extra");
         value.context_entries = io.list("assets");
+        value.context_open =
+            io.open("assets/extra", {.access = caors::io::file_access::read_write});
       }
       break;
     case 6:
       (void)value.completion.drain();
-      if (!value.context_read.done()) {
+      if (!value.context_read.done() || !value.context_open.done()) {
         --value.phase;
         break;
       }
@@ -179,6 +185,39 @@ void tick(void*) {
       check(value.context_status.result()->value.size == 1);
       check(value.context_entries.done() && static_cast<bool>(*value.context_entries.result()));
       check(value.context_entries.result()->value.size() == 2);
+      check(static_cast<bool>(*value.context_open.result()));
+      {
+        auto bytes = caors::io::make_byte_buffer();
+        bytes.push_back(std::byte{43});
+        value.range_write = value.context_open.result()->value.write({}, std::move(bytes));
+      }
+      break;
+    case 7:
+      (void)value.completion.drain();
+      if (!value.range_write.done()) {
+        --value.phase;
+        break;
+      }
+      check(static_cast<bool>(*value.range_write.result()));
+      value.range_read = value.context_open.result()->value.read({0, 1});
+      break;
+    case 8:
+      (void)value.completion.drain();
+      if (!value.range_read.done()) {
+        --value.phase;
+        break;
+      }
+      check(static_cast<bool>(*value.range_read.result()));
+      check(value.range_read.result()->value[0] == std::byte{43});
+      value.range_close = value.context_open.result()->value.close();
+      break;
+    case 9:
+      (void)value.completion.drain();
+      if (!value.range_close.done()) {
+        --value.phase;
+        break;
+      }
+      check(static_cast<bool>(*value.range_close.result()));
       current.reset();
       EM_ASM({
         document.body.dataset.caorsStatus = "passed";

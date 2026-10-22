@@ -24,8 +24,6 @@ request<file> io_context::open(path_view location, open_options options,
       options_.completion, std::move(callback),
       [this, location, options, config = options_](io_completion<file> receipt) mutable {
         auto resolved = resolve(location);
-        if (options.access != file_access::read || options.creation != file_creation::open_existing)
-          return io_error{io_errc::unsupported};
         if (!resolved)
           return detail::convert_error(resolved.error());
         struct operation {
@@ -39,15 +37,17 @@ request<file> io_context::open(path_view location, open_options options,
         op->receipt = std::move(receipt);
         auto opened = request_open(
             std::move(resolved.value), config.completion,
-            [op, config, budget = options.max_read_bytes](const auto& value) {
+            [op, config, budget = options.max_read_bytes, write_budget = options.max_write_bytes,
+             access = options.access](const auto& value) {
               auto receipt = std::move(op->receipt);
               if (!value)
                 (void)receipt.complete(io_failure<file>(value.error()));
               else
-                (void)receipt.complete(
-                    {{}, file{value.value, config.completion, config.resource, budget}});
+                (void)receipt.complete({{},
+                                        file{value.value, config.completion, config.resource,
+                                             budget, write_budget, access}});
             },
-            config.resource);
+            config.resource, options);
         if (!opened)
           return opened.error();
         op->opening = std::move(opened.value);
@@ -149,9 +149,36 @@ io_context::list(path_view location,
 std::uint64_t file::size() const noexcept { return handle_ ? handle_->size() : 0; }
 request<byte_buffer> file::read(file_read_options options,
                                 std::function<void(const io_result<byte_buffer>&)> callback) const {
+  if (handle_ && access_ == file_access::write)
+    return detail::unwrap_request(io_failure<io_request<byte_buffer>>({io_errc::permission_denied}),
+                                  executor_, std::move(callback));
   auto started = request_read(handle_, options.offset, options.length, budget_, executor_, callback,
                               resource_);
   return detail::unwrap_request(std::move(started), executor_, std::move(callback));
+}
+request<std::uint64_t>
+file::write(file_write_options options, byte_buffer bytes,
+            std::function<void(const io_result<std::uint64_t>&)> callback) const {
+  const auto length = bytes.size();
+  return detail::submit_request<std::uint64_t>(
+      executor_, std::move(callback),
+      [handle = handle_, options, access = access_, budget = write_budget_,
+       bytes = std::move(bytes)](auto receipt) mutable {
+        if (!handle)
+          return io_error{io_errc::invalid_argument};
+        if (access == file_access::read)
+          return io_error{io_errc::permission_denied};
+        if (bytes.size() > budget)
+          return io_error{io_errc::limit_exceeded};
+        if (bytes.size() > (std::numeric_limits<std::uint64_t>::max)() - options.offset)
+          return io_error{io_errc::out_of_range};
+        return handle->start_write(options.offset, std::move(bytes), std::move(receipt));
+      },
+      [length](io_result<std::uint64_t>& value) {
+        if (value && value.value != length)
+          value = io_failure<std::uint64_t>({io_errc::backend_failure});
+      },
+      handle_);
 }
 request<close_result>
 file::close(std::function<void(const io_result<close_result>&)> callback) const {

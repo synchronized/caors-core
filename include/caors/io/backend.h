@@ -20,7 +20,7 @@ class file_system;
 class CAORS_API backend {
 public:
   virtual ~backend();
-  /** @brief 打开只读已有文件；path 拥有字符串，resource 须覆盖实际操作与结果。 */
+  /** @brief 按选项打开文件；path 拥有字符串，resource 须覆盖实际操作与结果。 */
   [[nodiscard]] virtual io_error open(path path, open_options options, memory_resource* resource,
                                       io_completion<std::shared_ptr<async_file>> completion) = 0;
   /** @brief 整体创建或截断写入，持有 bytes 到完成；默认 unsupported，不承诺原子替换或落盘持久化。
@@ -59,7 +59,7 @@ public:
 
 private:
   std::shared_ptr<memory_file_system> files_;
-  std::mutex mutex_;
+  std::shared_ptr<std::mutex> mutex_ = std::make_shared<std::mutex>();
 };
 /** @brief 创建可挂载的内存后端，配置数据使用 store。 */
 [[nodiscard]] CAORS_API std::shared_ptr<memory_backend>

@@ -132,6 +132,21 @@ int main() {
         status.result()->value.size != 1 || !entries.done() || !*entries.result() ||
         entries.result()->value.size() != 2)
       return 15;
+    auto opened = io.open("assets/extra", {.access = caors::io::file_access::read_write});
+    if (!opened.done() || !*opened.result())
+      return 16;
+    auto range_bytes = caors::io::make_byte_buffer();
+    range_bytes.push_back(std::byte{43});
+    auto range_write = opened.result()->value.write({}, std::move(range_bytes));
+    if (!range_write.done() || !*range_write.result())
+      return 17;
+    auto range_read = opened.result()->value.read({0, 1});
+    if (!range_read.done() || !*range_read.result() ||
+        range_read.result()->value[0] != std::byte{43})
+      return 18;
+    auto close = opened.result()->value.close();
+    if (!close.done() || !*close.result())
+      return 19;
   }
   caors::resource_cache<consumer_resource> cache;
   consumer_loader loader;

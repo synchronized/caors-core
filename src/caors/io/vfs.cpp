@@ -18,6 +18,11 @@ public:
     return {error_domain::io, errc::unsupported};
   }
   backend& target() const noexcept { return *target_; }
+  io_error start_open_options(resolved_file location, open_options options,
+                              memory_resource* resource,
+                              io_completion<std::shared_ptr<async_file>> completion) override {
+    return target_->open(std::move(location.path), options, resource, std::move(completion));
+  }
   io_error start_open(resolved_file location, memory_resource* resource,
                       io_completion<std::shared_ptr<async_file>> completion) override {
     return target_->open(std::move(location.path), {}, resource, std::move(completion));

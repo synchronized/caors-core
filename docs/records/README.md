@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [VFS 可写文件句柄](2026-10-22-vfs-writable-file.md)：统一 open 的权限/创建选项与范围写入，本机验证通过，远端待验收。
+
 - [VFS 整体操作与消费迁移](2026-10-22-vfs-operations-migration.md)：整文件写入、元数据、新来源与兼容头隔离，本机及四类远端验收通过，整体迁移未完成。
 
 - [VFS 统一只读入口](2026-10-22-vfs-read-context.md)：vfs/backend/io_context/file/request 主线与共享读取编排，本机原生/Web/安装通过，整体迁移仍实施中。

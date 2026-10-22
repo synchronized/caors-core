@@ -75,6 +75,10 @@ public:
   /** @brief 原生异步打开可选能力；默认 unsupported，不进行同步回退。 */
   [[nodiscard]] virtual io_error start_open(resolved_file location, memory_resource* resource,
                                             io_completion<std::shared_ptr<async_file>> completion);
+  /** @brief 带访问选项的兼容协议；默认仅转发只读已有文件，其余返回 unsupported。 */
+  [[nodiscard]] virtual io_error
+  start_open_options(resolved_file location, open_options options, memory_resource* resource,
+                     io_completion<std::shared_ptr<async_file>> completion);
   /** @brief 显式同步 worker 适配的可选能力；默认 unsupported，不回退 open_read/read_all。 */
   [[nodiscard]] virtual io_result<std::shared_ptr<random_access_reader>>
   open_random_read(path_view location, memory_resource* resource = nullptr);

@@ -51,4 +51,4 @@ cmake --build --preset windows-clang-debug --target caors_example_beta_assets_na
 cmake --build --preset windows-clang-debug --target caors_example_beta_io_chunked_read
 ```
 
-[vfs_basic.cpp](vfs_basic.cpp) 展示新的 vfs/io_context 主线：整体读取、统一只读 open、范围读取、显式关闭，以及整文件写入和元数据查询。
+[vfs_basic.cpp](vfs_basic.cpp) 展示新的 vfs/io_context 主线：整体读取、统一 open 的权限选项、范围读写、显式关闭，以及整文件写入和元数据查询。

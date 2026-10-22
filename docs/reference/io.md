@@ -3,7 +3,7 @@
 
 # IO
 
-本文档说明 CAORS IO 主题的当前边界。IO 层提供同步字节访问、异步只读文件协议和可选虚拟文件路由，为资源系统、配置及宿主来源接入提供底座。
+本文档说明 CAORS IO 主题的当前边界。IO 层提供同步字节访问、异步随机文件协议和可选虚拟文件路由，为资源系统、配置及宿主来源接入提供底座。
 新文件访问优先使用下方 vfs/io_context；旧 file_system、路由器及同步流保留为迁移兼容与工具能力，使用时显式包含 `caors/io/legacy.h` 或对应单头。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
 
 ## VFS 与统一文件访问
@@ -21,14 +21,17 @@ auto opening = io.open("assets://game/base.pack", {.access = io::file_access::re
 ```
 
 这是接入片段，须检查 mount 返回值，并持有 reading/opening 至所需通知结束；两次操作相互独立。
-open 默认 `read + open_existing`，不会创建或截断文件；写入模式尚未开放，不增加 open_write 名称。
+open 默认 `read + open_existing`，不会创建或截断文件。可选权限为 read/write/read_write；
+创建策略为 open_existing/create_always，后者仅允许可写访问，显式创建或截断，不增加 open_write 名称。
+后端不支持的权限返回失败；不提供隐式 append、独占创建或原子替换语义。
 结果类型为 `io_result<T>`，文件操作直接返回 `request<T>`；即使发起拒绝也通过请求报告，
 错误回调经配置的 completion 投递。completion 无效、拒绝或丢弃时不能保证回调执行，应查询结果。
 request 的布尔值仅表示有效句柄，不表示成功；done/result 查看终态，cancel 为协作取消，析构不等待清理。
 
 打开成功后，从结果取出 file（值类型、共享实际文件），再使用 `file.read({offset, length}, callback)`
-和 `file.close(callback)`。文件已经绑定 completion、字节 allocator 和单次范围预算，操作不逐次传 executor。
-读取必须读满范围，短读失败；size 为打开时长度。复制共享关闭状态，显式 close 作用于全部副本，析构非阻塞兜底。
+、`file.write({offset}, owned_bytes, callback)` 和 `file.close(callback)`。文件已经绑定 completion、字节 allocator 和单次范围预算，操作不逐次传 executor。
+读取必须读满范围，短读失败；只写句柄拒绝读取，只读句柄拒绝写入，包括空范围。
+只读 size 为打开时长度；可写 size 包含本句柄已成功写入的扩展，不追踪外部修改。复制共享关闭状态，显式 close 作用于全部副本，析构非阻塞兜底。
 
 io_context.read 组合打开、有界整文件读取、关闭；资源 byte_reader 复用同一内部状态机。
 读取的中间 IO 结果只读，交付前复制，结果峰值约为两份预算，另有后端和状态开销，预算不是全局在途限制。
@@ -64,15 +67,22 @@ stat 区分结果失败与不存在，不再用普通 exists 布尔值掩盖错�
 
 资源侧可使用 `resources::vfs_source` 将 VFS 接入 provider 的批次快照，默认 JSON loader 无需修改。
 该来源只服务异步快照读取，不支持旧 source 同步 read/write/exists，不能用于同步 JSON saver。
-旧项目配置工厂与同步流继续使用显式兼容入口；file 的可写打开模式及流式写入尚未实现，
-不提前开放不可用的选项。它们有独立迁移与验收要求，不能把新调用方主线等同于旧接口全部删除。
+file.write 精确写满输入，worker 适配累计短写；预算 max_write_bytes 限制单次输入长度，
+不代表文件总长度或进程峰值限制。位置使用显式 offset，不维护隐式共享游标；依赖操作须等待前项完成。
+close 立即拒绝新操作，并等待此前已接受读写完成实际清理；写入取消不回滚已经发生的字节。
+原生后端通过串行 seek/read/write 适配，open_existing 不截断，不隐式创建；当前 std::fstream 实现
+即使逻辑权限为 write 也需要底层可读写权限。close 检查缓冲提交错误，不承诺落盘持久化。
+内存可写句柄在打开时复制已有内容，max_read_bytes 也限制这份初始缓冲；create_always 在打开时截断。
+后续修改在 close 时整体发布，已有只读句柄仍持有旧内容；并发写者后关闭者覆盖，不提供冲突检测。
+未写入的已有文件句柄关闭时不覆盖后来更新。析构非阻塞请求清理，须显式 close 才能观察提交失败。
+旧项目配置工厂和同步工具流仍走显式兼容入口；它们的退出有独立迁移与验收要求，不能把新调用方主线等同于旧接口全部删除。
 
 ## 当前范围
 
 当前已实现：
 
 - `io::vfs` / `io::backend`：拥有式挂载与独立后端协议。
-- `io::io_context` / `io::file` / `io::request<T>`：统一文件访问、只读文件句柄与单层请求。
+- `io::io_context` / `io::file` / `io::request<T>`：统一文件访问、带权限文件句柄与单层请求。
 
 - `io::byte_buffer`：使用 CAORS allocator 的字节缓冲区。
 - `io::path_view`：非拥有路径视图。
@@ -93,7 +103,7 @@ stat 区分结果失败与不存在，不再用普通 exists 布尔值掩盖错�
 
 当前未提供：
 
-- 内置通用异步写入，以及内置 HTTP/libuv 等具体宿主异步后端。
+- 内置 HTTP/libuv 等具体宿主异步后端。
 - 文件监听。
 - 后端原生递归枚举、完整文件属性查询和权限模型。
 - 资源包格式。

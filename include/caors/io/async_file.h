@@ -5,6 +5,7 @@
 #define CAORS_IO_ASYNC_FILE_H_
 
 #include "caors/io/async_request.h"
+#include "caors/io/options.h"
 #include "caors/io/route_snapshot.h"
 
 #include <limits>
@@ -12,14 +13,14 @@
 
 namespace caors::io {
 /**
- * @brief 拥有式异步随机读取文件协议；宿主可用 libuv 等实现，不向 CAORS 暴露其类型。
+ * @brief 拥有式异步随机文件协议；宿主可用 libuv 等实现，不向 CAORS 暴露其类型。
  * @note 接受的读必须拥有真实操作缓冲；多个 offset 互不干扰。关闭后拒绝新读，等待在途清理，
  * 仅关闭一次，重复关闭订阅同一关闭结果。析构请求关闭但不得阻塞宿主 loop。
  */
 class CAORS_API async_file {
 public:
   virtual ~async_file();
-  /** @brief 打开时固定的长度；文件增长不扩大此范围。 */
+  /** @brief 只读时固定为打开长度；可写实现须反映本句柄成功写入的扩展。 */
   [[nodiscard]] virtual std::uint64_t size() const noexcept = 0;
   /** @brief 解析来源的进程内实例标记；由 request_open 系列保留，直接创建的文件可为 0。 */
   [[nodiscard]] virtual std::uint64_t source_id() const noexcept { return 0; }
@@ -31,6 +32,9 @@ public:
   [[nodiscard]] virtual io_error start_read(std::uint64_t offset, std::uint64_t length,
                                             memory_resource* resource,
                                             io_completion<byte_buffer> completion) = 0;
+  /** @brief 精确范围写入，消费拥有式缓冲；默认不支持，关闭必须等待已接受写入清理。 */
+  [[nodiscard]] virtual io_error start_write(std::uint64_t offset, byte_buffer bytes,
+                                             io_completion<std::uint64_t> completion);
   /** @brief 发起或订阅显式关闭；宿主必须维持 loop 至全部在途操作及关闭完成。 */
   [[nodiscard]] virtual io_error start_close(io_completion<close_result> completion) = 0;
 };
@@ -41,6 +45,9 @@ public:
   [[nodiscard]] virtual std::uint64_t size() const noexcept = 0;
   [[nodiscard]] virtual io_result<std::size_t> read_at(std::uint64_t offset,
                                                        std::span<std::byte> buffer) = 0;
+  /** @brief 可选随机写入，允许短写；默认不支持，由 worker 适配累计到写满。 */
+  [[nodiscard]] virtual io_result<std::size_t> write_at(std::uint64_t offset,
+                                                        std::span<const std::byte> bytes);
   /** @brief 显式关闭，错误可查询；析构仅作 RAII 兜底。 */
   [[nodiscard]] virtual io_error close() = 0;
 };
@@ -68,7 +75,7 @@ request_close(std::shared_ptr<async_file> file, tasks::executor completion,
 [[nodiscard]] CAORS_API io_result<io_request<std::shared_ptr<async_file>>>
 request_open(resolved_file file, tasks::executor completion,
              std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback = {},
-             memory_resource* resource = nullptr);
+             memory_resource* resource = nullptr, open_options options = {});
 /** @brief 显式 worker 打开适配；只调用 open_random_read，不使用默认 open_read/read_all。 */
 [[nodiscard]] CAORS_API io_result<io_request<std::shared_ptr<async_file>>> request_open_on_worker(
     resolved_file file, tasks::executor worker, tasks::executor completion,

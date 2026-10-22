@@ -49,5 +49,23 @@ int main() {
   auto entries = io.list("assets://game");
   for (int frame = 0; frame < 32 && !entries.done(); ++frame)
     (void)completion.drain();
-  return entries.result() && *entries.result() && entries.result()->value.size() == 2 ? 0 : 8;
+  if (!entries.result() || !*entries.result() || entries.result()->value.size() != 2)
+    return 8;
+  auto writable =
+      io.open("assets://game/created.bin", {.access = caors::io::file_access::read_write});
+  for (int frame = 0; frame < 32 && !writable.done(); ++frame)
+    (void)completion.drain();
+  if (!writable.result() || !*writable.result())
+    return 9;
+  auto patch = caors::io::make_byte_buffer();
+  patch.push_back(std::byte{43});
+  auto patched = writable.result()->value.write({.offset = 0}, std::move(patch));
+  for (int frame = 0; frame < 32 && !patched.done(); ++frame)
+    (void)completion.drain();
+  if (!patched.result() || !*patched.result())
+    return 10;
+  auto closed = writable.result()->value.close();
+  for (int frame = 0; frame < 32 && !closed.done(); ++frame)
+    (void)completion.drain();
+  return closed.result() && *closed.result() ? 0 : 11;
 }

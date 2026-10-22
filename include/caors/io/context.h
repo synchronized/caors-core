@@ -22,7 +22,7 @@ public:
   io_context(vfs&&, io_context_options) = delete;
   /** @brief 拥有批次快照，不再访问原 vfs。 */
   io_context(vfs_snapshot snapshot, io_context_options options);
-  /** @brief 异步打开已有文件，返回单层请求；错误通过同一调度交付或句柄查询。 */
+  /** @brief 按权限及创建选项异步打开文件，返回单层请求；错误通过同一调度交付或句柄查询。 */
   [[nodiscard]] request<file> open(path_view location, open_options options = {},
                                    std::function<void(const io_result<file>&)> callback = {}) const;
   /** @brief 整体读取并关闭文件；关闭失败也报告失败，取消不会阻塞等待真实清理。 */
