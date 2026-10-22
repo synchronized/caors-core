@@ -299,7 +299,7 @@ struct counted_source_factory_state {
 };
 
 [[nodiscard]] caors::error
-make_external_memory_source(caors::assets::asset_manager::source_factory_context& context,
+make_external_memory_source(caors::assets::project_builder::source_factory_context& context,
                             const caors::assets::project_source_config& config, void* user_data) {
   if (user_data == nullptr) {
     return {caors::error_domain::resources, caors::errc::invalid_argument};
@@ -312,21 +312,22 @@ make_external_memory_source(caors::assets::asset_manager::source_factory_context
   (void)options.read(caors::string_name{"mount"}, state.mount);
   (void)options.read(caors::string_name{"read_only"}, state.read_only);
 
-  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  state.file_system =
+      context.project().create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.source = context.manager.create_owned<caors::resources::file_source>(*state.file_system);
+  state.source = context.project().create_owned<caors::resources::file_source>(*state.file_system);
   if (state.source == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_source(config.name, *state.source);
+  return context.project().bind_source(config.name, *state.source);
 }
 
 [[nodiscard]] caors::error make_typed_external_memory_file_system(
-    caors::assets::asset_manager::file_system_factory_context& context,
+    caors::assets::project_builder::file_system_factory_context& context,
     const caors::assets::project_file_system_config& config,
     const typed_external_file_system_config& options, void* user_data) {
   if (user_data == nullptr) {
@@ -338,16 +339,17 @@ make_external_memory_source(caors::assets::asset_manager::source_factory_context
   state.resource = context.resource;
   state.label = options.label;
 
-  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  state.file_system =
+      context.project().create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *state.file_system);
+  return context.project().bind_file_system(config.name, *state.file_system);
 }
 
 [[nodiscard]] caors::error
-make_typed_external_memory_source(caors::assets::asset_manager::source_factory_context& context,
+make_typed_external_memory_source(caors::assets::project_builder::source_factory_context& context,
                                   const caors::assets::project_source_config& config,
                                   const typed_external_source_config& options, void* user_data) {
   if (user_data == nullptr) {
@@ -362,21 +364,22 @@ make_typed_external_memory_source(caors::assets::asset_manager::source_factory_c
   state.read_only = options.read_only;
   state.priority = options.priority;
   state.filter = options.filter;
-  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  state.file_system =
+      context.project().create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.source = context.manager.create_owned<caors::resources::file_source>(*state.file_system);
+  state.source = context.project().create_owned<caors::resources::file_source>(*state.file_system);
   if (state.source == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_source(config.name, *state.source);
+  return context.project().bind_source(config.name, *state.source);
 }
 
 [[nodiscard]] caors::error
-make_external_serialized_type(caors::assets::asset_manager::type_factory_context& context,
+make_external_serialized_type(caors::assets::project_builder::type_factory_context& context,
                               const caors::assets::project_resource_type_config& config,
                               void* user_data) {
   if (user_data == nullptr) {
@@ -394,13 +397,13 @@ make_external_serialized_type(caors::assets::asset_manager::type_factory_context
   (void)options.read(caors::string_name{"format"}, state.format);
   (void)options.read(caors::string_name{"priority"}, state.priority);
 
-  state.cache =
-      context.manager.create_owned<caors::resources::cache<serialized_resource>>(context.resource);
+  state.cache = context.project().create_owned<caors::resources::cache<serialized_resource>>(
+      context.resource);
   if (state.cache == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.loader = context.manager.create_owned<caors::assets::json::loader<serialized_resource>>(
+  state.loader = context.project().create_owned<caors::assets::json::loader<serialized_resource>>(
       context.provider);
   if (state.loader == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
@@ -410,7 +413,7 @@ make_external_serialized_type(caors::assets::asset_manager::type_factory_context
 }
 
 [[nodiscard]] caors::error
-make_typed_external_serialized_type(caors::assets::asset_manager::type_factory_context& context,
+make_typed_external_serialized_type(caors::assets::project_builder::type_factory_context& context,
                                     const caors::assets::project_resource_type_config& config,
                                     const typed_external_type_config& options, void* user_data) {
   if (user_data == nullptr) {
@@ -422,13 +425,13 @@ make_typed_external_serialized_type(caors::assets::asset_manager::type_factory_c
   state.format = options.format;
   state.priority = static_cast<std::uint64_t>(options.priority);
 
-  state.cache =
-      context.manager.create_owned<caors::resources::cache<serialized_resource>>(context.resource);
+  state.cache = context.project().create_owned<caors::resources::cache<serialized_resource>>(
+      context.resource);
   if (state.cache == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.loader = context.manager.create_owned<caors::assets::json::loader<serialized_resource>>(
+  state.loader = context.project().create_owned<caors::assets::json::loader<serialized_resource>>(
       context.provider);
   if (state.loader == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
@@ -438,7 +441,7 @@ make_typed_external_serialized_type(caors::assets::asset_manager::type_factory_c
 }
 
 [[nodiscard]] caors::error
-make_counted_source(caors::assets::asset_manager::source_factory_context& context,
+make_counted_source(caors::assets::project_builder::source_factory_context& context,
                     const caors::assets::project_source_config& config, void* user_data) {
   if (user_data == nullptr) {
     return {caors::error_domain::resources, caors::errc::invalid_argument};
@@ -447,12 +450,12 @@ make_counted_source(caors::assets::asset_manager::source_factory_context& contex
   auto& state = *static_cast<counted_source_factory_state*>(user_data);
   ++state.calls;
 
-  auto* source = context.manager.create_owned<counted_source>(&state.destroyed);
+  auto* source = context.project().create_owned<counted_source>(&state.destroyed);
   if (source == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_source(config.name, *source);
+  return context.project().bind_source(config.name, *source);
 }
 
 } // namespace
@@ -502,7 +505,9 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(loaded_from_source.resources.size() == 2);
 
   caors::assets::asset_manager assets;
-  REQUIRE(assets.bind_source(caors::string_name{"assets"}, source).succeeded());
+  REQUIRE(caors::assets::project_builder{assets}
+              .bind_source(caors::string_name{"assets"}, source)
+              .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   const caors::resources::manifest_entry* entry_a = assets.manifest().find(test_guid_a);
@@ -615,14 +620,14 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
-  CHECK(assets.file_system_count() == 2);
-  CHECK(assets.source_count() == 1);
+  CHECK(caors::assets::project_builder{assets}.file_system_count() == 2);
+  CHECK(caors::assets::project_builder{assets}.source_count() == 1);
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(
-      assets.find_file_system(caors::string_name{"memory"}));
+      caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"}));
   REQUIRE(files != nullptr);
   REQUIRE(files->write_all("resource-a.json", std::string_view{R"({"width":300})"}).succeeded());
 
@@ -691,13 +696,13 @@ TEST_CASE("resources - asset_manager accepts external file system factory", "[re
   external_file_system_factory_state state;
 
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_file_system_factory<typed_external_file_system_config,
                                                   &make_typed_external_memory_file_system>(
                   caors::string_name{"external_memory"}, &state)
               .succeeded());
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
@@ -776,17 +781,17 @@ TEST_CASE("resources - asset_manager routes source through resolver and mount fi
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* memory = dynamic_cast<caors::io::memory_file_system*>(
-      assets.find_file_system(caors::string_name{"memory"}));
+      caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"}));
   REQUIRE(memory != nullptr);
   REQUIRE(
       memory->write_all("pack/resource-a.json", std::string_view{R"({"width":302})"}).succeeded());
 
-  auto* vfs = assets.find_file_system(caors::string_name{"vfs"});
+  auto* vfs = caors::assets::project_builder{assets}.find_file_system(caors::string_name{"vfs"});
   REQUIRE(vfs != nullptr);
   CHECK(vfs->exists("caors://game/assets/resource-a.json"));
 
@@ -805,12 +810,12 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
-      assets.find_source(caors::string_name{"assets"}));
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
@@ -842,19 +847,19 @@ TEST_CASE("resources - asset_manager builds multiple sources and resource types"
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::json::register_type_factory<secondary_serialized_resource>(
-              assets, secondary_manifest_type())
+              caors::assets::project_builder{assets}, secondary_manifest_type())
               .succeeded());
 
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
-  REQUIRE(assets.source_count() == 2);
+  REQUIRE(caors::assets::project_builder{assets}.source_count() == 2);
 
   auto* base_source = dynamic_cast<caors::resources::file_source*>(
-      assets.find_source(caors::string_name{"assets"}));
-  auto* dlc_source =
-      dynamic_cast<caors::resources::file_source*>(assets.find_source(caors::string_name{"dlc"}));
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}));
+  auto* dlc_source = dynamic_cast<caors::resources::file_source*>(
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"dlc"}));
   REQUIRE(base_source != nullptr);
   REQUIRE(dlc_source != nullptr);
   CHECK(base_source != dlc_source);
@@ -892,13 +897,13 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   REQUIRE((
       caors::assets::register_cached_type_factory<serialized_resource,
                                                   caors::assets::json::loader<serialized_resource>>(
-          assets, serialized_manifest_type(), caors::string_name{"memory"},
-          caors::string_name{"json"})
+          caors::assets::project_builder{assets}, serialized_manifest_type(),
+          caors::string_name{"memory"}, caors::string_name{"json"})
           .succeeded()));
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
-      assets.find_source(caors::string_name{"assets"}));
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
@@ -960,12 +965,12 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
-      assets.find_source(caors::string_name{"assets"}));
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
@@ -1019,19 +1024,20 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   external_source_factory_state other_state;
 
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory{
+                                       caors::assets::project_builder::source_factory{
                                            &make_external_memory_source, &state})
               .succeeded());
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory{
+                                       caors::assets::project_builder::source_factory{
                                            &make_external_memory_source, &state})
               .succeeded());
-  CHECK(assets.register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory{
-                                           &make_external_memory_source, &other_state}) ==
+  CHECK(caors::assets::project_builder{assets}.register_source_factory(
+            caors::string_name{"external_memory"},
+            caors::assets::project_builder::source_factory{&make_external_memory_source,
+                                                           &other_state}) ==
         caors::error{caors::error_domain::resources, caors::errc::already_exists});
 
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
@@ -1041,7 +1047,8 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   CHECK(state.read_only);
   REQUIRE(state.file_system != nullptr);
   REQUIRE(state.source != nullptr);
-  CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
+  CHECK(caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}) ==
+        state.source);
 }
 
 TEST_CASE("resources - asset_manager source factory can use typed options schema", "[resources]") {
@@ -1056,7 +1063,7 @@ TEST_CASE("resources - asset_manager source factory can use typed options schema
 
   external_source_factory_state state;
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_source_factory<typed_external_source_config,
                                              &make_typed_external_memory_source>(
                   caors::string_name{"typed_external_memory"}, &state)
@@ -1069,7 +1076,8 @@ TEST_CASE("resources - asset_manager source factory can use typed options schema
   CHECK(state.priority == 5);
   CHECK(state.filter == "linear");
   REQUIRE(state.source != nullptr);
-  CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
+  CHECK(caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}) ==
+        state.source);
 
   typed_external_source_config invalid_options;
   invalid_options.mount = "";
@@ -1099,7 +1107,7 @@ TEST_CASE("resources - typed factory options apply defaults and reject unknown m
 
   external_source_factory_state state;
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_source_factory<typed_external_source_config,
                                              &make_typed_external_memory_source>(
                   caors::string_name{"typed_external_memory"}, &state)
@@ -1136,7 +1144,7 @@ TEST_CASE("resources - asset_manager typed source factory reports option diagnos
 
   external_source_factory_state state;
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_source_factory<typed_external_source_config,
                                              &make_typed_external_memory_source>(
                   caors::string_name{"typed_external_memory"}, &state)
@@ -1167,7 +1175,7 @@ TEST_CASE("resources - asset_manager typed type factory receives validated optio
 
   external_type_factory_state state;
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_type_factory<typed_external_type_config,
                                            &make_typed_external_serialized_type>(
                   serialized_manifest_type(), caors::string_name{"external_memory"},
@@ -1196,7 +1204,7 @@ TEST_CASE("resources - asset_manager typed type factory reports option diagnosti
 
   external_type_factory_state state;
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_typed_type_factory<typed_external_type_config,
                                            &make_typed_external_serialized_type>(
                   serialized_manifest_type(), caors::string_name{"external_memory"},
@@ -1226,9 +1234,9 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   external_type_factory_state state;
 
   caors::assets::asset_manager assets;
-  REQUIRE(assets
+  REQUIRE(caors::assets::project_builder{assets}
               .register_type_factory(serialized_manifest_type(),
-                                     caors::assets::asset_manager::type_factory{
+                                     caors::assets::project_builder::type_factory{
                                          &make_external_serialized_type, &state})
               .succeeded());
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
@@ -1240,7 +1248,7 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   REQUIRE(state.loader != nullptr);
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
-      assets.find_source(caors::string_name{"assets"}));
+      caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
@@ -1271,21 +1279,23 @@ TEST_CASE("resources - asset_manager rebuild clears config created runtime objec
 
   {
     caors::assets::asset_manager assets;
-    REQUIRE(assets
+    REQUIRE(caors::assets::project_builder{assets}
                 .register_source_factory(
                     caors::string_name{"counted"},
-                    caors::assets::asset_manager::source_factory{&make_counted_source, &state})
+                    caors::assets::project_builder::source_factory{&make_counted_source, &state})
                 .succeeded());
 
     REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
     CHECK(state.calls == 1);
     CHECK(state.destroyed == 0);
-    REQUIRE(assets.find_source(caors::string_name{"assets"}) != nullptr);
+    REQUIRE(caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}) !=
+            nullptr);
 
     REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
     CHECK(state.calls == 2);
     CHECK(state.destroyed == 1);
-    REQUIRE(assets.find_source(caors::string_name{"assets"}) != nullptr);
+    REQUIRE(caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"}) !=
+            nullptr);
   }
 
   CHECK(state.destroyed == 2);
@@ -1308,7 +1318,9 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
 
   caors::assets::asset_manager assets;
   caors::assets::json::loader<serialized_resource> loader{assets.provider()};
-  REQUIRE(assets.bind_source(caors::string_name{"assets"}, source).succeeded());
+  REQUIRE(caors::assets::project_builder{assets}
+              .bind_source(caors::string_name{"assets"}, source)
+              .succeeded());
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
   REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
@@ -1329,7 +1341,7 @@ TEST_CASE("resources - asset_manager reports unsupported configured runtime stra
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
 
   const caors::assets::asset_build_result result =
@@ -1353,8 +1365,8 @@ TEST_CASE("resources - generic cached type factory requires matching cache and l
   REQUIRE((
       caors::assets::register_cached_type_factory<serialized_resource,
                                                   caors::assets::json::loader<serialized_resource>>(
-          assets, serialized_manifest_type(), caors::string_name{"memory"},
-          caors::string_name{"json"})
+          caors::assets::project_builder{assets}, serialized_manifest_type(),
+          caors::string_name{"memory"}, caors::string_name{"json"})
           .succeeded()));
 
   const caors::assets::asset_build_result result =
@@ -1430,7 +1442,9 @@ TEST_CASE("assets - project ownership registration failure releases constructed 
   {
     caors::assets::asset_manager assets{&resource};
     const auto before = probe.upstream.statistics().bytes_in_use;
-    REQUIRE_THROWS_AS(assets.create_owned<owned_registration_probe>(probe), std::bad_alloc);
+    REQUIRE_THROWS_AS(
+        caors::assets::project_builder{assets}.create_owned<owned_registration_probe>(probe),
+        std::bad_alloc);
     CHECK(probe.alive == 0);
     CHECK(probe.upstream.statistics().bytes_in_use == before);
     probe.fail = false;
@@ -1438,3 +1452,16 @@ TEST_CASE("assets - project ownership registration failure releases constructed 
   CHECK(probe.upstream.statistics().bytes_in_use == 0);
 }
 #endif
+
+namespace {
+template <typename T>
+concept exposes_project_binding = requires(T& value, caors::io::file_system& fs) {
+  value.bind_file_system(caors::string_name{"files"}, fs);
+};
+template <typename T>
+concept exposes_project_creation = requires(T& value) { value.template create_owned<int>(); };
+static_assert(!exposes_project_binding<caors::assets::asset_manager>);
+static_assert(!exposes_project_creation<caors::assets::asset_manager>);
+static_assert(exposes_project_binding<caors::assets::project_builder>);
+static_assert(exposes_project_creation<caors::assets::project_builder>);
+} // namespace

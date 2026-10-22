@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 文件系统/source 绑定、配置工厂注册、`create_owned` 和工厂扩展类型的公开入口迁至 `project_builder`；工厂通过 `context.project()` 使用装配操作。JSON/通用类型工厂 helper 改为接收 builder，manager 保留手动资源类型注册和请求主线。
+
 - 工程注册与配置对象状态移入私有实现，保持既有生命周期；修复 `create_owned` 在拥有表扩容失败时新对象未释放的问题。
 
 - 工程构建入口迁至 `assets::project_builder{manager}.build(config)` / `build_detailed(config)`，删除 manager 上的同名入口；配置对象仍由 manager 保活。已有配置驱动接入需要迁移调用点。

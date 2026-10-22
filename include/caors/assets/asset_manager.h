@@ -30,6 +30,7 @@
 namespace caors::assets {
 
 class asset_group;
+class project_builder;
 
 /** @brief 运行期加载调度组合；只保存句柄，不拥有线程或队列，不参与 project_config 序列化。 */
 struct asset_execution_options {
@@ -90,7 +91,7 @@ struct asset_build_result {
  * 当前仍持有其创建的对象以及来源/类型注册状态，后续按迁移计划继续收敛。
  */
 class CAORS_API asset_manager final {
-public:
+private:
   /** @brief source 工厂调用时收到的运行期上下文。 */
   struct source_factory_context {
     /** @brief 正在构建资源环境的 asset_manager。 */
@@ -99,6 +100,8 @@ public:
     memory_resource* resource = nullptr;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief 资源类型工厂调用时收到的运行期上下文。 */
@@ -113,6 +116,8 @@ public:
     resources::database& database;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief file_system 工厂调用时收到的运行期上下文。 */
@@ -123,6 +128,8 @@ public:
     memory_resource* resource = nullptr;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief 带强类型 options 的 file_system factory 函数签名。 */
@@ -214,6 +221,7 @@ public:
     }
   };
 
+public:
   explicit asset_manager(memory_resource* resource = nullptr);
   /** @brief 初始化默认调度；未配置有效组合时便捷异步入口返回 invalid_argument。 */
   explicit asset_manager(asset_execution_options execution, memory_resource* resource = nullptr)
@@ -263,6 +271,7 @@ public:
   [[nodiscard]] resources::database& database() noexcept { return database_; }
   [[nodiscard]] const resources::database& database() const noexcept { return database_; }
 
+private:
   /** @brief 按配置名称绑定运行期 file_system。asset_manager 不拥有 file_system。 */
   [[nodiscard]] error bind_file_system(core::string_name name, io::file_system& file_system);
 
@@ -343,6 +352,7 @@ public:
     return register_type_factory(resource_type, std::move(ops));
   }
 
+public:
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
   [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& loader,
@@ -555,6 +565,7 @@ public:
     return database_.affected_closure(resource);
   }
 
+private:
   /**
    * @brief 使用 asset_manager 的内存资源创建对象，并由 asset_manager 负责销毁。
    *

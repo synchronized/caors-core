@@ -156,11 +156,12 @@ save_project_config(const project_config& source, serialization::json_options op
  * `asset_manager` 本体中。
  */
 template <typename T>
-[[nodiscard]] error register_type_factory(asset_manager& manager, core::string_name resource_type) {
+[[nodiscard]] error register_type_factory(project_builder project,
+                                          core::string_name resource_type) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
   return assets::register_cached_type_factory<T, loader<T>>(
-      manager, resource_type, core::string_name{"memory"}, core::string_name{"json"});
+      project, resource_type, core::string_name{"memory"}, core::string_name{"json"});
 }
 
 } // namespace caors::assets::json

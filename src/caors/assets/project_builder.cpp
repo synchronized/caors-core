@@ -54,6 +54,16 @@ void set_build_failure(asset_build_result& result, asset_build_stage stage, std:
 
 } // namespace
 
+project_builder asset_manager::source_factory_context::project() const {
+  return project_builder{manager};
+}
+project_builder asset_manager::type_factory_context::project() const {
+  return project_builder{manager};
+}
+project_builder asset_manager::file_system_factory_context::project() const {
+  return project_builder{manager};
+}
+
 error project_builder::build(const project_config& config) { return build_detailed(config).status; }
 
 asset_build_result project_builder::build_detailed(const project_config& config) {

@@ -181,7 +181,7 @@ struct actor_config {
 
 [[nodiscard]] bool fill_memory_assets(caors::assets::asset_manager& assets) {
   auto* files = dynamic_cast<caors::io::memory_file_system*>(
-      assets.find_file_system(caors::string_name{"memory"}));
+      caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"}));
   if (files == nullptr) {
     std::cerr << "memory file system was not created\n";
     return false;
@@ -212,11 +212,11 @@ int main() {
   }
 
   caors::assets::asset_manager assets;
-  if (!check(caors::assets::json::register_type_factory<texture_resource>(assets,
-                                                                          texture_manifest_type()),
+  if (!check(caors::assets::json::register_type_factory<texture_resource>(
+                 caors::assets::project_builder{assets}, texture_manifest_type()),
              "register texture factory") ||
       !check(caors::assets::json::register_type_factory<material_resource>(
-                 assets, material_manifest_type()),
+                 caors::assets::project_builder{assets}, material_manifest_type()),
              "register material factory") ||
       !check(caors::assets::project_builder{assets}.build(config), "build asset manager") ||
       !fill_memory_assets(assets)) {
@@ -264,7 +264,7 @@ int main() {
   }
 
   auto* files = static_cast<caors::io::memory_file_system*>(
-      assets.find_file_system(caors::string_name{"memory"}));
+      caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"}));
   if (!check(files->write_all("scenes/hero.actor.json", saved.value), "save actor config")) {
     return 1;
   }

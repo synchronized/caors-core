@@ -508,8 +508,8 @@ TEST_CASE("assets - generic owned type factory accepts native async loader",
                                    caors::string_name{"memory"},
                                    {}});
   REQUIRE_FALSE(caors::assets::register_cached_type_factory<texture, factory_loader>(
-      assets, caors::string_name{"group.factory"}, caors::string_name{"memory"},
-      caors::string_name{"native"}));
+      caors::assets::project_builder{assets}, caors::string_name{"group.factory"},
+      caors::string_name{"memory"}, caors::string_name{"native"}));
   REQUIRE_FALSE(caors::assets::project_builder{assets}.build(config));
   auto group = assets.create_group(worker.get_executor(), completion.get_executor());
   auto request = group.request_load<texture>(test_guid_a);
@@ -640,10 +640,11 @@ TEST_CASE("assets - configured builtins expose owning snapshots after manager de
       "sources":[{"name":"assets","file_system":"vfs"}]})";
     REQUIRE_FALSE(caors::assets::json::load_project_config(config, json));
     REQUIRE_FALSE(caors::assets::project_builder{assets}.build(config));
-    auto* memory = assets.find_file_system(caors::string_name{"memory"});
+    auto* memory =
+        caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"});
     REQUIRE(memory);
     REQUIRE_FALSE(memory->write_all("data", std::string_view{"factory"}));
-    auto* source = assets.find_source(caors::string_name{"assets"});
+    auto* source = caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"});
     REQUIRE(source);
     REQUIRE_FALSE(assets.provider().bind(test_guid_a, *source, "caors://assets/data"));
     snapshot = assets.provider().snapshot();

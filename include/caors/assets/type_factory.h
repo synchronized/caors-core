@@ -4,7 +4,7 @@
 #ifndef CAORS_ASSETS_TYPE_FACTORY_H_
 #define CAORS_ASSETS_TYPE_FACTORY_H_
 
-#include "caors/assets/asset_manager.h"
+#include "caors/assets/project_builder.h"
 
 #include <type_traits>
 #include <utility>
@@ -13,7 +13,7 @@ namespace caors::assets {
 namespace detail {
 
 template <typename T, typename Loader>
-[[nodiscard]] error make_cached_type(asset_manager::type_factory_context& context,
+[[nodiscard]] error make_cached_type(project_builder::type_factory_context& context,
                                      const project_resource_type_config& config, void* user_data) {
   (void)user_data;
   static_assert(std::is_base_of_v<resources::resource, T>,
@@ -27,12 +27,12 @@ template <typename T, typename Loader>
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  auto* cache = context.manager.create_owned<resources::cache<T>>(context.resource);
+  auto* cache = context.project().create_owned<resources::cache<T>>(context.resource);
   if (cache == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  auto* loader = context.manager.create_owned<Loader>(context.provider);
+  auto* loader = context.project().create_owned<Loader>(context.provider);
   if (loader == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
@@ -45,18 +45,18 @@ template <typename T, typename Loader>
 /**
  * @brief 注册通用 cache/loader 资源类型工厂。
  *
- * 该 helper 复用 `asset_manager` 的拥有式对象创建逻辑，构造 `resources::cache<T>` 和指定
+ * 该 helper 通过 `project_builder` 创建由 manager 保活的对象，构造 `resources::cache<T>` 和指定
  * `Loader`，再注册到内部 `resources::database`。`cache_strategy` / `loader_strategy`
  * 用于匹配 `project_config.resource_types[]` 中的策略名，例如 `"memory"` / `"json"`。
  */
 template <typename T, typename Loader>
 [[nodiscard]] error
-register_cached_type_factory(asset_manager& manager, core::string_name resource_type,
+register_cached_type_factory(project_builder project, core::string_name resource_type,
                              core::string_name cache_strategy, core::string_name loader_strategy) {
-  asset_manager::type_factory ops{&detail::make_cached_type<T, Loader>};
+  project_builder::type_factory ops{&detail::make_cached_type<T, Loader>};
   ops.cache_strategy = cache_strategy;
   ops.loader_strategy = loader_strategy;
-  return manager.register_type_factory(resource_type, std::move(ops));
+  return project.register_type_factory(resource_type, std::move(ops));
 }
 
 } // namespace caors::assets

@@ -108,7 +108,8 @@ public:
 }
 
 [[nodiscard]] inline io::memory_file_system* memory_files(assets::asset_manager& manager) {
-  return dynamic_cast<io::memory_file_system*>(manager.find_file_system(string_name{"memory"}));
+  return dynamic_cast<io::memory_file_system*>(
+      caors::assets::project_builder{manager}.find_file_system(string_name{"memory"}));
 }
 
 [[nodiscard]] inline bool configure_assets(assets::asset_manager& manager) {
@@ -118,8 +119,8 @@ public:
     return false;
   }
 
-  return check(assets::json::register_type_factory<texture_resource>(manager,
-                                                                     texture_manifest_type()),
+  return check(assets::json::register_type_factory<texture_resource>(
+                   caors::assets::project_builder{manager}, texture_manifest_type()),
                "register texture factory") &&
          check(caors::assets::project_builder{manager}.build(config), "build asset manager");
 }

@@ -64,13 +64,26 @@ create_owned 先用 RAII 持有新对象，登记到拥有表成功后才放弃�
 新增定向失败测试：对象构造后拒绝下一次表扩容分配，确认抛出 bad_alloc、对象析构且内存回到登记前，
 manager 析构后自定义资源的在用字节归零。状态封装及头文件隐藏后重新构建，相关 CTest 9/9、\n宿主/VFS 与三个工程示例全部通过；未执行完整跨平台矩阵。
 
+## 公开注册入口迁移
+
+文件系统/source 绑定、查询、清空、计数，三类配置工厂及强类型注册，create_owned 已由 project_builder
+公开；manager 的同名实现及工厂类型转为私有，工厂扩展类型通过 project_builder 别名公开。
+工厂上下文提供 context.project()，JSON/通用类型工厂 helper 改接收 builder；现有测试和示例同步迁移。
+新增编译期检查限制 manager 不公开文件绑定/对象创建，而 builder 提供这些入口。
+具体容器和各阶段实现仍保留私有工程状态，builder 借用 manager，不改变创建对象的生命周期。
+迁移公开入口并新增边界检查后重新构建，原生相关 CTest 9/9，宿主/VFS、配置诊断与 alpha/beta 工程示例通过。
+
 ## 限制与下一步
 
 这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，
-配置工厂和注册状态尚未迁出；装配编排已迁移至 project_builder，宿主注入可通过 database 捕获器配置。
+配置工厂公开入口和装配编排已迁移至 project_builder；状态及私有执行函数仍由 manager 持有，
+宿主注入可通过 database 捕获器配置。
 快照基类与 const 共享所有权不自动冻结派生对象引用的外部可变数据，也不自动 pin 动态模块。
 类型查询依赖 RTTI，沿用项目已有 RTTI 使用，不承诺稳定跨编译器 C++ ABI。
 
-本批未运行 Linux、Windows MSVC、Web、插件跨模块专项或完整矩阵。原型完成评审并准备合并前，
+公开注册入口迁移后，本地 Emscripten 5.0.6 wasm32 静态单线程完整核心与协议目标重新构建通过；
+ctest --test-dir build/emscripten-static-debug -R caors.web.protocol --output-on-failure：Node 协议目标 1/1 通过。
+
+本批未运行 Linux、Windows MSVC、真实浏览器、插件跨模块专项或完整矩阵。原型完成评审并准备合并前，
 须执行受影响平台 CI 与必要生命周期专项；不得用本机 9 个目标替代这些门槛。
-下一步继续迁移配置注册表、工厂与拥有对象状态，以及 database 默认 provider 适配，保持依赖批次与清理顺序。
+下一步继续审查 provider 的公共归属及装配状态与 manager 的持有边界，保持依赖批次与清理顺序。
