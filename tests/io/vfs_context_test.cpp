@@ -4,9 +4,11 @@
 #include "caors/tasks/execution_context.h"
 #include <catch2/catch_all.hpp>
 #if !defined(__EMSCRIPTEN__)
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 #endif
 namespace {
 using namespace caors;
@@ -459,3 +461,119 @@ TEST_CASE("io - whole write rejects a backend reporting incomplete success", "[i
   REQUIRE(written.done());
   CHECK(written.result()->error().value == io_errc::backend_failure);
 }
+
+TEST_CASE("io - independent VFS matches normalized URI prefixes at segment boundaries",
+          "[io][vfs-context]") {
+  vfs routes;
+  auto root = make_memory_backend();
+  auto nested = make_memory_backend();
+  REQUIRE_FALSE(root->store("root/textures2/data", "root"));
+  REQUIRE_FALSE(nested->store("nested/data", "nested"));
+  REQUIRE_FALSE(routes.mount("assets://game", root, "root/"));
+  REQUIRE_FALSE(routes.mount("assets://game//textures/", nested, "nested/"));
+  CHECK(routes.mount("assets://game/textures", root).value() == errc::already_exists);
+  CHECK(routes.mount("", root).value() == errc::invalid_argument);
+  CHECK(routes.mount("empty", {}).value() == errc::invalid_argument);
+  CHECK(routes.mount_count() == 2);
+  io_context context{routes, {tasks::inline_executor()}};
+  auto exact = context.read("assets://game/textures/data");
+  REQUIRE(*exact.result());
+  CHECK(text(*exact.result()) == "nested");
+  auto sibling = context.read("assets://game/textures2/data");
+  REQUIRE(*sibling.result());
+  CHECK(text(*sibling.result()) == "root");
+  auto authority = context.read("assets://other/textures/data");
+  CHECK(authority.result()->error().value == io_errc::not_found);
+  auto scheme = context.read("other://game/textures/data");
+  CHECK(scheme.result()->error().value == io_errc::not_found);
+  CHECK(routes.unmount("assets://game//textures/"));
+  CHECK_FALSE(routes.unmount("assets://game/textures"));
+}
+TEST_CASE("io - independent VFS releases backend before host pin outside update lock",
+          "[io][vfs-context]") {
+  vfs routes;
+  bool backend_destroyed = false;
+  bool pin_destroyed = false;
+  struct pin {
+    bool* backend_destroyed;
+    bool* destroyed;
+    ~pin() {
+      CHECK(*backend_destroyed);
+      *destroyed = true;
+    }
+  };
+  class lifetime_backend final : public backend {
+  public:
+    lifetime_backend(vfs& routes, bool& destroyed) : routes_(&routes), destroyed_(&destroyed) {}
+    ~lifetime_backend() override {
+      *destroyed_ = true;
+      // 宿主析构可重入配置更新，清理不能持有 VFS 更新锁。
+      routes_->clear();
+    }
+    io_error open(path, open_options, memory_resource*,
+                  io_completion<std::shared_ptr<async_file>>) override {
+      return {io_errc::unsupported};
+    }
+
+  private:
+    vfs* routes_;
+    bool* destroyed_;
+  };
+  auto lifetime = std::make_shared<pin>();
+  lifetime->backend_destroyed = &backend_destroyed;
+  lifetime->destroyed = &pin_destroyed;
+  REQUIRE_FALSE(routes.mount("host", std::make_shared<lifetime_backend>(routes, backend_destroyed),
+                             {}, lifetime));
+  lifetime.reset();
+  auto captured = routes.snapshot();
+  REQUIRE(captured);
+  CHECK(routes.unmount("host"));
+  CHECK_FALSE(backend_destroyed);
+  captured.value = {};
+  CHECK(backend_destroyed);
+  CHECK(pin_destroyed);
+}
+#if !defined(__EMSCRIPTEN__)
+TEST_CASE("io - independent VFS concurrent updates preserve an immutable batch",
+          "[io][vfs-context]") {
+  vfs routes;
+  auto old = make_memory_backend();
+  auto next = make_memory_backend();
+  REQUIRE_FALSE(old->store("data", "old"));
+  REQUIRE_FALSE(next->store("data", "next"));
+  REQUIRE_FALSE(routes.mount("files", old));
+  auto batch = routes.snapshot();
+  REQUIRE(batch);
+  std::atomic<bool> failed = false;
+  std::thread writer([&] {
+    for (int i = 0; i < 200; ++i) {
+      if (!routes.unmount("files") || routes.mount("files", (i % 2) ? old : next))
+        failed = true;
+    }
+  });
+  std::thread reader([&] {
+    io_context fixed{batch.value, {tasks::inline_executor()}};
+    io_context live{routes, {tasks::inline_executor()}};
+    for (int i = 0; i < 200; ++i) {
+      auto captured = fixed.read("files/data");
+      if (!captured.result() || !*captured.result() || text(*captured.result()) != "old")
+        failed = true;
+      auto current = live.read("files/data");
+      if (!current.result()) {
+        failed = true;
+        continue;
+      }
+      if (*current.result()) {
+        auto contents = text(*current.result());
+        if (contents != "old" && contents != "next")
+          failed = true;
+      } else if (current.result()->error().value != io_errc::not_found) {
+        failed = true;
+      }
+    }
+  });
+  writer.join();
+  reader.join();
+  CHECK_FALSE(failed.load());
+}
+#endif

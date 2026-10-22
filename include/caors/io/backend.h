@@ -5,12 +5,13 @@
 #include "caors/io/async_request.h"
 #include "caors/io/metadata.h"
 #include "caors/io/options.h"
+#include <cstdint>
+#include <memory>
 #include <mutex>
 #include <span>
 namespace caors::io {
 class async_file;
 class memory_file_system;
-class file_system;
 /**
  * @brief 独立文件后端协议，只处理后端相对路径，不管理挂载与用户调度。
  * @note
@@ -32,6 +33,15 @@ public:
   /** @brief 枚举直接子项；默认 unsupported，结果缓冲由 resource 管理。 */
   [[nodiscard]] virtual io_error list(path location, memory_resource* resource,
                                       io_completion<directory_entry_list> completion);
+};
+/** @brief 已解析的拥有式后端位置；后端所有权同时覆盖挂载宿主凭据。 */
+struct backend_location {
+  /** @brief 拥有后端及挂载传入的宿主寿命凭据。 */
+  std::shared_ptr<io::backend> backend;
+  /** @brief 后端命名空间内的拥有式路径；其分配器须覆盖本位置的寿命。 */
+  io::path path{};
+  /** @brief 进程内挂载身份，不能作为持久标识或内容摘要。 */
+  std::uint64_t source_id = 0;
 };
 /** @brief 本地文件操作适配；构造绑定可阻塞 worker，不隐式选择执行环境。 */
 [[nodiscard]] CAORS_API std::shared_ptr<backend>

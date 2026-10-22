@@ -4,7 +4,6 @@
 #include "caors/io/file_system.h"
 
 #include <algorithm>
-#include <atomic>
 
 namespace caors::io {
 namespace {
@@ -64,10 +63,6 @@ result<resolved_file> resolve_snapshot(const std::shared_ptr<file_system>& root,
   auto held = std::make_shared<owned_root>(owned_root{root, std::move(file->backend)});
   file->backend = std::shared_ptr<file_system>{held, held->target.get()};
   return file;
-}
-std::uint64_t next_route_id() noexcept {
-  static std::atomic<std::uint64_t> next{1};
-  return next.fetch_add(1, std::memory_order_relaxed);
 }
 result<std::shared_ptr<file_system>> snapshot_context::capture(const file_system& target,
                                                                std::shared_ptr<void> owner) {

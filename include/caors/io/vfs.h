@@ -3,14 +3,14 @@
 #ifndef CAORS_IO_VFS_H_
 #define CAORS_IO_VFS_H_
 #include "caors/io/backend.h"
-#include "caors/io/route_snapshot.h"
 #include "caors/io/uri.h"
 namespace caors::io {
-class file_system_resolver;
 class io_context;
 class vfs_snapshot;
 namespace detail {
-[[nodiscard]] CAORS_API std::shared_ptr<file_system> legacy_snapshot(vfs_snapshot snapshot);
+struct vfs_routes;
+struct vfs_state;
+class vfs_access;
 }
 /** @brief 拥有式不可变路由快照；固定后端和路由，不冻结文件内容或 allocator。 */
 class CAORS_API vfs_snapshot {
@@ -20,10 +20,11 @@ public:
 private:
   friend class vfs;
   friend class io_context;
-  friend std::shared_ptr<file_system> detail::legacy_snapshot(vfs_snapshot snapshot);
-  [[nodiscard]] result<resolved_file> resolve(path_view location) const;
-  explicit vfs_snapshot(route_snapshot value) : routes_(std::move(value)) {}
-  route_snapshot routes_;
+  friend class detail::vfs_access;
+  [[nodiscard]] result<backend_location> resolve(path_view location) const;
+  explicit vfs_snapshot(std::shared_ptr<const detail::vfs_routes> value)
+      : routes_(std::move(value)) {}
+  std::shared_ptr<const detail::vfs_routes> routes_;
 };
 /** @brief 挂载配置入口，不继承文件后端；拥有式挂载更新可与快照捕获并发。 */
 class CAORS_API vfs {
@@ -42,7 +43,7 @@ public:
   [[nodiscard]] result<vfs_snapshot> snapshot() const;
 
 private:
-  std::shared_ptr<file_system_resolver> routes_;
+  std::shared_ptr<detail::vfs_state> routes_;
 };
 } // namespace caors::io
 #endif

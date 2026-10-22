@@ -411,6 +411,31 @@ open_file(resolved_file file, tasks::executor completion,
       });
 }
 io_result<io_request<std::shared_ptr<async_file>>>
+open_file(backend_location file, tasks::executor completion,
+          std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
+          memory_resource* resource, open_options options) {
+  if (!file.backend)
+    return io_failure<io_request<std::shared_ptr<async_file>>>({io_errc::invalid_argument});
+  auto lifetime = file.backend;
+  const auto source_id = file.source_id;
+  return start_io<std::shared_ptr<async_file>>(
+      std::move(completion), std::move(callback),
+      [file = std::move(file), resource, options](auto receipt) mutable {
+        auto backend = file.backend;
+        return backend->open(std::move(file.path), options, resource, std::move(receipt));
+      },
+      lifetime,
+      [lifetime, source_id](auto& result) {
+        if (result.error())
+          return;
+        if (!result.value) {
+          result.status = {io_errc::backend_failure};
+          return;
+        }
+        result.value = std::make_shared<pinned_file>(lifetime, std::move(result.value), source_id);
+      });
+}
+io_result<io_request<std::shared_ptr<async_file>>>
 open_file_on_worker(resolved_file file, tasks::executor worker, tasks::executor completion,
                     std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
                     memory_resource* resource) {

@@ -43,7 +43,7 @@ public:
        std::function<void(const io_result<directory_entry_list>&)> callback = {}) const;
 
 private:
-  [[nodiscard]] result<resolved_file> resolve(path_view location) const;
+  [[nodiscard]] result<backend_location> resolve(path_view location) const;
   const vfs* routes_ = nullptr;
   vfs_snapshot snapshot_;
   io_context_options options_;

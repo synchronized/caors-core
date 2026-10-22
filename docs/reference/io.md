@@ -40,7 +40,9 @@ io_context.read 组合打开、有界整文件读取、关闭；资源 byte_read
 vfs 只配置挂载，不继承 backend。挂载拥有 backend 和可选 lifetime，已有请求与快照不受 unmount/clear 影响。
 make_native_backend 在构造时绑定可阻塞 worker；make_memory_backend 提供内存后端，store 用于配置内存数据。
 后端实现只实现 `backend::open` 并绑定自己的 loop/worker，不负责公共路由和用户完成调度。
-URI/普通路径匹配复用原路由算法，目前以私有传输适配连接旧路由实现，没有第二套路由算法。
+URI/普通路径按 scheme、authority 和最长完整路径前缀匹配；重复前缀不替换已有挂载。
+VFS 自身维护不可变路由表，快照共享当时的表，普通访问直接调用 backend，不再经过旧 file_system/resolver。
+资源来源的旧快照桥暂留在资源边界；配置、同步保存及内置后端存储实现仍有旧体系依赖，尚未整体删除。
 
 活跃 vfs 构造的 context 借用配置用于后续调用，每次发起捕获稳定路由；如需固定整批路由：
 

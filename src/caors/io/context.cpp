@@ -11,7 +11,7 @@ io_context::io_context(const vfs& routes, io_context_options options)
     : routes_(&routes), options_(std::move(options)) {}
 io_context::io_context(vfs_snapshot snapshot, io_context_options options)
     : snapshot_(std::move(snapshot)), options_(std::move(options)) {}
-result<resolved_file> io_context::resolve(path_view location) const {
+result<backend_location> io_context::resolve(path_view location) const {
   if (!routes_)
     return snapshot_.resolve(location);
   auto snapshot = routes_->snapshot();
@@ -77,7 +77,7 @@ request<std::uint64_t>
 io_context::write(path_view location, byte_buffer bytes,
                   std::function<void(const io_result<std::uint64_t>&)> callback) const {
   const auto expected = bytes.size();
-  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  auto lifetime = std::make_shared<std::shared_ptr<backend>>();
   return detail::submit_request<std::uint64_t>(
       options_.completion, std::move(callback),
       [this, location, lifetime,
@@ -97,7 +97,7 @@ io_context::write(path_view location, byte_buffer bytes,
 request<file_status>
 io_context::stat(path_view location,
                  std::function<void(const io_result<file_status>&)> callback) const {
-  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  auto lifetime = std::make_shared<std::shared_ptr<backend>>();
   return detail::submit_request<file_status>(
       options_.completion, std::move(callback),
       [this, location, lifetime](io_completion<file_status> receipt) {
@@ -112,7 +112,7 @@ io_context::stat(path_view location,
 request<directory_entry_list>
 io_context::list(path_view location,
                  std::function<void(const io_result<directory_entry_list>&)> callback) const {
-  auto lifetime = std::make_shared<std::shared_ptr<file_system>>();
+  auto lifetime = std::make_shared<std::shared_ptr<backend>>();
   auto directory = path{location, options_.resource};
   return detail::submit_request<directory_entry_list>(
       options_.completion, std::move(callback),

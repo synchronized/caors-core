@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- VFS 的路由表、快照与普通异步访问直接持有 backend，不再依赖旧 file_system/resolver；挂载匹配规则与用户调用方式保持一致。旧配置、保存及内置后端仍在迁移，尚未删除旧体系。
+
 - 删除 IO 旧公共 request_open、request_open_on_worker、request_read、read_all_bounded、request_close，无兼容别名；调用方改用 io_context/file，发起失败统一由单层 request 报告。内部编排头移出安装包，迁移见 [IO 参考](docs/reference/io.md#已移除入口的迁移)。
 
 - IO：统一 open 支持显式读写权限与创建/截断选项，file.write 提供有预算的范围写入并复用关闭清理。
