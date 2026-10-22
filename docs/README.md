@@ -15,7 +15,7 @@
 
 ## API 整理方案
 
-[IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)维护职责审计与候选调用示例；尚未实现，不替代当前参考。
+[IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)维护分批迁移方案；首批快照和工程装配入口已实现并验收，后续统一仍在推进，当前用法见模块参考。
 
 ## 当前版本
 

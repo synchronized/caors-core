@@ -85,11 +85,21 @@ Windows x64 Clang 共享 Debug 六类 consumer 在原安装前缀 6/6、迁移�
 [Windows](https://github.com/synchronized/caors-core/actions/runs/39704214742)、
 [Web](https://github.com/synchronized/caors-core/actions/runs/39704219255)、
 [Stress](https://github.com/synchronized/caors-core/actions/runs/39704257535)。
-修正提交后重新固定 SHA 执行平台验证，结果随后回写；不沿用已取消运行作为验收。
+修正后固定 `9fb1c5879c87d5e6a16e400a0f3ac4c695e2179e` 执行以下验证；已取消运行不作为验收。
+
+| 最终代码提交验证 | 结果 |
+| --- | --- |
+| [Linux5](https://github.com/synchronized/caors-core/actions/runs/39704555744) | 5/5 成功；动态/ASan/UBSan 各 100/100，静态 97/97；普通 Release 安装与迁移 consumer 各 6/6 |
+| [Windows3](https://github.com/synchronized/caors-core/actions/runs/39704559523) | Clang/MSVC 动态各 100/100，Clang 静态 97/97；每组原始与迁移 consumer 各 6/6 |
+| [Web](https://github.com/synchronized/caors-core/actions/runs/39704563053) | 完整库/公共头/Node CTest 2/2；安装与迁移各 1/1；真实浏览器迟到完成、取消、队列丢弃、句柄寿命通过 |
+| [Linux ASan Stress](https://github.com/synchronized/caors-core/actions/runs/39704567540) | 插件卸载 4 项重复 20 次、内存/MessagePack 9 项重复 10 次、VFS/异步加载 4 项重复 20 次，全部通过 |
+
+逐一核对四个运行 headSha 均为上述提交，全部 job 成功。日志未发现编译 warning/error；来源快照基准 smoke 仅验证可运行，不作为性能改善证据。
+本记录及索引后续回写仅修改文档，不改变已验证代码。集成入口为 [PR #57](https://github.com/synchronized/caors-core/pull/57)。
 
 ## 限制与下一步
 
-这是 feature 分支原型，不代表发布或整个资源核心已解耦。database 仍绑定 provider，
+首批代码验收已完成，不代表版本发布或整个资源核心已解耦。database 仍绑定 provider，
 配置工厂公开入口和装配编排已迁移至 project_builder；状态及私有执行函数仍由 manager 持有，
 宿主注入可通过 database 捕获器配置。
 快照基类与 const 共享所有权不自动冻结派生对象引用的外部可变数据，也不自动 pin 动态模块。
@@ -98,6 +108,6 @@ Windows x64 Clang 共享 Debug 六类 consumer 在原安装前缀 6/6、迁移�
 公开注册入口迁移后，本地 Emscripten 5.0.6 wasm32 静态单线程完整核心与协议目标重新构建通过；
 ctest --test-dir build/emscripten-static-debug -R caors.web.protocol --output-on-failure：Node 协议目标 1/1 通过。
 
-本批未运行 Linux、Windows MSVC、真实浏览器、插件跨模块专项或完整矩阵。原型完成评审并准备合并前，
-须执行受影响平台 CI 与必要生命周期专项；不得用本机 9 个目标替代这些门槛。
+上述 CI 已补齐 Linux/Windows 常规矩阵、真实浏览器、安装迁移和既有插件生命周期压力验证。
+尚不代表任意宿主自定义快照的跨编译器 ABI、完整无异常运行、Gneiss 联调或生产性能已经验收。
 下一步继续审查 provider 的公共归属及装配状态与 manager 的持有边界，保持依赖批次与清理顺序。

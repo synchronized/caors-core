@@ -5,8 +5,9 @@
 
 ## 状态与范围
 
-方案已获准按批次推进；2026-10-22 基于 main 3b543eb1 的公开接口审计。用户要求先整理 API 对照与调用示例，
-当前处于迁移清单与基线验证阶段，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的契约。
+实施中，首批快照解耦与工程装配入口迁移已完成验收；2026-10-22 基于 main 3b543eb1 的公开接口审计。用户要求先整理 API 对照与调用示例，
+首批平台验证和安装迁移证据见[原型记录](../records/2026-10-22-load-snapshot-prototype.md)。
+后续接口统一仍待实施，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的标签或制品。
 当前行为见 [IO 参考](../reference/io.md)、[资源参考索引](../reference/README.md)及公共头。
 本页为后续收敛方案的维护入口，之前 VFS/异步 loader 计划仍保留其已实现设计和历史证据。
 
@@ -88,7 +89,7 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 
 实际本机验证与限制见[原型记录](../records/2026-10-22-load-snapshot-prototype.md)。
 第一步以 load_snapshot 多态基类和 context.snapshot_as<T>() 替代上下文的 VFS 具体类型；
-现有 provider 捕获时机和批次共享规则不变。此接口为 feature 分支原型，尚未合并或发布。
+现有 provider 捕获时机和批次共享规则不变。此批接口已通过平台验收，集成由 PR #57 跟踪；尚未发布。
 后续原型已提供 database::set_snapshot_capture；异步请求管线只接收通用捕获器，不再依赖 provider。
 database 暂时保留默认 provider 适配和既有同步访问，不新增公共 manager 配置外观；
 配置装配第一步已将 build/build_detailed 的编排、路由图校验和失败诊断实现迁到 project_builder；
@@ -200,7 +201,7 @@ auto closing = file.close(on_close);
 取消竞争、队列拒绝与丢弃、关闭及迟到回调、模块/资源保活；覆盖 Windows/Linux 与真实 Web 事件循环。
 按受影响机制执行原生矩阵、sanitizer、压力及安装迁移；纯方案文档不重复完整 CI。
 现有路径的本机基线已验证，见[整理基线](../records/2026-10-22-io-assets-api-baseline.md)。
-尚未执行新架构代码验收，不把既有路径通过记为重构完成。
+首批新增行为与安装迁移已通过平台验收，详见原型记录；文件 API 统一、同步入口退出及 provider 后续收敛仍未完成，不能记为整个重构完成。
 
 ## 未决与不纳入本批的事项
 
