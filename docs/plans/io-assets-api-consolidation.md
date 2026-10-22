@@ -22,9 +22,11 @@
 
 VFS 主体重构按[VFS 收敛计划](vfs-api-consolidation.md)实施，本页保留资源侧与原始审计依据。
 
-## 当前职责与问题
+## 原始审计职责与问题
 
-| 当前入口 | 实际职责 | 整理方向 |
+以下表格和后续迁移清单保留最初审计基线，不代表当前 API；已实施结果以本页进展摘要和专题参考为准。
+
+| 审计时入口 | 当时职责 | 整理方向 |
 | --- | --- | --- |
 | asset_manager::request_load/reload/preload | 资源请求、缓存与依赖加载入口 | 保留；已有名称具有区分语义，不为缩短名称全部改为 load |
 | asset_manager::create_group | 绑定一组 worker/completion 策略 | 保留；常规调用通过 manager 默认策略或 group |
@@ -46,7 +48,7 @@ VFS 主体重构按[VFS 收敛计划](vfs-api-consolidation.md)实施，本页�
 [source.h](../../include/caors/resources/source.h)、[file_system.h](../../include/caors/io/file_system.h)、
 [async_file.h](../../include/caors/io/async_file.h)。
 
-database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
+原始审计时 database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
 loader 可以忽略 sources，但当前 manager/配置/请求协议结构上仍依赖 VFS。
 provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes 和 resolved_file 的具体实现。
 
@@ -181,19 +183,9 @@ loader 的宿主依赖在构造时注入；不得让 manager 解释宿主路径�
 
 ### 独立文件访问
 
-```cpp
-// 候选形式；文件对象与注册流程在后续原型中确定。
-auto opening = files.open_read(path, on_open);
-auto reading = file.read_at(offset, length, on_read);
-auto closing = file.close(on_close);
-```
-
-这里只展示三个阶段，不表示可以在 on_open 前使用 file，或必须立即关闭。
-返回请求句柄用于取消、查询和回调投递失败兜底；忽略句柄不取消，文件通过打开结果交付。
-对外优先统一异步读取，后端允许 worker 适配阻塞操作；不在公共异步调用中偷偷阻塞文件读取。
-完成通知经指定调度入口；拒绝或丢弃时句柄仍可查询终态，不能承诺回调总会执行。
-若未来保证通知不内联，须显式迁移当前允许返回前完成的契约，并确认宿主调度器能够满足。
-不提供可在任意 loop 线程阻塞的通用 sync_wait。
+文件访问签名已在 [VFS 专项计划](vfs-api-consolidation.md)中确定并实施，
+当前 API 以 [IO 参考](../reference/io.md#vfs-与统一文件访问)为唯一说明入口。
+不再保留 open_read 等旧候选示例；统一使用 open，并通过选项表达后续访问模式。
 
 ## 必须保留的行为
 
@@ -224,5 +216,5 @@ auto closing = file.close(on_close);
 
 - 核心与 VFS 适配之间如何传递批次一致性：先做原型，不能仅靠 loader 构造注入解决依赖共享。
 - 资源同步主入口在替代完成后迁移退出；文件异步写入/枚举方案仍未决定，禁止提前删除现有能力。
-- 文件操作对象与函数命名：概念示例仅作评审，不提前形成兼容承诺。
+- 文件访问命名已经确定；可写句柄与旧配置退出继续在 VFS 专项计划实施。
 - 下一版本号、最终破坏性范围及 Gneiss 迁移：原型和调用点审计完成后确定；本批不修改上游。

@@ -33,7 +33,7 @@ public:
   [[nodiscard]] virtual io_error list(path location, memory_resource* resource,
                                       io_completion<directory_entry_list> completion);
 };
-/** @brief 本地同步随机读取适配；构造绑定可阻塞 worker，不隐式选择执行环境。 */
+/** @brief 本地文件操作适配；构造绑定可阻塞 worker，不隐式选择执行环境。 */
 [[nodiscard]] CAORS_API std::shared_ptr<backend>
 make_native_backend(path_view root, tasks::executor worker, memory_resource* resource = nullptr);
 /** @brief 内存存储后端；索引操作串行化且不持锁回调，打开文件持有当时的内存内容。 */

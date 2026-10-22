@@ -36,7 +36,7 @@
 ## 当前进展
 
 首批只读主线及本机回归已完成，证据见[只读实施记录](../records/2026-10-22-vfs-read-context.md)。
-整体计划仍实施中；当前新增整文件 write/stat/list、新 VFS 资源来源桥和主聚合头隔离，见[整体操作迁移记录](../records/2026-10-22-vfs-operations-migration.md)。可写 open/流式写入、旧配置工厂整体退出和最终远端验收尚未完成，不记为通过。
+整体计划仍实施中；当前新增整文件 write/stat/list、新 VFS 资源来源桥和主聚合头隔离，见[整体操作迁移记录](../records/2026-10-22-vfs-operations-migration.md)。该批原生、Web、安装与压力验收通过。可写 open/流式写入、旧配置工厂整体退出和兼容层删除尚未完成，不记为通过。
 
 ## 验收
 

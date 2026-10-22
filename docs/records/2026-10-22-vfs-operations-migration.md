@@ -30,7 +30,20 @@ vfs-migration-installed.log、vfs-migration-headers.log、vfs-migration-bench.lo
 Linux 39725315414 和 ASan 压力 39725327801 失败，报告宿主测试对象泄漏 1472 字节/19 个分配。
 测试 backend 保留已经完成的 completion，形成凭据与 backend 自身的引用环。
 本批清除完成后的测试凭据，并用 weak_ptr 断言卸载；宿主协议文档同步说明清理义务。
-没有屏蔽泄漏检测。新提交必须重新验证受影响平台，本记录不把尚未完成的远端运行记为通过。
+没有屏蔽泄漏检测。新提交重新验证受影响平台，结果如下。
+
+## 新提交平台验收
+
+代码提交 baf593ad18e7057b0356eb0ce0292eaa4648eda8：
+
+| 验收 | 结果 |
+| --- | --- |
+| [Linux 五组](https://github.com/synchronized/caors-core/actions/runs/39728816650) | 全部成功，包含 ASan、UBSan 和安装消费 |
+| [Emscripten](https://github.com/synchronized/caors-core/actions/runs/39728826493) | 成功，包含真实浏览器 |
+| [ASan 压力](https://github.com/synchronized/caors-core/actions/runs/39728830757) | 成功，包含 VFS/异步加载重复测试 |
+| [Windows 三组](https://github.com/synchronized/caors-core/actions/runs/39728822533) | 全部成功，包含 MSVC、Clang 动态/静态 |
+
+后续文档、注释提交不改变上述可执行代码，不为纯文字重复整组矩阵。
 
 ## 剩余范围
 
