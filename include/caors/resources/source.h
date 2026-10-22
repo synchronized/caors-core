@@ -8,6 +8,7 @@
 #include "caors/io/file_system.h"
 #include "caors/io/location.h"
 #include "caors/resources/id.h"
+#include "caors/resources/load_snapshot.h"
 
 #include <cstddef>
 #include <span>
@@ -120,7 +121,7 @@ struct source_location {
  * @brief GUID 绑定与全部文件路由的一次不可变快照；解析不访问原 provider/source。
  * @note 不支持快照的来源按条目保留 unsupported；旧同步 loader 可继续使用原 provider。
  */
-class CAORS_API provider_snapshot {
+class CAORS_API provider_snapshot : public load_snapshot {
 public:
   explicit provider_snapshot(memory_resource* resource = nullptr);
   /** @brief 返回拥有式后端/路径和来源标记；失败保留捕获时诊断。 */

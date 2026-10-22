@@ -72,6 +72,18 @@ public:
   void set_manifest(const resources::manifest& value) noexcept { set_manifest(&value); }
   [[nodiscard]] const resources::manifest* manifest() const noexcept { return manifest_; }
 
+  /**
+   * @brief 设置可选批次捕获器；非空时优先于 provider，空捕获器恢复默认 provider 适配。
+   * @note 在发起线程配置与调用，活动操作尚未清理时返回 frozen。捕获器可拥有宿主凭据，
+   * 不得捕获 database 的强所有权形成环。空快照结果不回退至 provider。
+   */
+  [[nodiscard]] error set_snapshot_capture(snapshot_capture capture) {
+    if (has_active_operations())
+      return {error_domain::resources, errc::frozen};
+    snapshot_capture_ = std::move(capture);
+    return {};
+  }
+
   /** @brief 设置当前字节 provider。database 不拥有该对象。 */
   void set_provider(resources::provider* value) noexcept { provider_ = value; }
   void set_provider(resources::provider& value) noexcept { set_provider(&value); }
@@ -632,7 +644,8 @@ public:
     return detail::request_load_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
-        completion_executor, requests, true, {}, {}, make_activity(), {}, provider_);
+        completion_executor, requests, true, {}, {}, make_activity(), {},
+        [this] { return capture_load_snapshot(); });
   }
 
   /** @brief 异步重载资源；拥有当前发布资格时通过指定执行目标替换 cache 绑定。 */
@@ -652,7 +665,8 @@ public:
     return detail::request_reload_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
-        completion_executor, requests, make_activity(), {}, provider_);
+        completion_executor, requests, make_activity(), {},
+        [this] { return capture_load_snapshot(); });
   }
 
   /** @brief 独立刷新单资源，捕获新来源；失败保留旧绑定，不刷新依赖闭包。 */
@@ -672,7 +686,8 @@ public:
     return detail::request_reload_into_impl(
         *static_cast<resources::cache<T>*>(entry->cache),
         *static_cast<resources::loader<T>*>(entry->request_loader()), guid, executor,
-        completion_executor, requests, make_activity(), {}, provider_, true);
+        completion_executor, requests, make_activity(), {},
+        [this] { return capture_load_snapshot(); }, true);
   }
 
   /**
@@ -702,7 +717,7 @@ public:
       return request;
     }
 
-    auto sources = provider_ ? provider_->snapshot() : std::shared_ptr<const provider_snapshot>{};
+    auto sources = capture_load_snapshot();
     for (const preload_item& item : plan.load_order) {
       const error status = entry->ops.request_load(
           entry->cache, entry->request_loader(), entry->load_requests.get(), item, executor,
@@ -729,7 +744,7 @@ public:
       return request;
     }
 
-    auto sources = provider_ ? provider_->snapshot() : std::shared_ptr<const provider_snapshot>{};
+    auto sources = capture_load_snapshot();
     for (const preload_item& item : plan.load_order) {
       type_entry* entry = find_entry(item.type);
       if (entry == nullptr || entry->cache == nullptr || entry->request_loader() == nullptr ||
@@ -998,7 +1013,7 @@ private:
                         const tasks::executor& executor, const tasks::executor& completion_executor,
                         const std::shared_ptr<detail::preload_request_state>& state,
                         std::shared_ptr<void> activity,
-                        std::shared_ptr<const provider_snapshot> sources) {
+                        std::shared_ptr<const load_snapshot> sources) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
     if (!item.guid) {
@@ -1160,6 +1175,14 @@ private:
   std::shared_ptr<detail::resource_activity> activity_;
   std::uint64_t generation_ = 0;
   const resources::manifest* manifest_ = nullptr;
+  // 仅在发起阶段调用，不把 database 指针交给后台任务。
+  [[nodiscard]] std::shared_ptr<const load_snapshot> capture_load_snapshot() const {
+    if (snapshot_capture_)
+      return snapshot_capture_();
+    return provider_ ? provider_->snapshot() : std::shared_ptr<const load_snapshot>{};
+  }
+
+  snapshot_capture snapshot_capture_;
   resources::provider* provider_ = nullptr;
   resources::dependency_graph* dependency_graph_ = nullptr;
   entry_map entries_;

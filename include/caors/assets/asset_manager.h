@@ -10,6 +10,7 @@
 #include "caors/core/string_name.h"
 #include "caors/error.h"
 #include "caors/memory/resource.h"
+#include "caors/memory/unique_ptr.h"
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
@@ -29,6 +30,7 @@
 namespace caors::assets {
 
 class asset_group;
+class project_builder;
 
 /** @brief 运行期加载调度组合；只保存句柄，不拥有线程或队列，不参与 project_config 序列化。 */
 struct asset_execution_options {
@@ -85,11 +87,11 @@ struct asset_build_result {
  * @brief 拥有式资源运行期外壳。
  *
  * `asset_manager` 持有 manifest、provider、dependency graph 和 database，解决 `database`
- * 非拥有指针的生命周期拼装问题。它可以根据 `project_config` 中的策略名创建内置 source，并可通过
- * 类型工厂把资源类型描述映射到运行期 cache/loader。
+ * 非拥有指针的生命周期拼装问题。工程配置装配由 project_builder 执行；
+ * 当前仍持有其创建的对象以及来源/类型注册状态，后续按迁移计划继续收敛。
  */
 class CAORS_API asset_manager final {
-public:
+private:
   /** @brief source 工厂调用时收到的运行期上下文。 */
   struct source_factory_context {
     /** @brief 正在构建资源环境的 asset_manager。 */
@@ -98,6 +100,8 @@ public:
     memory_resource* resource = nullptr;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief 资源类型工厂调用时收到的运行期上下文。 */
@@ -112,6 +116,8 @@ public:
     resources::database& database;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief file_system 工厂调用时收到的运行期上下文。 */
@@ -122,6 +128,8 @@ public:
     memory_resource* resource = nullptr;
     /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
     asset_build_result::reason_list* reasons = nullptr;
+    /** @brief 取得本次装配的非拥有操作入口；不得超过 manager 寿命。 */
+    [[nodiscard]] CAORS_API project_builder project() const;
   };
 
   /** @brief 带强类型 options 的 file_system factory 函数签名。 */
@@ -213,6 +221,7 @@ public:
     }
   };
 
+public:
   explicit asset_manager(memory_resource* resource = nullptr);
   /** @brief 初始化默认调度；未配置有效组合时便捷异步入口返回 invalid_argument。 */
   explicit asset_manager(asset_execution_options execution, memory_resource* resource = nullptr)
@@ -262,6 +271,7 @@ public:
   [[nodiscard]] resources::database& database() noexcept { return database_; }
   [[nodiscard]] const resources::database& database() const noexcept { return database_; }
 
+private:
   /** @brief 按配置名称绑定运行期 file_system。asset_manager 不拥有 file_system。 */
   [[nodiscard]] error bind_file_system(core::string_name name, io::file_system& file_system);
 
@@ -280,10 +290,10 @@ public:
   [[nodiscard]] io::file_system* find_file_system(core::string_name name) const;
 
   /** @brief 清空 file_system 名称绑定。 */
-  void clear_file_systems() noexcept { file_systems_.clear(); }
+  void clear_file_systems() noexcept;
 
   /** @brief 查询 file_system 绑定数量。 */
-  [[nodiscard]] std::size_t file_system_count() const noexcept { return file_systems_.size(); }
+  [[nodiscard]] std::size_t file_system_count() const noexcept;
 
   /** @brief 注册 file_system 策略名到运行期 file_system 构造函数。 */
   [[nodiscard]] error register_file_system_factory(core::string_name type,
@@ -307,10 +317,10 @@ public:
   [[nodiscard]] resources::source* find_source(core::string_name name) const;
 
   /** @brief 清空 source 名称绑定。 */
-  void clear_sources() noexcept { sources_.clear(); }
+  void clear_sources() noexcept;
 
   /** @brief 查询 source 绑定数量。 */
-  [[nodiscard]] std::size_t source_count() const noexcept { return sources_.size(); }
+  [[nodiscard]] std::size_t source_count() const noexcept;
 
   /** @brief 注册 source 策略名到运行期 source 构造函数。 */
   [[nodiscard]] error register_source_factory(core::string_name type, source_factory factory);
@@ -342,22 +352,7 @@ public:
     return register_type_factory(resource_type, std::move(ops));
   }
 
-  /**
-   * @brief 根据工程配置重建 manifest、provider 和 dependency graph。
-   *
-   * 该函数会清空上一轮配置创建的 source/cache/loader 等运行期对象，并重建
-   * manifest/provider/dependency graph。用户手动 `bind_source()` 和 `register_type()`
-   * 的外部绑定会保留。
-   */
-  [[nodiscard]] error build(const project_config& config);
-
-  /**
-   * @brief 根据工程配置重建运行期资源环境，并返回详细诊断。
-   *
-   * 普通调用可以继续使用 `build()`。工具链、编辑器和测试需要定位失败阶段时使用该入口。
-   */
-  [[nodiscard]] asset_build_result build_detailed(const project_config& config);
-
+public:
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
   [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& loader,
@@ -369,8 +364,8 @@ public:
       return status;
     }
 
-    return building_config_runtime_ ? error{}
-                                    : remember_manual_type_binding<T>(cache, loader, resource_type);
+    return is_building_project() ? error{}
+                                 : remember_manual_type_binding<T>(cache, loader, resource_type);
   }
 
   /** @brief 注册异步 loader 与 cache，可与同类型同步 loader 并存。 */
@@ -380,8 +375,8 @@ public:
     if (auto status = database_.register_type(cache, source, type)) {
       return status;
     }
-    return building_config_runtime_ ? error{}
-                                    : remember_manual_type_binding<T>(cache, source, type, true);
+    return is_building_project() ? error{}
+                                 : remember_manual_type_binding<T>(cache, source, type, true);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -570,6 +565,7 @@ public:
     return database_.affected_closure(resource);
   }
 
+private:
   /**
    * @brief 使用 asset_manager 的内存资源创建对象，并由 asset_manager 负责销毁。
    *
@@ -577,57 +573,14 @@ public:
    * 调用方不应手动 delete。
    */
   template <typename T, typename... Args> [[nodiscard]] T* create_owned(Args&&... args) {
-    T* value = memory::make<T>(resource_, std::forward<Args>(args)...);
-    if (value == nullptr) {
+    auto value = memory::make_unique<T>(resource_, std::forward<Args>(args)...);
+    if (!value)
       return nullptr;
-    }
-
-    owned_objects_.emplace_back(resource_, value, &asset_manager::destroy_owned<T>,
-                                building_config_runtime_);
-    return value;
+    retain_owned(value.get(), &asset_manager::destroy_owned<T>);
+    return value.release();
   }
 
 private:
-  using file_system_factory_map = core::hash_map<core::string_name, file_system_factory>;
-  using source_factory_map = core::hash_map<core::string_name, source_factory>;
-  using type_factory_map = core::hash_map<core::string_name, type_factory>;
-
-  struct file_system_binding {
-    std::shared_ptr<io::file_system> owner;
-    io::file_system* file_system = nullptr;
-    bool config_created = false;
-  };
-
-  struct source_binding {
-    resources::source* source = nullptr;
-    bool config_created = false;
-  };
-
-  using file_system_map = core::hash_map<core::string_name, file_system_binding>;
-  using source_map = core::hash_map<core::string_name, source_binding>;
-
-  struct CAORS_API owned_runtime_object {
-    using destroy_fn = void (*)(memory_resource* resource, void* value) noexcept;
-
-    owned_runtime_object() noexcept = default;
-    owned_runtime_object(memory_resource* resource, void* value, destroy_fn destroy,
-                         bool config_created) noexcept;
-    ~owned_runtime_object();
-
-    owned_runtime_object(const owned_runtime_object&) = delete;
-    owned_runtime_object& operator=(const owned_runtime_object&) = delete;
-
-    owned_runtime_object(owned_runtime_object&& other) noexcept;
-    owned_runtime_object& operator=(owned_runtime_object&& other) noexcept;
-
-    void reset() noexcept;
-
-    memory_resource* resource = nullptr;
-    void* value = nullptr;
-    destroy_fn destroy = nullptr;
-    bool config_created = false;
-  };
-
   struct manual_type_binding {
     using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader, void* async_loader,
                               core::string_name resource_type);
@@ -637,9 +590,6 @@ private:
     void* async_loader = nullptr;
     bind_fn bind = nullptr;
   };
-
-  using owned_object_list = core::vector<owned_runtime_object>;
-  using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
 
   [[nodiscard]] resources::source*
   resolve_resource_source(const project_config& config,
@@ -750,27 +700,14 @@ private:
   [[nodiscard]] error
   remember_manual_type_binding(resources::cache<T>& cache, resources::loader<T>& loader,
                                core::string_name type, bool asynchronous = false) {
-    auto position = manual_type_bindings_.find(type);
-    if (position == manual_type_bindings_.end()) {
-      manual_type_binding binding{&cache, asynchronous ? nullptr : &loader,
-                                  asynchronous ? &loader : nullptr,
-                                  &asset_manager::rebind_manual_type<T>};
-      manual_type_bindings_.emplace(type, binding);
-      return {};
-    }
-    auto& binding = position->second;
-    if (binding.cache != &cache || binding.bind != &asset_manager::rebind_manual_type<T>) {
-      return {error_domain::resources, errc::already_exists};
-    }
-    void*& slot = asynchronous ? binding.async_loader : binding.loader;
-    if (slot && slot != &loader) {
-      return {error_domain::resources, errc::already_exists};
-    }
-    slot = &loader;
-    return {};
+    manual_type_binding binding{&cache, asynchronous ? nullptr : &loader,
+                                asynchronous ? &loader : nullptr,
+                                &asset_manager::rebind_manual_type<T>};
+    return remember_manual_type_binding_erased(type, binding);
   }
 
   friend class asset_group;
+  friend class project_builder;
   asset_execution_options execution_;
   bool execution_configured_ = false;
   memory_resource* resource_ = nullptr;
@@ -778,14 +715,19 @@ private:
   resources::provider provider_;
   resources::dependency_graph dependency_graph_;
   resources::database database_;
-  file_system_map file_systems_;
-  source_map sources_;
-  file_system_factory_map file_system_factories_;
-  source_factory_map source_factories_;
-  type_factory_map type_factories_;
-  owned_object_list owned_objects_;
-  manual_type_map manual_type_bindings_;
-  bool building_config_runtime_ = false;
+  // 工程装配状态与日常请求状态分离；具体容器和配置标记不暴露在公共头中。
+  struct project_state;
+  struct project_deleter {
+    memory_resource* resource = nullptr;
+    void operator()(project_state* state) const noexcept;
+  };
+  std::unique_ptr<project_state, project_deleter> project_;
+
+  [[nodiscard]] bool is_building_project() const noexcept;
+  using owned_destroy_fn = void (*)(memory_resource*, void*) noexcept;
+  void retain_owned(void* value, owned_destroy_fn destroy);
+  [[nodiscard]] error remember_manual_type_binding_erased(core::string_name type,
+                                                          manual_type_binding binding);
 };
 
 /**

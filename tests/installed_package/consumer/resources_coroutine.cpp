@@ -48,9 +48,10 @@ public:
     auto token = std::move(completion);
     auto value = caors::memory::make_unique<consumer_resource>(context->resource, context->guid);
     value->value = -1;
-    auto file = context->sources ? context->sources->resolve(context->guid)
-                                 : caors::fail<caors::io::resolved_file>(
-                                       {caors::error_domain::io, caors::errc::unsupported});
+    auto sources = context->snapshot_as<caors::resources::provider_snapshot>();
+    auto file = sources ? sources->resolve(context->guid)
+                        : caors::fail<caors::io::resolved_file>(
+                              {caors::error_domain::io, caors::errc::unsupported});
     if (file) {
       auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
       if (opened && opened->result() && *opened->result()) {
@@ -134,6 +135,12 @@ int main() {
   native_loader native;
   caors::assets::asset_manager assets{
       {caors::tasks::inline_executor(), completion_context.get_executor()}};
+  caors::assets::project_builder project{assets};
+  if (project.build_detailed(caors::assets::project_config{}).failed())
+    return 7;
+  auto* owned = project.create_owned<int>(42);
+  if (!owned || *owned != 42)
+    return 8;
   if (assets.register_type(cache, native, caors::core::string_name{"consumer.native"})) {
     return 2;
   }
@@ -141,6 +148,10 @@ int main() {
   const std::byte payload[]{std::byte{64}};
   if (files->write_all("data", payload))
     return 5;
+  const caors::string_name backend_name{"consumer.memory"};
+  if (project.bind_file_system(backend_name, files) ||
+      project.find_owned_file_system(backend_name) != files)
+    return 9;
   caors::resources::file_source source{files};
   if (assets.provider().bind(consumer_guid, source, "data"))
     return 6;

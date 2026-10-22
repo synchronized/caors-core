@@ -99,12 +99,12 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
 
   caors::assets::asset_manager assets;
   REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
+              caors::assets::project_builder{assets}, serialized_manifest_type())
               .succeeded());
-  REQUIRE(assets.build(config).succeeded());
+  REQUIRE(caors::assets::project_builder{assets}.build(config).succeeded());
 
   auto* files = dynamic_cast<caors::io::memory_file_system*>(
-      assets.find_file_system(caors::string_name{"memory"}));
+      caors::assets::project_builder{assets}.find_file_system(caors::string_name{"memory"}));
   REQUIRE(files != nullptr);
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());

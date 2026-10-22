@@ -43,24 +43,25 @@ struct debug_source_options {
 }
 
 [[nodiscard]] caors::error
-make_debug_source(caors::assets::asset_manager::source_factory_context& context,
+make_debug_source(caors::assets::project_builder::source_factory_context& context,
                   const caors::assets::project_source_config& config,
                   const debug_source_options& options, void* user_data) {
   auto& state = *static_cast<debug_source_state*>(user_data);
   ++state.calls;
   (void)options;
 
-  auto* file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  auto* file_system =
+      context.project().create_owned<caors::io::memory_file_system>(context.resource);
   if (file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
+  auto* source = context.project().create_owned<caors::resources::file_source>(*file_system);
   if (source == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_source(config.name, *source);
+  return context.project().bind_source(config.name, *source);
 }
 
 } // namespace
@@ -92,13 +93,15 @@ int main() {
   debug_source_state state;
   caors::assets::asset_manager assets;
   if (!caors::examples::beta::check(
-          assets.register_typed_source_factory<debug_source_options, &make_debug_source>(
-              caors::string_name{"debug_source"}, &state),
+          caors::assets::project_builder{assets}
+              .register_typed_source_factory<debug_source_options, &make_debug_source>(
+                  caors::string_name{"debug_source"}, &state),
           "register source factory")) {
     return 1;
   }
 
-  const caors::assets::asset_build_result result = assets.build_detailed(config);
+  const caors::assets::asset_build_result result =
+      caors::assets::project_builder{assets}.build_detailed(config);
   std::cout << "schema validation status: " << static_cast<int>(result.status.value()) << '\n';
   std::cout << "factory calls: " << state.calls << '\n';
   for (const caors::string& reason : result.reasons) {

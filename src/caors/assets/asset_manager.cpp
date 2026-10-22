@@ -9,10 +9,8 @@
 #include "caors/io/native_file_system.h"
 #include "caors/io/uri.h"
 
-#include <algorithm>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 namespace caors::assets {
 namespace {
@@ -31,50 +29,6 @@ void append_reason_text(asset_build_result::reason_list& reasons, std::string_vi
   core::string reason = make_reason(reasons);
   reason.assign(text.begin(), text.end());
   append_reason(reasons, std::move(reason));
-}
-
-void set_build_failure(asset_build_result& result, asset_build_stage stage, std::size_t index,
-                       error status, core::string_name name, core::string_name type,
-                       resource_guid guid, std::string_view reason) {
-  result.status = status;
-  result.stage = stage;
-  result.index = index;
-  result.name = name;
-  result.type = type;
-  result.guid = guid;
-  if (!reason.empty()) {
-    result.add_reason(reason);
-  }
-}
-
-[[nodiscard]] error validate_route_graph(const project_config& config) {
-  std::vector<core::string_name> active;
-  std::vector<core::string_name> done;
-  auto visit = [&](auto&& self, core::string_name name) -> error {
-    if (std::find(active.begin(), active.end(), name) != active.end())
-      return {error_domain::resources, errc::cycle_detected};
-    if (std::find(done.begin(), done.end(), name) != done.end())
-      return {};
-    if (active.size() >= 256)
-      return {error_domain::resources, errc::recursion_limit};
-    active.push_back(name);
-    for (const auto& entry : config.file_systems) {
-      if (entry.name != name)
-        continue;
-      for (const auto& route : entry.routes) {
-        if (auto status = self(self, route.target))
-          return status;
-      }
-    }
-    active.pop_back();
-    done.push_back(name);
-    return {};
-  };
-  for (const auto& entry : config.file_systems) {
-    if (auto status = visit(visit, entry.name))
-      return status;
-  }
-  return {};
 }
 
 } // namespace
@@ -192,14 +146,77 @@ error asset_manager::make_bound_file_source(source_factory_context& context,
   return context.manager.bind_source(config.name, *source);
 }
 
-asset_manager::owned_runtime_object::owned_runtime_object(memory_resource* resource, void* value,
-                                                          destroy_fn destroy,
-                                                          bool config_created) noexcept
+struct asset_manager::project_state {
+  using file_system_factory_map = core::hash_map<core::string_name, file_system_factory>;
+  using source_factory_map = core::hash_map<core::string_name, source_factory>;
+  using type_factory_map = core::hash_map<core::string_name, type_factory>;
+
+  struct file_system_binding {
+    std::shared_ptr<io::file_system> owner;
+    io::file_system* file_system = nullptr;
+    bool config_created = false;
+  };
+
+  struct source_binding {
+    resources::source* source = nullptr;
+    bool config_created = false;
+  };
+
+  using file_system_map = core::hash_map<core::string_name, file_system_binding>;
+  using source_map = core::hash_map<core::string_name, source_binding>;
+
+  struct owned_runtime_object {
+    using destroy_fn = void (*)(memory_resource* resource, void* value) noexcept;
+
+    owned_runtime_object() noexcept = default;
+    owned_runtime_object(memory_resource* resource, void* value, destroy_fn destroy,
+                         bool config_created) noexcept;
+    ~owned_runtime_object();
+
+    owned_runtime_object(const owned_runtime_object&) = delete;
+    owned_runtime_object& operator=(const owned_runtime_object&) = delete;
+
+    owned_runtime_object(owned_runtime_object&& other) noexcept;
+    owned_runtime_object& operator=(owned_runtime_object&& other) noexcept;
+
+    void reset() noexcept;
+
+    memory_resource* resource = nullptr;
+    void* value = nullptr;
+    destroy_fn destroy = nullptr;
+    bool config_created = false;
+  };
+
+  using owned_object_list = core::vector<owned_runtime_object>;
+  using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
+
+  explicit project_state(memory_resource* resource)
+      : file_systems_(typename file_system_map::allocator_type{resource}),
+        sources_(typename source_map::allocator_type{resource}),
+        file_system_factories_(typename file_system_factory_map::allocator_type{resource}),
+        source_factories_(typename source_factory_map::allocator_type{resource}),
+        type_factories_(typename type_factory_map::allocator_type{resource}),
+        owned_objects_(typename owned_object_list::allocator_type{resource}),
+        manual_type_bindings_(typename manual_type_map::allocator_type{resource}) {}
+
+  file_system_map file_systems_;
+  source_map sources_;
+  file_system_factory_map file_system_factories_;
+  source_factory_map source_factories_;
+  type_factory_map type_factories_;
+  owned_object_list owned_objects_;
+  manual_type_map manual_type_bindings_;
+  bool building_config_runtime_ = false;
+};
+
+asset_manager::project_state::owned_runtime_object::owned_runtime_object(
+    memory_resource* resource, void* value, destroy_fn destroy, bool config_created) noexcept
     : resource(resource), value(value), destroy(destroy), config_created(config_created) {}
 
-asset_manager::owned_runtime_object::~owned_runtime_object() { reset(); }
+asset_manager::project_state::owned_runtime_object::~owned_runtime_object() { reset(); }
 
-asset_manager::owned_runtime_object::owned_runtime_object(owned_runtime_object&& other) noexcept
+asset_manager::project_state::owned_runtime_object::owned_runtime_object(
+    owned_runtime_object&& other) noexcept
     : resource(other.resource), value(other.value), destroy(other.destroy),
       config_created(other.config_created) {
   other.resource = nullptr;
@@ -208,8 +225,9 @@ asset_manager::owned_runtime_object::owned_runtime_object(owned_runtime_object&&
   other.config_created = false;
 }
 
-asset_manager::owned_runtime_object&
-asset_manager::owned_runtime_object::operator=(owned_runtime_object&& other) noexcept {
+asset_manager::project_state::owned_runtime_object&
+asset_manager::project_state::owned_runtime_object::operator=(
+    owned_runtime_object&& other) noexcept {
   if (this != &other) {
     reset();
     resource = other.resource;
@@ -225,7 +243,7 @@ asset_manager::owned_runtime_object::operator=(owned_runtime_object&& other) noe
   return *this;
 }
 
-void asset_manager::owned_runtime_object::reset() noexcept {
+void asset_manager::project_state::owned_runtime_object::reset() noexcept {
   if (value != nullptr && destroy != nullptr) {
     destroy(resource, value);
   }
@@ -236,16 +254,49 @@ void asset_manager::owned_runtime_object::reset() noexcept {
   config_created = false;
 }
 
+void asset_manager::project_deleter::operator()(project_state* state) const noexcept {
+  memory::destroy(state, resource);
+}
+
+bool asset_manager::is_building_project() const noexcept {
+  return project_->building_config_runtime_;
+}
+
+void asset_manager::retain_owned(void* value, owned_destroy_fn destroy) {
+  project_->owned_objects_.emplace_back(resource_, value, destroy,
+                                        project_->building_config_runtime_);
+}
+
+error asset_manager::remember_manual_type_binding_erased(core::string_name type,
+                                                         manual_type_binding next) {
+  auto position = project_->manual_type_bindings_.find(type);
+  if (position == project_->manual_type_bindings_.end()) {
+    project_->manual_type_bindings_.emplace(type, next);
+    return {};
+  }
+  auto& binding = position->second;
+  if (binding.cache != next.cache || binding.bind != next.bind)
+    return {error_domain::resources, errc::already_exists};
+  void*& slot = next.async_loader ? binding.async_loader : binding.loader;
+  void* value = next.async_loader ? next.async_loader : next.loader;
+  if (slot && slot != value)
+    return {error_domain::resources, errc::already_exists};
+  slot = value;
+  return {};
+}
+
+void asset_manager::clear_file_systems() noexcept { project_->file_systems_.clear(); }
+std::size_t asset_manager::file_system_count() const noexcept {
+  return project_->file_systems_.size();
+}
+void asset_manager::clear_sources() noexcept { project_->sources_.clear(); }
+std::size_t asset_manager::source_count() const noexcept { return project_->sources_.size(); }
+
 asset_manager::asset_manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
       manifest_(resource_), provider_(resource_), dependency_graph_(resource_),
-      database_(resource_), file_systems_(typename file_system_map::allocator_type{resource_}),
-      sources_(typename source_map::allocator_type{resource_}),
-      file_system_factories_(typename file_system_factory_map::allocator_type{resource_}),
-      source_factories_(typename source_factory_map::allocator_type{resource_}),
-      type_factories_(typename type_factory_map::allocator_type{resource_}),
-      owned_objects_(typename owned_object_list::allocator_type{resource_}),
-      manual_type_bindings_(typename manual_type_map::allocator_type{resource_}) {
+      database_(resource_),
+      project_(memory::make<project_state>(resource_, resource_), project_deleter{resource_}) {
   database_.set_manifest(manifest_);
   database_.set_provider(provider_);
   database_.set_dependency_graph(dependency_graph_);
@@ -256,13 +307,13 @@ asset_manager::asset_manager(memory_resource* resource)
 asset_manager::~asset_manager() {
   database_.clear_registered_types();
   provider_.clear();
-  sources_.clear();
-  file_systems_.clear();
-  type_factories_.clear();
-  source_factories_.clear();
-  file_system_factories_.clear();
-  manual_type_bindings_.clear();
-  owned_objects_.clear();
+  project_->sources_.clear();
+  project_->file_systems_.clear();
+  project_->type_factories_.clear();
+  project_->source_factories_.clear();
+  project_->file_system_factories_.clear();
+  project_->manual_type_bindings_.clear();
+  project_->owned_objects_.clear();
 }
 
 error asset_manager::bind_file_system(core::string_name name, io::file_system& file_system) {
@@ -270,8 +321,8 @@ error asset_manager::bind_file_system(core::string_name name, io::file_system& f
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = file_systems_.find(name);
-  if (position != file_systems_.end()) {
+  const auto position = project_->file_systems_.find(name);
+  if (position != project_->file_systems_.end()) {
     if (position->second.file_system != &file_system) {
       return {error_domain::resources, errc::already_exists};
     }
@@ -279,7 +330,8 @@ error asset_manager::bind_file_system(core::string_name name, io::file_system& f
     return {};
   }
 
-  file_systems_.emplace(name, file_system_binding{{}, &file_system, building_config_runtime_});
+  project_->file_systems_.emplace(name, project_state::file_system_binding{
+                                            {}, &file_system, project_->building_config_runtime_});
   return {};
 }
 
@@ -296,32 +348,34 @@ error asset_manager::bind_file_system(core::string_name name,
       std::allocate_shared<held_backend>(allocator<held_backend>{resource_},
                                          held_backend{std::move(lifetime), std::move(file_system)});
   auto owner = std::shared_ptr<io::file_system>{held, held->target.get()};
-  const auto found = file_systems_.find(name);
-  if (found != file_systems_.end()) {
+  const auto found = project_->file_systems_.find(name);
+  if (found != project_->file_systems_.end()) {
     if (found->second.file_system != owner.get())
       return {error_domain::resources, errc::already_exists};
     found->second.owner = std::move(owner);
     return {};
   }
   auto* backend = owner.get();
-  file_systems_.emplace(name,
-                        file_system_binding{std::move(owner), backend, building_config_runtime_});
+  project_->file_systems_.emplace(
+      name, project_state::file_system_binding{std::move(owner), backend,
+                                               project_->building_config_runtime_});
   return {};
 }
 
 std::shared_ptr<io::file_system>
 asset_manager::find_owned_file_system(core::string_name name) const {
-  const auto found = file_systems_.find(name);
-  return found == file_systems_.end() ? std::shared_ptr<io::file_system>{} : found->second.owner;
+  const auto found = project_->file_systems_.find(name);
+  return found == project_->file_systems_.end() ? std::shared_ptr<io::file_system>{}
+                                                : found->second.owner;
 }
 
 bool asset_manager::unbind_file_system(core::string_name name) {
-  return file_systems_.erase(name) != 0;
+  return project_->file_systems_.erase(name) != 0;
 }
 
 io::file_system* asset_manager::find_file_system(core::string_name name) const {
-  const auto position = file_systems_.find(name);
-  return position != file_systems_.end() ? position->second.file_system : nullptr;
+  const auto position = project_->file_systems_.find(name);
+  return position != project_->file_systems_.end() ? position->second.file_system : nullptr;
 }
 
 error asset_manager::register_file_system_factory(core::string_name type,
@@ -330,15 +384,15 @@ error asset_manager::register_file_system_factory(core::string_name type,
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = file_system_factories_.find(type);
-  if (position != file_system_factories_.end()) {
+  const auto position = project_->file_system_factories_.find(type);
+  if (position != project_->file_system_factories_.end()) {
     return position->second.create == factory.create &&
                    position->second.user_data == factory.user_data
                ? error{}
                : error{error_domain::resources, errc::already_exists};
   }
 
-  file_system_factories_.emplace(type, factory);
+  project_->file_system_factories_.emplace(type, factory);
   return {};
 }
 
@@ -347,8 +401,8 @@ error asset_manager::bind_source(core::string_name name, resources::source& sour
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = sources_.find(name);
-  if (position != sources_.end()) {
+  const auto position = project_->sources_.find(name);
+  if (position != project_->sources_.end()) {
     if (position->second.source != &source) {
       return {error_domain::resources, errc::already_exists};
     }
@@ -356,15 +410,18 @@ error asset_manager::bind_source(core::string_name name, resources::source& sour
     return {};
   }
 
-  sources_.emplace(name, source_binding{&source, building_config_runtime_});
+  project_->sources_.emplace(
+      name, project_state::source_binding{&source, project_->building_config_runtime_});
   return {};
 }
 
-bool asset_manager::unbind_source(core::string_name name) { return sources_.erase(name) != 0; }
+bool asset_manager::unbind_source(core::string_name name) {
+  return project_->sources_.erase(name) != 0;
+}
 
 resources::source* asset_manager::find_source(core::string_name name) const {
-  const auto position = sources_.find(name);
-  return position != sources_.end() ? position->second.source : nullptr;
+  const auto position = project_->sources_.find(name);
+  return position != project_->sources_.end() ? position->second.source : nullptr;
 }
 
 error asset_manager::register_source_factory(core::string_name type, source_factory factory) {
@@ -372,15 +429,15 @@ error asset_manager::register_source_factory(core::string_name type, source_fact
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = source_factories_.find(type);
-  if (position != source_factories_.end()) {
+  const auto position = project_->source_factories_.find(type);
+  if (position != project_->source_factories_.end()) {
     return position->second.create == factory.create &&
                    position->second.user_data == factory.user_data
                ? error{}
                : error{error_domain::resources, errc::already_exists};
   }
 
-  source_factories_.emplace(type, factory);
+  project_->source_factories_.emplace(type, factory);
   return {};
 }
 
@@ -389,8 +446,8 @@ error asset_manager::register_type_factory(core::string_name resource_type, type
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = type_factories_.find(resource_type);
-  if (position != type_factories_.end()) {
+  const auto position = project_->type_factories_.find(resource_type);
+  if (position != project_->type_factories_.end()) {
     return position->second.create == factory.create &&
                    position->second.user_data == factory.user_data &&
                    position->second.cache_strategy == factory.cache_strategy &&
@@ -399,119 +456,8 @@ error asset_manager::register_type_factory(core::string_name resource_type, type
                : error{error_domain::resources, errc::already_exists};
   }
 
-  type_factories_.emplace(resource_type, factory);
+  project_->type_factories_.emplace(resource_type, factory);
   return {};
-}
-
-error asset_manager::build(const project_config& config) { return build_detailed(config).status; }
-
-asset_build_result asset_manager::build_detailed(const project_config& config) {
-  asset_build_result result{resource_};
-  error status = clear_config_runtime();
-  if (status) {
-    set_build_failure(result, asset_build_stage::clear_runtime, asset_build_result::npos, status,
-                      {}, {}, {}, "清理上一轮配置运行期对象失败");
-    return result;
-  }
-
-  manifest_.clear();
-  provider_.clear();
-  dependency_graph_.clear();
-
-  for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
-    const project_file_system_config& file_system_config = config.file_systems[index];
-    status = ensure_file_system_from_config(file_system_config, result.reasons);
-    if (status) {
-      set_build_failure(result, asset_build_stage::file_system, index, status,
-                        file_system_config.name, file_system_config.type, {}, {});
-      return result;
-    }
-  }
-
-  status = validate_route_graph(config);
-  if (status) {
-    set_build_failure(result, asset_build_stage::file_system, asset_build_result::npos, status, {},
-                      {}, {}, "file_system 路由存在循环或超出递归深度");
-    return result;
-  }
-
-  for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
-    const project_file_system_config& file_system_config = config.file_systems[index];
-    status = configure_file_system_from_config(file_system_config, result.reasons);
-    if (status) {
-      set_build_failure(result, asset_build_stage::file_system, index, status,
-                        file_system_config.name, file_system_config.type, {}, {});
-      return result;
-    }
-  }
-
-  for (std::size_t index = 0; index < config.sources.size(); ++index) {
-    const project_source_config& source_config = config.sources[index];
-    status = ensure_source_from_config(source_config, result.reasons);
-    if (status) {
-      set_build_failure(result, asset_build_stage::source, index, status, source_config.name,
-                        source_config.type, {}, {});
-      return result;
-    }
-  }
-
-  for (std::size_t index = 0; index < config.resource_types.size(); ++index) {
-    const project_resource_type_config& type_config = config.resource_types[index];
-    status = ensure_type_from_config(type_config, result.reasons);
-    if (status) {
-      set_build_failure(result, asset_build_stage::resource_type, index, status, type_config.type,
-                        type_config.type, {}, {});
-      return result;
-    }
-  }
-
-  for (std::size_t index = 0; index < config.resources.size(); ++index) {
-    const project_resource_config& resource_config = config.resources[index];
-    if (!resource_config.guid || resource_config.location.empty()) {
-      set_build_failure(result, asset_build_stage::resource, index,
-                        {error_domain::resources, errc::invalid_argument}, resource_config.source,
-                        resource_config.type, resource_config.guid,
-                        "resource 配置缺少 guid 或 location");
-      return result;
-    }
-
-    resources::source* source = resolve_resource_source(config, resource_config);
-    if (source == nullptr) {
-      set_build_failure(result, asset_build_stage::resource, index,
-                        {error_domain::resources, errc::not_found}, resource_config.source,
-                        resource_config.type, resource_config.guid, "resource 配置无法解析 source");
-      return result;
-    }
-
-    status =
-        manifest_.set(resource_config.guid, resource_config.location, resource_config.type,
-                      std::string_view{resource_config.hash.data(), resource_config.hash.size()},
-                      resource_config.version);
-    if (status) {
-      set_build_failure(result, asset_build_stage::resource, index, status, resource_config.source,
-                        resource_config.type, resource_config.guid, "写入 manifest 失败");
-      return result;
-    }
-
-    status = provider_.rebind(resource_config.guid, *source, resource_config.location);
-    if (status) {
-      set_build_failure(result, asset_build_stage::resource, index, status, resource_config.source,
-                        resource_config.type, resource_config.guid, "绑定 provider source 失败");
-      return result;
-    }
-  }
-
-  for (std::size_t index = 0; index < config.dependencies.size(); ++index) {
-    const project_dependency_config& dependency = config.dependencies[index];
-    if (!dependency_graph_.add(dependency.resource, dependency.dependency)) {
-      set_build_failure(result, asset_build_stage::dependency, index,
-                        {error_domain::resources, errc::invalid_argument}, {}, {},
-                        dependency.resource, "dependency 配置无效或存在自依赖");
-      return result;
-    }
-  }
-
-  return result;
 }
 
 error asset_manager::ensure_file_system_from_config(const project_file_system_config& config,
@@ -525,18 +471,18 @@ error asset_manager::ensure_file_system_from_config(const project_file_system_co
     return {};
   }
 
-  const auto position = file_system_factories_.find(config.type);
-  if (position == file_system_factories_.end()) {
+  const auto position = project_->file_system_factories_.find(config.type);
+  if (position == project_->file_system_factories_.end()) {
     append_reason_text(reasons, "file_system 配置没有匹配的 file_system factory");
     return {error_domain::resources, errc::not_found};
   }
 
   error status{};
   const std::size_t reason_count = reasons.size();
-  const bool previous = building_config_runtime_;
-  building_config_runtime_ = true;
+  const bool previous = project_->building_config_runtime_;
+  project_->building_config_runtime_ = true;
   status = position->second(*this, config, &reasons);
-  building_config_runtime_ = previous;
+  project_->building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "file_system factory 返回错误");
   }
@@ -615,18 +561,18 @@ error asset_manager::ensure_source_from_config(const project_source_config& conf
     return {};
   }
 
-  const auto position = source_factories_.find(config.type);
-  if (position == source_factories_.end()) {
+  const auto position = project_->source_factories_.find(config.type);
+  if (position == project_->source_factories_.end()) {
     append_reason_text(reasons, "source 配置没有匹配的 source factory");
     return {error_domain::resources, errc::not_found};
   }
 
   error status{};
   const std::size_t reason_count = reasons.size();
-  const bool previous = building_config_runtime_;
-  building_config_runtime_ = true;
+  const bool previous = project_->building_config_runtime_;
+  project_->building_config_runtime_ = true;
   status = position->second(*this, config, &reasons);
-  building_config_runtime_ = previous;
+  project_->building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "source factory 返回错误");
   }
@@ -640,17 +586,17 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto position = type_factories_.find(config.type);
-  if (position == type_factories_.end()) {
+  const auto position = project_->type_factories_.find(config.type);
+  if (position == project_->type_factories_.end()) {
     return {};
   }
 
   error status{};
   const std::size_t reason_count = reasons.size();
-  const bool previous = building_config_runtime_;
-  building_config_runtime_ = true;
+  const bool previous = project_->building_config_runtime_;
+  project_->building_config_runtime_ = true;
   status = position->second(*this, config, &reasons);
-  building_config_runtime_ = previous;
+  project_->building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "resource type factory 返回错误");
   }
@@ -749,8 +695,8 @@ asset_manager::resolve_resource_source(const project_config& config,
     return find_source(config.sources.front().name);
   }
 
-  if (sources_.size() == 1) {
-    return sources_.begin()->second.source;
+  if (project_->sources_.size() == 1) {
+    return project_->sources_.begin()->second.source;
   }
 
   return nullptr;
@@ -760,35 +706,37 @@ error asset_manager::clear_config_runtime() {
   if (database_.has_active_operations()) {
     return {error_domain::resources, errc::frozen};
   }
-  for (auto position = file_systems_.begin(); position != file_systems_.end();) {
+  for (auto position = project_->file_systems_.begin();
+       position != project_->file_systems_.end();) {
     if (position->second.config_created) {
-      position = file_systems_.erase(position);
+      position = project_->file_systems_.erase(position);
     } else {
       ++position;
     }
   }
 
-  for (auto position = sources_.begin(); position != sources_.end();) {
+  for (auto position = project_->sources_.begin(); position != project_->sources_.end();) {
     if (position->second.config_created) {
-      position = sources_.erase(position);
+      position = project_->sources_.erase(position);
     } else {
       ++position;
     }
   }
 
   database_.clear_registered_types();
-  const auto remove_config_object = [](const owned_runtime_object& object) {
+  const auto remove_config_object = [](const project_state::owned_runtime_object& object) {
     return object.config_created;
   };
-  owned_objects_.erase(
-      std::remove_if(owned_objects_.begin(), owned_objects_.end(), remove_config_object),
-      owned_objects_.end());
+  project_->owned_objects_.erase(std::remove_if(project_->owned_objects_.begin(),
+                                                project_->owned_objects_.end(),
+                                                remove_config_object),
+                                 project_->owned_objects_.end());
 
   return rebuild_manual_type_bindings();
 }
 
 error asset_manager::rebuild_manual_type_bindings() {
-  for (const auto& pair : manual_type_bindings_) {
+  for (const auto& pair : project_->manual_type_bindings_) {
     const manual_type_binding& binding = pair.second;
     if (binding.bind == nullptr || binding.cache == nullptr ||
         (binding.loader == nullptr && binding.async_loader == nullptr)) {

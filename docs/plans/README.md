@@ -13,9 +13,9 @@
 
 ## 状态索引
 
-### 方案确认与基线验证
+### API 收敛实施中
 
-- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：详细迁移清单已确认，现有路径本机基线通过，解耦原型尚未实现。
+- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：首批快照解耦与工程装配入口迁移通过原生/Web/压力和安装验收，后续接口统一未完成。
 
 ### v0.7.0 独立平台范围已完成
 

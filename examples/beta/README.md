@@ -25,7 +25,7 @@ beta 前资源路径按下面公式收敛：
 ```text
 注册资源类型和配置类型
   -> 读取 project_config
-  -> asset_manager::build()
+  -> project_builder::build()
   -> load / preload
   -> serialization context resolver 解析 resource_ref<T>
   -> reload / save

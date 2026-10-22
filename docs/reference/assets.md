@@ -149,17 +149,18 @@ status = caors::assets::json::save_project_config_to(config, source, "project.ca
 
 ```cpp
 caors::assets::asset_manager assets;
+caors::assets::project_builder builder{assets};
 
 caors::assets::json::register_type_factory<texture>(
-    assets,
+    builder,
     caors::string_name{"game.texture"});
 
-caors::error built = assets.build(config);
+caors::error built = builder.build(config);
 if (built) {
   // 处理配置或运行期对象创建错误。
 }
 
-caors::assets::asset_build_result detailed = assets.build_detailed(config);
+caors::assets::asset_build_result detailed = builder.build_detailed(config);
 if (detailed.failed()) {
   // detailed.stage / index / name / type / guid / reasons 可用于工具层诊断。
 }
@@ -167,7 +168,13 @@ if (detailed.failed()) {
 caors::resources::preload_result result = assets.preload(texture_id);
 ```
 
-常用入口：
+工程装配由 `assets::project_builder` 执行；它借用 manager，析构不销毁已创建对象。
+当前配置对象、注册表和工厂集中在 manager 持有的私有工程状态中；公开装配入口已迁到 builder。
+工程状态使用 manager 的 memory_resource 分配和释放，并新增一次状态对象分配；未测量性能收益。
+这是分阶段迁移，不是完整的 VFS 解耦。
+构建失败保留既有逐阶段结果，不提供事务回滚。
+
+工程装配入口（均属于 builder）：
 
 - `build(config)`：按配置重建内部 manifest、provider 和 dependency graph，并按已注册 factory
   创建运行期 file_system、source、cache 和 loader。配置构建顺序是 file_system、source、
@@ -186,6 +193,8 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `register_type_factory()`：把 manifest type 映射到运行期 cache/loader 创建逻辑。
 - `register_typed_type_factory<Options, Create>()`：先匹配 resource type 的 cache/loader 策略，
   再把 `resource_types[].options` 读入强类型配置并完成 schema 校验，最后调用用户工厂创建 cache/loader。
+资源使用入口（属于 manager）：
+
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
@@ -240,7 +249,7 @@ manager 必须覆盖所有 group 访问及实际工作寿命，不保证 manager
 cancel() 只取消订阅，cancel_shared() 影响共享操作，group 不提供统一取消、批量等待或独立缓存。
 等待方需要特定恢复线程时应显式调度，不能假设一定在本 group 的 completion 恢复。
 
-build/build_detailed() 在实际操作仍活跃时拒绝重配，返回 frozen。完成凭证或进度通道未释放也计入实际操作；
+project_builder::build/build_detailed() 在实际操作仍活跃时拒绝重配，返回 frozen。完成凭证或进度通道未释放也计入实际操作；
 仅 request.done() 不足以证明安全。清空 database 类型绑定或重新 build 后，旧 group 返回 frozen，须重新创建；
 只修改默认调度不会使 group 失效。宿主仍须在 manager 析构前清理 I/O、队列、结果内存与模块 pin。
 原生异步协议、错误及取消细节以[资源 loader 参考](resources.md#原生异步-loader)为准。
@@ -261,8 +270,11 @@ context.resolvers.external_refs.resolution =
 ## Factory 扩展
 
 外部扩展可以注册自己的 file_system/source/type factory。factory 会收到 context 和可选 `user_data`。
-公开扩展类型统一命名为 `asset_manager::file_system_factory`、`asset_manager::source_factory` 和
-`asset_manager::type_factory`；底层 ops 命名只用于模块内部实现，不作为用户侧 API 约定。
+工厂上下文通过 `context.project()` 取得借用装配入口；它不会延长 manager 的寿命。
+`create_owned`、文件系统/source 绑定和配置工厂注册不再是 manager 的公共接口。
+
+公开扩展类型统一命名为 `project_builder::file_system_factory`、`project_builder::source_factory` 和
+`project_builder::type_factory`；底层 ops 命名只用于模块内部实现，不作为用户侧 API 约定。
 
 file_system factory 用来把 `file_systems[]` 配置转换成运行期 `io::file_system`：
 
@@ -272,23 +284,23 @@ struct editor_file_system_state {
 };
 
 caors::error make_editor_file_system(
-    caors::assets::asset_manager::file_system_factory_context& context,
+    caors::assets::project_builder::file_system_factory_context& context,
     const caors::assets::project_file_system_config& config,
     void* user_data) {
   auto* state = static_cast<editor_file_system_state*>(user_data);
   auto* file_system =
-      context.manager.create_owned<editor_file_system>(state->server, config.root);
+      context.project().create_owned<editor_file_system>(state->server, config.root);
   if (file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  return context.manager.bind_file_system(config.name, *file_system);
+  return context.project().bind_file_system(config.name, *file_system);
 }
 
 editor_file_system_state fs_state{&server};
-assets.register_file_system_factory(
+builder.register_file_system_factory(
     caors::string_name{"editor_file_system"},
-    caors::assets::asset_manager::file_system_factory{&make_editor_file_system, &fs_state});
+    caors::assets::project_builder::file_system_factory{&make_editor_file_system, &fs_state});
 ```
 
 source factory 用来把 `sources[]` 配置转换成运行期 `resources::source`：
@@ -298,7 +310,7 @@ struct pak_state {
   pak_index* index = nullptr;
 };
 
-caors::error make_pak_source(caors::assets::asset_manager::source_factory_context& context,
+caors::error make_pak_source(caors::assets::project_builder::source_factory_context& context,
                              const caors::assets::project_source_config& config,
                              void* user_data) {
   auto* state = static_cast<pak_state*>(user_data);
@@ -306,33 +318,33 @@ caors::error make_pak_source(caors::assets::asset_manager::source_factory_contex
   std::string_view compression;
   (void)options.read(caors::string_name{"compression"}, compression);
 
-  auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
-  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
-  return context.manager.bind_source(config.name, *source);
+  auto* file_system = context.project().create_owned<pak_file_system>(config.root, state->index);
+  auto* source = context.project().create_owned<caors::resources::file_source>(*file_system);
+  return context.project().bind_source(config.name, *source);
 }
 
 pak_state state{&index};
-assets.register_source_factory(
+builder.register_source_factory(
     caors::string_name{"pak"},
-    caors::assets::asset_manager::source_factory{&make_pak_source, &state});
+    caors::assets::project_builder::source_factory{&make_pak_source, &state});
 ```
 
 类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
 
 ```cpp
 caors::error make_texture_runtime(
-    caors::assets::asset_manager::type_factory_context& context,
+    caors::assets::project_builder::type_factory_context& context,
     const caors::assets::project_resource_type_config& config,
     void* user_data) {
   (void)user_data;
-  auto* cache = context.manager.create_owned<caors::resources::cache<texture>>(context.resource);
-  auto* loader = context.manager.create_owned<pak_texture_loader>(context.provider);
+  auto* cache = context.project().create_owned<caors::resources::cache<texture>>(context.resource);
+  auto* loader = context.project().create_owned<pak_texture_loader>(context.provider);
   return context.database.register_type(*cache, *loader, config.type);
 }
 
-assets.register_type_factory(
+builder.register_type_factory(
     caors::string_name{"game.texture"},
-    caors::assets::asset_manager::type_factory{&make_texture_runtime});
+    caors::assets::project_builder::type_factory{&make_texture_runtime});
 ```
 
 如果 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory：
@@ -386,18 +398,18 @@ caors::registration::type_<texture_options>("game.texture_options")
     .commit();
 
 caors::error make_texture_source(
-    caors::assets::asset_manager::source_factory_context& context,
+    caors::assets::project_builder::source_factory_context& context,
     const caors::assets::project_source_config& config,
     const texture_options& options,
     void* user_data) {
   (void)user_data;
   // options 已经完成默认值、DOM 覆盖和 validate_config()。
-  auto* file_system = context.manager.create_owned<pak_file_system>(config.root, options.format);
-  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
-  return context.manager.bind_source(config.name, *source);
+  auto* file_system = context.project().create_owned<pak_file_system>(config.root, options.format);
+  auto* source = context.project().create_owned<caors::resources::file_source>(*file_system);
+  return context.project().bind_source(config.name, *source);
 }
 
-assets.register_typed_source_factory<texture_options, &make_texture_source>(
+builder.register_typed_source_factory<texture_options, &make_texture_source>(
     caors::string_name{"pak"});
 ```
 
