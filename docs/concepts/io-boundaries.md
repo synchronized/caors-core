@@ -31,7 +31,8 @@ vfs 已使用自己的不可变挂载表，快照固定路由并保活后端；�
 
 当前 file_system 仍混合同步访问、异步打开扩展和旧路由快照协议。
 旧 file_system_resolver、mount_file_system 仍被兼容配置与来源使用；
-resources::vfs_source 也仍通过兼容桥接入 provider_snapshot。这些是当前限制，不是目标边界。
+resources::vfs_source 已直接捕获新 VFS，provider_snapshot 保存已有 backend_location。
+旧来源通过 file_source 内部的单向适配接入 backend；旧配置与路由消费仍是当前限制。
 
 ## 已确认的职责边界
 

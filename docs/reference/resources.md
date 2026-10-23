@@ -1133,14 +1133,19 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 
 ## 加载来源快照
 
-`source::freeze_routes()` 是可选拥有式来源扩展；默认 unsupported。
+`source::capture()` 是可选拥有式来源扩展，返回 `captured_source` 解析函数；默认 unsupported。
+解析函数必须拥有固定来源，不借用原 source 或实时路由。它返回已有的 `io::backend_location`，不新增快照基类。
+成功但返回空函数或没有 backend 的位置，均按 backend_failure 保存诊断。
 `file_source(shared_ptr<file_system>, lifetime)` 持有底层后端和宿主凭据；旧引用构造保留同步借用行为。
 引用构造可捕获内置路由根，但其全部边仍必须拥有后端；借用叶根无法变成安全异步来源。
 
-`provider.snapshot()` 复制 GUID/位置并冻结全部文件路由，结果独立于原 provider/source 和位置字符串。
+`provider.snapshot()` 对每个不同 source 捕获一次，再逐 GUID 解析并保存 backend、拥有式路径和 source_id。
+结果独立于原 provider/source 和位置字符串；后续 resolve 只查保存的位置，不再次执行来源解析函数。
 捕获时禁止并发修改 provider/source 配置；后续只读解析可跨线程。无法捕获的来源按条目保留失败，
 `provider_snapshot::resolve(guid)` 返回诊断，不隐式退回原借用 source。旧同步 loader 可继续使用原 provider。
-单次捕获共用嵌套路由节点；同步读取也可使用解析结果 backend/path，保持与异步读取相同来源。
+`vfs_source` 直接捕获新 VFS，位置中的 backend 就是挂载后端，不经过旧 file_system。
+`file_source` 保留旧来源的单向适配以复用同步实现；旧路由仍捕获嵌套结构并检查借用边。
+解析位置用于统一异步读取，同步工具继续使用原 provider/source 的同步接口。
 
 `async_load_context` 仅持有 `load_snapshot` 基类，不要求文件系统。VFS loader 显式调用
 `snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
@@ -1203,7 +1208,7 @@ allocator、GUID 访问器或哈希回调不得在容器更新期间重入修改
 直接同步修改 cache、运行时配置替换和依赖批次事务需宿主协调。
 来源快照固定路由，不保证依赖缓存或磁盘内容属于同一修订。
 
-同一次 provider 快照捕获只调用每个 source 的 freeze_routes 一次，GUID 位置仍逐项复制。
+同一次 provider 快照捕获只调用每个 source 的 capture 一次，GUID 位置逐项解析并保存。
 临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
 因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
 该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。
@@ -1216,20 +1221,21 @@ allocator、GUID 访问器或哈希回调不得在容器更新期间重入修改
 `request_bytes` 复用 IO 请求句柄，可查询取消、完成投递拒绝及队列丢弃，回调只在指定 executor 执行。
 持有返回句柄至实际完成，析构只请求取消，不等待后端清理。
 
-`read_context` 包含拥有式 `resolved_file`、内部 worker、结果预算和借用的结果分配器。
+`read_context` 包含拥有式 `backend_location`、内部 worker、结果预算和借用的结果分配器。
 GUID 定位由 provider 快照完成，reader 不访问实时 provider。宿主可以实现 reader，或直接实现资源 loader；
 内置文件适配之外不要求创建 VFS 后端。reader 实例、分配器和宿主循环必须覆盖真实完成。
 
 ```cpp
-resources::file_byte_reader reader{resources::file_read_mode::native_async};
+resources::file_byte_reader reader;
 auto reading = resources::request_bytes(
     reader, {std::move(resolved.value), worker, 1024 * 1024, resource},
     completion, on_bytes);
 ```
 
 片段中的 `resolved` 来自 `provider_snapshot::resolve(guid)`，实际使用须先检查解析与发起结果。
-`file_byte_reader` 组合打开、限量读取、显式关闭；原生模式遇到 unsupported 直接失败。
-`worker_adapter` 显式使用同步随机读，需可阻塞 worker，不能在 Web 主线程用它阻塞网络。
+`file_byte_reader` 组合打开、限量读取、显式关闭；后端遇到 unsupported 直接失败，不选择同步回退。
+原生文件使用 `make_native_backend(root, worker)`，worker 在后端构造时绑定；Web 网络使用宿主异步 backend。
+旧 file_read_mode 及加载层 worker_adapter 选择已删除，原调用迁移为构造后端时配置执行环境。
 取消在阶段边界检查，不保证中断已在途的宿主读取；正常通知路径在交付字节前完成关闭，
 错误保留首次读取失败，成功读取后的关闭失败也会交付失败。投递丢弃时依赖文件 RAII 兜底。
 

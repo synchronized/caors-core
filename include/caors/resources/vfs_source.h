@@ -14,8 +14,7 @@ class CAORS_API vfs_source final : public source {
 public:
   explicit vfs_source(const io::vfs& routes) : routes_(&routes) {}
   vfs_source(io::vfs&&) = delete;
-  [[nodiscard]] result<std::shared_ptr<io::file_system>>
-  freeze_routes(io::detail::snapshot_context& context) const override;
+  [[nodiscard]] result<captured_source> capture() const override;
   [[nodiscard]] bool exists(io::location_view) const override { return false; }
   [[nodiscard]] io::byte_buffer_result read(io::location_view,
                                             memory_resource* = nullptr) override {

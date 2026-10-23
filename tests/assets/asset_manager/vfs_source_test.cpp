@@ -49,3 +49,88 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   REQUIRE(reload.loaded());
   CHECK(reload.try_get()->width == 222);
 }
+
+TEST_CASE("assets - source snapshot retains exact backend and pin without legacy transport",
+          "[assets][vfs-context]") {
+  std::weak_ptr<caors::io::backend> backend_lifetime;
+  std::weak_ptr<int> host_lifetime;
+  std::shared_ptr<const caors::resources::provider_snapshot> captured;
+  caors::io::backend* original = nullptr;
+  {
+    caors::io::vfs routes;
+    auto backend = caors::io::make_memory_backend();
+    original = backend.get();
+    backend_lifetime = backend;
+    auto pin = std::make_shared<int>(42);
+    host_lifetime = pin;
+    REQUIRE_FALSE(backend->store("data", "owned"));
+    REQUIRE_FALSE(routes.mount("assets", backend, {}, pin));
+    caors::resources::vfs_source source{routes};
+    caors::resources::provider provider;
+    REQUIRE_FALSE(provider.bind(test_guid_a, source, "assets/data"));
+    REQUIRE_FALSE(provider.bind(test_guid_b, source, "assets/data"));
+    captured = provider.snapshot();
+    auto first = captured->resolve(test_guid_a);
+    auto second = captured->resolve(test_guid_b);
+    REQUIRE(first);
+    REQUIRE(second);
+    CHECK(first->backend.get() == original);
+    CHECK(second->backend.get() == original);
+    CHECK(first->source_id == second->source_id);
+    CHECK(first->path.string_view() == "data");
+    routes.clear();
+    provider.clear();
+  }
+  CHECK_FALSE(backend_lifetime.expired());
+  CHECK_FALSE(host_lifetime.expired());
+  auto location = captured->resolve(test_guid_a);
+  REQUIRE(location);
+  captured.reset();
+  auto bytes = read_snapshot_bytes(location.value);
+  REQUIRE(bytes);
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes->data()), bytes->size()} == "owned");
+  location.value = {};
+  CHECK(backend_lifetime.expired());
+  CHECK(host_lifetime.expired());
+}
+TEST_CASE("assets - provider resolves captured paths once and preserves per GUID errors",
+          "[assets][vfs-context]") {
+  class counted_source final : public caors::resources::source {
+  public:
+    std::shared_ptr<int> captures = std::make_shared<int>(0);
+    std::shared_ptr<int> resolutions = std::make_shared<int>(0);
+    std::shared_ptr<caors::io::memory_backend> backend = caors::io::make_memory_backend();
+    bool malformed = false;
+    bool exists(caors::io::location_view) const override { return false; }
+    caors::io::byte_buffer_result read(caors::io::location_view, caors::memory_resource*) override {
+      return {{caors::error_domain::resources, caors::errc::unsupported}, {}};
+    }
+    caors::result<caors::resources::captured_source> capture() const override {
+      ++*captures;
+      return {{},
+              [backend = backend, count = resolutions, malformed = malformed](
+                  caors::io::location_view path) -> caors::result<caors::io::backend_location> {
+                ++*count;
+                if (malformed)
+                  return {{}, {}};
+                if (path.string_view() == "missing")
+                  return {{caors::error_domain::io, caors::errc::not_found}, {}};
+                return {{}, {backend, caors::io::path{path.string_view()}, 123}};
+              }};
+    }
+  } source;
+  caors::resources::provider provider;
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "data"));
+  REQUIRE_FALSE(provider.bind(test_guid_b, source, "missing"));
+  auto captured = provider.snapshot();
+  CHECK(*source.captures == 1);
+  CHECK(*source.resolutions == 2);
+  CHECK(captured->resolve(test_guid_a));
+  CHECK(captured->resolve(test_guid_b).error().value() == caors::errc::not_found);
+  CHECK(captured->resolve(test_guid_a));
+  CHECK(*source.resolutions == 2);
+  source.malformed = true;
+  auto malformed = provider.snapshot();
+  CHECK(malformed->resolve(test_guid_a).error().value() == caors::errc::backend_failure);
+  CHECK(captured->resolve(test_guid_a));
+}

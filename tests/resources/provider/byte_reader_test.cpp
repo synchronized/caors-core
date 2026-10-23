@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/io/memory_file_system.h"
+#include "caors/io/backend.h"
 #include "caors/resources/byte_reader.h"
 #include "caors/tasks/execution_context.h"
 #include <catch2/catch_all.hpp>
@@ -68,8 +68,8 @@ TEST_CASE("resources - abandoned and discarded byte completions terminate",
   CHECK(rejected.value.result()->error().value == caors::io::io_errc::completion_rejected);
 }
 TEST_CASE("resources - file byte reader handles inline callbacks", "[resources][byte-reader]") {
-  auto files = std::make_shared<caors::io::memory_file_system>();
-  REQUIRE_FALSE(files->write_all("data", "abc"));
+  auto files = caors::io::make_memory_backend();
+  REQUIRE_FALSE(files->store("data", "abc"));
   caors::resources::file_byte_reader reader;
   auto request = caors::resources::request_bytes(
       reader, {{files, caors::io::path{"data"}, 0}, caors::tasks::inline_executor(), 3, nullptr},

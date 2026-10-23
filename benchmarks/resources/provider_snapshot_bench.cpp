@@ -69,10 +69,9 @@ public:
                                      caors::memory_resource* memory) override {
     return source_.read(location, memory);
   }
-  caors::result<std::shared_ptr<caors::io::file_system>>
-  freeze_routes(caors::io::detail::snapshot_context& context) const override {
+  caors::result<caors::resources::captured_source> capture() const override {
     ++freezes;
-    return source_.freeze_routes(context);
+    return source_.capture();
   }
 
 private:

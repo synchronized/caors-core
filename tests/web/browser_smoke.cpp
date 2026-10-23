@@ -105,8 +105,8 @@ void tick(void*) {
       value.loader.finish();
       value.completion.clear();
       check(value.request.failed() && !value.cache->contains(guid));
-      auto files = std::make_shared<caors::io::memory_file_system>();
-      check(!files->write_all("data", "abc"));
+      auto files = caors::io::make_memory_backend();
+      check(!files->store("data", "abc"));
       auto reading = caors::resources::request_bytes(
           value.byte_reader,
           {{files, caors::io::path{"data"}, 0}, value.worker.get_executor(), 3, nullptr},
@@ -140,10 +140,12 @@ void tick(void*) {
         config.resource_types.push_back(
             {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
         check(!project.build(config));
-        auto files = std::make_shared<caors::io::memory_file_system>();
-        check(!files->write_all("texture", "{}"));
-        caors::resources::file_source source{files};
-        check(!project.provider().bind(guid, source, "texture"));
+        caors::io::vfs routes;
+        auto files = caors::io::make_memory_backend();
+        check(!files->store("texture", "{}"));
+        check(!routes.mount("assets", files));
+        caors::resources::vfs_source source{routes};
+        check(!project.provider().bind(guid, source, "assets/texture"));
         value.request = value.assets->request_load<texture>(guid);
       }
       break;

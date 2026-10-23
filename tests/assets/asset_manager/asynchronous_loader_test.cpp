@@ -573,7 +573,7 @@ std::string snapshot_text(const caors::resources::async_load_context& context,
   REQUIRE(sources);
   auto file = sources->resolve(guid);
   REQUIRE(file);
-  auto bytes = file->backend->read_all(file->path);
+  auto bytes = read_snapshot_bytes(file.value);
   REQUIRE(bytes);
   return {reinterpret_cast<const char*>(bytes->data()), bytes->size()};
 }

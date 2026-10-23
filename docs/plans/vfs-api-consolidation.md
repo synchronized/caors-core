@@ -69,30 +69,23 @@
 | --- | --- | --- |
 | 新 VFS 路由独立 | 已完成 | 普通访问直接持有 backend；快照、前缀匹配、并发与生命周期已验收 |
 | 底层读写复用 | 已存在，继续保留 | native/memory 后端复用原同步实现，不另建一套存储算法 |
-| 资源来源转换 | 待实施 | 先审计 provider_snapshot、vfs_source 和 byte_reader；优先复用现有拥有式位置，减少桥接层，不预设新增快照基类 |
+| 资源来源转换 | 待验收 | provider_snapshot、vfs_source 与 byte_reader 直接使用 backend_location；source.capture 返回拥有式函数，无新快照继承层 |
 | 旧配置及工具路由 | 待实施 | 将实际重复的挂载配置迁往唯一入口；保存和工具继续使用需要的同步能力 |
 | file_system 收缩 | 待前述审计 | 移除失去消费的混合职责；按剩余同步用途决定保留或删除，不预设结论 |
 
 路由独立首批及平台验收见[实施记录](../records/2026-10-22-vfs-independent-routing.md)。
-下一批先完成资源来源依赖与迁移对照，确认每个兼容桥有直接替代路径再改协议；
-不得只把旧调用藏进新类，也不得为了删类增加等价接口。
 
-## 资源来源依赖审计
+## 资源来源迁移（待验收）
 
-当前链路为 provider.snapshot → source.freeze_routes → 旧拥有式根 → provider_snapshot.resolve
-→ resolved_file → file_byte_reader。vfs_source 在其中把新 backend 包装回旧 file_system；
-同步配置、保存仍直接使用 source.read/open_read/write/open_write。
+新链路为 provider.snapshot → source.capture → backend_location → file_byte_reader。
+每个 source 在单次批次只捕获一次，GUID 位置在捕获阶段解析并保存；resolve 不再重新走旧路由。
+vfs_source 的 snapshot_bridge/backend_bridge 已删除，新挂载后端直接进入资源快照。
+旧 file_source 在内部保留必要的单向后端适配，继续复用同步实现和旧嵌套路由冻结，不影响保存及工具消费。
 
-| 调用位置 | 真正需要的能力 | 本轮处理判断 |
-| --- | --- | --- |
-| provider_snapshot 与异步 JSON loader | 固定来源、拥有式路径、后端寿命和来源标识 | 后续统一使用已有 backend_location；保留一次捕获内按 source 去重及跨 GUID 一致性 |
-| vfs_source 的 snapshot_bridge/backend_bridge | 把新路由接入旧快照协议 | 为迁移桥，待快照消费直接接入后删除；不新增等价桥作为替代 |
-| file_source 的旧路由捕获 | 固定兼容 resolver/mount，拒绝没有寿命保证的借用边 | 在旧消费迁完前保留，不能仅做 shared_ptr 类型转换冒充拥有式快照 |
-| file_byte_reader 与内部 read_operation | 打开、限量读取、取消观察和关闭 | 继续复用现有唯一状态机；后端绑定 worker 后，加载层的打开模式选择再随调用迁移收敛 |
-| json::sync_loader 与配置/保存 | 同步流、错误传播和显式关闭提交 | 有独立用途，保留同步实现；不因异步加载迁移一并删除 |
-
-资源快照改协议前须保持两条完整消费链：新 backend 直接读取，以及现存同步工具/保存。
-兼容来源无法表达新协议时，应明确保留边界，而非在 backend 增加路由、快照或资源 GUID 方法。
+加载层的 file_read_mode 和 JSON 工厂读取模式参数已删除；原生文件使用构造绑定 worker 的 backend。
+内部整体读取仅保留 backend_location 入口，取消、预算与关闭仍复用同一状态机。
+新增精确后端身份、跨 GUID 来源一致性、宿主凭据保活、一次解析及错误隔离回归。
+本机原生、安装、插件及真实 Web 已通过，平台 CI 待验收，见[资源后端快照记录](../records/2026-10-23-resource-backend-snapshots.md)。
 
 ## 收口条件
 

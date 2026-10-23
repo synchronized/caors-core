@@ -132,4 +132,17 @@ inline void require_serialized_resource_metadata() {
           .commit()));
 }
 
+// 仅用于内存来源测试；通过统一协议读取，不依赖旧同步后端接口。
+inline caors::io::io_result<caors::io::byte_buffer>
+read_snapshot_bytes(caors::io::backend_location source) {
+  caors::resources::file_byte_reader reader;
+  auto request =
+      caors::resources::request_bytes(reader, {std::move(source), caors::tasks::inline_executor()},
+                                      caors::tasks::inline_executor());
+  if (!request)
+    return caors::io::io_failure<caors::io::byte_buffer>(request.error());
+  REQUIRE(request.value.done());
+  return *request.value.result();
+}
+
 } // namespace caors::tests::resources

@@ -1549,11 +1549,8 @@ TEST_CASE("assets - default JSON factory freezes source and rejects rebuild whil
   CHECK(request.try_get()->width == 123);
 }
 
-TEST_CASE("assets - JSON factory requires explicit worker mode for native files",
-          "[assets][json-factory]") {
+TEST_CASE("assets - JSON factory uses native backend bound to a worker", "[assets][json-factory]") {
   require_serialized_resource_metadata();
-  const auto mode = GENERATE(caors::resources::file_read_mode::native_async,
-                             caors::resources::file_read_mode::worker_adapter);
   const auto directory = make_temp_dir();
   std::error_code ec;
   std::filesystem::create_directories(directory, ec);
@@ -1561,29 +1558,37 @@ TEST_CASE("assets - JSON factory requires explicit worker mode for native files"
   const auto location = path_string(directory / "json-factory.json");
   auto files = std::make_shared<caors::io::native_file_system>();
   REQUIRE_FALSE(files->write_all(location, R"({"width":789})"));
-  caors::resources::file_source source{files};
   caors::assets::project_config config;
   REQUIRE_FALSE(caors::assets::json::load_project_config(config, make_project_config_json()));
   caors::tasks::execution_context worker;
   caors::tasks::execution_context completion;
+  caors::io::vfs routes;
+  REQUIRE_FALSE(routes.mount(
+      "local", caors::io::make_native_backend(path_string(directory), worker.get_executor())));
+  caors::resources::vfs_source source{routes};
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   caors::assets::project_builder project{assets};
   REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(
-      project, serialized_manifest_type(), mode));
+      project, serialized_manifest_type()));
   REQUIRE_FALSE(project.build(config));
-  REQUIRE_FALSE(project.provider().rebind(test_guid_a, source, location));
+  REQUIRE_FALSE(project.provider().rebind(test_guid_a, source, "local/json-factory.json"));
   auto request = assets.request_load<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !request.done(); ++i) {
     (void)worker.drain();
     (void)completion.drain();
   }
-  if (mode == caors::resources::file_read_mode::native_async) {
-    REQUIRE(request.failed());
-    CHECK(request.error().value() == caors::errc::unsupported);
-  } else {
-    REQUIRE(request.loaded());
-    CHECK(request.try_get()->width == 789);
+  REQUIRE(request.loaded());
+  CHECK(request.try_get()->width == 789);
+  caors::resources::file_source synchronous_source{files};
+  REQUIRE_FALSE(project.provider().rebind(test_guid_a, synchronous_source, location));
+  auto unsupported = assets.request_reload<serialized_resource>(test_guid_a);
+  for (int i = 0; i < 32 && !unsupported.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
   }
+  REQUIRE(unsupported.failed());
+  CHECK(unsupported.error().value() == caors::errc::unsupported);
+  CHECK(request.try_get()->width == 789);
   CHECK_FALSE(assets.database().has_active_operations());
   std::filesystem::remove(location, ec);
   CHECK_FALSE(ec);

@@ -343,14 +343,12 @@ TEST_CASE("assets - project config can save and roundtrip file systems", "[asset
   CHECK(from_source.resources[0].guid == test_guid_a);
 }
 
-TEST_CASE("assets - byte loader reads snapshot using native or worker reader",
+TEST_CASE("assets - byte loader reads captured backend through the unified reader",
           "[assets][byte-reader]") {
   require_serialized_resource_metadata();
-  const auto mode = GENERATE(caors::resources::file_read_mode::native_async,
-                             caors::resources::file_read_mode::worker_adapter);
   caors::tasks::execution_context worker;
   caors::tasks::execution_context completion;
-  caors::resources::file_byte_reader reader{mode};
+  caors::resources::file_byte_reader reader;
   caors::assets::json::loader<serialized_resource> loader{reader};
   caors::resources::cache<serialized_resource> cache;
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};

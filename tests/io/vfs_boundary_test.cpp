@@ -10,3 +10,12 @@ static_assert(!std::is_base_of_v<caors::io::backend, caors::io::vfs>);
 
 static_assert(!std::is_constructible_v<caors::io::io_context, caors::io::vfs&&,
                                        caors::io::io_context_options>);
+
+#include "caors/resources/byte_reader.h"
+#include "caors/resources/source.h"
+#include "caors/resources/vfs_source.h"
+#if defined(CAORS_IO_FILE_SYSTEM_H_) || defined(CAORS_IO_ROUTE_SNAPSHOT_H_)
+#error "Resource source and byte reading must not expose legacy route definitions"
+#endif
+static_assert(
+    std::is_same_v<decltype(caors::resources::read_context::source), caors::io::backend_location>);

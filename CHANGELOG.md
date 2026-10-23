@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 资源快照直接保存 backend_location，source 扩展改为 capture 返回拥有式解析函数；新 VFS 来源不再转回旧 file_system。byte_reader 统一接收新后端位置；删除 file_read_mode 和 JSON 工厂的读取模式参数，原生文件改在 make_native_backend(root, worker) 构造时绑定执行环境。同步工具及保存接口保留，迁移见[资源参考](docs/reference/resources.md#加载来源快照)。
+
 - VFS 的路由表、快照与普通异步访问直接持有 backend，不再依赖旧 file_system/resolver；挂载匹配规则与用户调用方式保持一致。旧配置、保存及内置后端仍在迁移，尚未删除旧体系。
 
 - 删除 IO 旧公共 request_open、request_open_on_worker、request_read、read_all_bounded、request_close，无兼容别名；调用方改用 io_context/file，发起失败统一由单层 request 报告。内部编排头移出安装包，迁移见 [IO 参考](docs/reference/io.md#已移除入口的迁移)。
@@ -22,7 +24,7 @@
 
 - 删除 asset_manager/database 的同步 load、load_handle、reload、reload_handle、preload 执行入口，统一使用 request_*；find/resolve/plan_preload 查询保留。loader 注册和手动重建绑定收敛到单槽，不同实例重复注册返回 already_exists；低层同步组合函数仅接受 sync_loader_adapter，不再运行时探测原生异步实现。
 
-- 默认 JSON 工厂迁至异步请求快照路径：`json::loader<T>` 现在接受 reader 或文件读取模式；原 provider 构造实现更名为 `json::sync_loader<T>`，短期 `json::byte_loader<T>` 更名为 loader。默认原生异步，阻塞文件后端须显式选择 worker_adapter；工厂调用方改用 request_load/reload/preload，详见[迁移参考](docs/reference/assets.md#json-异步字节接入)。
+- 默认 JSON 工厂迁至异步请求快照路径：`json::loader<T>` 接受 reader 或结果预算；原 provider 构造实现更名为 `json::sync_loader<T>`，短期 `json::byte_loader<T>` 更名为 loader。后端负责绑定执行环境，不作同步回退；工厂调用方改用 request_load/reload/preload，详见[迁移参考](docs/reference/assets.md#json-异步字节接入)。
 
 - 新增统一 `resources::byte_reader` 协议、`request_bytes` 与 VFS 原生/显式 worker 适配；`assets::json::loader<T>` 使用请求快照异步读字节并构造资源。同步读写兼容路径仍保留，迁移与预算限制见[资源参考](docs/reference/resources.md#统一字节读取适配)。
 

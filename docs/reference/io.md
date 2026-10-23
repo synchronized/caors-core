@@ -43,7 +43,7 @@ make_native_backend 在构造时绑定可阻塞 worker；make_memory_backend 提
 后端实现只实现 `backend::open` 并绑定自己的 loop/worker，不负责公共路由和用户完成调度。
 URI/普通路径按 scheme、authority 和最长完整路径前缀匹配；重复前缀不替换已有挂载。
 VFS 自身维护不可变路由表，快照共享当时的表，普通访问直接调用 backend，不再经过旧 file_system/resolver。
-资源来源的旧快照桥暂留在资源边界；配置、同步保存及内置后端存储实现仍有旧体系依赖，尚未整体删除。
+资源快照直接保存后端位置，不再把新 VFS 包装为旧 file_system；兼容 file_source、配置、同步保存及内置后端仍复用旧实现。
 
 活跃 vfs 构造的 context 借用配置用于后续调用，每次发起捕获稳定路由；如需固定整批路由：
 

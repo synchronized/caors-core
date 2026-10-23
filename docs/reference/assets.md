@@ -488,7 +488,7 @@ caors::error saved = saver.save(**loaded);
 读取后在请求 worker 上反序列化，再由资源管线提交到配置的 completion。
 
 ```cpp
-resources::file_byte_reader reader{resources::file_read_mode::native_async};
+resources::file_byte_reader reader;
 assets::json::loader<texture> loader{reader, 8 * 1024 * 1024};
 // cache、loader 和 reader 须覆盖在途操作。
 auto status = manager.register_type(cache, loader, string_name{"texture"});
@@ -496,14 +496,15 @@ auto status = manager.register_type(cache, loader, string_name{"texture"});
 
 上面是接入片段，需已有 texture 反射信息、cache 和 manager，并检查 status。
 来源由工程 builder 配置，普通请求仍为 `manager.request_load<texture>(guid)`。
-字节协议、预算及 worker 模式限制见[资源参考](resources.md#统一字节读取适配)。
+字节协议、预算及后端执行环境约束见[资源参考](resources.md#统一字节读取适配)。
 该 loader 不提供同步 load，也不阻塞等待宿主 I/O。当前使用默认 serialization context；
 自定义 resolver 的资源可自行实现 loader。
 
 默认 JSON 配置工厂现在构造异步 `json::loader<T>`，并拥有其内部 file_byte_reader。
-注册方式仍为 `json::register_type_factory<T>(project, type)`，默认 `native_async`，不作同步回退。
-对于 native_file_system 等同步随机读取后端，注册时显式传第三参数
-`resources::file_read_mode::worker_adapter`，并配置可阻塞 worker；Web 网络不得使用阻塞适配。
+注册方式为 `json::register_type_factory<T>(project, type)`，不再接受第三个读取模式参数。
+loader 的默认构造或预算构造使用统一文件读取器；原生文件通过
+`make_native_backend(root, worker)` 和 vfs_source 接入，工作执行器在后端构造时绑定。
+旧同步 file_source 不隐式退回阻塞读取；需要同步加载的工具继续显式使用 sync_loader。
 
 原 `json::loader(provider)` 调用迁移为 `json::sync_loader(provider)`，或改用异步 loader 和 request 接口；
 原短期 `json::byte_loader` 更名为 `json::loader`。manager/database 的同步 `load/load_handle/reload/reload_handle/preload` 已删除，

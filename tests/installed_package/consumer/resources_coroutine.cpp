@@ -53,7 +53,7 @@ public:
     value->value = -1;
     auto sources = context->snapshot_as<caors::resources::provider_snapshot>();
     auto file = sources ? sources->resolve(context->guid)
-                        : caors::fail<caors::io::resolved_file>(
+                        : caors::fail<caors::io::backend_location>(
                               {caors::error_domain::io, caors::errc::unsupported});
     if (file) {
       caors::resources::file_byte_reader reader;
@@ -188,12 +188,16 @@ int main() {
   if (project.bind_file_system(backend_name, files) ||
       project.find_owned_file_system(backend_name) != files)
     return 9;
-  caors::resources::file_source source{files};
-  if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "data"))
+  caors::io::vfs routes;
+  auto backend = caors::io::make_memory_backend();
+  if (backend->store("data", payload) || routes.mount("assets", backend))
+    return 5;
+  caors::resources::vfs_source source{routes};
+  if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "assets/data"))
     return 6;
   caors::resources::file_byte_reader byte_reader;
   auto resolved = project.provider().snapshot()->resolve(consumer_guid);
-  if (!resolved)
+  if (!resolved || resolved->backend.get() != backend.get())
     return 10;
   auto bytes = caors::resources::request_bytes(
       byte_reader, {std::move(resolved.value), caors::tasks::inline_executor(), 16, nullptr},

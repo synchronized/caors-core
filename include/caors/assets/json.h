@@ -92,11 +92,10 @@ public:
   explicit loader(resources::byte_reader& reader, std::uint64_t max_bytes = 64 * 1024 * 1024,
                   serialization::json_options options = {})
       : reader_(&reader), max_bytes_(max_bytes), options_(options) {}
-  /** @brief 使用内置文件读取器；模式在构造时固定，不隐式回退。 */
-  explicit loader(resources::file_read_mode mode = resources::file_read_mode::native_async,
-                  std::uint64_t max_bytes = 64 * 1024 * 1024,
+  /** @brief 使用内置文件读取器；工作执行环境由后端绑定。 */
+  explicit loader(std::uint64_t max_bytes = 64 * 1024 * 1024,
                   serialization::json_options options = {})
-      : file_reader_(mode), reader_(&file_reader_), max_bytes_(max_bytes), options_(options) {}
+      : reader_(&file_reader_), max_bytes_(max_bytes), options_(options) {}
   [[nodiscard]] error start(resources::async_load_context context,
                             resources::load_completion<T> completion) override {
     auto snapshot = context.template snapshot_as<resources::provider_snapshot>();
@@ -237,36 +236,25 @@ private:
 save_project_config(const project_config& source, serialization::json_options options = {});
 
 namespace detail {
-template <typename T, resources::file_read_mode Mode>
+template <typename T>
 [[nodiscard]] error make_json_type(project_builder::type_factory_context& context,
                                    const project_resource_type_config& config, void*) {
   if (!config.type)
     return {error_domain::resources, errc::invalid_argument};
   auto* cache = context.project().create_owned<resources::cache<T>>(context.resource);
-  auto* source = context.project().create_owned<loader<T>>(Mode);
+  auto* source = context.project().create_owned<loader<T>>();
   if (!cache || !source)
     return {error_domain::resources, errc::out_of_memory};
   return context.database.register_type(*cache, *source, config.type);
 }
 } // namespace detail
 
-/** @brief 注册异步 JSON 工厂；默认原生读取，阻塞文件后端须显式指定 worker_adapter 和合适 worker。
- */
+/** @brief 注册异步 JSON 工厂；文件执行环境由所绑定的 backend 提供。 */
 template <typename T>
-[[nodiscard]] error
-register_type_factory(project_builder project, core::string_name resource_type,
-                      resources::file_read_mode mode = resources::file_read_mode::native_async) {
+[[nodiscard]] error register_type_factory(project_builder project,
+                                          core::string_name resource_type) {
   project_builder::type_factory factory;
-  switch (mode) {
-  case resources::file_read_mode::native_async:
-    factory.create = &detail::make_json_type<T, resources::file_read_mode::native_async>;
-    break;
-  case resources::file_read_mode::worker_adapter:
-    factory.create = &detail::make_json_type<T, resources::file_read_mode::worker_adapter>;
-    break;
-  default:
-    return {error_domain::resources, errc::invalid_argument};
-  }
+  factory.create = &detail::make_json_type<T>;
   factory.cache_strategy = core::string_name{"memory"};
   factory.loader_strategy = core::string_name{"json"};
   return project.register_type_factory(resource_type, std::move(factory));
