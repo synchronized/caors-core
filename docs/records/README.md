@@ -9,7 +9,7 @@
 
 ## 版本验收
 
-- [VFS 路由独立](2026-10-22-vfs-independent-routing.md)：新路由及普通访问脱离旧文件系统，本机验证通过；平台 CI 待验收，整体删除仍实施中。
+- [VFS 路由独立](2026-10-22-vfs-independent-routing.md)：新路由及普通访问脱离旧文件系统，本机及 Linux/Windows/Web 验收通过；后续范围按职责收敛计划推进。
 
 - [IO 重复公共请求入口删除](2026-10-22-io-legacy-api-removal.md)：五个旧函数无别名移除、私有头退出安装包，本机与 Linux/Windows/Web 验收通过。
 

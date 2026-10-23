@@ -15,7 +15,7 @@
 
 ### API 收敛实施中
 
-- [VFS 文件访问接口收敛](vfs-api-consolidation.md)：已确认统一 open、路由与后端分离，统一访问、可写句柄和整文件操作已验收，旧接口整体退出延期。
+- [VFS 文件访问接口收敛](vfs-api-consolidation.md)：已确认统一 open、路由与后端分离，统一访问、可写句柄、整文件操作及独立路由已验收，后续以职责收敛和底层复用为目标，不强制删除 file_system。
 
 - [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：首批快照解耦与工程装配入口迁移通过原生/Web/压力和安装验收，后续接口统一未完成。
 

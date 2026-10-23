@@ -38,3 +38,14 @@ VFS 拥有不可变挂载表，快照直接共享固定表；解析结果持有 
 平台 CI 待本批提交后运行，未完成前不声明跨平台验收通过。
 资源快照、同步保存、配置工厂、工具及内置后端存储仍依赖旧体系，阻塞 file_system 整体删除。
 PR 保持草稿，不合并、不发布；后续迁移完成后再整体验收。
+
+## 后续复核（2026-10-23）
+
+被验证提交为 4e1e1159f963da50b2b19d026fc601183b5da3b5，代码与 bf9db75b 相同，4e1e1159 仅追加文档链接修正。
+本批 [Linux](https://github.com/synchronized/caors-core/actions/runs/39744792385)、
+[Windows](https://github.com/synchronized/caors-core/actions/runs/39744798299) 与
+[Emscripten](https://github.com/synchronized/caors-core/actions/runs/39744874461) 均成功，取代上文待运行的状态。
+这只验收路由独立批次，不证明整个兼容迁移已完成。
+
+用户确认调整方向：以职责唯一和底层实现复用为目标，撤销强制删除 file_system 的条件。
+本记录前文保留当时的删除范围，现行范围由[计划](../plans/vfs-api-consolidation.md)维护。
