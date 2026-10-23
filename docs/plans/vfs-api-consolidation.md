@@ -69,13 +69,13 @@
 | --- | --- | --- |
 | 新 VFS 路由独立 | 已完成 | 普通访问直接持有 backend；快照、前缀匹配、并发与生命周期已验收 |
 | 底层读写复用 | 已存在，继续保留 | native/memory 后端复用原同步实现，不另建一套存储算法 |
-| 资源来源转换 | 待验收 | provider_snapshot、vfs_source 与 byte_reader 直接使用 backend_location；source.capture 返回拥有式函数，无新快照继承层 |
+| 资源来源转换 | 已完成 | provider_snapshot、vfs_source 与 byte_reader 直接使用 backend_location；source.capture 返回拥有式函数，无新快照继承层 |
 | 旧配置及工具路由 | 待实施 | 将实际重复的挂载配置迁往唯一入口；保存和工具继续使用需要的同步能力 |
 | file_system 收缩 | 待前述审计 | 移除失去消费的混合职责；按剩余同步用途决定保留或删除，不预设结论 |
 
 路由独立首批及平台验收见[实施记录](../records/2026-10-22-vfs-independent-routing.md)。
 
-## 资源来源迁移（待验收）
+## 资源来源迁移（已完成）
 
 新链路为 provider.snapshot → source.capture → backend_location → file_byte_reader。
 每个 source 在单次批次只捕获一次，GUID 位置在捕获阶段解析并保存；resolve 不再重新走旧路由。
@@ -85,7 +85,7 @@ vfs_source 的 snapshot_bridge/backend_bridge 已删除，新挂载后端直接�
 加载层的 file_read_mode 和 JSON 工厂读取模式参数已删除；原生文件使用构造绑定 worker 的 backend。
 内部整体读取仅保留 backend_location 入口，取消、预算与关闭仍复用同一状态机。
 新增精确后端身份、跨 GUID 来源一致性、宿主凭据保活、一次解析及错误隔离回归。
-本机原生、安装、插件及真实 Web 已通过，平台 CI 待验收，见[资源后端快照记录](../records/2026-10-23-resource-backend-snapshots.md)。
+本机原生、安装、插件、真实 Web 与 Linux/Windows/Emscripten 平台 CI 均通过，见[资源后端快照记录](../records/2026-10-23-resource-backend-snapshots.md)。
 
 ## 收口条件
 

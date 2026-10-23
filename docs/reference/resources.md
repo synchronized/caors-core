@@ -1135,6 +1135,8 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 
 `source::capture()` 是可选拥有式来源扩展，返回 `captured_source` 解析函数；默认 unsupported。
 解析函数必须拥有固定来源，不借用原 source 或实时路由。它返回已有的 `io::backend_location`，不新增快照基类。
+返回位置的 backend 所有权还须覆盖必要宿主/插件凭据；仅将凭据捕获在解析函数内不能保证后续读取寿命，
+因为 provider 完成逐 GUID 解析后就释放解析函数。vfs_source 的挂载所有权已经包含该凭据。
 成功但返回空函数或没有 backend 的位置，均按 backend_failure 保存诊断。
 `file_source(shared_ptr<file_system>, lifetime)` 持有底层后端和宿主凭据；旧引用构造保留同步借用行为。
 引用构造可捕获内置路由根，但其全部边仍必须拥有后端；借用叶根无法变成安全异步来源。

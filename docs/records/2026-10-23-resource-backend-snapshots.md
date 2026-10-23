@@ -6,7 +6,7 @@
 ## 范围与环境
 
 2026-10-23，feature/resource-source-boundary，PR #58。
-本机验证本记录同批工作树的实现，远端固定 SHA 随 CI 结果补充。
+被验证代码提交为 20a1a68cfeb7d8d407aadcb16afe97c8df93d82c；后续文档补充不改实现。
 环境为 Windows Clang Debug 共享库、Emscripten 静态构建与 Chrome 155.0.8059.85。
 范围见[VFS 计划](../plans/vfs-api-consolidation.md)，当前 API 由[资源参考](../reference/resources.md#加载来源快照)维护。
 
@@ -39,7 +39,13 @@ byte_reader 和整体读取编排仅接收 backend_location，JSON 加载层不�
 
 ## 限制与剩余范围
 
-平台 CI 待本批最终提交后运行，不沿用上一批绿色结果。
+本批平台 CI 在代码提交 20a1a68cfeb7d8d407aadcb16afe97c8df93d82c 上全部成功：
+
+- [Linux](https://github.com/synchronized/caors-core/actions/runs/39898207752)：Clang 动态/静态、GCC、ASan、UBSan 五组成功。
+- [Windows](https://github.com/synchronized/caors-core/actions/runs/39898211890)：Clang 动态/静态、MSVC 三组成功。
+- [Emscripten](https://github.com/synchronized/caors-core/actions/runs/39898217145)：公共头、Node 与真实浏览器成功。
+
+此结果只验收资源后端快照批次；未跳过失败检查，不代表整个 IO 整理完成。
 旧配置和工具路由仍存在；file_source 仍为旧文件来源保留适配，不宣称整体 IO 收敛完成。
 捕获工作由查询阶段移至批次建立阶段；旧来源适配会产生额外后端包装，基准仅证明可运行，
 未进行固定环境性能对照，不声明性能提升。
