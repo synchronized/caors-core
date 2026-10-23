@@ -12,13 +12,15 @@ int main() {
     return 1;
   }
 
-  caors::assets::asset_manager assets;
+  // 内存后端允许立即完成，示例显式使用 inline 调度。
+  caors::assets::asset_manager assets{
+      {caors::tasks::inline_executor(), caors::tasks::inline_executor()}};
   if (!configure_assets(assets) || !write_texture(assets, 256, 128)) {
     return 1;
   }
 
   caors::resources::handle_result<texture_resource> first =
-      assets.load_handle<texture_resource>(texture_guid);
+      assets.request_load<texture_resource>(texture_guid).result();
   if (first.failed() || !first.value) {
     std::cerr << "initial load failed\n";
     return 1;
@@ -29,7 +31,7 @@ int main() {
   }
 
   caors::resources::handle_result<texture_resource> reloaded =
-      assets.reload_handle<texture_resource>(texture_guid);
+      assets.request_reload<texture_resource>(texture_guid).result();
   if (reloaded.failed() || !reloaded.value) {
     std::cerr << "reload texture failed\n";
     return 1;

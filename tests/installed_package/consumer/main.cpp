@@ -6,6 +6,7 @@
 #include "caors/registration.h"
 #include "caors/serialization.h"
 #include "caors/version.h"
+#include "removed_io_api.h"
 
 #include <iostream>
 #include <memory>
@@ -28,54 +29,38 @@ struct consumer_record {
 }
 
 [[nodiscard]] bool check_owned_io() {
-  auto files = std::make_shared<caors::io::memory_file_system>();
-  if (!check(files->write_all("data", std::string_view{"payload"}), "准备 IO 数据")) {
-    return false;
-  }
-  std::weak_ptr<caors::io::memory_file_system> weak = files;
-  auto mounts = std::make_shared<caors::io::mount_file_system>();
-  if (!check(mounts->mount("assets", std::move(files)), "拥有式路径挂载")) {
-    return false;
-  }
-  caors::io::file_system_resolver resolver;
-  if (!check(resolver.mount("caors://assets", std::move(mounts), "assets"), "拥有式 URI 挂载")) {
-    return false;
-  }
-  const auto bytes = resolver.read_all("caors://assets/data");
-  if (!bytes || bytes->size() != 7 || weak.expired()) {
-    std::cerr << "安装包拥有式挂载读取失败\n";
-    return false;
-  }
+  std::weak_ptr<caors::io::memory_backend> weak;
+  caors::io::vfs_snapshot snapshot;
   {
-    auto snapshot = resolver.snapshot();
-    if (!snapshot)
+    caors::io::vfs routes;
+    auto memory = caors::io::make_memory_backend();
+    if (memory->store("data", "payload") || routes.mount("caors://assets", memory))
       return false;
-    auto resolved = snapshot->resolve("caors://assets/data");
-    if (!resolved)
+    weak = memory;
+    auto captured = routes.snapshot();
+    if (!captured)
       return false;
-    auto opened =
-        caors::io::request_open(std::move(resolved.value), caors::tasks::inline_executor());
-    if (!opened || !opened->result() || !*opened->result())
+    snapshot = std::move(captured.value);
+    routes.clear();
+  }
+  if (weak.expired())
+    return false;
+  {
+    caors::io::io_context io{std::move(snapshot), {caors::tasks::inline_executor()}};
+    auto reading = io.read("caors://assets/data", {.max_bytes = 7});
+    if (!reading.done() || !*reading.result() || reading.result()->value.size() != 7)
       return false;
-    auto file = opened->result()->value;
-    auto all = caors::io::read_all_chunked(file, {7, 2}, caors::tasks::inline_executor());
-    if (!all || !all->result() || !*all->result() || all->result()->value.size() != 7)
+    auto opening = io.open("caors://assets/data");
+    if (!opening.done() || !*opening.result())
       return false;
-    std::size_t consumed = 0;
-    auto stream = caors::io::consume_chunks(
-        file, {7, 3}, caors::tasks::inline_executor(), [&](auto offset, auto block) {
-          if (offset != consumed)
-            return caors::io::io_error{caors::io::io_errc::backend_failure};
-          consumed += block.size();
-          return caors::io::io_error{};
-        });
-    if (!stream || !stream->result() || !*stream->result() || consumed != 7)
+    auto handle = opening.result()->value;
+    auto range = handle.read({.offset = 1, .length = 3});
+    if (!range.done() || !*range.result() || range.result()->value.size() != 3)
       return false;
-    auto closed = caors::io::request_close(file, caors::tasks::inline_executor());
-    if (!closed || !closed->result() || !*closed->result())
+    auto closed = handle.close();
+    if (!closed.done() || !*closed.result())
       return false;
   }
-  resolver.clear();
   return weak.expired();
 }
 

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/io/chunked_file.h"
+#include "file_requests.h"
 
 #include <algorithm>
 #include <limits>
@@ -144,7 +145,7 @@ private:
           std::lock_guard lock{mutex_};
           waiting_ = true;
         }
-        auto next = request_read(
+        auto next = detail::read_file(
             file_, offset_, length, length, executor_, [self](const auto&) { self->ready(); },
             resource_);
         if (!next) {

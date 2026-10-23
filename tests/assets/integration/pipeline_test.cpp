@@ -115,16 +115,17 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(entry != nullptr);
   CHECK(entry->type == serialized_manifest_type());
   CHECK(entry->location.string_view() == std::string_view{"caors://assets/assets/resource-b.json"});
-  CHECK(assets.provider().contains(test_guid_a));
+  CHECK(caors::assets::project_builder{assets}.provider().contains(test_guid_a));
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
   caors::tasks::executor executor = caors::tasks::inline_executor();
   caors::tasks::execution_context completions;
 
   caors::resources::load_request<serialized_resource> direct =
-      assets.request_load<serialized_resource>(test_guid_a, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor())
+          .request_load<serialized_resource>(test_guid_a);
   caors::resources::preload_request preload =
-      assets.request_preload(test_guid_b, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor()).request_preload(test_guid_b);
 
   REQUIRE(direct);
   REQUIRE(preload);
@@ -151,7 +152,8 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(files->write_all("assets/resource-a.json", std::string_view{R"({"width":2048})"})
               .succeeded());
   caors::resources::load_request<serialized_resource> reloaded =
-      assets.request_reload<serialized_resource>(test_guid_a, executor, completions.get_executor());
+      assets.create_group(executor, completions.get_executor())
+          .request_reload<serialized_resource>(test_guid_a);
   REQUIRE(reloaded);
   CHECK(completions.drain() == 1);
   REQUIRE(reloaded.loaded());
@@ -165,7 +167,8 @@ TEST_CASE("assets - project config builds async resource pipeline", "[assets]") 
   REQUIRE(handle);
   handle->width = 4096;
 
-  caors::assets::json::saver<serialized_resource> saver{assets.provider()};
+  caors::assets::json::saver<serialized_resource> saver{
+      caors::assets::project_builder{assets}.provider()};
   REQUIRE(saver.save(*handle).succeeded());
 
   caors::io::byte_buffer_result saved = files->read_all("assets/resource-a.json");

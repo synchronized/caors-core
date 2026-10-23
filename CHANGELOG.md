@@ -9,13 +9,36 @@
 
 ## Unreleased
 
+- 资源快照直接保存 backend_location，source 扩展改为 capture 返回拥有式解析函数；新 VFS 来源不再转回旧 file_system。byte_reader 统一接收新后端位置；删除 file_read_mode 和 JSON 工厂的读取模式参数，原生文件改在 make_native_backend(root, worker) 构造时绑定执行环境。同步工具及保存接口保留，迁移见[资源参考](docs/reference/resources.md#加载来源快照)。
+
+- VFS 的路由表、快照与普通异步访问直接持有 backend，不再依赖旧 file_system/resolver；挂载匹配规则与用户调用方式保持一致。旧配置、保存及内置后端仍在迁移，尚未删除旧体系。
+
+- 删除 IO 旧公共 request_open、request_open_on_worker、request_read、read_all_bounded、request_close，无兼容别名；调用方改用 io_context/file，发起失败统一由单层 request 报告。内部编排头移出安装包，迁移见 [IO 参考](docs/reference/io.md#已移除入口的迁移)。
+
+- IO：统一 open 支持显式读写权限与创建/截断选项，file.write 提供有预算的范围写入并复用关闭清理。
+- 新增 io_context 整文件 write/stat/list，输入与结果拥有数据，元数据路径回映到逻辑目录；原生写入检查关闭错误。io.h 仅聚合新主线，旧路由/同步文件系统与原始文件组合显式使用 io/legacy.h。新增 resources::vfs_source，将新 VFS 批次路由接入默认 JSON loader。
+
+- 新增 vfs/backend/io_context/file 访问主线；open 统一命名、默认只读已有文件，操作返回单层 request。native 后端在构造时绑定 worker；资源 byte_reader 复用 IO 整体读取状态机。旧写入、目录、属性及配置接口保留迁移，见[IO 参考](docs/reference/io.md#vfs-与统一文件访问)。
+
+- 日常请求收敛为 load/reload/preload 三类：request_refresh 合入 request_reload，每次重载独立启动、无缓存也可创建、最新重载决定默认绑定。manager/group 删除逐次 worker/completion 参数和模板 preload，特殊调度使用 group，同类型 preload 在低层 database 使用。
+
+- 删除 asset_manager/database 的同步 load、load_handle、reload、reload_handle、preload 执行入口，统一使用 request_*；find/resolve/plan_preload 查询保留。loader 注册和手动重建绑定收敛到单槽，不同实例重复注册返回 already_exists；低层同步组合函数仅接受 sync_loader_adapter，不再运行时探测原生异步实现。
+
+- 默认 JSON 工厂迁至异步请求快照路径：`json::loader<T>` 接受 reader 或结果预算；原 provider 构造实现更名为 `json::sync_loader<T>`，短期 `json::byte_loader<T>` 更名为 loader。后端负责绑定执行环境，不作同步回退；工厂调用方改用 request_load/reload/preload，详见[迁移参考](docs/reference/assets.md#json-异步字节接入)。
+
+- 新增统一 `resources::byte_reader` 协议、`request_bytes` 与 VFS 原生/显式 worker 适配；`assets::json::loader<T>` 使用请求快照异步读字节并构造资源。同步读写兼容路径仍保留，迁移与预算限制见[资源参考](docs/reference/resources.md#统一字节读取适配)。
+
+- 加载协议统一为 `resources::loader<T>::start`，删除独立 `async_loader<T>`。原生异步实现改继承 loader；已有同步实现改继承 `sync_loader_adapter<T>` 并保留 load 钩子。旧同步入口仅使用显式适配能力，不等待异步 loader。
+
+- database 移除 provider 设置及清单绑定接口；清单绑定函数迁入 `resources/manifest_binding.h`。工程来源改由 `project_builder::provider()` 访问。空快照捕获器现在关闭捕获，恢复工程来源须显式调用 `use_provider_snapshot()`。
+
 - 文件系统/source 绑定、配置工厂注册、`create_owned` 和工厂扩展类型的公开入口迁至 `project_builder`；工厂通过 `context.project()` 使用装配操作。JSON/通用类型工厂 helper 改为接收 builder，manager 保留手动资源类型注册和请求主线。
 
 - 工程注册与配置对象状态移入私有实现，保持既有生命周期；修复 `create_owned` 在拥有表扩容失败时新对象未释放的问题。
 
 - 工程构建入口迁至 `assets::project_builder{manager}.build(config)` / `build_detailed(config)`，删除 manager 上的同名入口；配置对象仍由 manager 保活。已有配置驱动接入需要迁移调用点。
 
-- 异步加载管线改用通用快照捕获器；低层 database 可配置宿主策略，默认保留 provider 适配。缓存命中与共享请求不重复捕获，预加载闭包共享批次结果。
+- 异步加载管线改用通用快照捕获器；低层 database 可配置宿主策略，工程环境提供兼容的 provider 捕获适配。缓存命中与共享请求不重复捕获，预加载闭包共享批次结果。
 
 - 加载上下文的 `sources` 改为通用 `snapshot`；VFS loader 使用 `snapshot_as<resources::provider_snapshot>()` 并检查结果。loader 协议头不再传递包含具体文件来源；自定义快照可按批次保活。此变更需迁移调用代码并统一重编译库及使用方，尚未发布。
 

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/resources/source.h"
+#include "caors/io/file_system.h"
 
 #include <utility>
 
@@ -56,9 +57,8 @@ private:
 
 source::~source() = default;
 
-result<std::shared_ptr<io::file_system>>
-source::freeze_routes(io::detail::snapshot_context&) const {
-  return fail<std::shared_ptr<io::file_system>>({error_domain::resources, errc::unsupported});
+result<captured_source> source::capture() const {
+  return fail<captured_source>({error_domain::resources, errc::unsupported});
 }
 
 io::input_stream_result source::open_read(io::location_view location, memory_resource* resource) {
@@ -105,12 +105,41 @@ file_source::file_source(std::shared_ptr<io::file_system> file_system,
   }
 }
 
-result<std::shared_ptr<io::file_system>>
-file_source::freeze_routes(io::detail::snapshot_context& context) const {
+namespace {
+// 仅兼容来源需要该单向适配；新 VFS 不再包装为旧 file_system。
+class legacy_backend final : public io::backend {
+public:
+  legacy_backend(std::shared_ptr<io::file_system> files, std::uint64_t source_id)
+      : files_(std::move(files)), source_id_(source_id) {}
+  io::io_error open(io::path location, io::open_options options, memory_resource* resource,
+                    io::io_completion<std::shared_ptr<io::async_file>> completion) override {
+    return files_->start_open_options({files_, std::move(location), source_id_}, options, resource,
+                                      std::move(completion));
+  }
+
+private:
+  std::shared_ptr<io::file_system> files_;
+  std::uint64_t source_id_;
+};
+}
+result<captured_source> file_source::capture() const {
   if (!file_system_)
-    return fail<std::shared_ptr<io::file_system>>(
-        {error_domain::resources, errc::invalid_argument});
-  return context.capture(*file_system_, owner_);
+    return fail<captured_source>({error_domain::resources, errc::invalid_argument});
+  io::detail::snapshot_context context;
+  auto frozen = context.capture(*file_system_, owner_);
+  if (!frozen)
+    return fail<captured_source>(frozen.error());
+  return {
+      {},
+      [root = std::move(frozen.value)](io::location_view location) -> result<io::backend_location> {
+        auto resolved = io::detail::resolve_snapshot(root, location);
+        if (!resolved)
+          return {resolved.error(), {}};
+        return {
+            {},
+            {std::make_shared<legacy_backend>(std::move(resolved->backend), resolved->source_id),
+             std::move(resolved->path), resolved->source_id}};
+      }};
 }
 
 io::file_system& file_source::file_system() const noexcept { return *file_system_; }
@@ -156,35 +185,43 @@ io::output_stream_result file_source::open_write(io::location_view location,
 provider_snapshot::provider_snapshot(memory_resource* resource)
     : locations_(typename location_map::allocator_type{resource}) {}
 
-result<io::resolved_file> provider_snapshot::resolve(resource_guid guid) const {
+result<io::backend_location> provider_snapshot::resolve(resource_guid guid) const {
   const auto found = locations_.find(guid);
   if (found == locations_.end())
-    return fail<io::resolved_file>({error_domain::resources, errc::not_found});
+    return fail<io::backend_location>({error_domain::resources, errc::not_found});
   const auto& entry = found->second;
   if (entry.status)
-    return fail<io::resolved_file>(entry.status);
-  return io::detail::resolve_snapshot(entry.root, entry.location);
+    return fail<io::backend_location>(entry.status);
+  return ok(entry.location);
 }
 
 std::shared_ptr<const provider_snapshot> provider::snapshot() const {
   auto result =
       std::allocate_shared<provider_snapshot>(allocator<provider_snapshot>{resource_}, resource_);
-  io::detail::snapshot_context context;
-  using frozen_map =
-      core::hash_map<const resources::source*, caors::result<std::shared_ptr<io::file_system>>>;
+  using frozen_map = core::hash_map<const resources::source*, caors::result<captured_source>>;
   frozen_map frozen{typename frozen_map::allocator_type{resource_}};
   for (const auto& [guid, binding] : locations_) {
     auto found = frozen.find(binding.source);
     if (found == frozen.end()) {
-      auto root = binding.source->freeze_routes(context);
+      auto root = binding.source->capture();
       if (root && !root.value)
         root.status = {error_domain::resources, errc::backend_failure};
       found = frozen.emplace(binding.source, std::move(root)).first;
     }
     // 仅在本次捕获内共享，下一次仍重新冻结，避免错过外部或嵌套路由变化。
     const auto& root = found->second;
-    provider_snapshot::entry entry{root.value, io::path{io::path_view{binding.location}, resource_},
-                                   root.error()};
+    provider_snapshot::entry entry{{}, root.error()};
+    if (root) {
+      auto resolved = root.value(io::location_view{binding.location});
+      if (resolved && !resolved->backend)
+        resolved.status = {error_domain::resources, errc::backend_failure};
+      entry.status = resolved.error();
+      if (resolved) {
+        entry.location = std::move(resolved.value);
+        // 路径归入 provider 分配器，快照结果不借用解析函数的临时字符串。
+        entry.location.path = io::path{entry.location.path.view(), resource_};
+      }
+    }
     result->locations_.emplace(guid, std::move(entry));
   }
   return result;

@@ -1764,30 +1764,10 @@ template <typename T>
     cache<T>& target, loader<T>& source, resource_guid guid, const tasks::executor& executor,
     const tasks::executor& completion_executor, load_request_table<T>* requests,
     std::shared_ptr<void> activity = {}, std::shared_ptr<const load_snapshot> sources = {},
-    const snapshot_capture& capture = {}, bool refresh = false) {
+    const snapshot_capture& capture = {}) {
   if (!guid) {
     return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
                                    target.resource());
-  }
-
-  if (!refresh && !target.contains(guid)) {
-    return load_request<T>::failed({error_domain::resources, errc::not_found}, target.resource());
-  }
-
-  if (!refresh) {
-    if (auto selected = load_request_access<T>::current_refresh(target, guid)) {
-      if (auto subscriber = load_request_access<T>::subscribe(selected, true))
-        return subscriber;
-    }
-  }
-  if (!refresh && requests != nullptr) {
-    if (load_request<T> pending = load_request_access<T>::find_pending_operation(*requests, guid);
-        pending &&
-        load_request_access<T>::may_publish(load_request_access<T>::state(pending), target, guid)) {
-      if (auto subscriber = load_request_access<T>::subscribe(pending, true)) {
-        return subscriber;
-      }
-    }
   }
 
   if (!sources && capture)
@@ -1811,8 +1791,7 @@ template <typename T>
 #if CAORS_HAS_EXCEPTIONS
   try {
 #endif
-    if (refresh)
-      load_request_access<T>::select_refresh(target, guid, state);
+    load_request_access<T>::select_refresh(target, guid, state);
     submit_status = executor.post(tasks::task{
         target.resource(),
         [state, request, &target, &source, guid, executor, completion_executor, requests, activity,
@@ -1870,45 +1849,25 @@ request_load_into(cache<T>& target, loader<T>& source, resource_guid guid, tasks
 }
 
 /**
- * @brief 异步重载资源并通过指定执行目标替换 cache 绑定。
- *
- * cache 未包含该 GUID 时立即失败。加载或 commit 失败时旧资源保持不变。
- * 若期间登记了更新的刷新意图，成功结果仅返回给本请求，不替换默认绑定。
+ * @brief 独立重载单资源，不要求已有缓存；最新请求拥有默认绑定发布资格。
+ * @note 失败保留旧缓存；旧请求仍可取得自己的结果，不等待或合并旧重载。
  */
 template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
-                                                  resource_guid guid, tasks::executor executor,
-                                                  tasks::executor completion_executor) {
-  return detail::request_reload_into_impl<T>(target, source, guid, executor, completion_executor,
-                                             static_cast<load_request_table<T>*>(nullptr));
+                                                  resource_guid guid, tasks::executor worker,
+                                                  tasks::executor completion) {
+  return detail::request_reload_into_impl<T>(target, source, guid, worker, completion,
+                                             static_cast<load_request_table<T>*>(nullptr), {}, {},
+                                             nullptr);
 }
-
-/**
- * @brief 异步重载资源并复用同 GUID 的进行中重载请求。
- */
+/** @brief 使用共享加载请求表登记独立重载，使未命中缓存的后续 load 可订阅最新请求。 */
 template <typename T>
-[[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
-                                                  resource_guid guid, tasks::executor executor,
-                                                  tasks::executor completion_executor,
-                                                  load_request_table<T>& requests) {
-  return detail::request_reload_into_impl(target, source, guid, executor, completion_executor,
-                                          &requests);
-}
-
-/**
- * @brief 显式选择新来源并发起独立加载，成功后发布为默认绑定；不要求已有缓存。
- * @note 最新登记的刷新意图拥有发布资格；失败保留旧缓存，不恢复更早操作的资格。
- * 旧请求仍可返回自己的结果。仅刷新单资源；调用与 cache 提交须在同一所属线程或统一串行化。
- */
-template <typename T>
-[[nodiscard]] load_request<T> request_refresh_into(cache<T>& target, loader<T>& source,
-                                                   resource_guid guid, tasks::executor worker,
-                                                   tasks::executor completion,
-                                                   load_request_table<T>& requests) {
+[[nodiscard]] load_request<T>
+request_reload_into(cache<T>& target, loader<T>& source, resource_guid guid, tasks::executor worker,
+                    tasks::executor completion, load_request_table<T>& requests) {
   return detail::request_reload_into_impl(target, source, guid, worker, completion, &requests, {},
-                                          {}, nullptr, true);
+                                          {}, nullptr);
 }
 
 } // namespace caors::resources
-
 #endif

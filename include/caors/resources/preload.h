@@ -41,9 +41,9 @@ struct preload_failure {
 };
 
 /**
- * @brief 同步资源预加载计划。
+ * @brief 资源预加载计划（只计算依赖与缓存状态）。
  *
- * `load_order` 按“依赖先于依赖者”的顺序排列，适合后续同步加载；已经在 cache 中的资源会进入
+ * `load_order` 按“依赖先于依赖者”的顺序排列，供请求管线按依赖执行；已经在 cache 中的资源会进入
  * `already_loaded`，不会重复加载。跨类型预加载时每个资源项都会携带 manifest type。
  */
 struct preload_plan {

@@ -9,6 +9,30 @@
 
 ## 版本验收
 
+- [资源后端快照迁移](2026-10-23-resource-backend-snapshots.md)：快照及字节读取直接使用 backend_location，新 VFS 传输桥删除；本机及 Linux/Windows/Web 平台验收通过。
+
+- [VFS 路由独立](2026-10-22-vfs-independent-routing.md)：新路由及普通访问脱离旧文件系统，本机及 Linux/Windows/Web 验收通过；后续范围按职责收敛计划推进。
+
+- [IO 重复公共请求入口删除](2026-10-22-io-legacy-api-removal.md)：五个旧函数无别名移除、私有头退出安装包，本机与 Linux/Windows/Web 验收通过。
+
+- [VFS 可写文件句柄](2026-10-22-vfs-writable-file.md)：统一 open 的权限/创建选项与范围写入，本机及四类远端验收通过，兼容退出仍延期。
+
+- [VFS 整体操作与消费迁移](2026-10-22-vfs-operations-migration.md)：整文件写入、元数据、新来源与兼容头隔离，本机及四类远端验收通过，整体迁移未完成。
+
+- [VFS 统一只读入口](2026-10-22-vfs-read-context.md)：vfs/backend/io_context/file/request 主线与共享读取编排，本机原生/Web/安装通过，整体迁移仍实施中。
+
+- [三类日常资源请求接口迁移](2026-10-22-three-request-api.md)：合并 reload/refresh、特殊调度转 group、修复来源快照基准；新代码远端验收待完成。
+
+- [统一资源请求入口收口](2026-10-22-single-load-entry.md)：移除 manager/database 同步加载与双注册槽，本机原生、安装和 Web 通过，远端验收待完成。
+
+- [默认 JSON 工厂异步迁移](2026-10-22-json-factory-migration.md)：统一 JSON loader 名称与默认工厂，原生、安装和 Web 通过，旧同步入口退出及远端验收待完成。
+
+- [异步字节读取协议](2026-10-22-byte-reader-protocol.md)：reader/VFS/JSON 显式异步接入，本机原生、安装与 Web 通过，默认工厂迁移及远端验收待完成。
+
+- [统一 loader 协议](2026-10-22-unified-loader-protocol.md)：统一异步入口与显式同步适配，本机原生/Web/浏览器/安装通过，远端验收待执行。
+
+- [资源核心与来源适配边界](2026-10-22-resource-source-boundary.md)：第二批 provider 边界迁移，本机原生/Web/安装通过，远端验收待执行。
+
 - [加载快照解耦原型验证](2026-10-22-load-snapshot-prototype.md)：首批快照/工程装配迁移，原生矩阵、Web、安装与压力验证通过。
 
 - [IO 与资源 API 整理基线](2026-10-22-io-assets-api-baseline.md)：迁移清单与现有宿主/VFS 路径本机基线，新架构尚未实现。

@@ -215,7 +215,7 @@ private:
         return {error_domain::resources, errc::unsupported};
       }
 
-      type_factory_context context{manager, manager.resource(), manager.provider(),
+      type_factory_context context{manager, manager.resource(), manager.project_provider(),
                                    manager.database(), reasons};
       return create(context, config, user_data);
     }
@@ -257,9 +257,6 @@ public:
 
   [[nodiscard]] resources::manifest& manifest() noexcept { return manifest_; }
   [[nodiscard]] const resources::manifest& manifest() const noexcept { return manifest_; }
-
-  [[nodiscard]] resources::provider& provider() noexcept { return provider_; }
-  [[nodiscard]] const resources::provider& provider() const noexcept { return provider_; }
 
   [[nodiscard]] resources::dependency_graph& dependency_graph() noexcept {
     return dependency_graph_;
@@ -353,30 +350,14 @@ private:
   }
 
 public:
-  /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
+  /** @brief 注册统一 loader 与 cache；同类型绑定冲突返回 already_exists。 */
   template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& loader,
-                                    core::string_name resource_type) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    error status = database_.register_type(cache, loader, resource_type);
-    if (status) {
-      return status;
-    }
-
-    return is_building_project() ? error{}
-                                 : remember_manual_type_binding<T>(cache, loader, resource_type);
-  }
-
-  /** @brief 注册异步 loader 与 cache，可与同类型同步 loader 并存。 */
-  template <typename T>
-  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::async_loader<T>& source,
+  [[nodiscard]] error register_type(resources::cache<T>& cache, resources::loader<T>& source,
                                     core::string_name type) {
     if (auto status = database_.register_type(cache, source, type)) {
       return status;
     }
-    return is_building_project() ? error{}
-                                 : remember_manual_type_binding<T>(cache, source, type, true);
+    return is_building_project() ? error{} : remember_manual_type_binding<T>(cache, source, type);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -388,34 +369,6 @@ public:
 
   /** @brief 按 GUID 在全部已注册 cache 中查询资源。 */
   [[nodiscard]] resources::resource* find(resource_guid guid) const { return database_.find(guid); }
-
-  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回强 handle。 */
-  template <typename T> [[nodiscard]] handle_result<T> load_handle(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.load_handle<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回非拥有指针。 */
-  template <typename T> [[nodiscard]] result<T*> load(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.load<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
-  template <typename T> [[nodiscard]] handle_result<T> reload_handle(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.reload_handle<T>(guid);
-  }
-
-  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
-  template <typename T> [[nodiscard]] result<T*> reload(resource_guid guid) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.reload<T>(guid);
-  }
 
   /** @brief 为指定根资源生成同类型预加载计划。 */
   template <typename T> [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
@@ -429,102 +382,26 @@ public:
     return database_.plan_preload(root);
   }
 
-  /** @brief 按同一资源类型同步预加载资源。 */
-  template <typename T> [[nodiscard]] preload_result preload(resource_guid root) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.preload<T>(root);
-  }
-
-  /** @brief 按 manifest type 同步预加载资源。 */
-  [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
-
   /** @brief 使用默认调度获取资源；未配置时返回失败请求，缓存命中可立即完成。 */
   template <typename T> [[nodiscard]] load_request<T> request_load(resource_guid guid) {
     if (!execution_configured_) {
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_load<T>(guid, execution_.worker, execution_.completion);
+    return database_.request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 使用默认调度重载资源；符合当前发布资格时替换绑定，失败保留旧对象。 */
+  /** @brief 独立重载单资源；无缓存时创建，最新意图发布绑定，失败保留旧对象。 */
   template <typename T> [[nodiscard]] load_request<T> request_reload(resource_guid guid) {
     if (!execution_configured_) {
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_reload<T>(guid, execution_.worker, execution_.completion);
-  }
-  /** @brief 使用默认调度独立刷新单资源；失败保留旧绑定。 */
-  template <typename T> [[nodiscard]] load_request<T> request_refresh(resource_guid guid) {
-    if (!execution_configured_) {
-      return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource_);
-    }
-    return request_refresh<T>(guid, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 使用默认调度预加载同类型依赖闭包。 */
-  template <typename T> [[nodiscard]] preload_request request_preload(resource_guid root) {
-    if (!execution_configured_) {
-      return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
-    }
-    return request_preload<T>(root, execution_.worker, execution_.completion);
+    return database_.request_reload<T>(guid, execution_.worker, execution_.completion);
   }
   /** @brief 使用默认调度按 manifest type 预加载依赖闭包。 */
   [[nodiscard]] preload_request request_preload(resource_guid root) {
     if (!execution_configured_) {
       return preload_request::failed({error_domain::resources, errc::invalid_argument}, resource_);
     }
-    return request_preload(root, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 在后台 executor 加载资源，并在完成 executor 提交到对应 cache。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_load(resource_guid guid,
-                                             tasks::executor background_executor,
-                                             tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_load<T>(guid, std::move(background_executor),
-                                     std::move(completion_executor));
-  }
-
-  /** @brief 在后台 executor 重载资源，拥有发布资格时在完成 executor 替换绑定。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_reload(resource_guid guid,
-                                               tasks::executor background_executor,
-                                               tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_reload<T>(guid, std::move(background_executor),
-                                       std::move(completion_executor));
-  }
-  /** @brief 在后台 executor 独立刷新单资源，最新意图成功后发布默认绑定。 */
-  template <typename T>
-  [[nodiscard]] load_request<T> request_refresh(resource_guid guid,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_refresh<T>(guid, std::move(background_executor),
-                                        std::move(completion_executor));
-  }
-
-  /** @brief 按同一资源类型异步预加载依赖闭包。 */
-  template <typename T>
-  [[nodiscard]] preload_request request_preload(resource_guid root,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return database_.request_preload<T>(root, std::move(background_executor),
-                                        std::move(completion_executor));
-  }
-
-  /** @brief 按 manifest type 异步预加载跨类型依赖闭包。 */
-  [[nodiscard]] preload_request request_preload(resource_guid root,
-                                                tasks::executor background_executor,
-                                                tasks::executor completion_executor) {
-    return database_.request_preload(root, std::move(background_executor),
-                                     std::move(completion_executor));
+    return database_.request_preload(root, execution_.worker, execution_.completion);
   }
 
   /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */
@@ -582,12 +459,11 @@ private:
 
 private:
   struct manual_type_binding {
-    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader, void* async_loader,
+    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader,
                               core::string_name resource_type);
 
     void* cache = nullptr;
     void* loader = nullptr;
-    void* async_loader = nullptr;
     bind_fn bind = nullptr;
   };
 
@@ -680,29 +556,16 @@ private:
 
   template <typename T>
   [[nodiscard]] static error rebind_manual_type(asset_manager& manager, void* cache, void* loader,
-                                                void* async_loader, core::string_name type) {
-    if (loader) {
-      if (auto status =
-              manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
-                                              *static_cast<resources::loader<T>*>(loader), type)) {
-        return status;
-      }
-    }
-    return async_loader ? manager.database_.register_type(
-                              *static_cast<resources::cache<T>*>(cache),
-                              *static_cast<resources::async_loader<T>*>(
-                                  static_cast<resources::loader<T>*>(async_loader)),
-                              type)
-                        : error{};
+                                                core::string_name type) {
+    return manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
+                                           *static_cast<resources::loader<T>*>(loader), type);
   }
 
   template <typename T>
-  [[nodiscard]] error
-  remember_manual_type_binding(resources::cache<T>& cache, resources::loader<T>& loader,
-                               core::string_name type, bool asynchronous = false) {
-    manual_type_binding binding{&cache, asynchronous ? nullptr : &loader,
-                                asynchronous ? &loader : nullptr,
-                                &asset_manager::rebind_manual_type<T>};
+  [[nodiscard]] error remember_manual_type_binding(resources::cache<T>& cache,
+                                                   resources::loader<T>& loader,
+                                                   core::string_name type) {
+    manual_type_binding binding{&cache, &loader, &asset_manager::rebind_manual_type<T>};
     return remember_manual_type_binding_erased(type, binding);
   }
 
@@ -712,7 +575,6 @@ private:
   bool execution_configured_ = false;
   memory_resource* resource_ = nullptr;
   resources::manifest manifest_;
-  resources::provider provider_;
   resources::dependency_graph dependency_graph_;
   resources::database database_;
   // 工程装配状态与日常请求状态分离；具体容器和配置标记不暴露在公共头中。
@@ -723,6 +585,9 @@ private:
   };
   std::unique_ptr<project_state, project_deleter> project_;
 
+  [[nodiscard]] resources::provider& project_provider() noexcept;
+  [[nodiscard]] const resources::provider& project_provider() const noexcept;
+  [[nodiscard]] error use_project_provider_snapshot();
   [[nodiscard]] bool is_building_project() const noexcept;
   using owned_destroy_fn = void (*)(memory_resource*, void*) noexcept;
   void retain_owned(void* value, owned_destroy_fn destroy);
@@ -746,39 +611,22 @@ public:
     if (auto status = check()) {
       return resources::load_request<T>::failed(status, resource());
     }
-    return manager_->request_load<T>(guid, execution_.worker, execution_.completion);
+    return manager_->database_.request_load<T>(guid, execution_.worker, execution_.completion);
   }
-  /** @brief 重载单资源；被新刷新取代时可返回未发布的旧结果，失败保留原绑定。 */
+  /** @brief 独立重载单资源；无缓存时创建，旧请求不覆盖最新重载绑定。 */
   template <typename T>
   [[nodiscard]] resources::load_request<T> request_reload(resources::resource_guid guid) const {
     if (auto status = check()) {
       return resources::load_request<T>::failed(status, resource());
     }
-    return manager_->request_reload<T>(guid, execution_.worker, execution_.completion);
-  }
-  /** @brief 独立刷新单资源，不加入旧操作；不刷新依赖闭包。 */
-  template <typename T>
-  [[nodiscard]] resources::load_request<T> request_refresh(resources::resource_guid guid) const {
-    if (auto status = check()) {
-      return resources::load_request<T>::failed(status, resource());
-    }
-    return manager_->request_refresh<T>(guid, execution_.worker, execution_.completion);
-  }
-
-  /** @brief 预加载根资源的同类型依赖闭包，不强制刷新已有缓存。 */
-  template <typename T>
-  [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
-    if (auto status = check()) {
-      return resources::preload_request::failed(status, resource());
-    }
-    return manager_->request_preload<T>(root, execution_.worker, execution_.completion);
+    return manager_->database_.request_reload<T>(guid, execution_.worker, execution_.completion);
   }
   /** @brief 按 manifest type 预加载根资源及跨类型依赖闭包。 */
   [[nodiscard]] resources::preload_request request_preload(resources::resource_guid root) const {
     if (auto status = check()) {
       return resources::preload_request::failed(status, resource());
     }
-    return manager_->request_preload(root, execution_.worker, execution_.completion);
+    return manager_->database_.request_preload(root, execution_.worker, execution_.completion);
   }
 
 private:

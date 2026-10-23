@@ -5,7 +5,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/resources.h"
 
 #include <limits>
@@ -249,7 +249,7 @@ TEST_CASE("resources - json loader and saver accept context first", "[resources]
   value.value = 42;
   REQUIRE(saver.save(value).succeeded());
 
-  caors::assets::json::loader<context_api_resource> loader{context, provider};
+  caors::assets::json::sync_loader<context_api_resource> loader{context, provider};
   caors::resource_cache<context_api_resource> cache;
   caors::resources::handle_result<context_api_resource> loaded =
       caors::resources::load_handle_into(cache, loader, resource_guid);

@@ -5,16 +5,24 @@
 #define CAORS_RESOURCES_SOURCE_H_
 
 #include "caors/core/containers.h"
-#include "caors/io/file_system.h"
+#include "caors/io/backend.h"
 #include "caors/io/location.h"
+#include "caors/io/stream.h"
 #include "caors/resources/id.h"
 #include "caors/resources/load_snapshot.h"
 
 #include <cstddef>
+#include <functional>
 #include <span>
 #include <string_view>
 
+namespace caors::io {
+class file_system;
+}
+
 namespace caors::resources {
+/** @brief 拥有固定来源的路径解析函数；不得借用原 source 或实时路由，允许并发只读解析。 */
+using captured_source = std::function<result<io::backend_location>(io::location_view)>;
 
 /**
  * @brief 资源字节来源接口。
@@ -32,9 +40,12 @@ public:
   source(source&&) = delete;
   source& operator=(source&&) = delete;
 
-  /** @brief 捕获可跨异步边界的来源路由；自定义非文件来源默认 unsupported。 */
-  [[nodiscard]] virtual result<std::shared_ptr<io::file_system>>
-  freeze_routes(io::detail::snapshot_context& context) const;
+  /**
+   * @brief 捕获固定来源的拥有式解析函数；默认 unsupported，不回退同步访问。
+   * @note 函数不得借用 source 或实时配置，返回位置须拥有后端；相关分配器须覆盖后端和快照结果。
+   * provider 在捕获阶段逐位置调用函数，之后仅保存已解析位置，不保留函数。
+   */
+  [[nodiscard]] virtual result<captured_source> capture() const;
 
   /** @brief 判断指定位置是否存在。 */
   [[nodiscard]] virtual bool exists(io::location_view location) const = 0;
@@ -83,8 +94,7 @@ public:
   /** @brief 拥有底层文件系统和宿主凭据；空文件系统在读取/捕获时失败。 */
   explicit file_source(std::shared_ptr<io::file_system> file_system,
                        std::shared_ptr<void> lifetime = {});
-  [[nodiscard]] result<std::shared_ptr<io::file_system>>
-  freeze_routes(io::detail::snapshot_context& context) const override;
+  [[nodiscard]] result<captured_source> capture() const override;
 
   /** @brief 返回底层文件系统。 */
   [[nodiscard]] io::file_system& file_system() const noexcept;
@@ -124,14 +134,13 @@ struct source_location {
 class CAORS_API provider_snapshot : public load_snapshot {
 public:
   explicit provider_snapshot(memory_resource* resource = nullptr);
-  /** @brief 返回拥有式后端/路径和来源标记；失败保留捕获时诊断。 */
-  [[nodiscard]] result<io::resolved_file> resolve(resource_guid guid) const;
+  /** @brief 返回捕获时固定的后端/路径和来源标记，不重新解析来源；失败保留逐 GUID 诊断。 */
+  [[nodiscard]] result<io::backend_location> resolve(resource_guid guid) const;
 
 private:
   friend class provider;
   struct entry {
-    std::shared_ptr<io::file_system> root;
-    io::path location{};
+    io::backend_location location;
     error status{};
   };
   using location_map = core::hash_map<resource_guid, entry, resource_guid_hash>;

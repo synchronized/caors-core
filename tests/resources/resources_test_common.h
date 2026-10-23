@@ -9,7 +9,7 @@
 #include "caors/resources/serialization.h"
 
 #include "caors/core/containers.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
@@ -71,7 +71,8 @@ public:
   int width = 0;
 };
 
-class counting_texture_loader final : public caors::resources::loader<texture_resource> {
+class counting_texture_loader final
+    : public caors::resources::sync_loader_adapter<texture_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -129,6 +130,19 @@ inline void require_serialized_resource_metadata() {
           .property("width", &serialized_resource::width)
           .serialization()
           .commit()));
+}
+
+// 仅用于内存来源测试；通过统一协议读取，不依赖旧同步后端接口。
+inline caors::io::io_result<caors::io::byte_buffer>
+read_snapshot_bytes(caors::io::backend_location source) {
+  caors::resources::file_byte_reader reader;
+  auto request =
+      caors::resources::request_bytes(reader, {std::move(source), caors::tasks::inline_executor()},
+                                      caors::tasks::inline_executor());
+  if (!request)
+    return caors::io::io_failure<caors::io::byte_buffer>(request.error());
+  REQUIRE(request.value.done());
+  return *request.value.result();
 }
 
 } // namespace caors::tests::resources

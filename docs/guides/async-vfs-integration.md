@@ -7,7 +7,18 @@
 [资源参考](../reference/resources.md#加载来源快照)维护；固定版本、提交及实际验证见
 [v0.4.0 记录](../records/2026-10-19-v0.4.0-async-vfs.md)。CAORS 不包含 libuv 后端。
 
-## 接入步骤
+## 新的 backend 接入
+
+新代码可以实现 `io::backend::open(path, open_options, resource, completion)` 并绑定自己的宿主 loop，
+再通过 `io::vfs::mount(prefix, shared_backend, target_prefix, lifetime)` 挂载。
+调用方使用 `io_context` 的单层 request，普通访问不接触 file_system、resolve_owned 或 start_io。
+后端接受后必须完成或销毁凭证，拒绝时不能保留；完成后须清理宿主操作并释放其凭证，不能将后端永久保存在自己的完成状态中；实际文件沿用 async_file 的范围读取、可选 start_write 与关闭协议，实现该协议时显式包含 `caors/io/async_file.h`，普通调用方不需要该头。
+完成凭证的 stop_token 用于观察协作取消，不能把请求取消理解成真实 I/O 已清理。
+
+目前 open/read/write/close 和整文件 write/stat/list 可用；旧配置工厂及嵌套路由迁移仍按[VFS 计划](../plans/vfs-api-consolidation.md)推进。
+下文为现有 file_system 后端和资源配置兼容接入，已有宿主无需在未完成验收前整体替换。
+
+## 兼容后端接入步骤
 
 1. 将后端作为拥有式 file_system 挂载到现有 resolver/mount；组合模块租约、loop 状态和必要 allocator 所有者作为 lifetime。
    不建立第二套 URI 挂载表，也不将仅有的裸指针包装成无效的 owning 指针。
@@ -17,10 +28,11 @@
    只将完整 byte_buffer 交给完成凭证；短段继续读取，提前 EOF 返回 short_read。
 4. 将 IO 通知投递到宿主 completion executor。保留请求至所需通知结束，并处理请求可查询的拒绝/丢弃失败。
    不依赖“函数返回后才回调”，不在 I/O 线程补调用户通知。
-5. loader 通过 `context.snapshot_as<resources::provider_snapshot>()` 取得并检查快照，再调用 `resolve(guid)`，把拥有式路径交给 request_open。
-   需要同步适配时由宿主明确选择 request_open_on_worker，不能在 unsupported 后偷偷阻塞或 read_all 回退。
-6. 解析结束或取消后显式 request_close，排空真实 I/O 与关闭，再释放文件、回调和模块/allocator。
-   新来源使用 remount 加明确 reload，或创建独立资源上下文。
+5. loader 从 `context.snapshot_as<resources::provider_snapshot>()` 取得并检查快照，通过 resolve(guid) 固定来源，
+   交给 resources::request_bytes 与 file_byte_reader。不要为了使用新入口而从活跃 VFS 再解析一次，改变在途来源。
+   新后端构造时绑定 worker；file_byte_reader 与 JSON loader 不再选择读取模式，不作同步回退。
+6. file_byte_reader 统一编排打开、限量读取与关闭，宿主须维持真实 I/O 和关闭清理所需循环与凭据。
+   普通文件访问通过 io_context.open 得到 file，并显式 file.close；来源切换使用 remount 加明确 reload。
 
 可运行的 manager → loader → 快照 → 读取/关闭示例见
 [assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。来源可同时提供同步与异步能力，

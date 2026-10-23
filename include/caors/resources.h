@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_H_
 
 #include "caors/resources/async.h"
+#include "caors/resources/byte_reader.h"
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
@@ -14,11 +15,13 @@
 #include "caors/resources/io.h"
 #include "caors/resources/manager.h"
 #include "caors/resources/manifest.h"
+#include "caors/resources/manifest_binding.h"
 #include "caors/resources/manifest_file_system.h"
 #include "caors/resources/preload.h"
 #include "caors/resources/ref.h"
 #include "caors/resources/reload.h"
 #include "caors/resources/resource.h"
 #include "caors/resources/source.h"
+#include "caors/resources/vfs_source.h"
 
 #endif

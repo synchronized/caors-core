@@ -3,7 +3,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io.h"
+#include "caors/io/legacy.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
 #include "caors/resources.h"
@@ -211,7 +211,9 @@ int main() {
     return 1;
   }
 
-  caors::assets::asset_manager assets;
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   if (!check(caors::assets::json::register_type_factory<texture_resource>(
                  caors::assets::project_builder{assets}, texture_manifest_type()),
              "register texture factory") ||
@@ -223,7 +225,12 @@ int main() {
     return 1;
   }
 
-  caors::resources::preload_result preloaded = assets.preload(hero_material_guid);
+  auto request = assets.request_preload(hero_material_guid);
+  for (int frame = 0; frame < 32 && !request.done(); ++frame) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  const auto preloaded = request.result();
   if (!check(preloaded.status, "preload material dependency closure")) {
     return 1;
   }

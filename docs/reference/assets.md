@@ -144,8 +144,8 @@ status = caors::assets::json::save_project_config_to(config, source, "project.ca
 
 ## asset_manager
 
-`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
-`dependency_graph` 和内部 `resources::database`，减少手动拼装生命周期错误：
+`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、
+`dependency_graph` 和内部 `resources::database`；工程 provider 位于私有装配状态中，减少手动拼装生命周期错误：
 
 ```cpp
 caors::assets::asset_manager assets;
@@ -165,7 +165,8 @@ if (detailed.failed()) {
   // detailed.stage / index / name / type / guid / reasons 可用于工具层诊断。
 }
 
-caors::resources::preload_result result = assets.preload(texture_id);
+auto request = assets.request_preload(texture_id);
+// 使用初始化的 worker/completion 推进请求，再读取 request.result()。
 ```
 
 工程装配由 `assets::project_builder` 执行；它借用 manager，析构不销毁已创建对象。
@@ -175,6 +176,9 @@ caors::resources::preload_result result = assets.preload(texture_id);
 构建失败保留既有逐阶段结果，不提供事务回滚。
 
 工程装配入口（均属于 builder）：
+
+- `provider()`：访问工程来源定位与字节适配，manager 不再公开该入口。
+- `use_provider_snapshot()`：显式恢复工程 VFS 批次捕获；活动操作未清理时返回 frozen。
 
 - `build(config)`：按配置重建内部 manifest、provider 和 dependency graph，并按已注册 factory
   创建运行期 file_system、source、cache 和 loader。配置构建顺序是 file_system、source、
@@ -196,11 +200,9 @@ caors::resources::preload_result result = assets.preload(texture_id);
 资源使用入口（属于 manager）：
 
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
-- `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
-- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
-- `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
-- `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
-- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度，也保留显式 worker/completion 重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
+- `plan_preload<T>(root)`：按同一资源类型计算依赖计划；无 manifest 的同类型执行在低层 database 使用。
+- `plan_preload(root)` / `request_preload(root)`：按 manifest type 跨类型分派预加载。
+- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：使用初始化的默认调度；特殊调度通过 asset_group，不提供逐次调度参数重载；异步 loader 可稍后交付，cache 在完成 executor 提交。
 - `create_group(worker, completion)`：创建复用固定调度组合的 asset_group，详见下节。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
@@ -210,7 +212,7 @@ caors::resources::preload_result result = assets.preload(texture_id);
 在途工作。需要 coroutine 等待时显式包含 `caors/resources/coroutine.h`：
 
 ```cpp
-auto request = assets.request_load<texture>(texture_id, worker, main_executor);
+auto request = assets.create_group(worker, main_executor).request_load<texture>(texture_id);
 auto result = co_await caors::resources::async_wait(request);
 ```
 
@@ -233,7 +235,7 @@ auto batch = group.request_preload(root_id);
 
 原无调度配置的构造继续可用。set_execution_options() 可在所属线程初始化/修改默认值；
 实际操作未清理时返回 frozen，无效组合返回 invalid_argument。未配置默认值的便捷异步入口返回失败请求，
-不隐式创建线程池；同步接口、显式传参入口和显式创建的 group 仍可使用。
+不隐式创建线程池；find/resolve 等查询和显式创建的 group 仍可使用。
 manager/group 只保存 executor 句柄，不拥有线程或队列；completion 必须运行在 cache 所属线程。
 修改默认调度不迁移 cache 线程，也不会修改既有 group 的固定组合。
 
@@ -241,7 +243,7 @@ manager/group 只保存 executor 句柄，不拥有线程或队列；completion 
 | --- | --- |
 | request_load<T>(guid) | 获取单个资源，命中缓存直接完成，否则发起或订阅共享加载 |
 | request_reload<T>(guid) | 重新读取，成功替换缓存，失败保留旧资源 |
-| request_preload(root) / request_preload<T>(root) | 按已登记依赖图预加载跨类型/同类型闭包，复用缓存，不强制刷新 |
+| request_preload(root) | 按 manifest 和已登记依赖图预加载闭包，复用缓存，不强制重载 |
 
 group 关联同一 manager/cache/请求表，可复制或移动；复制不复制资源，析构不取消已发请求。
 manager 必须覆盖所有 group 访问及实际工作寿命，不保证 manager 销毁后 group 可访问。
@@ -430,18 +432,17 @@ typed factory options 按“先应用默认值、再用输入局部覆盖”的�
 - `assets::json::save_project_config()`：把 `project_config` 保存为 JSON 字符串。
 - `assets::json::save_project_config_to()`：把 `project_config` 写入调用方提供的字符串或 source。
 - `assets::json::project_config_loader`：把 JSON 配置适配到格式无关 `assets::project_config_loader` 接口。
-- `assets::json::loader<T>`：从 provider 打开 JSON 输入流，再通过 `assets::load_serialized<T>()`
-  构造资源。
+- `assets::json::loader<T>`：使用请求快照和 byte_reader 异步读取 JSON 并构造资源。
+- `assets::json::sync_loader<T>`：显式同步兼容适配器，读取实时 provider，不提供快照一致性。
 - `assets::json::saver<T>`：从 provider 打开 JSON 输出流，把资源对象属性序列化为 JSON 文本后显式
   `close()` 提交。
-- `assets::json::register_type_factory<T>()`：复用
-  `assets::register_cached_type_factory<T, assets::json::loader<T>>()`，固定匹配
-  `cache = "memory"`、`loader = "json"`。
+- `assets::json::register_type_factory<T>()`：创建 cache 与异步 JSON loader，固定匹配
+  `cache = "memory"`、`loader = "json"`；默认原生异步读取，可在注册时显式选择 worker 适配。
 
-示例：
+同步兼容示例（新工程优先使用下方异步接入）：
 
 ```cpp
-caors::assets::json::loader<texture> loader{provider};
+caors::assets::json::sync_loader<texture> loader{provider};
 caors::resource_cache<texture> cache;
 
 auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
@@ -455,7 +456,7 @@ caors::error saved = saver.save(**loaded);
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
 - 读写的资源类型仍需要完成 meta 属性和 serialization 注册。
 - helper 只读写资源对象属性；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
-- `json::loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
+- `json::sync_loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
   由调用方保证。
 - `json::saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
   `errc::unsupported`。
@@ -469,12 +470,69 @@ caors::error saved = saver.save(**loaded);
 - `resources::source`：把 file_system 或其他字节来源适配给资源层，提供 `open_read()` /
   `open_write()`。一个 source 可以指向 VFS，也可以指向普通 native/memory file_system。
 - `resources::provider`：保存 `guid -> source + location` 绑定。它不解析格式，也不持有资源对象。
-- `resources::loader<T>`：从 provider 打开输入流，并把字节反序列化为 `T`。
+- `resources::loader<T>`：按 GUID 异步交付资源对象，可直接调用宿主服务，不要求 provider。
+- `resources::sync_loader_adapter<T>`：将已有同步构造逻辑接入统一请求协议；JSON 的 sync_loader 兼容路径使用此适配。
 - `resources::cache<T>`：按 GUID 持有已经加载完成的 `T`。
-- `resources::database` / `assets::asset_manager`：把 manifest、provider、loader 和 cache 拼起来，提供
-  `load()`、`reload()`、`preload()` 和异步请求入口。
+- `resources::database` / `assets::asset_manager`：协调 manifest、依赖、loader 和 cache；provider 由可选工程适配提供，保留
+  request_* 请求入口及同步的 find/resolve/plan_preload 查询。
 
 因此 VFS 不替代 source；VFS 解决“从哪里打开字节”，source 解决“资源层如何统一打开字节”。配置中
 `file_systems[]` 先描述可访问的文件系统，再由 `sources[]` 选择其中一个 file_system 形成资源来源。
 
 高层 assets 配置、JSON loader/saver 和 asset manager 测试位于 `tests/assets/`。
+
+
+## JSON 异步字节接入
+
+`assets::json::loader<T>` 借用 `resources::byte_reader`，使用请求快照定位来源；
+读取后在请求 worker 上反序列化，再由资源管线提交到配置的 completion。
+
+```cpp
+resources::file_byte_reader reader;
+assets::json::loader<texture> loader{reader, 8 * 1024 * 1024};
+// cache、loader 和 reader 须覆盖在途操作。
+auto status = manager.register_type(cache, loader, string_name{"texture"});
+```
+
+上面是接入片段，需已有 texture 反射信息、cache 和 manager，并检查 status。
+来源由工程 builder 配置，普通请求仍为 `manager.request_load<texture>(guid)`。
+字节协议、预算及后端执行环境约束见[资源参考](resources.md#统一字节读取适配)。
+该 loader 不提供同步 load，也不阻塞等待宿主 I/O。当前使用默认 serialization context；
+自定义 resolver 的资源可自行实现 loader。
+
+默认 JSON 配置工厂现在构造异步 `json::loader<T>`，并拥有其内部 file_byte_reader。
+注册方式为 `json::register_type_factory<T>(project, type)`，不再接受第三个读取模式参数。
+loader 的默认构造或预算构造使用统一文件读取器；原生文件通过
+`make_native_backend(root, worker)` 和 vfs_source 接入，工作执行器在后端构造时绑定。
+旧同步 file_source 不隐式退回阻塞读取；需要同步加载的工具继续显式使用 sync_loader。
+
+原 `json::loader(provider)` 调用迁移为 `json::sync_loader(provider)`，或改用异步 loader 和 request 接口；
+原短期 `json::byte_loader` 更名为 `json::loader`。manager/database 的同步 `load/load_handle/reload/reload_handle/preload` 已删除，
+应迁移到 `request_load/request_reload/request_preload`，执行所配置的 worker/completion 后再读取 result。
+通用 `register_cached_type_factory<T, Loader>` 仍服务于接受 provider 构造的自定义实现；
+JSON 默认工厂使用独立构造逻辑，不再通过该 helper 创建同步 loader。
+JSON saver 与写入行为保持原契约。
+
+
+### 三个日常请求入口
+
+manager 和 group 的请求入口只有 `request_load<T>(guid)`、`request_reload<T>(guid)`、
+`request_preload(root)`。load 复用缓存与已有加载；reload 每次独立捕获来源并启动，不要求缓存存在，
+只有最新重载拥有默认绑定发布资格；preload 复用已有缓存，按 manifest 加载依赖闭包，不强制重载。
+
+原 request_refresh 改用 request_reload，原“仅重载已有缓存、合并在途重载”的语义退出。
+逐次传 worker/completion 改成先 create_group(worker, completion)，再在 group 上发请求。
+同类型 `request_preload<T>` 仅保留在低层 database，由调用方显式传递调度；manager/group 不再暴露它。
+
+
+### 新 VFS 来源
+
+`resources::vfs_source` 借用 `io::vfs` 用于捕获，每次新根请求固定一份路由；已发请求拥有实际后端，
+reload 捕获新路由。工程配置可用 `project.bind_source(name, source)` 注册这个来源，
+让 `project_resource_config.source` 引用该名称并设置逻辑 location，再执行 `project.build(config)`。
+不再为新配置创建 file_system/resolver 工厂图；宿主通过 vfs.mount 配置后端与调度，
+config.file_systems 留空，资源类型照常使用默认异步 JSON 工厂。手工来源绑定在 build 后保留，
+但 vfs/source 是借用对象，必须覆盖 builder 后续构建及所有实际请求。
+仅少量手动资源也可直接绑定到 project_builder 的 provider，
+示例见[资源 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。该兼容桥只支持异步快照访问，
+同步 source 的 read/write/exists 不适用；需要同步 saver 的旧配置继续使用 file_source 兼容路径。

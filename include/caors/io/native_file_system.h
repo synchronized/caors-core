@@ -29,6 +29,10 @@ public:
   [[nodiscard]] io_result<std::shared_ptr<random_access_reader>>
   open_random_read(path_view path, memory_resource* result_resource = nullptr) override;
 
+  /** @brief 显式读写句柄；create_always 仅适用于可写访问，允许创建或截断。 */
+  [[nodiscard]] io_result<std::shared_ptr<random_access_reader>>
+  open_random_access(path_view path, open_options options, memory_resource* resource = nullptr);
+
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] file_system_capabilities capabilities() const noexcept override;
   [[nodiscard]] file_status_result status(path_view path) const override;

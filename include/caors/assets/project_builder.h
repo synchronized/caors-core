@@ -43,6 +43,14 @@ public:
   /** @brief 执行相同装配流程，并返回失败阶段及诊断。 */
   [[nodiscard]] asset_build_result build_detailed(const project_config& config);
 
+  /** @brief 访问工程字节来源定位与 VFS 适配；不属于日常资源请求接口。 */
+  [[nodiscard]] resources::provider& provider() noexcept { return manager_.project_provider(); }
+  /** @brief 只读访问工程来源。 */
+  [[nodiscard]] const resources::provider& provider() const noexcept {
+    return manager_.project_provider();
+  }
+  /** @brief 显式选择工程 provider 快照策略；实际操作未清理时返回 frozen。 */
+  [[nodiscard]] error use_provider_snapshot() { return manager_.use_project_provider_snapshot(); }
   /** @brief 查询装配使用的内存资源；由宿主保证其寿命。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return manager_.resource(); }
   /** @brief 借用绑定文件系统，宿主须维持后端寿命。 */

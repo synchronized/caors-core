@@ -5,7 +5,7 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、同步预加载计划和
+加载/保存接口、非拥有资源 database 编排入口、异步 reload、同步兼容通知、预加载计划和
 第一版异步加载请求；资源包后续再补。高层工程配置、asset manager 和 JSON 适配见
 [assets.md](assets.md)。
 
@@ -205,7 +205,7 @@ if (auto locked = weak.lock()) {
 - `cache<T>` 内部持有强 handle。`erase()`、`clear()` 或 `replace()` 只释放 cache 自己的强引用；
   如果外部仍持有 `resource_handle<T>`，旧资源会继续存活到最后一个强引用释放。
 
-## 同步预加载
+## 预加载计划与执行
 
 `resources::dependency_graph` 记录资源 GUID 之间的依赖边：`resource -> dependency`。资源引用关系可以
 出现循环，但打包、预加载和拓扑排序这类“需要依赖先于使用者”的流程必须显式检测环：
@@ -219,7 +219,7 @@ if (graph.has_cycle(material_id)) {
 }
 ```
 
-`resources::database` 提供两类同步预加载入口。
+`resources::database` 保留同步计算计划，实际加载统一使用请求入口；计划计算不执行 I/O。
 
 明确知道整个依赖闭包都由同一个资源类型处理时，可以使用模板入口：
 
@@ -228,8 +228,8 @@ caors::resources::preload_plan plan =
     database.plan_preload<texture>(texture_id);
 
 if (plan.succeeded()) {
-  caors::resources::preload_result result =
-      database.preload<texture>(texture_id);
+  auto request = database.request_preload<texture>(texture_id, worker, completion);
+  // 保留 request 并推进 executor/宿主循环，完成后读取 request.result()。
 }
 ```
 
@@ -245,7 +245,8 @@ manifest.bind(material_id, "materials/body.json", material_type);
 database.register_type(texture_cache, texture_loader, texture_type);
 database.register_type(material_cache, material_loader, material_type);
 
-caors::resources::preload_result result = database.preload(material_id);
+auto request = database.request_preload(material_id, worker, completion);
+// 推进配置的 executor 或宿主循环后再读取 request.result()。
 ```
 
 如果外部资源数据库使用另一套类型 token，可以把外部 token 映射到已有 manifest type：
@@ -297,7 +298,7 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 
 异步资源 API 分为发起/加载与提交两个阶段：
 
-- 加载阶段：worker 调用 `loader<T>::start()`。同步 loader 默认适配到 `load()`；原生异步 loader 发起宿主 I/O 后返回，通过完成凭证稍后交付结果。
+- 加载阶段：worker 调用 `loader<T>::start()`。显式同步适配器执行 `load()`；原生异步 loader 发起宿主 I/O 后返回，通过完成凭证稍后交付结果。
 - 提交阶段：通过调用方指定的 completion executor 把加载结果提交到 `cache<T>`，执行 insert 或
   replace；通常由主线程 `execution_context` 提供该 executor。
 
@@ -336,12 +337,12 @@ database.register_type(cache, loader);
 auto request = database.request_load<texture>(texture_id, worker, completion);
 ```
 
-`database.request_load<T>()` 和 `database.request_reload<T>()` 会按资源类型和 GUID 复用进行中的请求：
+`database.request_load<T>()` 复用同类型/GUID 的进行中加载，`request_reload<T>()` 每次独立启动：
 
 - cache 已经有同 GUID 资源时，`request_load<T>()` 立即返回 loaded 请求，不提交后台任务。
 - 同一个资源类型、同一个 GUID 的 queued/loading load 复用一次底层加载，各次调用返回独立订阅。
-- 同一个资源类型、同一个 GUID 的 queued/loading reload 同样复用底层操作并返回独立订阅。
-- load 和 reload 使用独立请求表；同 GUID 的首次加载和重载不会互相复用。
+- 同 GUID 的多次 reload 各自构造结果，只有最新登记的重载可以更新默认缓存绑定。
+- 无缓存时后续 load 可以订阅最新重载；有缓存时 load 仍立即返回旧的已发布资源。
 - `cancel()` 只取消当前订阅；普通句柄复制共享该订阅，其他独立调用不受影响。`cancel_shared()` 显式取消底层操作的全部订阅。
 - 请求 loaded、failed 或 cancelled 后会从请求表移除，后续同 GUID 请求可以重新提交。
 
@@ -679,7 +680,7 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
 普通项目入口优先使用 `assets::asset_manager`，由它持有 manifest、provider、dependency graph
 和内部 database。`resources::database` 是高级组合入口：它不会创建全局单例，也不会拥有
 manifest、provider、cache、loader 或 dependency graph；调用方把这些组件挂进去后，database
-只负责把常见同步流程串起来：
+只负责把资源请求、缓存提交和引用查询串起来：
 
 ```cpp
 caors::resource_manifest manifest;
@@ -688,30 +689,30 @@ caors::resource_dependency_graph graph;
 
 caors::resource_database database;
 database.set_manifest(manifest);
-database.set_provider(provider);
 database.set_dependency_graph(graph);
 
-database.sync_manifest(source);
+caors::resources::sync_manifest(provider, source, manifest);
 
 caors::resource_cache<texture> cache;
 texture_loader loader{provider};
 database.register_type(cache, loader);
 
-auto loaded = database.load<texture>(texture_id);
+auto request = database.request_load<texture>(texture_id, worker, completion);
+// 执行 worker/completion 或宿主循环后再读取 request.result()。
 auto resolver = caors::resources::make_resource_resolver(database);
 ```
 
 常用入口：
 
-- `set_manifest()` / `set_provider()` / `set_dependency_graph()`：挂接外部组件，不接管生命周期。
-- `bind_manifest(source)` / `sync_manifest(source)` / `replace_manifest(source)`：把当前 manifest 同步到当前
-  provider。
+- `set_manifest()` / `set_dependency_graph()`：挂接外部组件，不接管生命周期。
+- `set_snapshot_capture()`：配置通用批次数据捕获，不绑定 provider。
+- 清单到 provider 的绑定使用 `manifest_binding.h` 的 `bind_manifest` / `sync_manifest` / `replace_manifest` 自由函数，不通过 database。
 - `register_cache<T>()` / `register_loader<T>()` / `register_type<T>()`：按已注册 meta 类型挂接类型化
   cache 和 loader。
 - `bind_resource_type_alias()` / `bind_resource_type_guid()`：把外部类型 token 或稳定 type_guid 映射到已注册
   cache/loader，供跨类型预加载分派使用。
-- `load<T>(guid)` / `load_handle<T>(guid)`：通过已注册 loader 加载资源并转入对应 cache。
-- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
+- `request_load<T>(guid, worker, completion)`：通过统一 loader 加载并在完成 executor 提交缓存。
+- `request_reload<T>()`：独立重载，无缓存也可创建，失败保留已发布资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
@@ -722,7 +723,7 @@ auto resolver = caors::resources::make_resource_resolver(database);
 - `database` 是编排器，不是拥有式全局资源缓存。资源生命周期仍由 `cache<T>` / `handle<T>` 决定。
 - 手动组合适合嵌入已有引擎资源系统、定制 cache/loader/provider、测试资源管线或需要绕过
   `asset_manager` 工厂配置的场景。
-- 普通 `load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
+- 普通 `request_load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
   跨类型预加载入口会按 `register_type<T>(cache, loader, type)` 的 manifest type 绑定分派。
 - `resources::make_resource_resolver(database)` 位于 `caors/resources/serialization.h`，只返回
   `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
@@ -954,15 +955,17 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 
 ### 原生异步 loader
 
-迁移时已有同步 loader 源码无需修改；本次为 loader 增加虚函数并扩展相关类型布局，
-不兼容旧二进制。库、宿主与所有使用这些头文件的插件应一起重新编译，不能混用旧对象文件或 SDK。
+`resources::loader<T>` 是唯一的加载协议，只需实现
+`start(async_load_context, load_completion<T>)`。原生异步实现直接继承它，不再有独立的 async_loader 类型，
+也无需实现返回 unsupported 的同步 load。库、宿主和插件必须一起重新编译。
 
-`resources::async_loader<T>` 继承 `loader<T>`，覆盖 `start(async_load_context, load_completion<T>)`，
-无需实现同步 load；其默认同步 load 返回 `resources / unsupported`，不会阻塞等待宿主 loop。
-`database.register_loader()` / `register_type()` 有异步能力重载，可与同类型的同步 loader 同时注册。
-异步请求优先异步能力，只有同步能力时在 worker 适配；失败不自动改用另一 loader 重试。
-同步加载仍使用同步能力；async-only 的已缓存资源可通过同步 load_handle 获取，缓存未命中返回 unsupported。
-同步 preload 遇到 async-only 的未缓存项也返回 unsupported，调用方可统一改用 request_preload。
+已有阻塞构造逻辑改继承 `resources::sync_loader_adapter<T>`，覆盖 load 钩子；适配器的 final start
+在请求管线指定的 worker 上执行该钩子，再通过相同完成凭证交付。它不创建线程，不等待异步操作。
+阻塞来源须配置可阻塞的 worker；不能在 Web 主线程用它等待网络。
+
+每个资源类型只有一个 loader 注册槽。同一对象重复注册保持幂等，不同对象返回 already_exists，
+不再同时注册同步/原生实现或按能力优先选择。manager/database 的 load、load_handle、reload、
+reload_handle 和 preload 同步执行入口已删除；缓存查询仍使用 find，加载统一使用 request_*。
 
 `async_load_context` 提供 GUID、非拥有结果 resource、worker、协作取消的 `std::stop_token` 与拥有状态的 `load_progress`。
 context 和进度通道可跨异步边界保存；原 `progress_reporter` 仍只在同步 load 调用期间有效，不能留到 I/O 回调使用。
@@ -990,13 +993,13 @@ cache 提交仍遵循原线性化边界，开始提交后不承诺回滚。
 完整示例见 [assets_native_async.cpp](../../examples/beta/assets_native_async.cpp)。示例模拟延迟事件，
 不代表 libuv 实际接入；CAORS 不包含 libuv 类型或依赖，loop 线程投递、请求清理和缓冲区由宿主适配器管理。
 
-### 同步 loader 与 saver
+### 同步适配器与 saver（兼容入口）
 
-`resources::loader<T>` 和 `resources::saver<T>` 是类型化资源 IO 接口。它们只描述“按 GUID 加载一个
-资源”和“保存一个已有资源”，不规定路径、文件格式、资源包、缓存策略或异步调度：
+`resources::sync_loader_adapter<T>` 为已有同步资源构造逻辑提供迁移桥接；普通加载通过 loader::start
+和 request_* 使用统一协议。saver 仍保持已有保存接口，本批未迁移异步写入。同步钩子的实现示例：
 
 ```cpp
-class texture_loader : public caors::resources::loader<texture> {
+class texture_loader : public caors::resources::sync_loader_adapter<texture> {
 public:
   caors::resources::load_result<texture>
   load(caors::resource_guid id, caors::memory_resource* resource) override;
@@ -1024,6 +1027,7 @@ caors::error saved = caors::resources::save_from(cache, saver, id);
 `load_handle_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
+- 同步组合函数只接受 sync_loader_adapter，原生异步 loader 在编译期不可传入；不提供阻塞等待。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
 - 成功后资源所有权转入 cache，`load_handle_into()` 返回强 handle。需要临时指针时可从 handle
@@ -1129,21 +1133,30 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 
 ## 加载来源快照
 
-`source::freeze_routes()` 是可选拥有式来源扩展；默认 unsupported。
+`source::capture()` 是可选拥有式来源扩展，返回 `captured_source` 解析函数；默认 unsupported。
+解析函数必须拥有固定来源，不借用原 source 或实时路由。它返回已有的 `io::backend_location`，不新增快照基类。
+返回位置的 backend 所有权还须覆盖必要宿主/插件凭据；仅将凭据捕获在解析函数内不能保证后续读取寿命，
+因为 provider 完成逐 GUID 解析后就释放解析函数。vfs_source 的挂载所有权已经包含该凭据。
+成功但返回空函数或没有 backend 的位置，均按 backend_failure 保存诊断。
 `file_source(shared_ptr<file_system>, lifetime)` 持有底层后端和宿主凭据；旧引用构造保留同步借用行为。
 引用构造可捕获内置路由根，但其全部边仍必须拥有后端；借用叶根无法变成安全异步来源。
 
-`provider.snapshot()` 复制 GUID/位置并冻结全部文件路由，结果独立于原 provider/source 和位置字符串。
+`provider.snapshot()` 对每个不同 source 捕获一次，再逐 GUID 解析并保存 backend、拥有式路径和 source_id。
+结果独立于原 provider/source 和位置字符串；后续 resolve 只查保存的位置，不再次执行来源解析函数。
 捕获时禁止并发修改 provider/source 配置；后续只读解析可跨线程。无法捕获的来源按条目保留失败，
 `provider_snapshot::resolve(guid)` 返回诊断，不隐式退回原借用 source。旧同步 loader 可继续使用原 provider。
-单次捕获共用嵌套路由节点；同步读取也可使用解析结果 backend/path，保持与异步读取相同来源。
+`vfs_source` 直接捕获新 VFS，位置中的 backend 就是挂载后端，不经过旧 file_system。
+`file_source` 保留旧来源的单向适配以复用同步实现；旧路由仍捕获嵌套结构并检查借用边。
+解析位置用于统一异步读取，同步工具继续使用原 provider/source 的同步接口。
 
 `async_load_context` 仅持有 `load_snapshot` 基类，不要求文件系统。VFS loader 显式调用
 `snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
-基类只保证共享保活，不自动冻结自定义对象的外部数据；当前 database 仍负责捕获 provider 快照。
+基类只保证共享保活，不自动冻结自定义对象的外部数据。database 不持有或选择 provider。
 
 低层 `database::set_snapshot_capture(snapshot_capture)` 可配置宿主批次捕获策略；
-非空捕获器优先于 provider，返回空快照也不回退。传入空捕获器恢复默认 provider 适配。
+捕获器返回空快照不触发回退；传入空捕获器关闭快照捕获。
+asset_manager 为兼容现有 VFS 接入默认安装工程捕获策略；自定义策略清空后，若需恢复，
+显式调用 `project_builder{assets}.use_provider_snapshot()` 并检查结果。
 配置和捕获在发起线程进行，捕获器不得重入或修改加载配置；活动操作未清理时设置返回 frozen。
 捕获异常沿发起调用传播，沿用既有 provider 捕获的异常边界，不自动转换为完成回调错误。
 捕获器自身可持有宿主凭据，不得形成所有权环；已经交付的快照独立保活。
@@ -1152,13 +1165,13 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 单次新 load/reload 在缓存与请求合并判断之后捕获；refresh 独立捕获；一次预加载闭包共用一次捕获结果。
 已经合并到在途操作的订阅者继承原操作快照，不为每个订阅者重新捕获。
 
-未配置自定义捕获器且 database 有 provider 时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
+安装工程 provider 捕获策略时，新异步操作在排队前捕获来源，传入 `async_load_context.snapshot`。
 预加载根和依赖共用一份快照；缓存命中和同 GUID 在途共享不重新选择来源，显式 reload 的新操作才捕获新状态。
 不同预加载批次重用已有在途 GUID 时，仍遵守首次操作快照的例外。
-独立 `request_load_into` 没有 provider 时该字段为空；自定义 loader 需要快照时应检查并明确失败。
+独立 `request_load_into` 未配置批次数据时该字段为空；自定义 loader 需要快照时应检查并明确失败。
 旧 loader 忽略上下文后继续读取实时 provider 时，不获得新的快照保证。
-内置 `assets::json::loader<T>` 仍属于同步适配器，使用实时 provider；要求来源冻结的加载应使用
-读取 `context.snapshot_as<resources::provider_snapshot>()` 的 loader（见下方示例），不能把将同步 loader 排入 worker 等同于 VFS 异步读取。
+内置 `assets::json::loader<T>` 与默认 JSON 工厂使用请求快照和异步字节读取；
+`assets::json::sync_loader<T>` 是读取实时 provider 的同步兼容路径，不获得来源冻结保证。
 
 内置 asset_manager 文件系统工厂和来源工厂提供拥有式后端，配置路由在挂载前检查循环。
 自定义 factory 可通过 `bind_file_system(name, shared_ptr<file_system>, lifetime)` 提供完整寿命；
@@ -1170,19 +1183,18 @@ allocator 对象本身也必须存活，只有代码模块被 pin 并不能延�
 
 ## 显式刷新与默认绑定
 
-`database`、`asset_manager` 和 `asset_group` 提供 `request_refresh<T>(guid)`。
-manager/group 复用已配置的 worker/completion；低层 `request_refresh_into` 可使用请求表。
-刷新不要求已有缓存，总是捕获新的来源快照并独立启动，不加入旧 load/reload；仅作用于单资源，不刷新依赖闭包。
-loader 必须使用 context.snapshot_as<resources::provider_snapshot>() 才获得来源冻结保证；旧 JSON 同步 adapter 或忽略该字段的自定义 loader
-仍按原实时 provider 行为读取，refresh 无法强制改写其内部来源选择。
+`database`、`asset_manager` 和 `asset_group` 使用统一 `request_reload<T>`。
+manager/group 使用已配置调度；database 和低层 request_reload_into 显式接收调度。
+每次重载独立捕获来源，不要求缓存已存在，不加入旧操作；仅作用于单资源，不刷新依赖闭包。
+loader 必须使用请求快照才获得来源冻结保证，sync_loader 兼容路径仍读取实时 provider。
 
-| 调用 | 已有缓存 | 无缓存且最新刷新仍在途 | 旧操作仍在途 |
+| 调用 | 已有缓存 | 无缓存且重载在途 | 旧操作在途 |
 | --- | --- | --- | --- |
-| request_load | 立即返回已发布缓存 | 订阅当前刷新 | 没有刷新选择时保留原共享规则 |
-| request_reload | 无当前刷新时保留原重载规则 | 无缓存仍报 not_found | 有当前刷新时订阅它，否则保留原共享规则 |
-| request_refresh | 独立准备新对象 | 独立创建更新的刷新意图 | 不加入旧操作 |
+| request_load | 返回已发布缓存 | 订阅最新重载 | 没有重载选择时按原加载共享规则 |
+| request_reload | 独立构造并准备替换 | 独立构造新对象 | 不加入旧操作，最新登记者拥有发布资格 |
+| request_preload | 复用已有缓存 | 按 load 规则订阅 | 不强制重载依赖 |
 
-最新登记的刷新意图拥有默认绑定发布资格；首次 load 和旧 reload 的提交也必须检查该资格。
+最新登记的刷新意图拥有默认绑定发布资格；首次 load 和较早 reload 的提交也必须检查该资格。
 旧请求仍可返回自己加载的拥有式 handle，但不能更新默认 cache。
 成功在 completion 所属线程切换单资源绑定，失败保留旧对象；最新意图失败、操作取消、投递拒绝/丢弃，
 均不恢复更早意图的资格。独立订阅取消继续遵循既有共享规则，有其他订阅时不必取消底层操作。
@@ -1198,7 +1210,39 @@ allocator、GUID 访问器或哈希回调不得在容器更新期间重入修改
 直接同步修改 cache、运行时配置替换和依赖批次事务需宿主协调。
 来源快照固定路由，不保证依赖缓存或磁盘内容属于同一修订。
 
-同一次 provider 快照捕获只调用每个 source 的 freeze_routes 一次，GUID 位置仍逐项复制。
+同一次 provider 快照捕获只调用每个 source 的 capture 一次，GUID 位置逐项解析并保存。
 临时 source 映射在捕获返回时销毁，下一次捕获重新查询来源；不按 provider generation 跨次复用，
 因此 rebind/unbind 或嵌套 remount 不会因本优化被遗漏。捕获期间仍禁止并发修改 provider/source 配置。
 该优化没有把全量 GUID 捕获变成 O(1)，额外临时索引为 O(不同 source 数)。
+
+
+## 统一字节读取适配
+
+`resources/byte_reader.h` 提供 `byte_reader::read(read_context, read_completion)`。
+返回 `io_error` 表示是否接受；接受后通过唯一完成凭证交付拥有式字节或失败，销毁未完成凭证按取消收口。
+`request_bytes` 复用 IO 请求句柄，可查询取消、完成投递拒绝及队列丢弃，回调只在指定 executor 执行。
+持有返回句柄至实际完成，析构只请求取消，不等待后端清理。
+
+`read_context` 包含拥有式 `backend_location`、内部 worker、结果预算和借用的结果分配器。
+GUID 定位由 provider 快照完成，reader 不访问实时 provider。宿主可以实现 reader，或直接实现资源 loader；
+内置文件适配之外不要求创建 VFS 后端。reader 实例、分配器和宿主循环必须覆盖真实完成。
+
+```cpp
+resources::file_byte_reader reader;
+auto reading = resources::request_bytes(
+    reader, {std::move(resolved.value), worker, 1024 * 1024, resource},
+    completion, on_bytes);
+```
+
+片段中的 `resolved` 来自 `provider_snapshot::resolve(guid)`，实际使用须先检查解析与发起结果。
+`file_byte_reader` 组合打开、限量读取、显式关闭；后端遇到 unsupported 直接失败，不选择同步回退。
+原生文件使用 `make_native_backend(root, worker)`，worker 在后端构造时绑定；Web 网络使用宿主异步 backend。
+旧 file_read_mode 及加载层 worker_adapter 选择已删除，原调用迁移为构造后端时配置执行环境。
+取消在阶段边界检查，不保证中断已在途的宿主读取；正常通知路径在交付字节前完成关闭，
+错误保留首次读取失败，成功读取后的关闭失败也会交付失败。投递丢弃时依赖文件 RAII 兜底。
+
+单次默认预算为 64 MiB，读取前由 IO 协议检查。当前只读中间结果需要复制后交付，峰值结果内存约为
+两份预算，另有后端和状态开销；此预算不等于全局在途预算。IO 请求保留 backend_id/native_code，
+`read_error` 转为资源管线通用错误时不能保留全部 IO 分类。
+
+现有 provider/source 同步读写和流接口仍是兼容路径，本批未删除；写入未改成异步。

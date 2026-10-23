@@ -5,6 +5,7 @@
 #define CAORS_IO_FILE_SYSTEM_H_
 
 #include "caors/io/async_file.h"
+#include "caors/io/metadata.h"
 #include "caors/io/route_snapshot.h"
 #include "caors/io/stream.h"
 
@@ -14,30 +15,6 @@
 #include <string_view>
 
 namespace caors::io {
-
-/** @brief 文件系统条目类型。 */
-enum class file_kind {
-  /** @brief 普通文件或可读取字节对象。 */
-  file,
-  /** @brief 目录或虚拟目录。 */
-  directory,
-};
-
-/** @brief `file_system::list()` 返回的一条目录项。 */
-struct directory_entry {
-  /** @brief 直接子项名称，不包含父目录路径。 */
-  caors::io::path name;
-  /** @brief 可再次传给同一个 `file_system` 的路径。 */
-  caors::io::path path;
-  /** @brief 子项类型。 */
-  file_kind kind = file_kind::file;
-};
-
-/** @brief 目录项列表，使用 CAORS allocator 管理存储。 */
-using directory_entry_list = vector<directory_entry>;
-
-/** @brief 目录枚举结果。 */
-using directory_entry_list_result = result<directory_entry_list>;
 
 /**
  * @brief 文件系统后端能力声明。
@@ -59,27 +36,6 @@ struct file_system_capabilities {
   /** @brief 支持随机访问或 seek 语义。 */
   bool seek = false;
 };
-
-/** @brief 文件或目录的基础属性。 */
-struct file_status {
-  /** @brief 文件或目录类型。 */
-  file_kind kind = file_kind::file;
-  /** @brief 字节大小；只有 `has_size == true` 时有效。 */
-  std::uint64_t size = 0;
-  /** @brief 是否提供了 `size`。目录或虚拟目录通常不提供。 */
-  bool has_size = false;
-  /** @brief 最后修改时间；只有 `has_modified_time == true` 时有效。 */
-  std::chrono::system_clock::time_point modified_time{};
-  /** @brief 是否提供了 `modified_time`。 */
-  bool has_modified_time = false;
-  /** @brief 是否只读；只有 `has_read_only == true` 时有效。 */
-  bool read_only = false;
-  /** @brief 是否提供了 `read_only`。 */
-  bool has_read_only = false;
-};
-
-/** @brief 文件或目录状态查询结果。 */
-using file_status_result = result<file_status>;
 
 /**
  * @brief 同步文件系统抽象。
@@ -119,6 +75,10 @@ public:
   /** @brief 原生异步打开可选能力；默认 unsupported，不进行同步回退。 */
   [[nodiscard]] virtual io_error start_open(resolved_file location, memory_resource* resource,
                                             io_completion<std::shared_ptr<async_file>> completion);
+  /** @brief 带访问选项的兼容协议；默认仅转发只读已有文件，其余返回 unsupported。 */
+  [[nodiscard]] virtual io_error
+  start_open_options(resolved_file location, open_options options, memory_resource* resource,
+                     io_completion<std::shared_ptr<async_file>> completion);
   /** @brief 显式同步 worker 适配的可选能力；默认 unsupported，不回退 open_read/read_all。 */
   [[nodiscard]] virtual io_result<std::shared_ptr<random_access_reader>>
   open_random_read(path_view location, memory_resource* resource = nullptr);

@@ -34,7 +34,8 @@ public:
   using caors::resource::resource;
 };
 
-class counting_material_loader final : public caors::resources::loader<material_resource> {
+class counting_material_loader final
+    : public caors::resources::sync_loader_adapter<material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -119,17 +120,19 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   caors::resource_dependency_graph graph;
   caors::resource_database database;
   database.set_manifest(manifest);
-  database.set_provider(provider);
   database.set_dependency_graph(graph);
 
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
   CHECK(provider.contains(test_guid_a));
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(database.register_type(cache, loader).succeeded());
 
-  caors::result<serialized_resource*> loaded = database.load<serialized_resource>(test_guid_a);
+  auto loaded_request = database.request_load<serialized_resource>(
+      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  caors::result<serialized_resource*> loaded{loaded_request.error(),
+                                             loaded_request.try_get().get()};
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->guid() == test_guid_a);
@@ -137,7 +140,10 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(database.find<serialized_resource>(test_guid_a) == loaded.value);
 
   caors::resources::handle_result<serialized_resource> loaded_again =
-      database.load_handle<serialized_resource>(test_guid_a);
+      database
+          .request_load<serialized_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                             caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded_again.succeeded());
   CHECK(loaded_again.value.get() == loaded.value);
 
@@ -181,9 +187,12 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   REQUIRE(files.write_all("assets/resource-v2.json", std::string_view{R"({"width":1024})"})
               .succeeded());
   REQUIRE(manifest.set(test_guid_a, "assets/resource-v2.json").succeeded());
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
-  caors::result<serialized_resource*> reloaded = database.reload<serialized_resource>(test_guid_a);
+  auto reloaded_request = database.request_reload<serialized_resource>(
+      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  caors::result<serialized_resource*> reloaded{reloaded_request.error(),
+                                               reloaded_request.try_get().get()};
 
   REQUIRE(reloaded.succeeded());
   REQUIRE(reloaded.value != nullptr);
@@ -200,10 +209,12 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(database.is_current(decoded.resource));
 
   REQUIRE(manifest.set(test_guid_a, "assets/missing.json").succeeded());
-  REQUIRE(database.sync_manifest(source).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
-  caors::result<serialized_resource*> failed_reload =
-      database.reload<serialized_resource>(test_guid_a);
+  auto failed_reload_request = database.request_reload<serialized_resource>(
+      test_guid_a, caors::tasks::inline_executor(), caors::tasks::inline_executor());
+  caors::result<serialized_resource*> failed_reload{failed_reload_request.error(),
+                                                    failed_reload_request.try_get().get()};
 
   CHECK(failed_reload.failed());
   CHECK(database.find<serialized_resource>(test_guid_a) == reloaded.value);
@@ -238,7 +249,11 @@ TEST_CASE("resources - database plans and preloads dependency closure", "[resour
   CHECK(plan.load_order[1].guid == test_guid_b);
   CHECK(plan.load_order[2].guid == test_guid_a);
 
-  caors::resources::preload_result loaded = database.preload<texture_resource>(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload<texture_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                             caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 3);
   CHECK(loader.load_count == 3);
@@ -246,7 +261,11 @@ TEST_CASE("resources - database plans and preloads dependency closure", "[resour
   CHECK(cache.contains(test_guid_b));
   CHECK(cache.contains(test_guid_c));
 
-  caors::resources::preload_result loaded_again = database.preload<texture_resource>(test_guid_a);
+  caors::resources::preload_result loaded_again =
+      database
+          .request_preload<texture_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                             caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded_again.succeeded());
   CHECK(loaded_again.loaded.empty());
   CHECK(loaded_again.plan.already_loaded.size() == 3);
@@ -269,7 +288,11 @@ TEST_CASE("resources - database preload reports missing manifest entries", "[res
   database.set_dependency_graph(graph);
   REQUIRE(database.register_type(cache, loader).succeeded());
 
-  caors::resources::preload_result loaded = database.preload<texture_resource>(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload<texture_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                             caors::tasks::inline_executor())
+          .result();
   CHECK(loaded.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
   CHECK(contains_guid(loaded.plan.missing_manifest, test_guid_b));
   CHECK(contains_failure(loaded.failed_items, test_guid_b, {},
@@ -309,7 +332,11 @@ TEST_CASE("resources - database preload dispatches by manifest type", "[resource
   CHECK(plan.load_order[1] ==
         caors::resources::preload_item{test_guid_a, material_manifest_type()});
 
-  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
   CHECK(texture_loader.load_count == 1);
@@ -317,7 +344,11 @@ TEST_CASE("resources - database preload dispatches by manifest type", "[resource
   CHECK(texture_cache.contains(test_guid_b));
   CHECK(material_cache.contains(test_guid_a));
 
-  caors::resources::preload_result loaded_again = database.preload(test_guid_a);
+  caors::resources::preload_result loaded_again =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded_again.succeeded());
   CHECK(loaded_again.loaded.empty());
   CHECK(contains_item(loaded_again.plan.already_loaded, test_guid_b, texture_manifest_type()));
@@ -349,7 +380,11 @@ TEST_CASE("resources - database preload dispatches by external manifest type ali
   REQUIRE(plan.load_order.size() == 1);
   CHECK(plan.load_order[0] == caors::resources::preload_item{test_guid_a, external_texture_type});
 
-  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loader.load_count == 1);
   CHECK(cache.contains(test_guid_a));
@@ -375,7 +410,11 @@ TEST_CASE("resources - database preload dispatches by manifest type guid token",
   REQUIRE(plan.load_order.size() == 1);
   CHECK(plan.load_order[0] == caors::resources::preload_item{test_guid_a, type_guid_token});
 
-  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   REQUIRE(loaded.succeeded());
   CHECK(loader.load_count == 1);
   CHECK(cache.contains(test_guid_a));
@@ -388,7 +427,11 @@ TEST_CASE("resources - database dispatched preload reports missing manifest type
   caors::resource_database database;
   database.set_manifest(manifest);
 
-  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   CHECK(loaded.status == caors::error{caors::error_domain::resources, caors::errc::missing_type});
   CHECK(contains_guid(loaded.plan.missing_type, test_guid_a));
   CHECK(loaded.loaded.empty());
@@ -417,7 +460,11 @@ TEST_CASE("resources - database dispatched preload reports missing cache and loa
   REQUIRE(database.register_cache(texture_cache, texture_manifest_type()).succeeded());
   REQUIRE(database.register_loader(material_loader, material_manifest_type()).succeeded());
 
-  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload(test_guid_a, caors::tasks::inline_executor(),
+                           caors::tasks::inline_executor())
+          .result();
   CHECK(loaded.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
   CHECK(contains_item(loaded.plan.missing_loader, test_guid_b, texture_manifest_type()));
   CHECK(contains_item(loaded.plan.missing_cache, test_guid_a, material_manifest_type()));
@@ -451,7 +498,11 @@ TEST_CASE("resources - database preload rejects dependency cycles", "[resources]
   database.set_dependency_graph(graph);
   REQUIRE(database.register_type(cache, loader).succeeded());
 
-  caors::resources::preload_result loaded = database.preload<texture_resource>(test_guid_a);
+  caors::resources::preload_result loaded =
+      database
+          .request_preload<texture_resource>(test_guid_a, caors::tasks::inline_executor(),
+                                             caors::tasks::inline_executor())
+          .result();
   CHECK(loaded.status == caors::error{caors::error_domain::resources, caors::errc::cycle_detected});
   CHECK(loaded.plan.cycle.size() == 3);
   CHECK(loaded.plan.cycle.front() == loaded.plan.cycle.back());

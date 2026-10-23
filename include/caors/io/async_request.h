@@ -13,6 +13,8 @@
 #include <optional>
 #include <stop_token>
 
+#include <cstdint>
+
 namespace caors::io {
 /** @brief IO 失败分类；后端原始诊断独立保留，不要求分配错误字符串。 */
 enum class io_errc {
@@ -158,6 +160,16 @@ template <typename T> struct io_state : std::enable_shared_from_this<io_state<T>
  */
 template <typename T> class io_request {
 public:
+  /** @brief 无法启动或完成调度不可用时构造可查询失败请求，不调用用户回调。 */
+  [[nodiscard]] static io_request failed(io_error status) {
+    io_request request;
+    request.state_ = std::make_shared<detail::io_state<T>>();
+    request.state_->terminal = true;
+    request.state_->value.emplace(io_failure<T>(status));
+    return request;
+  }
+  /** @brief 终态结果已经可查询；取消请求不等同于后端完成清理。 */
+  [[nodiscard]] bool done() const noexcept { return static_cast<bool>(result()); }
   io_request() = default;
   io_request(const io_request&) = delete;
   io_request& operator=(const io_request&) = delete;

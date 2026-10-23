@@ -3,50 +3,44 @@
 
 #include "caors/io.h"
 #include "caors/tasks/execution_context.h"
+#include <algorithm>
 #include <iostream>
 
 int main() {
-  auto files = std::make_shared<caors::io::memory_file_system>();
+  caors::io::vfs routes;
+  auto memory = caors::io::make_memory_backend();
   const std::string text(100000, 'x');
-  if (files->write_all("payload", text))
+  if (memory->store("payload", text) || routes.mount("assets", memory))
     return 1;
-  auto snapshot = caors::io::route_snapshot::capture(files);
-  if (!snapshot)
-    return 2;
-  auto resolved = snapshot->resolve("payload");
-  if (!resolved)
-    return 3;
-  auto open = caors::io::request_open(std::move(resolved.value), caors::tasks::inline_executor());
-  if (!open || !open->result() || !*open->result())
-    return 4;
-  auto file = open->result()->value;
   caors::tasks::execution_context completion;
+  caors::io::io_context io{routes, {completion.get_executor()}};
+  // 此 CLI 示例使用即时内存后端，只排空本地通知；宿主实际接入应由自身事件循环推进。
+  auto finish = [&](auto& request) {
+    for (int frame = 0; frame < 32 && !request.done(); ++frame)
+      (void)completion.drain();
+    return request.result() && static_cast<bool>(*request.result());
+  };
+  auto opening = io.open("assets/payload", {.max_read_bytes = 4096});
+  if (!finish(opening))
+    return 2;
+  auto file = opening.result()->value;
   std::uint64_t consumed = 0;
-  auto stream = caors::io::consume_chunks(
-      file, {text.size(), 4096}, completion.get_executor(), [&](auto offset, auto block) {
-        if (offset != consumed)
-          return caors::io::io_error{caors::io::io_errc::backend_failure};
-        for (auto byte : block)
-          if (byte != std::byte{'x'})
-            return caors::io::io_error{caors::io::io_errc::backend_failure};
-        consumed += block.size();
-        return caors::io::io_error{};
-      });
-  if (!stream)
+  while (consumed < file.size()) {
+    auto length = (std::min)(std::uint64_t{4096}, file.size() - consumed);
+    auto reading = file.read({.offset = consumed, .length = length});
+    if (!finish(reading))
+      return 3;
+    for (auto byte : reading.result()->value)
+      if (byte != std::byte{'x'})
+        return 4;
+    consumed += reading.result()->value.size();
+  }
+  auto closing = file.close();
+  if (!finish(closing))
     return 5;
-  while (!stream->result())
-    if (completion.drain() == 0)
-      return 6;
-  if (!*stream->result() || consumed != text.size())
-    return 7;
-  // 聚合与消费共用文件；helper 不自动关闭，文件由调用者统一收口。
-  auto all =
-      caors::io::read_all_chunked(file, {text.size(), 8192}, caors::tasks::inline_executor());
-  if (!all || !all->result() || !*all->result() || all->result()->value.size() != text.size())
-    return 8;
-  auto close = caors::io::request_close(file, caors::tasks::inline_executor());
-  if (!close || !close->result() || !*close->result())
-    return 9;
-  std::cout << "consumed " << consumed << " bytes; aggregation " << all->result()->value.size()
+  auto all = io.read("assets/payload", {.max_bytes = text.size()});
+  if (!finish(all) || all.result()->value.size() != text.size())
+    return 6;
+  std::cout << "consumed " << consumed << " bytes; aggregation " << all.result()->value.size()
             << " bytes\n";
 }

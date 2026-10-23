@@ -2,8 +2,11 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets.h"
-#include "caors/io.h"
+#include "caors/assets/json.h"
+#include "caors/io/context.h"
+#include "caors/io/legacy.h"
 #include "caors/resources.h"
+#include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
@@ -26,7 +29,7 @@ public:
   int value = 0;
 };
 
-class consumer_loader final : public caors::resources::loader<consumer_resource> {
+class consumer_loader final : public caors::resources::sync_loader_adapter<consumer_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<consumer_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -36,7 +39,7 @@ public:
   }
 };
 
-class native_loader final : public caors::resources::async_loader<consumer_resource> {
+class native_loader final : public caors::resources::loader<consumer_resource> {
 public:
   caors::error start(caors::resources::async_load_context value,
                      caors::resources::load_completion<consumer_resource> token) override {
@@ -50,19 +53,15 @@ public:
     value->value = -1;
     auto sources = context->snapshot_as<caors::resources::provider_snapshot>();
     auto file = sources ? sources->resolve(context->guid)
-                        : caors::fail<caors::io::resolved_file>(
+                        : caors::fail<caors::io::backend_location>(
                               {caors::error_domain::io, caors::errc::unsupported});
     if (file) {
-      auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
-      if (opened && opened->result() && *opened->result()) {
-        auto stream = opened->result()->value;
-        auto read = caors::io::request_read(stream, 0, 1, 1, caors::tasks::inline_executor());
-        if (read && read->result() && *read->result())
-          value->value = std::to_integer<int>(read->result()->value[0]);
-        auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
-        if (!closed || !closed->result() || !*closed->result())
-          value->value = -2;
-      }
+      caors::resources::file_byte_reader reader;
+      auto read = caors::resources::request_bytes(
+          reader, {std::move(file.value), caors::tasks::inline_executor(), 1, nullptr},
+          caors::tasks::inline_executor());
+      if (read && read->result() && *read->result() && read->result()->value.size() == 1)
+        value->value = std::to_integer<int>(read->result()->value[0]);
     }
     context.reset();
     (void)token.complete({{}, std::move(value)});
@@ -111,6 +110,40 @@ probe_coroutine wait_for_resource(caors::resources::load_request<consumer_resour
 } // namespace
 
 int main() {
+  {
+    caors::io::vfs routes;
+    auto memory = caors::io::make_memory_backend();
+    if (memory->store("data", "installed") || routes.mount("assets", memory))
+      return 13;
+    caors::io::io_context io{routes, {caors::tasks::inline_executor()}};
+    auto reading = io.read("assets/data");
+    if (!reading.done() || !*reading.result() || reading.result()->value.size() != 9)
+      return 14;
+    auto bytes = caors::io::make_byte_buffer();
+    bytes.push_back(std::byte{42});
+    auto written = io.write("assets/extra", std::move(bytes));
+    auto status = io.stat("assets/extra");
+    auto entries = io.list("assets");
+    if (!written.done() || !*written.result() || !status.done() || !*status.result() ||
+        status.result()->value.size != 1 || !entries.done() || !*entries.result() ||
+        entries.result()->value.size() != 2)
+      return 15;
+    auto opened = io.open("assets/extra", {.access = caors::io::file_access::read_write});
+    if (!opened.done() || !*opened.result())
+      return 16;
+    auto range_bytes = caors::io::make_byte_buffer();
+    range_bytes.push_back(std::byte{43});
+    auto range_write = opened.result()->value.write({}, std::move(range_bytes));
+    if (!range_write.done() || !*range_write.result())
+      return 17;
+    auto range_read = opened.result()->value.read({0, 1});
+    if (!range_read.done() || !*range_read.result() ||
+        range_read.result()->value[0] != std::byte{43})
+      return 18;
+    auto close = opened.result()->value.close();
+    if (!close.done() || !*close.result())
+      return 19;
+  }
   caors::resource_cache<consumer_resource> cache;
   consumer_loader loader;
   caors::resource_database database;
@@ -136,6 +169,9 @@ int main() {
   caors::assets::asset_manager assets{
       {caors::tasks::inline_executor(), completion_context.get_executor()}};
   caors::assets::project_builder project{assets};
+  if (caors::assets::json::register_type_factory<consumer_resource>(
+          project, caors::string_name{"consumer.json"}))
+    return 12;
   if (project.build_detailed(caors::assets::project_config{}).failed())
     return 7;
   auto* owned = project.create_owned<int>(42);
@@ -152,18 +188,32 @@ int main() {
   if (project.bind_file_system(backend_name, files) ||
       project.find_owned_file_system(backend_name) != files)
     return 9;
-  caors::resources::file_source source{files};
-  if (assets.provider().bind(consumer_guid, source, "data"))
+  caors::io::vfs routes;
+  auto backend = caors::io::make_memory_backend();
+  if (backend->store("data", payload) || routes.mount("assets", backend))
+    return 5;
+  caors::resources::vfs_source source{routes};
+  if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "assets/data"))
     return 6;
+  caors::resources::file_byte_reader byte_reader;
+  auto resolved = project.provider().snapshot()->resolve(consumer_guid);
+  if (!resolved || resolved->backend.get() != backend.get())
+    return 10;
+  auto bytes = caors::resources::request_bytes(
+      byte_reader, {std::move(resolved.value), caors::tasks::inline_executor(), 16, nullptr},
+      caors::tasks::inline_executor());
+  if (!bytes || !bytes.value.result() || !*bytes.value.result() ||
+      bytes.value.result()->value.size() != 1 || bytes.value.result()->value[0] != std::byte{64})
+    return 11;
   auto group =
       assets.create_group(caors::tasks::inline_executor(), completion_context.get_executor());
-  auto reload = group.request_refresh<consumer_resource>(consumer_guid);
+  auto reload = group.request_reload<consumer_resource>(consumer_guid);
   caors::resources::handle_result<consumer_resource> native_result;
   probe_coroutine native_operation = wait_for_resource(reload, &native_result);
   if (native_operation.done() || !native.context) {
     return 3;
   }
-  assets.provider().clear();
+  caors::assets::project_builder{assets}.provider().clear();
   files.reset();
   native.finish();
   if (completion_context.drain() != 1 || !native_operation.done() || native_operation.failed() ||
