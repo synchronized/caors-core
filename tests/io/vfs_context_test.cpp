@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
-#include "caors/io/context.h"
+#include "caors/io/async_file.h"
+#include "caors/io/file_service.h"
 #include "caors/tasks/execution_context.h"
 #include <catch2/catch_all.hpp>
 #if !defined(__EMSCRIPTEN__)
@@ -30,14 +31,14 @@ public:
 }
 TEST_CASE("io - VFS reads with one request and fixed routing per operation", "[io][vfs-context]") {
   tasks::execution_context completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   auto old = make_memory_backend();
   auto next = make_memory_backend();
   REQUIRE_FALSE(old->store("data", "old"));
   REQUIRE_FALSE(next->store("data", "new"));
   REQUIRE_FALSE(routes.mount("assets://game", old));
   CHECK(routes.mount("assets://game", next).value() == errc::already_exists);
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   int calls = 0;
   auto first = io.read("assets://game/data", {}, [&](const auto& value) {
     REQUIRE(value);
@@ -60,9 +61,9 @@ TEST_CASE("io - VFS reads with one request and fixed routing per operation", "[i
 TEST_CASE("io - explicit VFS batch outlives configuration and pins backend", "[io][vfs-context]") {
   tasks::execution_context completion;
   std::weak_ptr<backend> weak;
-  vfs_snapshot snapshot;
+  file_batch snapshot;
   {
-    vfs routes;
+    file_service routes{{completion.get_executor()}};
     auto memory = make_memory_backend();
     weak = memory;
     REQUIRE_FALSE(memory->store("data", "retained"));
@@ -74,7 +75,7 @@ TEST_CASE("io - explicit VFS batch outlives configuration and pins backend", "[i
   }
   CHECK_FALSE(weak.expired());
   {
-    io_context io{std::move(snapshot), {completion.get_executor()}};
+    auto io = std::move(snapshot);
     auto reading = io.read("assets/data");
     pump(reading, completion);
     REQUIRE(reading.result());
@@ -84,11 +85,11 @@ TEST_CASE("io - explicit VFS batch outlives configuration and pins backend", "[i
   CHECK(weak.expired());
 }
 TEST_CASE("io - VFS open range read and close share a configured file", "[io][vfs-context]") {
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   auto memory = make_memory_backend();
   REQUIRE_FALSE(memory->store("data", "abcdef"));
   REQUIRE_FALSE(routes.mount("files", memory));
-  io_context io{routes, {tasks::inline_executor()}};
+  auto& io = routes;
   auto opening = io.open("files/data", {.max_read_bytes = 3});
   REQUIRE(opening.done());
   REQUIRE(*opening.result());
@@ -114,9 +115,9 @@ TEST_CASE("io - VFS open range read and close share a configured file", "[io][vf
 }
 TEST_CASE("io - VFS start errors are delivered once through completion", "[io][vfs-context]") {
   tasks::execution_context completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   REQUIRE_FALSE(routes.mount("bad", std::make_shared<refusing_backend>()));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   int calls = 0;
   auto refused = io.open("bad/data", {}, [&](const auto& value) {
     CHECK_FALSE(value);
@@ -132,17 +133,17 @@ TEST_CASE("io - VFS start errors are delivered once through completion", "[io][v
   pump(missing, completion);
   REQUIRE(missing.result());
   CHECK(missing.result()->error().value == io_errc::not_found);
-  auto invalid = io_context{routes, {}}.read("bad/data");
+  auto invalid = file_service{}.read("bad/data");
   REQUIRE(invalid.done());
   CHECK(invalid.result()->error().value == io_errc::completion_rejected);
 }
 TEST_CASE("io - VFS budget cancellation and queue discard remain observable", "[io][vfs-context]") {
   tasks::execution_context completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   auto memory = make_memory_backend();
   REQUIRE_FALSE(memory->store("data", "abc"));
   REQUIRE_FALSE(routes.mount("files", memory));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto limited = io.read("files/data", {.max_bytes = 2});
   pump(limited, completion);
   REQUIRE(limited.result());
@@ -177,10 +178,10 @@ TEST_CASE("io - native backend binds worker at construction", "[io][vfs-context]
     }
   } cleanup{location};
   tasks::execution_context worker, completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   auto directory = location.parent_path().generic_string();
   REQUIRE_FALSE(routes.mount("local", make_native_backend(directory, worker.get_executor())));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto reading = io.read(std::string{"local/"} + location.filename().generic_string());
   CHECK_FALSE(reading.done());
   CHECK(worker.pending() == 1);
@@ -206,10 +207,10 @@ TEST_CASE("io - context open forwards cooperative cancellation to a host backend
     }
   };
   tasks::execution_context completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   auto host = std::make_shared<delayed_backend>();
   REQUIRE_FALSE(routes.mount("host", host));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto opening = io.open("host/data");
   CHECK_FALSE(host->pending.stop_token().stop_requested());
   opening.cancel();
@@ -229,13 +230,13 @@ TEST_CASE("io - opened files retain backend and module pin after unmount", "[io]
   file opened;
   std::weak_ptr<int> pin;
   {
-    vfs routes;
+    file_service routes{{tasks::inline_executor()}};
     auto memory = make_memory_backend();
     auto module = std::make_shared<int>(1);
     pin = module;
     REQUIRE_FALSE(memory->store("data", "retained"));
     REQUIRE_FALSE(routes.mount("files", memory, {}, module));
-    io_context io{routes, {tasks::inline_executor()}};
+    auto& io = routes;
     auto opening = io.open("files/data");
     REQUIRE(opening.done());
     REQUIRE(*opening.result());
@@ -258,10 +259,10 @@ TEST_CASE("io - opened files retain backend and module pin after unmount", "[io]
 
 TEST_CASE("io - context writes owned bytes and remaps metadata paths", "[io][vfs-context]") {
   tasks::execution_context completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   auto memory = make_memory_backend();
   REQUIRE_FALSE(routes.mount("assets://game", memory, "pack"));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto bytes = make_byte_buffer();
   for (char c : std::string{"written"})
     bytes.push_back(static_cast<std::byte>(c));
@@ -304,9 +305,9 @@ TEST_CASE("io - context writes owned bytes and remaps metadata paths", "[io][vfs
 }
 TEST_CASE("io - metadata optional capabilities report unsupported without fallback",
           "[io][vfs-context]") {
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   REQUIRE_FALSE(routes.mount("readonly", std::make_shared<refusing_backend>()));
-  io_context io{routes, {tasks::inline_executor()}};
+  auto& io = routes;
   auto write = io.write("readonly/data", make_byte_buffer());
   REQUIRE(write.done());
   CHECK(write.result()->error().value == io_errc::unsupported);
@@ -331,10 +332,10 @@ TEST_CASE("io - native whole write cancellation and commit semantics", "[io][vfs
     }
   } cleanup{location};
   tasks::execution_context worker, completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   REQUIRE_FALSE(routes.mount("files", make_native_backend(location.parent_path().generic_string(),
                                                           worker.get_executor())));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto logical = std::string{"files/"} + location.filename().generic_string();
   auto make = [] {
     auto bytes = make_byte_buffer();
@@ -367,9 +368,9 @@ TEST_CASE("io - native whole write cancellation and commit semantics", "[io][vfs
 #if defined(__linux__)
 TEST_CASE("io - native buffered close failure is not reported as write success",
           "[io][vfs-context]") {
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   REQUIRE_FALSE(routes.mount("local", make_native_backend("/", tasks::inline_executor())));
-  io_context io{routes, {tasks::inline_executor()}};
+  auto& io = routes;
   auto bytes = make_byte_buffer();
   bytes.push_back(std::byte{1});
   auto written = io.write("local/dev/full", std::move(bytes));
@@ -396,11 +397,11 @@ TEST_CASE("io - metadata operations retain backend until host cleanup and result
   request<file_status> status;
   std::weak_ptr<host_backend> weak;
   {
-    vfs routes;
+    file_service routes{{completion.get_executor()}};
     auto host = std::make_shared<host_backend>();
     weak = host;
     REQUIRE_FALSE(routes.mount("host", host));
-    io_context io{routes, {completion.get_executor()}};
+    auto& io = routes;
     status = io.stat("host/data");
     routes.clear();
     host.reset();
@@ -432,9 +433,9 @@ TEST_CASE("io - logical directory enumeration rejects non-child backend names",
       return {};
     }
   };
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   REQUIRE_FALSE(routes.mount("files", std::make_shared<malformed_backend>()));
-  io_context io{routes, {tasks::inline_executor()}};
+  auto& io = routes;
   auto listed = io.list("files");
   REQUIRE(listed.done());
   CHECK(listed.result()->error().value == io_errc::backend_failure);
@@ -452,9 +453,9 @@ TEST_CASE("io - whole write rejects a backend reporting incomplete success", "[i
       return {};
     }
   };
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   REQUIRE_FALSE(routes.mount("files", std::make_shared<short_backend>()));
-  io_context io{routes, {tasks::inline_executor()}};
+  auto& io = routes;
   auto bytes = make_byte_buffer();
   bytes.push_back(std::byte{42});
   auto written = io.write("files/data", std::move(bytes));
@@ -464,7 +465,7 @@ TEST_CASE("io - whole write rejects a backend reporting incomplete success", "[i
 
 TEST_CASE("io - independent VFS matches normalized URI prefixes at segment boundaries",
           "[io][vfs-context]") {
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   auto root = make_memory_backend();
   auto nested = make_memory_backend();
   REQUIRE_FALSE(root->store("root/textures2/data", "root"));
@@ -475,7 +476,7 @@ TEST_CASE("io - independent VFS matches normalized URI prefixes at segment bound
   CHECK(routes.mount("", root).value() == errc::invalid_argument);
   CHECK(routes.mount("empty", {}).value() == errc::invalid_argument);
   CHECK(routes.mount_count() == 2);
-  io_context context{routes, {tasks::inline_executor()}};
+  auto& context = routes;
   auto exact = context.read("assets://game/textures/data");
   REQUIRE(*exact.result());
   CHECK(text(*exact.result()) == "nested");
@@ -491,7 +492,7 @@ TEST_CASE("io - independent VFS matches normalized URI prefixes at segment bound
 }
 TEST_CASE("io - independent VFS releases backend before host pin outside update lock",
           "[io][vfs-context]") {
-  vfs routes;
+  file_service routes;
   bool backend_destroyed = false;
   bool pin_destroyed = false;
   struct pin {
@@ -504,7 +505,8 @@ TEST_CASE("io - independent VFS releases backend before host pin outside update 
   };
   class lifetime_backend final : public backend {
   public:
-    lifetime_backend(vfs& routes, bool& destroyed) : routes_(&routes), destroyed_(&destroyed) {}
+    lifetime_backend(file_service& routes, bool& destroyed)
+        : routes_(&routes), destroyed_(&destroyed) {}
     ~lifetime_backend() override {
       *destroyed_ = true;
       // 宿主析构可重入配置更新，清理不能持有 VFS 更新锁。
@@ -516,7 +518,7 @@ TEST_CASE("io - independent VFS releases backend before host pin outside update 
     }
 
   private:
-    vfs* routes_;
+    file_service* routes_;
     bool* destroyed_;
   };
   auto lifetime = std::make_shared<pin>();
@@ -536,7 +538,7 @@ TEST_CASE("io - independent VFS releases backend before host pin outside update 
 #if !defined(__EMSCRIPTEN__)
 TEST_CASE("io - independent VFS concurrent updates preserve an immutable batch",
           "[io][vfs-context]") {
-  vfs routes;
+  file_service routes{{tasks::inline_executor()}};
   auto old = make_memory_backend();
   auto next = make_memory_backend();
   REQUIRE_FALSE(old->store("data", "old"));
@@ -552,8 +554,8 @@ TEST_CASE("io - independent VFS concurrent updates preserve an immutable batch",
     }
   });
   std::thread reader([&] {
-    io_context fixed{batch.value, {tasks::inline_executor()}};
-    io_context live{routes, {tasks::inline_executor()}};
+    auto fixed = batch.value;
+    auto& live = routes;
     for (int i = 0; i < 200; ++i) {
       auto captured = fixed.read("files/data");
       if (!captured.result() || !*captured.result() || text(*captured.result()) != "old")
@@ -577,3 +579,79 @@ TEST_CASE("io - independent VFS concurrent updates preserve an immutable batch",
   CHECK_FALSE(failed.load());
 }
 #endif
+
+TEST_CASE("io - service range reads close on success budget and boundary failures",
+          "[io][file-service]") {
+  class reader final : public random_access_reader {
+  public:
+    int reads = 0;
+    int closes = 0;
+    bool fail_close = false;
+    std::uint64_t size() const noexcept override { return 6; }
+    io_result<std::size_t> read_at(std::uint64_t offset, std::span<std::byte> bytes) override {
+      ++reads;
+      for (std::size_t i = 0; i < bytes.size(); ++i)
+        bytes[i] = static_cast<std::byte>('a' + offset + i);
+      return {{}, bytes.size()};
+    }
+    io_error close() override {
+      ++closes;
+      return fail_close ? io_error{io_errc::backend_failure} : io_error{};
+    }
+  };
+  class host final : public backend {
+  public:
+    std::shared_ptr<reader> current;
+    io_error open(path, open_options, memory_resource*,
+                  io_completion<std::shared_ptr<async_file>> receipt) override {
+      (void)receipt.complete({{}, make_worker_file(current, tasks::inline_executor())});
+      return {};
+    }
+  };
+  tasks::execution_context completion;
+  file_service files{{completion.get_executor()}};
+  auto target = std::make_shared<host>();
+  REQUIRE_FALSE(files.mount("data", target));
+  auto run = [&](range_read_options range, io_errc expected, int reads, bool fail_close = false) {
+    target->current = std::make_shared<reader>();
+    target->current->fail_close = fail_close;
+    auto reading = files.read_range("data/file", range);
+    pump(reading, completion);
+    REQUIRE(reading.result());
+    CHECK(reading.result()->error().value == expected);
+    CHECK(target->current->reads == reads);
+    CHECK(target->current->closes == 1);
+    if (*reading.result() && range.length)
+      CHECK(text(*reading.result()) == "cde");
+  };
+  run({.offset = 2, .length = 3}, io_errc::success, 1);
+  run({.offset = 6, .length = 0}, io_errc::success, 0);
+  run({.offset = 5, .length = 2}, io_errc::out_of_range, 0);
+  run({.offset = UINT64_MAX, .length = 2}, io_errc::out_of_range, 0);
+  run({.length = 4, .max_bytes = 3}, io_errc::limit_exceeded, 0);
+  run({.offset = 2, .length = 3}, io_errc::backend_failure, 1, true);
+}
+TEST_CASE("io - service snapshots inherit notifications and survive service destruction",
+          "[io][file-service]") {
+  tasks::execution_context completion;
+  file_batch batch;
+  {
+    file_service files{{completion.get_executor()}};
+    auto old = make_memory_backend();
+    auto next = make_memory_backend();
+    REQUIRE_FALSE(old->store("data", "old"));
+    REQUIRE_FALSE(next->store("data", "new"));
+    REQUIRE_FALSE(files.mount("assets", old));
+    auto capture = files.snapshot();
+    REQUIRE(capture);
+    batch = std::move(capture.value);
+    REQUIRE(files.unmount("assets"));
+    REQUIRE_FALSE(files.mount("assets", next));
+  }
+  auto reading = batch.read_range("assets/data", {.length = 3});
+  CHECK_FALSE(reading.done());
+  pump(reading, completion);
+  REQUIRE(reading.result());
+  REQUIRE(*reading.result());
+  CHECK(text(*reading.result()) == "old");
+}

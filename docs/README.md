@@ -19,6 +19,8 @@
 
 IO 分层与底层复用见[职责说明](concepts/io-boundaries.md)，不以删除类名替代职责收敛。
 
+普通文件访问统一使用 file_service，固定批次使用 file_batch，迁移说明由 IO 参考维护。
+
 IO 接入从[统一文件访问](reference/io.md)开始；实现宿主后端见[后端协议](reference/io-backends.md)，维护旧工具见[兼容接口](reference/io-legacy.md)。
 
 ## 当前版本

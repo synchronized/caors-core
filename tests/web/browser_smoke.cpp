@@ -3,7 +3,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io/context.h"
+#include "caors/io/file_service.h"
 #include "caors/io/memory_file_system.h"
 #include "caors/registration.h"
 #include "caors/resources.h"
@@ -140,7 +140,7 @@ void tick(void*) {
         config.resource_types.push_back(
             {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
         check(!project.build(config));
-        caors::io::vfs routes;
+        caors::io::file_service routes;
         auto files = caors::io::make_memory_backend();
         check(!files->store("texture", "{}"));
         check(!routes.mount("assets", files));
@@ -159,12 +159,12 @@ void tick(void*) {
       check(value.request.loaded());
       check(!value.assets->database().has_active_operations());
       {
-        caors::io::vfs routes;
+        caors::io::file_service routes{{value.completion.get_executor()}};
         auto memory = caors::io::make_memory_backend();
         check(!memory->store("data", "browser"));
         check(!routes.mount("assets", memory));
-        caors::io::io_context io{routes, {value.completion.get_executor()}};
-        value.context_read = io.read("assets/data");
+        auto& io = routes;
+        value.context_read = io.read_range("assets/data", {.length = 7});
         auto bytes = caors::io::make_byte_buffer();
         bytes.push_back(std::byte{42});
         value.context_write = io.write("assets/extra", std::move(bytes));

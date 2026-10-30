@@ -19,7 +19,7 @@ enum class file_kind {
 struct directory_entry {
   /** @brief 直接子项名称，不包含父目录路径。 */
   caors::io::path name;
-  /** @brief 所属访问入口的路径；io_context 会映射回逻辑目录。 */
+  /** @brief 所属访问入口的路径；file_batch 会映射回逻辑目录。 */
   caors::io::path path;
   /** @brief 子项类型。 */
   file_kind kind = file_kind::file;

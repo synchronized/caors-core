@@ -30,9 +30,9 @@ struct consumer_record {
 
 [[nodiscard]] bool check_owned_io() {
   std::weak_ptr<caors::io::memory_backend> weak;
-  caors::io::vfs_snapshot snapshot;
+  caors::io::file_batch snapshot;
   {
-    caors::io::vfs routes;
+    caors::io::file_service routes{{caors::tasks::inline_executor()}};
     auto memory = caors::io::make_memory_backend();
     if (memory->store("data", "payload") || routes.mount("caors://assets", memory))
       return false;
@@ -46,7 +46,7 @@ struct consumer_record {
   if (weak.expired())
     return false;
   {
-    caors::io::io_context io{std::move(snapshot), {caors::tasks::inline_executor()}};
+    auto io = std::move(snapshot);
     auto reading = io.read("caors://assets/data", {.max_bytes = 7});
     if (!reading.done() || !*reading.result() || reading.result()->value.size() != 7)
       return false;

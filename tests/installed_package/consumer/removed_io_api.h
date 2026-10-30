@@ -32,3 +32,7 @@ static_assert(!old_bounded_read<std::shared_ptr<io::async_file>>);
 static_assert(!old_close<std::shared_ptr<io::async_file>>);
 } // namespace caors::tests::removed_io_api
 #endif
+
+#if __has_include("caors/io/context.h") || __has_include("caors/io/vfs.h")
+#error "Replaced file access headers must not be installed"
+#endif

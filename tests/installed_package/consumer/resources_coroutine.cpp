@@ -3,7 +3,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io/context.h"
+#include "caors/io/file_service.h"
 #include "caors/io/legacy.h"
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
@@ -111,11 +111,11 @@ probe_coroutine wait_for_resource(caors::resources::load_request<consumer_resour
 
 int main() {
   {
-    caors::io::vfs routes;
+    caors::io::file_service routes{{caors::tasks::inline_executor()}};
     auto memory = caors::io::make_memory_backend();
     if (memory->store("data", "installed") || routes.mount("assets", memory))
       return 13;
-    caors::io::io_context io{routes, {caors::tasks::inline_executor()}};
+    auto& io = routes;
     auto reading = io.read("assets/data");
     if (!reading.done() || !*reading.result() || reading.result()->value.size() != 9)
       return 14;
@@ -188,7 +188,7 @@ int main() {
   if (project.bind_file_system(backend_name, files) ||
       project.find_owned_file_system(backend_name) != files)
     return 9;
-  caors::io::vfs routes;
+  caors::io::file_service routes;
   auto backend = caors::io::make_memory_backend();
   if (backend->store("data", payload) || routes.mount("assets", backend))
     return 5;

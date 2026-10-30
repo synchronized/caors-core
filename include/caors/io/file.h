@@ -17,7 +17,7 @@ struct file_read_options {
 struct file_write_options {
   std::uint64_t offset = 0;
 };
-class io_context;
+class file_batch;
 /** @brief 拥有式文件句柄；复制共享文件，显式关闭作用于全部副本，析构非阻塞兜底。 */
 class CAORS_API file {
 public:
@@ -39,7 +39,7 @@ public:
   close(std::function<void(const io_result<close_result>&)> callback = {}) const;
 
 private:
-  friend class io_context;
+  friend class file_batch;
   file(std::shared_ptr<async_file> handle, tasks::executor executor, memory_resource* resource,
        std::uint64_t budget, std::uint64_t write_budget, file_access access)
       : handle_(std::move(handle)), executor_(std::move(executor)), resource_(resource),

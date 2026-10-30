@@ -1,25 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
-#include "caors/io/context.h"
+#include "caors/io/file_service.h"
 #include "caors/io/detail/error.h"
 #include "caors/io/location.h"
 #include "file_requests.h"
 #include "read_operation.h"
 #include "vfs_operations.h"
 namespace caors::io {
-io_context::io_context(const vfs& routes, io_context_options options)
-    : routes_(&routes), options_(std::move(options)) {}
-io_context::io_context(vfs_snapshot snapshot, io_context_options options)
-    : snapshot_(std::move(snapshot)), options_(std::move(options)) {}
-result<backend_location> io_context::resolve(path_view location) const {
-  if (!routes_)
-    return snapshot_.resolve(location);
-  auto snapshot = routes_->snapshot();
-  if (!snapshot)
-    return {snapshot.error(), {}};
-  return snapshot->resolve(location);
-}
-request<file> io_context::open(path_view location, open_options options,
+request<file> file_batch::open(path_view location, open_options options,
                                std::function<void(const io_result<file>&)> callback) const {
   return detail::submit_request<file>(
       options_.completion, std::move(callback),
@@ -61,7 +49,7 @@ request<file> io_context::open(path_view location, open_options options,
       });
 }
 request<byte_buffer>
-io_context::read(path_view location, read_options options,
+file_batch::read(path_view location, read_options options,
                  std::function<void(const io_result<byte_buffer>&)> callback) const {
   return detail::submit_request<byte_buffer>(
       options_.completion, std::move(callback),
@@ -73,8 +61,22 @@ io_context::read(path_view location, read_options options,
                                        options.max_bytes, config.resource, std::move(receipt));
       });
 }
+request<byte_buffer>
+file_batch::read_range(path_view location, range_read_options range,
+                       std::function<void(const io_result<byte_buffer>&)> callback) const {
+  return detail::submit_request<byte_buffer>(
+      options_.completion, std::move(callback),
+      [this, location, range, config = options_](io_completion<byte_buffer> receipt) {
+        auto resolved = resolve(location);
+        if (!resolved)
+          return detail::convert_error(resolved.error());
+        return detail::start_read_file(std::move(resolved.value), config.completion,
+                                       range.max_bytes, config.resource, std::move(receipt),
+                                       file_read_options{range.offset, range.length});
+      });
+}
 request<std::uint64_t>
-io_context::write(path_view location, byte_buffer bytes,
+file_batch::write(path_view location, byte_buffer bytes,
                   std::function<void(const io_result<std::uint64_t>&)> callback) const {
   const auto expected = bytes.size();
   auto lifetime = std::make_shared<std::shared_ptr<backend>>();
@@ -95,7 +97,7 @@ io_context::write(path_view location, byte_buffer bytes,
       lifetime);
 }
 request<file_status>
-io_context::stat(path_view location,
+file_batch::stat(path_view location,
                  std::function<void(const io_result<file_status>&)> callback) const {
   auto lifetime = std::make_shared<std::shared_ptr<backend>>();
   return detail::submit_request<file_status>(
@@ -110,7 +112,7 @@ io_context::stat(path_view location,
       {}, lifetime);
 }
 request<directory_entry_list>
-io_context::list(path_view location,
+file_batch::list(path_view location,
                  std::function<void(const io_result<directory_entry_list>&)> callback) const {
   auto lifetime = std::make_shared<std::shared_ptr<backend>>();
   auto directory = path{location, options_.resource};

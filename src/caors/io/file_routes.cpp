@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
-#include "caors/io/vfs.h"
 #include "caors/core/detail/shared_snapshot.h"
+#include "caors/io/file_service.h"
 #include "caors/io/location.h"
 #include "route_identity.h"
 #include "vfs_operations.h"
@@ -59,9 +59,12 @@ bool same_prefix(const detail::vfs_route& entry, uri_view uri, const core::strin
          entry.prefix == prefix;
 }
 } // namespace
-vfs::vfs(memory_resource* resource) : routes_(std::make_shared<detail::vfs_state>(resource)) {}
-error vfs::mount(uri_view prefix, std::shared_ptr<backend> target, path_view target_prefix,
-                 std::shared_ptr<void> lifetime) {
+file_service::file_service(file_service_options options) {
+  options_ = std::move(options);
+  routes_ = std::make_shared<detail::vfs_state>(options_.resource);
+}
+error file_service::mount(uri_view prefix, std::shared_ptr<backend> target, path_view target_prefix,
+                          std::shared_ptr<void> lifetime) {
   if (!target)
     return {error_domain::io, errc::invalid_argument};
   auto* resource = routes_->resource;
@@ -91,7 +94,7 @@ error vfs::mount(uri_view prefix, std::shared_ptr<backend> target, path_view tar
   }
   return {};
 }
-bool vfs::unmount(uri_view prefix) {
+bool file_service::unmount(uri_view prefix) {
   auto* resource = routes_->resource;
   auto normalized = normalize_path(prefix.path(), resource).to_string(resource);
   std::shared_ptr<const detail::vfs_routes> previous;
@@ -110,7 +113,7 @@ bool vfs::unmount(uri_view prefix) {
   }
   return true;
 }
-void vfs::clear() {
+void file_service::clear() {
   auto empty = std::allocate_shared<detail::vfs_routes>(
       allocator<detail::vfs_routes>{routes_->resource}, routes_->resource);
   std::shared_ptr<const detail::vfs_routes> previous;
@@ -120,16 +123,24 @@ void vfs::clear() {
     routes_->routes.store(std::move(empty));
   }
 }
-std::size_t vfs::mount_count() const noexcept { return routes_->routes.load()->entries.size(); }
-result<vfs_snapshot> vfs::snapshot() const { return {{}, vfs_snapshot{routes_->routes.load()}}; }
-result<backend_location> vfs_snapshot::resolve(path_view location) const {
-  if (!routes_)
+std::size_t file_service::mount_count() const noexcept {
+  return routes_->routes.load()->entries.size();
+}
+result<file_batch> file_service::snapshot() const {
+  file_batch batch;
+  batch.snapshot_ = routes_->routes.load();
+  batch.options_ = options_;
+  return {{}, std::move(batch)};
+}
+result<backend_location> file_batch::resolve(path_view location) const {
+  auto routes = routes_ ? routes_->routes.load() : snapshot_;
+  if (!routes)
     return {{error_domain::io, errc::invalid_argument}, {}};
   const uri_view uri{location};
-  auto normalized = normalize_path(uri.path(), routes_->resource).to_string(routes_->resource);
+  auto normalized = normalize_path(uri.path(), routes->resource).to_string(routes->resource);
   const std::string_view value{normalized.data(), normalized.size()};
   const detail::vfs_route* selected = nullptr;
-  for (const auto& entry : routes_->entries) {
+  for (const auto& entry : routes->entries) {
     const std::string_view prefix{entry.prefix.data(), entry.prefix.size()};
     if (entry.scheme != uri.scheme() || entry.authority != uri.authority())
       continue;
@@ -149,6 +160,6 @@ result<backend_location> vfs_snapshot::resolve(path_view location) const {
   if (!target.empty() && !suffix.empty())
     target.push_back('/');
   target.append(suffix.begin(), suffix.end());
-  return {{}, {selected->target, path{path_view{target}, routes_->resource}, selected->source_id}};
+  return {{}, {selected->target, path{path_view{target}, routes->resource}, selected->source_id}};
 }
 } // namespace caors::io

@@ -9,7 +9,7 @@
 ## 路由与后端边界
 
 实现 `io::backend::open(path, options, resource, completion)`，只接收后端相对路径，
-不管理挂载或用户通知执行器；通过 vfs.mount 挂载后，由 io_context 负责访问和通知。
+不管理挂载或用户通知执行器；通过 file_service.mount 挂载后，由 file_service 负责访问和通知。
 必须验证访问权限与创建选项；默认只读已有文件，可写创建/截断必须显式选择。
 可选 write/stat/list 缺省 unsupported，不用同步回退掩盖未支持能力。
 
@@ -28,7 +28,7 @@ size 对只读保持打开长度，对可写反映本句柄已成功写入的扩
 
 ## 异步文件与精确范围
 
-普通访问统一使用 io_context.open 与 file.read/write/close；不再公开独立的打开、读取、关闭请求函数。
+普通访问统一使用 file_service.open 与 file.read/write/close；不再公开独立的打开、读取、关闭请求函数。
 后端通过 async_file 的 start_read/start_write/start_close 接收实际操作和完成凭证。
 VFS 打开结果在内部保留解析来源的寿命与 source_id；宿主仍须持有 loop、原生句柄和 allocator 至真实清理。
 完整加载示例见 [assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。

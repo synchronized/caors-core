@@ -5,20 +5,19 @@
 
 本页维护普通文件访问的当前 API：统一异步操作、文件句柄和虚拟路由，为资源系统、配置及宿主来源接入提供底座。
 分层与底层实现复用见[IO 职责说明](../concepts/io-boundaries.md)。
-新文件访问优先使用下方 vfs/io_context；旧 file_system、路由器及同步流保留为迁移兼容与工具能力，使用时显式包含 `caors/io/legacy.h` 或对应单头。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
+新文件访问优先使用下方 file_service；旧 file_system、路由器及同步流保留为迁移兼容与工具能力，使用时显式包含 `caors/io/legacy.h` 或对应单头。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
 
 ## VFS 与统一文件访问
 
-推荐入口包含四个概念：vfs 配置挂载，io_context 配置完成调度，file 持有打开文件，request 持有操作控制及结果。
-公共聚合头 `caors/io.h` 和 `caors/io/context.h` 不包含旧 file_system/resolver 或原始文件协议定义，后端协议见 `caors/io/backend.h`。
+普通调用使用 file_service 与 request；重复访问使用 file，固定批次使用 file_batch。服务拥有挂载及完成配置。
+公共聚合头 `caors/io.h` 和 `caors/io/file_service.h` 不包含旧 file_system/resolver 或原始文件协议定义，后端协议见 `caors/io/backend.h`。
 完整可运行示例见 [vfs_basic.cpp](../../examples/beta/vfs_basic.cpp)。
 
 ```cpp
-io::vfs files;
+io::file_service files{{.completion = main_executor, .resource = resource}};
 files.mount("assets://game", io::make_native_backend("assets", worker));
-io::io_context io{files, {.completion = main_executor, .resource = resource}};
-auto reading = io.read("assets://game/hero.png", {.max_bytes = 8 * 1024 * 1024}, on_bytes);
-auto opening = io.open("assets://game/base.pack", {.access = io::file_access::read}, on_open);
+auto reading = files.read("assets://game/hero.png", {.max_bytes = 8 * 1024 * 1024}, on_bytes);
+auto opening = files.open("assets://game/base.pack", {.access = io::file_access::read}, on_open);
 ```
 
 这是接入片段，须检查 mount 返回值，并持有 reading/opening 至所需通知结束；两次操作相互独立。
@@ -34,27 +33,28 @@ request 的布尔值仅表示有效句柄，不表示成功；done/result 查看
 读取必须读满范围，短读失败；只写句柄拒绝读取，只读句柄拒绝写入，包括空范围。
 只读 size 为打开时长度；可写 size 包含本句柄已成功写入的扩展，不追踪外部修改。复制共享关闭状态，显式 close 作用于全部副本，析构非阻塞兜底。
 
-io_context.read 组合打开、有界整文件读取、关闭；资源 byte_reader 复用同一内部状态机。
+file_service.read 组合打开、有界整文件读取、关闭；资源 byte_reader 复用同一内部状态机。
 读取的中间 IO 结果只读，交付前复制，结果峰值约为两份预算，另有后端和状态开销，预算不是全局在途限制。
 只读阶段取消在步骤边界观察，不承诺强制终止在途读取；open 的协作取消会传递至后端完成凭证。
 
-vfs 只配置挂载，不继承 backend。挂载拥有 backend 和可选 lifetime，已有请求与快照不受 unmount/clear 影响。
+file_service 拥有挂载和完成配置，不继承 backend。挂载拥有 backend 和可选 lifetime，已有请求与快照不受 unmount/clear 影响。
 make_native_backend 在构造时绑定可阻塞 worker；make_memory_backend 提供内存后端，store 用于配置内存数据。
 后端实现只实现 `backend::open` 并绑定自己的 loop/worker，不负责公共路由和用户完成调度。
 URI/普通路径按 scheme、authority 和最长完整路径前缀匹配；重复前缀不替换已有挂载。
 VFS 自身维护不可变路由表，快照共享当时的表，普通访问直接调用 backend，不再经过旧 file_system/resolver。
 资源快照直接保存后端位置，不再把新 VFS 包装为旧 file_system；兼容 file_source、配置、同步保存及内置后端仍复用旧实现。
 
-活跃 vfs 构造的 context 借用配置用于后续调用，每次发起捕获稳定路由；如需固定整批路由：
+服务每次发起请求时固定路由；如需固定整批路由并沿用调度配置：
 
 ```cpp
 auto snapshot = files.snapshot();
 // 检查 snapshot 成功后构造批次访问入口。
-io::io_context batch{std::move(snapshot.value), {.completion = main_executor}};
+auto batch = std::move(snapshot.value);
+auto reading = batch.read("assets://game/a.json");
 ```
 
 snapshot 固定路由、后端与 lifetime，不冻结磁盘内容或任意后端可变状态。
-allocator 和 executor/宿主循环必须覆盖真实操作及结果清理；vfs 的 allocator 也须覆盖仍持有的快照。
+allocator 和 executor/宿主循环必须覆盖真实操作及结果清理；服务的 allocator 也须覆盖仍持有的快照。
 
 新主线另提供 `io.write(path, byte_buffer, callback)`、`io.stat(path, callback)` 和
 `io.list(path, callback)`，同样返回单层 request，不逐次传 executor。
@@ -82,7 +82,7 @@ close 立即拒绝新操作，并等待此前已接受读写完成实际清理�
 
 ## 路径与元数据
 
-`io_context::stat()` 返回 `file_status`，第一版只定义通用基础字段：
+`file_service::stat()` 返回 `file_status`，第一版只定义通用基础字段：
 
 - `kind`：文件或目录。
 - `size` / `has_size`：文件字节大小。目录、虚拟目录或无法查询大小的后端可以不提供。
@@ -167,15 +167,29 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 
 | 旧入口 | 当前替代 |
 | --- | --- |
-| request_open | io_context.open |
-| request_open_on_worker | 构造 backend 时绑定 worker，再通过 io_context.open 打开 |
+| request_open | file_service.open |
+| request_open_on_worker | 构造 backend 时绑定 worker，再通过 file_service.open 打开 |
 | request_read | file.read；预算与完成调度在打开时绑定 |
-| read_all_bounded | 路径整体读取用 io_context.read；已有句柄用 file.read({0, file.size()}) |
+| read_all_bounded | 路径整体读取用 file_service.read；已有句柄用 file.read({0, file.size()}) |
 | request_close | file.close |
 
 普通操作直接返回单层 request，发起失败也通过请求查询或完成通知报告，不再检查外层 io_result<request>。
-如果要保持旧批次来源，使用拥有式 VFS 快照构造 io_context；资源 loader 使用捕获的来源与 request_bytes，
+如果要保持旧批次来源，调用服务 snapshot 得到 file_batch；资源 loader 使用捕获的来源与 request_bytes，
 不把已经解析的来源重新投给活跃路由。详细字节协议见[资源参考](resources.md#统一字节读取适配)。
 库内部仍复用有界读取与关闭编排，但对应头仅位于 src，不安装为调用方接口。
 
 本批属于破坏性接口删除，库与调用方须统一重编译；安装到干净前缀，避免保留已删除的内部头。
+
+## 统一服务迁移
+
+原公共 io::vfs、io_context、vfs_snapshot 及 context.h/vfs.h 已删除，无兼容别名。
+普通访问直接构造 file_service(options)，调用 mount、read、read_range、write、stat、list。
+file_service 不可复制或移动；file_batch 可以复制，与服务销毁和后续挂载更新独立。
+read_range(path, {.offset, .length, .max_bytes}, callback) 使用默认 64 MiB 结果预算，
+精确范围越界或预算失败仍关闭已打开文件；读取成功后的关闭失败也报告失败。
+零长度只允许 offset 不超过打开长度；不通过 offset + length 计算越界，避免整数溢出。
+
+服务和批次使用同一组访问实现；旧路由算法作为内部实现复用，不再公开独立的挂载配置类型。
+所有路径请求只在发起期间访问服务，已接受请求拥有后端。服务析构不等待、不销毁外部执行器，
+也不取消尚存句柄的请求；分配器、宿主循环和通知执行器须覆盖实际操作与清理。
+普通操作不要求手动 dispatch 或 shutdown，完成投递仍遵守所配置 executor 的契约。

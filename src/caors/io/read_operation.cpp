@@ -10,6 +10,7 @@ struct read_context {
   tasks::executor worker;
   std::uint64_t max_bytes;
   memory_resource* resource;
+  std::optional<file_read_options> range;
 };
 struct read_operation {
   read_context context;
@@ -35,31 +36,34 @@ void close(const std::shared_ptr<read_operation>& op) {
     op->closing = std::move(closed.value);
 }
 void begin_read(const std::shared_ptr<read_operation>& op) {
-  auto reading = io::detail::read_file_bounded(
-      op->file, op->context.max_bytes, op->context.worker,
-      [op](const auto& bytes) {
+  auto on_read = [op](const auto& bytes) {
 #if CAORS_HAS_EXCEPTIONS
-        try {
+    try {
 #endif
-          if (op->completion.stop_token().stop_requested()) {
-            op->result.status = {io::io_errc::cancelled};
-          } else if (!bytes) {
-            op->result.status = bytes.error();
-          } else {
-            auto owned = io::make_byte_buffer(op->context.resource);
-            owned.assign(bytes.value.begin(), bytes.value.end());
-            op->result.value = std::move(owned);
-          }
+      if (op->completion.stop_token().stop_requested()) {
+        op->result.status = {io::io_errc::cancelled};
+      } else if (!bytes) {
+        op->result.status = bytes.error();
+      } else {
+        auto owned = io::make_byte_buffer(op->context.resource);
+        owned.assign(bytes.value.begin(), bytes.value.end());
+        op->result.value = std::move(owned);
+      }
 #if CAORS_HAS_EXCEPTIONS
-        } catch (const std::bad_alloc&) {
-          op->result.status = {io::io_errc::out_of_memory};
-        } catch (...) {
-          op->result.status = {io::io_errc::backend_failure};
-        }
+    } catch (const std::bad_alloc&) {
+      op->result.status = {io::io_errc::out_of_memory};
+    } catch (...) {
+      op->result.status = {io::io_errc::backend_failure};
+    }
 #endif
-        close(op);
-      },
-      op->context.resource);
+    close(op);
+  };
+  auto reading =
+      op->context.range
+          ? read_file(op->file, op->context.range->offset, op->context.range->length,
+                      op->context.max_bytes, op->context.worker, on_read, op->context.resource)
+          : read_file_bounded(op->file, op->context.max_bytes, op->context.worker, on_read,
+                              op->context.resource);
   if (!reading) {
     op->result.status = reading.error();
     close(op);
@@ -69,8 +73,9 @@ void begin_read(const std::shared_ptr<read_operation>& op) {
 }
 io_error start_read_file_impl(backend_location source, tasks::executor executor,
                               std::uint64_t max_bytes, memory_resource* resource,
-                              io_completion<byte_buffer> completion) {
-  read_context context{std::move(executor), max_bytes, resource};
+                              io_completion<byte_buffer> completion,
+                              std::optional<file_read_options> range) {
+  read_context context{std::move(executor), max_bytes, resource, range};
   if (!source.backend || !context.worker)
     return {io::io_errc::invalid_argument};
   auto op = std::make_shared<read_operation>();
@@ -98,8 +103,9 @@ io_error start_read_file_impl(backend_location source, tasks::executor executor,
 }
 } // namespace
 io_error start_read_file(backend_location source, tasks::executor executor, std::uint64_t max_bytes,
-                         memory_resource* resource, io_completion<byte_buffer> completion) {
+                         memory_resource* resource, io_completion<byte_buffer> completion,
+                         std::optional<file_read_options> range) {
   return start_read_file_impl(std::move(source), std::move(executor), max_bytes, resource,
-                              std::move(completion));
+                              std::move(completion), range);
 }
 } // namespace caors::io::detail

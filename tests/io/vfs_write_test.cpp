@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 #include "caors/io/async_file.h"
-#include "caors/io/context.h"
+#include "caors/io/file_service.h"
 #include "caors/tasks/execution_context.h"
 #include <algorithm>
 #include <cstdio>
@@ -53,9 +53,9 @@ TEST_CASE("io - writable worker drains accepted work before shared close", "[io]
   tasks::execution_context worker, completion;
   auto target = std::make_shared<writer_backend>();
   target->worker = worker.get_executor();
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   REQUIRE_FALSE(routes.mount("data", target));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto opening = io.open("data/file", {.access = file_access::write});
   for (int i = 0; i < 8 && !opening.done(); ++i)
     (void)completion.drain();
@@ -104,11 +104,11 @@ TEST_CASE("io - writable worker drains accepted work before shared close", "[io]
 
 TEST_CASE("io - writable memory open shares close and publishes bounded ranges",
           "[io][vfs-context]") {
-  vfs routes;
+  tasks::execution_context completion;
+  file_service routes{{completion.get_executor()}};
   auto backend = make_memory_backend();
   REQUIRE_FALSE(routes.mount("data", backend));
-  tasks::execution_context completion;
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto rejected = io.open("data/missing", {.access = file_access::write});
   pump(rejected, completion);
   REQUIRE(rejected.result());
@@ -205,9 +205,9 @@ TEST_CASE("io - native writable open does not truncate existing unless explicitl
     output << "abc";
   }
   tasks::execution_context worker, completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   REQUIRE_FALSE(routes.mount("data", make_native_backend(root.string(), worker.get_executor())));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto drain = [&](auto& value) {
     for (int i = 0; i < 32 && !value.done(); ++i) {
       (void)worker.drain();
@@ -253,9 +253,9 @@ TEST_CASE("io - Emscripten native adapter writes virtual filesystem through an e
     ~cleanup() { (void)std::remove("caors-web-write.bin"); }
   } guard;
   tasks::execution_context worker, completion;
-  vfs routes;
+  file_service routes{{completion.get_executor()}};
   REQUIRE_FALSE(routes.mount("data", make_native_backend({}, worker.get_executor())));
-  io_context io{routes, {completion.get_executor()}};
+  auto& io = routes;
   auto drain = [&](auto& value) {
     for (int i = 0; i < 16 && !value.done(); ++i) {
       (void)worker.drain();

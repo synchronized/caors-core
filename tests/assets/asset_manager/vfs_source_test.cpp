@@ -7,7 +7,7 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
           "[assets][vfs-context]") {
   require_serialized_resource_metadata();
   caors::tasks::execution_context worker, completion;
-  caors::io::vfs routes;
+  caors::io::file_service routes;
   auto old = caors::io::make_memory_backend();
   auto next = caors::io::make_memory_backend();
   REQUIRE_FALSE(old->store("data", R"({"width":111})"));
@@ -57,7 +57,7 @@ TEST_CASE("assets - source snapshot retains exact backend and pin without legacy
   std::shared_ptr<const caors::resources::provider_snapshot> captured;
   caors::io::backend* original = nullptr;
   {
-    caors::io::vfs routes;
+    caors::io::file_service routes;
     auto backend = caors::io::make_memory_backend();
     original = backend.get();
     backend_lifetime = backend;

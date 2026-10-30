@@ -19,5 +19,11 @@ struct open_options {
 struct read_options {
   std::uint64_t max_bytes = 64 * 1024 * 1024;
 };
+/** @brief 一次范围读取及结果预算；成功或失败均自动关闭已打开文件。 */
+struct range_read_options {
+  std::uint64_t offset = 0;
+  std::uint64_t length = 0;
+  std::uint64_t max_bytes = 64 * 1024 * 1024;
+};
 } // namespace caors::io
 #endif

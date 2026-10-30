@@ -7,20 +7,20 @@
 #include <iostream>
 
 int main() {
-  caors::io::vfs routes;
+  caors::tasks::execution_context completion;
+  caors::io::file_service files{{completion.get_executor()}};
   auto memory = caors::io::make_memory_backend();
   const std::string text(100000, 'x');
-  if (memory->store("payload", text) || routes.mount("assets", memory))
+  if (memory->store("payload", text) || files.mount("assets", memory))
     return 1;
-  caors::tasks::execution_context completion;
-  caors::io::io_context io{routes, {completion.get_executor()}};
+
   // 此 CLI 示例使用即时内存后端，只排空本地通知；宿主实际接入应由自身事件循环推进。
   auto finish = [&](auto& request) {
     for (int frame = 0; frame < 32 && !request.done(); ++frame)
       (void)completion.drain();
     return request.result() && static_cast<bool>(*request.result());
   };
-  auto opening = io.open("assets/payload", {.max_read_bytes = 4096});
+  auto opening = files.open("assets/payload", {.max_read_bytes = 4096});
   if (!finish(opening))
     return 2;
   auto file = opening.result()->value;
@@ -38,7 +38,7 @@ int main() {
   auto closing = file.close();
   if (!finish(closing))
     return 5;
-  auto all = io.read("assets/payload", {.max_bytes = text.size()});
+  auto all = files.read("assets/payload", {.max_bytes = text.size()});
   if (!finish(all) || all.result()->value.size() != text.size())
     return 6;
   std::cout << "consumed " << consumed << " bytes; aggregation " << all.result()->value.size()

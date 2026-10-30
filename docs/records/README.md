@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [统一文件服务](2026-10-30-file-service.md)：服务统一挂载与访问、批次继承配置、自动关闭范围读取，本机验证通过，平台 CI 待验收。
+
 - [资源后端快照迁移](2026-10-23-resource-backend-snapshots.md)：快照及字节读取直接使用 backend_location，新 VFS 传输桥删除；本机及 Linux/Windows/Web 平台验收通过。
 
 - [VFS 路由独立](2026-10-22-vfs-independent-routing.md)：新路由及普通访问脱离旧文件系统，本机及 Linux/Windows/Web 验收通过；后续范围按职责收敛计划推进。

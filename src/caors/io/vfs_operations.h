@@ -3,12 +3,12 @@
 #ifndef CAORS_IO_DETAIL_VFS_OPERATIONS_H_
 #define CAORS_IO_DETAIL_VFS_OPERATIONS_H_
 #include "caors/io/backend.h"
-#include "caors/io/vfs.h"
+#include "caors/io/file_service.h"
 namespace caors::io::detail {
-// 资源边界可解析固定快照，普通调用仍由 io_context 封装。
+// 资源边界可解析固定快照，普通调用仍由 file_service 封装。
 class vfs_access {
 public:
-  static result<backend_location> resolve(const vfs_snapshot& snapshot, path_view path) {
+  static result<backend_location> resolve(const file_batch& snapshot, path_view path) {
     return snapshot.resolve(path);
   }
 };

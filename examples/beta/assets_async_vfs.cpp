@@ -66,7 +66,7 @@ int run_example() {
   caors::tasks::execution_context completion;
   caors::resources::cache<text_asset> cache;
   text_loader loader;
-  caors::io::vfs files;
+  caors::io::file_service files;
   auto memory = caors::io::make_memory_backend();
   if (memory->store("hello", "hello VFS"))
     return 1;

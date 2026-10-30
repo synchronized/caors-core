@@ -1562,7 +1562,7 @@ TEST_CASE("assets - JSON factory uses native backend bound to a worker", "[asset
   REQUIRE_FALSE(caors::assets::json::load_project_config(config, make_project_config_json()));
   caors::tasks::execution_context worker;
   caors::tasks::execution_context completion;
-  caors::io::vfs routes;
+  caors::io::file_service routes;
   REQUIRE_FALSE(routes.mount(
       "local", caors::io::make_native_backend(path_string(directory), worker.get_executor())));
   caors::resources::vfs_source source{routes};

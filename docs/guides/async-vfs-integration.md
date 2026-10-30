@@ -10,8 +10,8 @@
 ## 新的 backend 接入
 
 新代码可以实现 `io::backend::open(path, open_options, resource, completion)` 并绑定自己的宿主 loop，
-再通过 `io::vfs::mount(prefix, shared_backend, target_prefix, lifetime)` 挂载。
-调用方使用 `io_context` 的单层 request，普通访问不接触 file_system、resolve_owned 或 start_io。
+再通过 `io::file_service::mount(prefix, shared_backend, target_prefix, lifetime)` 挂载。
+调用方使用 `file_service` 的单层 request，普通访问不接触 file_system、resolve_owned 或 start_io。
 后端接受后必须完成或销毁凭证，拒绝时不能保留；完成后须清理宿主操作并释放其凭证，不能将后端永久保存在自己的完成状态中；实际文件沿用 async_file 的范围读取、可选 start_write 与关闭协议，实现该协议时显式包含 `caors/io/async_file.h`，普通调用方不需要该头。
 完成凭证的 stop_token 用于观察协作取消，不能把请求取消理解成真实 I/O 已清理。
 
@@ -32,7 +32,7 @@
    交给 resources::request_bytes 与 file_byte_reader。不要为了使用新入口而从活跃 VFS 再解析一次，改变在途来源。
    新后端构造时绑定 worker；file_byte_reader 与 JSON loader 不再选择读取模式，不作同步回退。
 6. file_byte_reader 统一编排打开、限量读取与关闭，宿主须维持真实 I/O 和关闭清理所需循环与凭据。
-   普通文件访问通过 io_context.open 得到 file，并显式 file.close；来源切换使用 remount 加明确 reload。
+   普通文件访问通过 file_service.open 得到 file，并显式 file.close；来源切换使用 remount 加明确 reload。
 
 可运行的 manager → loader → 快照 → 读取/关闭示例见
 [assets_async_vfs.cpp](../../examples/beta/assets_async_vfs.cpp)。来源可同时提供同步与异步能力，
