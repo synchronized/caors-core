@@ -6,7 +6,7 @@
 ## 范围与环境
 
 2026-10-31，feature/resource-source-boundary，PR #58，本记录与实现同批提交。
-本机为 Windows Clang Debug 共享库与 Emscripten 静态库，Chrome 155.0.8059.85。
+本机为 Windows Clang Debug 共享库与 Emscripten 静态库，Chrome 156.0.8078.48。
 范围由[VFS 计划](../plans/vfs-api-consolidation.md)维护，当前用法见[文件服务来源](../reference/assets.md#文件服务来源)。
 
 project_builder.bind_source(name, file_service) 复用现有来源表，按绑定持有适配对象，不进入通用长期对象列表。
@@ -38,6 +38,14 @@ provider.unbind_source(source) 是按来源移除 GUID 的通用操作，不依�
 
 ## 平台与 PR 收尾
 
-平台 CI 待最终提交运行，不提前记为通过。
-最终平台结果通过后复核 PR 范围、迁移说明与保留能力，并转为可评审状态；不自动合并或发布。
+实现提交 1fafbad0c4b52d856d32865b4db8c315ac0bde31 的平台检查全部成功：
+
+- [Linux](https://github.com/synchronized/caors-core/actions/runs/41089923761)：Clang 动态/静态、GCC、ASan、UBSan 五组成功。
+- [Windows](https://github.com/synchronized/caors-core/actions/runs/41089936110)：Clang 动态/静态与 MSVC 三组成功。
+- [Emscripten](https://github.com/synchronized/caors-core/actions/runs/41089953168)：公共头、Node 协议及真实浏览器成功。
+
+后续文档收尾不改实现，未绕过失败检查。
+已复核最终 PR 范围、用户迁移、示例及同步能力保留条件，满足转为可评审的条件；
+[PR #58](https://github.com/synchronized/caors-core/pull/58) 的评审状态由 GitHub 维护，不在文档复制状态。
+不自动合并或发布。
 此批完成已确认的服务绑定和异步配置消费，不声称同步工具路由已经删除。
