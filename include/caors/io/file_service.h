@@ -21,8 +21,6 @@ struct file_service_options {
 class CAORS_API file_batch {
 public:
   file_batch() = default;
-  file_batch(const file_service&) = delete;
-  file_batch& operator=(const file_service&) = delete;
   /** @brief 按权限及创建选项异步打开文件，返回单层请求；错误通过同一调度交付或句柄查询。 */
   [[nodiscard]] request<file> open(path_view location, open_options options = {},
                                    std::function<void(const io_result<file>&)> callback = {}) const;

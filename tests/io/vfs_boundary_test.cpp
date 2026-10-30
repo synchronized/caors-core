@@ -22,3 +22,12 @@ static_assert(
     std::is_same_v<decltype(caors::resources::read_context::source), caors::io::backend_location>);
 
 static_assert(!std::is_convertible_v<const caors::io::file_service&, const caors::io::file_batch&>);
+
+static_assert(!std::is_assignable_v<caors::io::file_batch&, const caors::io::file_service&>);
+namespace {
+// 公共值类型须支持空值复位，避免删除重载干扰 GCC 的花括号赋值解析。
+[[maybe_unused]] void reset_batch(caors::io::file_batch& batch) {
+  batch = {};
+  batch = caors::io::file_batch{};
+}
+}

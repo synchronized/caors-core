@@ -105,3 +105,16 @@ vfs_source 的 snapshot_bridge/backend_bridge 已删除，新挂载后端直接�
 本批需迁移资源来源、示例、安装和真实 Web 消费，补充范围边界、失败关闭、批次独立寿命验证。
 
 本批实现与本机验证已完成，平台 CI 待验收，见[统一服务记录](../records/2026-10-30-file-service.md)。
+
+## 旧配置路由审计
+
+当前 project_config.file_systems 的 resolver/mount 工厂由 asset_manager 创建同步路由，
+bind_file_system/file_source 仍服务于配置读取、同步 loader、JSON saver 和文件工具。
+这些调用需要同步流，不能将其直接指向异步 file_service 后以阻塞等待实现。
+新资源路径已通过 file_service + 命名 vfs_source 接入，同一个资源配置不应再复制一套旧路由图。
+
+后续装配收敛优先评估 builder 直接绑定既有服务为命名来源：复用现有 source 绑定表，
+由工程拥有适配对象、借用服务到捕获结束，使普通调用者无需手工维护 vfs_source 的寿命。
+这是待实施方案，不新增第二套挂载配置表，也不改变现有配置 schema。
+旧 resolver/mount 仅在真实同步消费迁完后再收缩；同步保存验证仍是删除条件。
+本次先修复 GCC 门禁，未将上述装配迁移记为已完成。

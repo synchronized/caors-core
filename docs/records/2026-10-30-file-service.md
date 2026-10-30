@@ -39,3 +39,17 @@ file_service 直接拥有挂载状态和调度配置，file_batch 提供固定�
 本批不增加手动 dispatch/shutdown 或全局在途预算，也不改变文件内容可变性。
 旧配置和同步工具路由仍需后续审计，不宣称整体 IO 兼容迁移完成；不以删除 file_system 为验收条件。
 PR 保持草稿，不合并或发布，不修改现有标签。
+
+## GCC 编译门禁修复
+
+8574f0f0 的 [Windows](https://github.com/synchronized/caors-core/actions/runs/41067937214) 和
+[Web](https://github.com/synchronized/caors-core/actions/runs/41067943838) 成功。
+[Linux](https://github.com/synchronized/caors-core/actions/runs/41067930643) 四组成功，GCC 构建失败：
+file_batch = {} 同时匹配普通赋值与多余的已删除 service 赋值重载。
+移除两个多余的删除声明，私有继承继续禁止 service 转成固定批次；没有改写调用来隐藏歧义。
+公共边界编译回归新增空值复位及禁止 service 赋值检查。
+
+修复后 Windows Clang 的 16 组相关回归与 IO 通过，公共头及边界探针编译通过。
+本机 GCC 太旧，不支持完整 C++20；以独立的 C++17 语言用例重现修复前失败、修复后通过，
+不能将其记为完整 GCC 库构建。日志为 build/batch-{before,after}-gcc.log，
+完整 GCC 验证交由修复提交的 Linux CI。修复只涉及编译期声明，不重复 Windows/Web 完整矩阵。
