@@ -53,3 +53,17 @@ file_batch = {} 同时匹配普通赋值与多余的已删除 service 赋值重�
 本机 GCC 太旧，不支持完整 C++20；以独立的 C++17 语言用例重现修复前失败、修复后通过，
 不能将其记为完整 GCC 库构建。日志为 build/batch-{before,after}-gcc.log，
 完整 GCC 验证交由修复提交的 Linux CI。修复只涉及编译期声明，不重复 Windows/Web 完整矩阵。
+
+## 最终验收
+
+修复提交 53c8d4d5764de7eea72e93e601e73508cc3681b9 的
+[Linux CI](https://github.com/synchronized/caors-core/actions/runs/41071639885) 五组全部成功，
+包括完整 GCC C++20 构建、测试、安装消费，以及 Clang 动态/静态、ASan、UBSan。
+此前失败的 GCC 检查保留为历史证据，由本次修复与成功检查闭环，未绕过失败。
+
+Windows/Web 的运行期实现验证对应 8574f0f0，链接见上节；本次仅移除两个多余编译期声明，
+补充复位编译回归，并完成 Windows Clang 本机相关回归，未重复这两平台的完整矩阵。
+各平台证据不冒充同一提交的重复全量验收。本批统一文件服务验收通过，整体旧配置迁移仍未完成。
+
+SSH 推送认证失败后使用现有 gh 登录经 HTTPS 推送；GitHub 数字工作流调度与 GraphQL 曾返回 500，
+最终通过文件名工作流 REST API 启动验证，PR 使用 REST 更新。未改仓库远端地址或公开标签。
