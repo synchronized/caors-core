@@ -11,7 +11,7 @@ Windows Clang Debug 共享库、Emscripten 静态构建，Chrome 155.0.8059.85�
 
 file_service 直接拥有挂载状态和调度配置，file_batch 提供固定路由访问并继承服务配置。
 普通访问、批次与资源捕获共用原后端及不可变路由表，不再公开 vfs/io_context/vfs_snapshot 和两个旧公共头。
-服务与批次共用访问实现，禁止通过服务值复制形成未固定的批次；服务不可复制/移动。
+服务与批次共用访问实现，禁止通过服务值复制或引用转换形成未固定的批次；服务不可复制/移动。
 范围读取复用原打开、读取、关闭状态机，参数为 offset、length、max_bytes，成功和失败均清理已打开文件。
 实现源文件归为 file_service.cpp 和 file_routes.cpp。同步 file_system、流和实际后端实现保留。
 
@@ -30,11 +30,12 @@ file_service 直接拥有挂载状态和调度配置，file_batch 提供固定�
 原路由并发更新、精确后端身份、取消、队列拒绝/丢弃、写入与插件寿命测试继续保留。
 迁移中发现旧装配的变量声明顺序及示例别名需要调整；构建文件随实现文件改名重新生成后验证通过。
 
-日志为本机 build/file-service-{native,special,installed,headers,web,browser}.log，不作为公开制品。
+日志为本机 build/file-service-{native,special,installed,headers,web,browser}-final.log，不作为公开制品。
 
 ## 剩余验证与范围
 
-平台 CI 待最终提交后运行，不能沿用此前批次的绿色结果。
+补充批次转换边界后已重跑本机验证。首轮 14104aaa 的 Web 成功，Linux/Windows 随接口修正取消；
+该轮结果不计入最终验收，平台 CI 须在修正后的最终提交重新运行。
 本批不增加手动 dispatch/shutdown 或全局在途预算，也不改变文件内容可变性。
 旧配置和同步工具路由仍需后续审计，不宣称整体 IO 兼容迁移完成；不以删除 file_system 为验收条件。
 PR 保持草稿，不合并或发布，不修改现有标签。

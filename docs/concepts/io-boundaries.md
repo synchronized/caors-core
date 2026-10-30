@@ -16,13 +16,12 @@
 ## 当前依赖
 
 ```text
-普通调用方 → file_service / file → backend / async_file
-                 ↓                  ↓
-           file_service / file_batch    本地或内存实现、宿主 loop
-                                    ↓（内置后端）
-                           native_file_system / memory_file_system
+普通调用方 → file_service → backend / async_file → 本地或内存实现、宿主 loop
+                 │                   ↑
+                 └─ snapshot → file_batch（固定挂载与通知配置）
 
-兼容工具 / 同步保存 → source / file_system → 同一批本地或内存实现
+内置异步后端 → native_file_system / memory_file_system
+同步工具/保存 ────────────→ 同一批本地或内存实现
 ```
 
 服务内部路由使用自己的不可变挂载表，快照固定路由并保活后端；普通访问不经过旧 resolver。

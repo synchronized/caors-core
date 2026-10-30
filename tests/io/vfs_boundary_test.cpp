@@ -20,3 +20,5 @@ static_assert(!std::is_constructible_v<caors::io::file_batch, const caors::io::f
 #endif
 static_assert(
     std::is_same_v<decltype(caors::resources::read_context::source), caors::io::backend_location>);
+
+static_assert(!std::is_convertible_v<const caors::io::file_service&, const caors::io::file_batch&>);

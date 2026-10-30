@@ -184,7 +184,8 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 
 原公共 io::vfs、io_context、vfs_snapshot 及 context.h/vfs.h 已删除，无兼容别名。
 普通访问直接构造 file_service(options)，调用 mount、read、read_range、write、stat、list。
-file_service 不可复制或移动；file_batch 可以复制，与服务销毁和后续挂载更新独立。
+file_service 不可复制或移动，也不能隐式当作固定批次；只有 snapshot 生成固定的 file_batch。
+file_batch 可以复制，与服务销毁和后续挂载更新独立。
 read_range(path, {.offset, .length, .max_bytes}, callback) 使用默认 64 MiB 结果预算，
 精确范围越界或预算失败仍关闭已打开文件；读取成功后的关闭失败也报告失败。
 零长度只允许 offset 不超过打开长度；不通过 offset + length 计算越界，避免整数溢出。

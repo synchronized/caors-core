@@ -58,8 +58,14 @@ private:
 /** @brief 统一文件服务，拥有挂载及完成配置；在途操作与捕获批次可独立于服务继续清理。
  * @note 挂载更新可与请求捕获并发；后端线程约束独立。析构不阻塞，借用执行环境须覆盖真实清理。
  */
-class CAORS_API file_service final : public file_batch {
+class CAORS_API file_service final : private file_batch {
 public:
+  using file_batch::list;
+  using file_batch::open;
+  using file_batch::read;
+  using file_batch::read_range;
+  using file_batch::stat;
+  using file_batch::write;
   explicit file_service(file_service_options options = {});
   file_service(const file_service&) = delete;
   file_service& operator=(const file_service&) = delete;
