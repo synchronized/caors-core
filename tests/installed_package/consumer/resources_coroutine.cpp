@@ -192,8 +192,10 @@ int main() {
   auto backend = caors::io::make_memory_backend();
   if (backend->store("data", payload) || routes.mount("assets", backend))
     return 5;
-  caors::resources::vfs_source source{routes};
-  if (caors::assets::project_builder{assets}.provider().bind(consumer_guid, source, "assets/data"))
+  if (project.bind_source(caors::string_name{"service"}, routes))
+    return 6;
+  if (project.provider().bind(consumer_guid, *project.find_source(caors::string_name{"service"}),
+                              "assets/data"))
     return 6;
   caors::resources::file_byte_reader byte_reader;
   auto resolved = project.provider().snapshot()->resolve(consumer_guid);

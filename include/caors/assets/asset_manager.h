@@ -27,6 +27,10 @@
 #include <type_traits>
 #include <utility>
 
+namespace caors::io {
+class file_service;
+}
+
 namespace caors::assets {
 
 class asset_group;
@@ -585,6 +589,7 @@ private:
   };
   std::unique_ptr<project_state, project_deleter> project_;
 
+  [[nodiscard]] error bind_service_source(core::string_name name, const io::file_service& service);
   [[nodiscard]] resources::provider& project_provider() noexcept;
   [[nodiscard]] const resources::provider& project_provider() const noexcept;
   [[nodiscard]] error use_project_provider_snapshot();

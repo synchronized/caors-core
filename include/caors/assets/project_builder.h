@@ -86,7 +86,17 @@ public:
   [[nodiscard]] error bind_source(core::string_name name, resources::source& source) {
     return manager_.bind_source(name, source);
   }
-  /** @brief 查询已绑定来源。 */
+  /** @brief 绑定既有文件服务为来源；工程拥有适配对象，借用服务至每次捕获完成。
+   * @note 名称重复返回 already_exists；最后名称解绑/清空时释放适配并清理其
+   * GUID，已有快照独立保活后端。
+   */
+  [[nodiscard]] error bind_source(core::string_name name, const io::file_service& service) {
+    return manager_.bind_service_source(name, service);
+  }
+  /** @brief 禁止借用临时服务。 */
+  error bind_source(core::string_name, io::file_service&&) = delete;
+  error bind_source(core::string_name, const io::file_service&&) = delete;
+  /** @brief 查询借用来源；工程拥有的服务适配在最后名称解绑后失效。 */
   [[nodiscard]] resources::source* find_source(core::string_name name) const {
     return manager_.find_source(name);
   }

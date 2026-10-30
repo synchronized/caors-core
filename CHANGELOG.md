@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- project_builder.bind_source(name, file_service) 可直接绑定既有服务，工程按名称管理适配寿命，重建保留手工绑定；最后名称解绑/清空释放适配并清理其 provider GUID，已有快照和请求不受影响。异步配置消费复用既有服务，保留同步工厂和 schema，见[文件服务来源](docs/reference/assets.md#文件服务来源)。
+
 - 文件服务统一为 file_service，拥有挂载与完成配置；snapshot 返回继承调度配置的 file_batch。删除普通 vfs/io_context/vfs_snapshot 及对应公共头，无平行包装。新增自动关闭的 read_range，资源来源、示例、安装和 Web 消费同步迁移；同步 file_system 保留。迁移见[IO 参考](docs/reference/io.md#统一服务迁移)。
 
 - 资源快照直接保存 backend_location，source 扩展改为 capture 返回拥有式解析函数；新 VFS 来源不再转回旧 file_system。byte_reader 统一接收新后端位置；删除 file_read_mode 和 JSON 工厂的读取模式参数，原生文件改在 make_native_backend(root, worker) 构造时绑定执行环境。同步工具及保存接口保留，迁移见[资源参考](docs/reference/resources.md#加载来源快照)。

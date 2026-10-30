@@ -179,6 +179,8 @@ public:
   /** @brief 解绑 GUID。 */
   [[nodiscard]] bool unbind(resource_guid guid);
 
+  /** @brief 移除引用指定来源的全部 GUID，不影响已有快照；返回移除数量。 */
+  [[nodiscard]] std::size_t unbind_source(const resources::source& source);
   /** @brief 清空全部绑定。 */
   void clear() noexcept;
 

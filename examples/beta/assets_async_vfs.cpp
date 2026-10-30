@@ -72,12 +72,11 @@ int run_example() {
     return 1;
   if (files.mount("caors://assets", memory))
     return 2;
-  caors::resources::vfs_source source{files};
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   const caors::resource_guid guid{caors::guid::from_bytes(caors::guid::byte_array{4})};
   caors::assets::project_builder project{assets};
   const caors::string_name source_name{"example.vfs"};
-  if (project.bind_source(source_name, source))
+  if (project.bind_source(source_name, files))
     return 3;
   caors::assets::project_config config;
   caors::assets::project_resource_config entry;

@@ -189,8 +189,7 @@ auto request = assets.request_preload(texture_id);
 - `register_file_system_factory()`：把 `file_systems[].type` 策略名映射到运行期 file_system 创建逻辑。
 - `register_typed_file_system_factory<Options, Create>()`：先把 `file_systems[].options`
   读入强类型配置并完成 schema 校验，再调用用户工厂。
-- `bind_source()` / `find_source()`：手动绑定或查询外部 source；配置创建的 source 会在下一次
-  `build()` 前清理，手动绑定会保留。
+- `bind_source()` / `find_source()`：手动绑定或查询来源；可直接传 file_service，由工程管理适配对象。配置创建的来源在下一次 build 前清理，手工绑定保留。
 - `register_source_factory()`：把 `sources[].type` 策略名映射到运行期 source 创建逻辑。
 - `register_typed_source_factory<Options, Create>()`：先把 `sources[].options`
   读入强类型配置并完成 schema 校验，再调用用户工厂。
@@ -525,14 +524,27 @@ manager 和 group 的请求入口只有 `request_load<T>(guid)`、`request_reloa
 同类型 `request_preload<T>` 仅保留在低层 database，由调用方显式传递调度；manager/group 不再暴露它。
 
 
-### 新 VFS 来源
+### 文件服务来源
 
-`resources::vfs_source` 借用 `io::file_service` 用于捕获，每次新根请求固定一份路由；已发请求拥有实际后端，
-reload 捕获新路由。工程配置可用 `project.bind_source(name, source)` 注册这个来源，
-让 `project_resource_config.source` 引用该名称并设置逻辑 location，再执行 `project.build(config)`。
-不再为新配置创建 file_system/resolver 工厂图；宿主通过 file_service.mount 配置后端与调度，
-config.file_systems 留空，资源类型照常使用默认异步 JSON 工厂。手工来源绑定在 build 后保留，
-但 vfs/source 是借用对象，必须覆盖 builder 后续构建及所有实际请求。
-仅少量手动资源也可直接绑定到 project_builder 的 provider，
-示例见[资源 VFS 示例](../../examples/beta/assets_async_vfs.cpp)。该兼容桥只支持异步快照访问，
-同步 source 的 read/write/exists 不适用；需要同步 saver 的旧配置继续使用 file_source 兼容路径。
+工程可以直接绑定既有服务，不必手工维护 vfs_source：
+
+```cpp
+auto status = project.bind_source(string_name{"assets"}, files);
+// 检查 status，再让 project_resource_config.source 引用 assets。
+```
+
+files 是 io::file_service。工程只拥有来源适配对象，服务仍由调用方拥有；
+服务须在每次构建与快照捕获时有效，不能绑定临时服务。
+资源条目照常配置 source、逻辑 location 和 type，再执行 project.build(config)。
+异步配置的 file_systems、sources 可留空，不重复描述挂载；JSON 默认工厂沿用异步读取。
+手工绑定在 build 后保留。示例见[异步资源配置](../../examples/beta/assets_async_vfs.cpp)。
+
+服务绑定拒绝空名和重复名，失败不替换现有来源；分配失败沿用分配器异常约定。
+工程拥有的适配在最后一个名称解绑或 clear_sources 时释放，同时移除 provider 中引用它的 GUID。
+借用既有适配建立的名称别名共享其寿命；解绑一个别名不影响剩余名称。
+已有快照与请求拥有实际后端，不因解绑而取消；缓存也不会因此清空。
+普通外部 source 的借用绑定保持旧行为，名称解绑不会替调用方清空其 GUID。
+
+低层 provider 或自定义集成仍可显式使用 resources::vfs_source，并自行管理其寿命。
+它只用于异步快照，不能用于同步 saver；同步配置、保存和文件工具继续使用 file_source，
+不会通过阻塞等待文件服务实现同步访问。此批未修改配置 schema，也未删除同步路由工厂。

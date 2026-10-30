@@ -8,6 +8,7 @@
 #include "caors/io/mount_file_system.h"
 #include "caors/io/native_file_system.h"
 #include "caors/io/uri.h"
+#include "caors/resources/vfs_source.h"
 
 #include <string_view>
 #include <utility>
@@ -160,6 +161,8 @@ struct asset_manager::project_state {
   struct source_binding {
     resources::source* source = nullptr;
     bool config_created = false;
+    // 仅名称表持有适配所有权；别名共享，快照只保活后端。
+    std::shared_ptr<resources::source> owner{};
   };
 
   using file_system_map = core::hash_map<core::string_name, file_system_binding>;
@@ -290,7 +293,14 @@ void asset_manager::clear_file_systems() noexcept { project_->file_systems_.clea
 std::size_t asset_manager::file_system_count() const noexcept {
   return project_->file_systems_.size();
 }
-void asset_manager::clear_sources() noexcept { project_->sources_.clear(); }
+void asset_manager::clear_sources() noexcept {
+  for (const auto& [name, binding] : project_->sources_) {
+    (void)name;
+    if (binding.owner)
+      (void)project_->provider_.unbind_source(*binding.source);
+  }
+  project_->sources_.clear();
+}
 std::size_t asset_manager::source_count() const noexcept { return project_->sources_.size(); }
 
 resources::provider& asset_manager::project_provider() noexcept { return project_->provider_; }
@@ -418,13 +428,42 @@ error asset_manager::bind_source(core::string_name name, resources::source& sour
     return {};
   }
 
+  std::shared_ptr<resources::source> owner;
+  for (const auto& [binding_name, binding] : project_->sources_) {
+    (void)binding_name;
+    if (binding.source == &source && binding.owner) {
+      owner = binding.owner;
+      break;
+    }
+  }
   project_->sources_.emplace(
-      name, project_state::source_binding{&source, project_->building_config_runtime_});
+      name,
+      project_state::source_binding{&source, project_->building_config_runtime_, std::move(owner)});
+  return {};
+}
+
+error asset_manager::bind_service_source(core::string_name name, const io::file_service& service) {
+  if (!name)
+    return {error_domain::resources, errc::invalid_argument};
+  if (project_->sources_.contains(name))
+    return {error_domain::resources, errc::already_exists};
+  auto owner = std::allocate_shared<resources::vfs_source>(
+      allocator<resources::vfs_source>{resource_}, service);
+  auto* source = owner.get();
+  project_->sources_.emplace(
+      name,
+      project_state::source_binding{source, project_->building_config_runtime_, std::move(owner)});
   return {};
 }
 
 bool asset_manager::unbind_source(core::string_name name) {
-  return project_->sources_.erase(name) != 0;
+  const auto position = project_->sources_.find(name);
+  if (position == project_->sources_.end())
+    return false;
+  if (position->second.owner && position->second.owner.use_count() == 1)
+    (void)project_->provider_.unbind_source(*position->second.source);
+  project_->sources_.erase(position);
+  return true;
 }
 
 resources::source* asset_manager::find_source(core::string_name name) const {
@@ -725,6 +764,8 @@ error asset_manager::clear_config_runtime() {
 
   for (auto position = project_->sources_.begin(); position != project_->sources_.end();) {
     if (position->second.config_created) {
+      if (position->second.owner && position->second.owner.use_count() == 1)
+        (void)project_->provider_.unbind_source(*position->second.source);
       position = project_->sources_.erase(position);
     } else {
       ++position;

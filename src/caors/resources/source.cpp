@@ -263,6 +263,18 @@ error provider::rebind(resource_guid guid, resources::source& source, io::locati
 
 bool provider::unbind(resource_guid guid) { return locations_.erase(guid) != 0; }
 
+std::size_t provider::unbind_source(const resources::source& source) {
+  std::size_t removed = 0;
+  for (auto it = locations_.begin(); it != locations_.end();) {
+    if (it->second.source == &source) {
+      it = locations_.erase(it);
+      ++removed;
+    } else
+      ++it;
+  }
+  return removed;
+}
+
 void provider::clear() noexcept { locations_.clear(); }
 
 std::size_t provider::size() const noexcept { return locations_.size(); }

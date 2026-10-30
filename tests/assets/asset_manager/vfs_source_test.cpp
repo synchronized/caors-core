@@ -13,7 +13,6 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   REQUIRE_FALSE(old->store("data", R"({"width":111})"));
   REQUIRE_FALSE(next->store("data", R"({"width":222})"));
   REQUIRE_FALSE(routes.mount("assets", old));
-  caors::resources::vfs_source source{routes};
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   caors::assets::project_builder project{assets};
   const caors::string_name type{"new.vfs.json"};
@@ -22,7 +21,7 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   config.resource_types.push_back(
       {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
   const caors::string_name source_name{"new.vfs.source"};
-  REQUIRE_FALSE(project.bind_source(source_name, source));
+  REQUIRE_FALSE(project.bind_source(source_name, routes));
   caors::assets::project_resource_config entry;
   entry.guid = test_guid_a;
   entry.source = source_name;
@@ -33,6 +32,8 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   REQUIRE(config.file_systems.empty());
   REQUIRE(project.provider().contains(test_guid_a));
   auto request = assets.request_load<serialized_resource>(test_guid_a);
+  REQUIRE(project.unbind_source(source_name));
+  CHECK_FALSE(project.provider().contains(test_guid_a));
   REQUIRE(routes.unmount("assets"));
   REQUIRE_FALSE(routes.mount("assets", next));
   for (int i = 0; i < 32 && !request.done(); ++i) {
@@ -41,6 +42,9 @@ TEST_CASE("assets - new VFS source captures routes for default JSON loader",
   }
   REQUIRE(request.loaded());
   CHECK(request.try_get()->width == 111);
+  REQUIRE_FALSE(project.bind_source(source_name, routes));
+  REQUIRE_FALSE(
+      project.provider().bind(test_guid_a, *project.find_source(source_name), "assets/data"));
   auto reload = assets.request_reload<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !reload.done(); ++i) {
     (void)worker.drain();
@@ -133,4 +137,139 @@ TEST_CASE("assets - provider resolves captured paths once and preserves per GUID
   auto malformed = provider.snapshot();
   CHECK(malformed->resolve(test_guid_a).error().value() == caors::errc::backend_failure);
   CHECK(captured->resolve(test_guid_a));
+}
+
+TEST_CASE("assets - service binding unlinks owned source without invalidating captured requests",
+          "[assets][service-binding]") {
+  caors::io::file_service files;
+  auto backend = caors::io::make_memory_backend();
+  REQUIRE_FALSE(backend->store("data", "owned"));
+  REQUIRE_FALSE(files.mount("assets", backend));
+  caors::io::memory_file_system borrowed_files;
+  caors::resources::file_source borrowed{borrowed_files};
+  caors::assets::asset_manager manager;
+  caors::assets::project_builder project{manager};
+  REQUIRE_FALSE(project.bind_source(caors::string_name{"borrowed"}, borrowed));
+  REQUIRE_FALSE(project.provider().bind(test_guid_b, borrowed, "data"));
+  const caors::string_name name{"service.binding"}, alias{"service.alias"};
+  CHECK(project.bind_source({}, files).value() == caors::errc::invalid_argument);
+  REQUIRE_FALSE(project.bind_source(name, files));
+  auto* source = project.find_source(name);
+  REQUIRE(source);
+  CHECK(project.bind_source(name, files).value() == caors::errc::already_exists);
+  REQUIRE_FALSE(project.bind_source(alias, *source));
+  REQUIRE_FALSE(project.provider().bind(test_guid_a, *source, "assets/data"));
+  auto captured = project.provider().snapshot();
+  REQUIRE(project.unbind_source(name));
+  CHECK(project.provider().contains(test_guid_a));
+  CHECK(project.find_source(alias) == source);
+  REQUIRE(project.unbind_source(alias));
+  CHECK_FALSE(project.provider().contains(test_guid_a));
+  CHECK(project.provider().contains(test_guid_b));
+  CHECK_FALSE(project.unbind_source(alias));
+  auto location = captured->resolve(test_guid_a);
+  REQUIRE(location);
+  REQUIRE(read_snapshot_bytes(location.value));
+  REQUIRE_FALSE(project.bind_source(name, files));
+  REQUIRE_FALSE(project.provider().bind(test_guid_a, *project.find_source(name), "assets/data"));
+  project.clear_sources();
+  CHECK(project.source_count() == 0);
+  CHECK_FALSE(project.provider().contains(test_guid_a));
+  CHECK(project.provider().contains(test_guid_b));
+}
+TEST_CASE("assets - service adapters release on repeated unbind and survive config rebuild",
+          "[assets][service-binding]") {
+  caors::tracking_resource memory;
+  caors::io::file_service files;
+  caors::assets::asset_manager manager{&memory};
+  caors::assets::project_builder project{manager};
+  const caors::string_name name{"service.release"};
+  REQUIRE_FALSE(project.bind_source(name, files));
+  caors::assets::project_config config;
+  REQUIRE_FALSE(project.build(config));
+  CHECK(project.find_source(name));
+  REQUIRE(project.unbind_source(name));
+  const auto baseline = memory.statistics().bytes_in_use;
+  for (int i = 0; i < 32; ++i) {
+    REQUIRE_FALSE(project.bind_source(name, files));
+    CHECK(memory.statistics().bytes_in_use > baseline);
+    REQUIRE(project.unbind_source(name));
+    CHECK(memory.statistics().bytes_in_use == baseline);
+  }
+}
+
+#if CAORS_HAS_EXCEPTIONS
+TEST_CASE("assets - service binding allocation failure leaves no retained adapter",
+          "[assets][service-binding][memory]") {
+  class failing_memory final : public caors::memory_resource {
+  public:
+    int remaining = -1;
+    std::size_t live = 0;
+
+  private:
+    void* do_try_allocate(std::size_t bytes, std::size_t alignment) noexcept override {
+      if (remaining >= 0 && remaining-- == 0)
+        return nullptr;
+      auto* result = caors::get_system_memory_resource().try_allocate(bytes, alignment);
+      if (result)
+        live += bytes;
+      return result;
+    }
+    void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept override {
+      live -= bytes;
+      caors::get_system_memory_resource().deallocate(p, bytes, alignment);
+    }
+    bool do_is_equal(const caors::memory_resource& other) const noexcept override {
+      return this == &other;
+    }
+  } memory;
+  caors::io::file_service files;
+  {
+    caors::assets::asset_manager manager{&memory};
+    caors::assets::project_builder project{manager};
+    const caors::string_name name{"service.failure"};
+    REQUIRE_FALSE(project.bind_source(name, files));
+    REQUIRE(project.unbind_source(name));
+    const auto baseline = memory.live;
+    for (int failure = 0; failure < 4; ++failure) {
+      memory.remaining = failure;
+      try {
+        auto result = project.bind_source(name, files);
+        REQUIRE_FALSE(result);
+      } catch (const std::bad_alloc&) {
+        CHECK(project.source_count() == 0);
+        CHECK_FALSE(project.find_source(name));
+      }
+      memory.remaining = -1;
+      if (project.find_source(name))
+        REQUIRE(project.unbind_source(name));
+      CHECK(memory.live == baseline);
+    }
+  }
+  CHECK(memory.live == 0);
+  // 冷表还可能在首次插入时分配桶，覆盖该失败点与完整销毁。
+  for (int failure = 0; failure < 4; ++failure) {
+    {
+      caors::assets::asset_manager manager{&memory};
+      caors::assets::project_builder project{manager};
+      memory.remaining = failure;
+      try {
+        auto result = project.bind_source(caors::string_name{"service.cold"}, files);
+        REQUIRE_FALSE(result);
+      } catch (const std::bad_alloc&) {
+        CHECK(project.source_count() == 0);
+      }
+      memory.remaining = -1;
+    }
+    CHECK(memory.live == 0);
+  }
+}
+#endif
+
+namespace {
+template <class Builder>
+concept accepts_temporary_service = requires(Builder project) {
+  project.bind_source(caors::string_name{}, caors::io::file_service{});
+};
+static_assert(!accepts_temporary_service<caors::assets::project_builder>);
 }

@@ -1565,13 +1565,20 @@ TEST_CASE("assets - JSON factory uses native backend bound to a worker", "[asset
   caors::io::file_service routes;
   REQUIRE_FALSE(routes.mount(
       "local", caors::io::make_native_backend(path_string(directory), worker.get_executor())));
-  caors::resources::vfs_source source{routes};
   caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
   caors::assets::project_builder project{assets};
   REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(
       project, serialized_manifest_type()));
+  config.file_systems.clear();
+  config.sources.clear();
+  const auto source_name = config.resources.front().source;
+  REQUIRE_FALSE(project.bind_source(source_name, routes));
+  for (auto& entry : config.resources)
+    if (entry.guid == test_guid_a)
+      entry.location = caors::io::location{"local/json-factory.json"};
   REQUIRE_FALSE(project.build(config));
-  REQUIRE_FALSE(project.provider().rebind(test_guid_a, source, "local/json-factory.json"));
+  CHECK(config.file_systems.empty());
+  CHECK(config.sources.empty());
   auto request = assets.request_load<serialized_resource>(test_guid_a);
   for (int i = 0; i < 32 && !request.done(); ++i) {
     (void)worker.drain();

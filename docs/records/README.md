@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [文件服务直接绑定与配置消费](2026-10-31-service-source-binding.md)：工程按名称拥有来源适配，解绑清理 GUID，异步配置复用服务；本机通过，平台与 PR 收尾待验收。
+
 - [统一文件服务](2026-10-30-file-service.md)：服务统一挂载与访问、批次继承配置、自动关闭范围读取，本机及平台验收通过，含 GCC 声明歧义修复。
 
 - [资源后端快照迁移](2026-10-23-resource-backend-snapshots.md)：快照及字节读取直接使用 backend_location，新 VFS 传输桥删除；本机及 Linux/Windows/Web 平台验收通过。

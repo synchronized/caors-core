@@ -18,6 +18,9 @@
 目前 open/read/write/close 和整文件 write/stat/list 可用；旧配置工厂及嵌套路由迁移仍按[VFS 计划](../plans/vfs-api-consolidation.md)推进。
 下文为现有 file_system 后端和资源配置兼容接入，已有宿主无需在未完成验收前整体替换。
 
+工程已有 file_service 时，用 project.bind_source(name, files) 注册来源，资源配置引用该名称。
+无需再创建来源适配对象或复制旧文件系统路由图；所有权与解绑约束见[资源装配参考](../reference/assets.md#文件服务来源)。
+
 ## 兼容后端接入步骤
 
 1. 将后端作为拥有式 file_system 挂载到现有 resolver/mount；组合模块租约、loop 状态和必要 allocator 所有者作为 lifetime。

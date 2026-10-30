@@ -144,9 +144,12 @@ void tick(void*) {
         auto files = caors::io::make_memory_backend();
         check(!files->store("texture", "{}"));
         check(!routes.mount("assets", files));
-        caors::resources::vfs_source source{routes};
-        check(!project.provider().bind(guid, source, "assets/texture"));
+        const caors::string_name source_name{"browser.service"};
+        check(!project.bind_source(source_name, routes));
+        check(!project.provider().bind(guid, *project.find_source(source_name), "assets/texture"));
         value.request = value.assets->request_load<texture>(guid);
+        check(project.unbind_source(source_name));
+        check(!project.provider().contains(guid));
       }
       break;
     case 5:
