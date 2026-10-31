@@ -160,6 +160,8 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 
 宿主实现见[文件后端协议](io-backends.md)和[异步 VFS 指南](../guides/async-vfs-integration.md)。
 旧 file_system、resolver、同步流和组合函数见[IO 兼容接口](io-legacy.md)，不属于普通文件访问入口。
+file_system 仅保留同步能力；其异步打开扩展已删除，旧路由扩展移到 legacy::route_provider。
+已有同步存储可通过显式 worker 或共享内存适配接入，见[复用同步存储](io-backends.md#复用同步存储)。
 
 ## 已移除入口的迁移
 

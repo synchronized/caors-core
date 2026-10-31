@@ -6,6 +6,7 @@
 
 #include "caors/io/async_request.h"
 #include "caors/io/options.h"
+#include "caors/io/random_access_reader.h"
 
 #include <limits>
 #include <span>
@@ -36,19 +37,6 @@ public:
                                              io_completion<std::uint64_t> completion);
   /** @brief 发起或订阅显式关闭；宿主必须维持 loop 至全部在途操作及关闭完成。 */
   [[nodiscard]] virtual io_error start_close(io_completion<close_result> completion) = 0;
-};
-/** @brief 显式 worker 适配所需的同步随机读取接口；read_at 可以短读，不得隐式读取整个文件。 */
-class CAORS_API random_access_reader {
-public:
-  virtual ~random_access_reader();
-  [[nodiscard]] virtual std::uint64_t size() const noexcept = 0;
-  [[nodiscard]] virtual io_result<std::size_t> read_at(std::uint64_t offset,
-                                                       std::span<std::byte> buffer) = 0;
-  /** @brief 可选随机写入，允许短写；默认不支持，由 worker 适配累计到写满。 */
-  [[nodiscard]] virtual io_result<std::size_t> write_at(std::uint64_t offset,
-                                                        std::span<const std::byte> bytes);
-  /** @brief 显式关闭，错误可查询；析构仅作 RAII 兜底。 */
-  [[nodiscard]] virtual io_error close() = 0;
 };
 /** @brief 创建占用 worker 的同步适配文件；seek/read 在内部串行，不宣称内核异步或并行读。 */
 [[nodiscard]] CAORS_API std::shared_ptr<async_file>

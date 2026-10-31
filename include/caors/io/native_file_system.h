@@ -31,7 +31,8 @@ public:
 
   /** @brief 显式读写句柄；create_always 仅适用于可写访问，允许创建或截断。 */
   [[nodiscard]] io_result<std::shared_ptr<random_access_reader>>
-  open_random_access(path_view path, open_options options, memory_resource* resource = nullptr);
+  open_random_access(path_view path, open_options options,
+                     memory_resource* resource = nullptr) override;
 
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] file_system_capabilities capabilities() const noexcept override;

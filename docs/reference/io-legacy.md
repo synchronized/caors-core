@@ -275,7 +275,7 @@ resolver 和 mount 均增加 `mount(prefix, shared_ptr<file_system>, target_pref
 - 捕获时遍历全部可达路由，任一借用边返回 unsupported；不能只验证当前命中的路径而忽略后续依赖。
 - 同一次捕获中共用嵌套节点，不在后续解析时查询实时嵌套路由。各节点捕获是短时观察，不提供多路由器更新的全局事务。
 - 循环返回 cycle_detected，超过 256 层返回 recursion_limit。快照只读解析不修改挂载表。
-- 自定义转发后端必须声明 `routes_paths()` 并覆盖 `freeze_routes()`，通过上下文递归；默认路由扩展返回 unsupported。
+- 自定义同步路由须同时实现 `legacy::route_provider` 的 `resolve_owned()`、`freeze_routes()`，通过上下文递归；这些扩展不再属于 file_system。普通同步叶后端无需实现路由协议。
   普通叶后端可使用默认捕获实现，但必须有完整拥有者，不能把内部可变路由伪装成叶后端。
 
 宿主 loop 适配步骤见[接入指南](../guides/async-vfs-integration.md)。

@@ -25,8 +25,8 @@
 
 1. 将后端作为拥有式 file_system 挂载到现有 resolver/mount；组合模块租约、loop 状态和必要 allocator 所有者作为 lifetime。
    不建立第二套 URI 挂载表，也不将仅有的裸指针包装成无效的 owning 指针。
-2. 覆盖 file_system::start_open，保存传入 resolved_file、内存资源和完成凭证到真实打开操作。
-   start 返回成功后必须完成或销毁凭证；启动拒绝后不得保留操作继续通知。
+2. 同时实现 backend::open(path, options, resource, completion)，保存拥有式路径、选项、内存资源和完成凭证到真实打开操作。
+   open 返回成功后必须完成或销毁凭证；启动拒绝后不得保留操作继续通知。file_system 本身只提供同步接口。
 3. 打开结果实现 async_file：固定打开时长度，每次按独立 offset 定位，明确结果大小上限和线程约束。
    只将完整 byte_buffer 交给完成凭证；短段继续读取，提前 EOF 返回 short_read。
 4. 将 IO 通知投递到宿主 completion executor。保留请求至所需通知结束，并处理请求可查询的拒绝/丢弃失败。

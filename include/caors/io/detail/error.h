@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 #ifndef CAORS_IO_DETAIL_ERROR_H_
 #define CAORS_IO_DETAIL_ERROR_H_
-#include "caors/io/async_request.h"
+#include "caors/io/result.h"
 namespace caors::io::detail {
 inline io_error convert_error(error status) noexcept {
   if (!status)

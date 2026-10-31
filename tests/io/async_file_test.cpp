@@ -202,10 +202,10 @@ public:
     return {};
   }
 };
-class delayed_open_backend final : public file_system {
+class delayed_open_backend final : public file_system, public backend {
 public:
-  io_error start_open(resolved_file, memory_resource*,
-                      io_completion<std::shared_ptr<async_file>> completion) override {
+  io_error open(path, open_options, memory_resource*,
+                io_completion<std::shared_ptr<async_file>> completion) override {
     pending = std::move(completion);
     return {};
   }

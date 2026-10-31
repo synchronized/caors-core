@@ -3,6 +3,7 @@
 
 #include "caors/io/async_file.h"
 #include "caors/io/file_system.h"
+#include "caors/io/memory_file_system.h"
 #include "file_requests.h"
 
 #include <algorithm>
@@ -315,26 +316,6 @@ async_file::~async_file() = default;
 io_error async_file::start_write(std::uint64_t, byte_buffer, io_completion<std::uint64_t>) {
   return {io_errc::unsupported};
 }
-io_result<std::size_t> random_access_reader::write_at(std::uint64_t, std::span<const std::byte>) {
-  return io_failure<std::size_t>({io_errc::unsupported});
-}
-io_error file_system::start_open_options(resolved_file location, open_options options,
-                                         memory_resource* resource,
-                                         io_completion<std::shared_ptr<async_file>> completion) {
-  if (options.access != file_access::read || options.creation != file_creation::open_existing)
-    return {io_errc::unsupported};
-  return start_open(std::move(location), resource, std::move(completion));
-}
-random_access_reader::~random_access_reader() = default;
-
-io_error file_system::start_open(resolved_file, memory_resource*,
-                                 io_completion<std::shared_ptr<async_file>>) {
-  return {io_errc::unsupported};
-}
-io_result<std::shared_ptr<random_access_reader>> file_system::open_random_read(path_view,
-                                                                               memory_resource*) {
-  return io_failure<std::shared_ptr<random_access_reader>>({io_errc::unsupported});
-}
 std::shared_ptr<async_file> make_worker_file(std::shared_ptr<random_access_reader> reader,
                                              tasks::executor worker,
                                              std::shared_ptr<void> lifetime) {
@@ -385,30 +366,27 @@ close_file(std::shared_ptr<async_file> file, tasks::executor completion,
       std::move(completion), std::move(callback),
       [file](auto receipt) { return file->start_close(std::move(receipt)); }, file);
 }
+io_result<backend_location> adapt_legacy_file(resolved_file file) {
+  if (!file.backend)
+    return io_failure<backend_location>({io_errc::invalid_argument});
+  auto target = std::dynamic_pointer_cast<backend>(file.backend);
+  if (!target) {
+    if (auto memory = std::dynamic_pointer_cast<memory_file_system>(file.backend))
+      target = make_memory_backend(std::move(memory));
+  }
+  if (!target)
+    return io_failure<backend_location>({io_errc::unsupported});
+  return {{}, {std::move(target), std::move(file.path), file.source_id}};
+}
 io_result<io_request<std::shared_ptr<async_file>>>
 open_file(resolved_file file, tasks::executor completion,
           std::function<void(const io_result<std::shared_ptr<async_file>>&)> callback,
           memory_resource* resource, open_options options) {
-  if (!file.backend)
-    return io_failure<io_request<std::shared_ptr<async_file>>>({io_errc::invalid_argument});
-  auto lifetime = file.backend;
-  const auto source_id = file.source_id;
-  return start_io<std::shared_ptr<async_file>>(
-      std::move(completion), std::move(callback),
-      [file = std::move(file), resource, options](auto receipt) mutable {
-        auto backend = file.backend;
-        return backend->start_open_options(std::move(file), options, resource, std::move(receipt));
-      },
-      lifetime,
-      [lifetime, source_id](auto& result) {
-        if (result.error())
-          return;
-        if (!result.value) {
-          result.status = {io_errc::backend_failure};
-          return;
-        }
-        result.value = std::make_shared<pinned_file>(lifetime, std::move(result.value), source_id);
-      });
+  auto adapted = adapt_legacy_file(std::move(file));
+  if (!adapted)
+    return io_failure<io_request<std::shared_ptr<async_file>>>(adapted.error());
+  return open_file(std::move(adapted.value), std::move(completion), std::move(callback), resource,
+                   options);
 }
 io_result<io_request<std::shared_ptr<async_file>>>
 open_file(backend_location file, tasks::executor completion,

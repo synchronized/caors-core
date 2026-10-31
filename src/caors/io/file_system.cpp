@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/io/file_system.h"
+#include "route_identity.h"
 
 #include <utility>
 
@@ -45,7 +46,23 @@ private:
 
 } // namespace
 
+file_system::file_system() : source_instance_(detail::next_route_id()) {}
 file_system::~file_system() = default;
+random_access_reader::~random_access_reader() = default;
+io_result<std::size_t> random_access_reader::write_at(std::uint64_t, std::span<const std::byte>) {
+  return io_failure<std::size_t>({io_errc::unsupported});
+}
+io_result<std::shared_ptr<random_access_reader>> file_system::open_random_read(path_view,
+                                                                               memory_resource*) {
+  return io_failure<std::shared_ptr<random_access_reader>>({io_errc::unsupported});
+}
+io_result<std::shared_ptr<random_access_reader>>
+file_system::open_random_access(path_view location, open_options options,
+                                memory_resource* resource) {
+  if (options.access != file_access::read || options.creation != file_creation::open_existing)
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::unsupported});
+  return open_random_read(location, resource);
+}
 
 file_system_capabilities file_system::capabilities() const noexcept {
   file_system_capabilities result{};

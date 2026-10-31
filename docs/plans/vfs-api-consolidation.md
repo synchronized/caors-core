@@ -71,7 +71,7 @@
 | 底层读写复用 | 已存在，继续保留 | native/memory 后端复用原同步实现，不另建一套存储算法 |
 | 资源来源转换 | 已完成 | provider_snapshot、vfs_source 与 byte_reader 直接使用 backend_location；source.capture 返回拥有式函数，无新快照继承层 |
 | 旧配置及工具路由 | 异步消费已迁移，同步保留 | 异步配置复用既有服务；保存和工具保留需要的同步能力 |
-| file_system 收缩 | 本批不实施 | 移除失去消费的混合职责；按剩余同步用途决定保留或删除，不预设结论 |
+| file_system 收缩 | 实施中 | 保留同步能力，移除异步打开与路由扩展；验收共享存储、嵌套快照、插件及平台消费 |
 
 路由独立首批及平台验收见[实施记录](../records/2026-10-22-vfs-independent-routing.md)。
 
@@ -127,3 +127,16 @@ bind_file_system/file_source 仍服务于配置读取、同步 loader、JSON sav
 本机及平台验证通过，最终 PR 范围已复核，达到可评审条件；不执行合并或发布。
 
 本机、平台与 PR 范围复核见[服务绑定记录](../records/2026-10-31-service-source-binding.md)。
+
+## 同步存储职责收缩（实施中）
+
+用户确认保留 file_system 的同步职责，避免删除后重造等价抽象。本批实施：
+
+- 同步诊断及随机句柄拆为独立头文件，file_system 不再包含异步请求或路由头。
+- 删除 start_open/start_open_options；异步能力统一使用既有 backend 协议。
+- 旧路由的解析、递归冻结与 snapshot 移到 legacy::route_provider；保留循环检测、共享节点与寿命固定。
+- 原生工厂复用通用 worker 适配器；内存适配器允许共享已有同步实例，明确外部同步责任。
+- 资源兼容来源与插件迁移到既有 backend，删除重复的旧异步桥。
+
+验收覆盖头文件边界、同步与异步读写同一实例、显式 worker、快照循环与并发、
+插件卸载、资源配置及保存、安装消费和 Web。平台结果未取得前不得记为验收完成。

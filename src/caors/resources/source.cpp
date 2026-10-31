@@ -2,7 +2,10 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/resources/source.h"
+#include "../io/file_requests.h"
 #include "caors/io/file_system.h"
+#include "caors/io/route_snapshot.h"
+#include "caors/resources/byte_reader.h"
 
 #include <utility>
 
@@ -105,23 +108,6 @@ file_source::file_source(std::shared_ptr<io::file_system> file_system,
   }
 }
 
-namespace {
-// 仅兼容来源需要该单向适配；新 VFS 不再包装为旧 file_system。
-class legacy_backend final : public io::backend {
-public:
-  legacy_backend(std::shared_ptr<io::file_system> files, std::uint64_t source_id)
-      : files_(std::move(files)), source_id_(source_id) {}
-  io::io_error open(io::path location, io::open_options options, memory_resource* resource,
-                    io::io_completion<std::shared_ptr<io::async_file>> completion) override {
-    return files_->start_open_options({files_, std::move(location), source_id_}, options, resource,
-                                      std::move(completion));
-  }
-
-private:
-  std::shared_ptr<io::file_system> files_;
-  std::uint64_t source_id_;
-};
-}
 result<captured_source> file_source::capture() const {
   if (!file_system_)
     return fail<captured_source>({error_domain::resources, errc::invalid_argument});
@@ -135,10 +121,8 @@ result<captured_source> file_source::capture() const {
         auto resolved = io::detail::resolve_snapshot(root, location);
         if (!resolved)
           return {resolved.error(), {}};
-        return {
-            {},
-            {std::make_shared<legacy_backend>(std::move(resolved->backend), resolved->source_id),
-             std::move(resolved->path), resolved->source_id}};
+        auto adapted = io::detail::adapt_legacy_file(std::move(resolved.value));
+        return {read_error(adapted.error()), std::move(adapted.value)};
       }};
 }
 

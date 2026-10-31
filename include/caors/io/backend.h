@@ -12,6 +12,7 @@
 namespace caors::io {
 class async_file;
 class memory_file_system;
+class file_system;
 /**
  * @brief 独立文件后端协议，只处理后端相对路径，不管理挂载与用户调度。
  * @note
@@ -43,6 +44,12 @@ struct backend_location {
   /** @brief 进程内挂载身份，不能作为持久标识或内容摘要。 */
   std::uint64_t source_id = 0;
 };
+/**
+ * @brief 将现有同步存储适配到显式 worker；空存储或 worker 返回空指针。
+ * @note 与同步调用共享同一个对象；调用方必须协调直接同步访问及多个适配器的并发访问。
+ */
+[[nodiscard]] CAORS_API std::shared_ptr<backend>
+make_worker_backend(std::shared_ptr<file_system> files, tasks::executor worker);
 /** @brief 本地文件操作适配；构造绑定可阻塞 worker，不隐式选择执行环境。 */
 [[nodiscard]] CAORS_API std::shared_ptr<backend>
 make_native_backend(path_view root, tasks::executor worker, memory_resource* resource = nullptr);
@@ -50,6 +57,8 @@ make_native_backend(path_view root, tasks::executor worker, memory_resource* res
 class CAORS_API memory_backend final : public backend {
 public:
   explicit memory_backend(memory_resource* resource = nullptr);
+  /** @brief 共享现有内存存储；空指针创建空存储，直接同步访问须由调用方与适配器串行协调。 */
+  explicit memory_backend(std::shared_ptr<memory_file_system> files);
   [[nodiscard]] error store(path_view location, std::span<const std::byte> bytes);
   [[nodiscard]] error store(path_view location, std::string_view text) {
     return store(location, {reinterpret_cast<const std::byte*>(text.data()), text.size()});
@@ -74,5 +83,8 @@ private:
 /** @brief 创建可挂载的内存后端，配置数据使用 store。 */
 [[nodiscard]] CAORS_API std::shared_ptr<memory_backend>
 make_memory_backend(memory_resource* resource = nullptr);
+/** @brief 共享既有内存存储；空指针返回空指针，多个适配器之间不共享锁。 */
+[[nodiscard]] CAORS_API std::shared_ptr<memory_backend>
+make_memory_backend(std::shared_ptr<memory_file_system> files);
 } // namespace caors::io
 #endif

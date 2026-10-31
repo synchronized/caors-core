@@ -4,9 +4,9 @@
 #ifndef CAORS_IO_FILE_SYSTEM_H_
 #define CAORS_IO_FILE_SYSTEM_H_
 
-#include "caors/io/async_file.h"
 #include "caors/io/metadata.h"
-#include "caors/io/route_snapshot.h"
+#include "caors/io/options.h"
+#include "caors/io/random_access_reader.h"
 #include "caors/io/stream.h"
 
 #include <chrono>
@@ -15,6 +15,9 @@
 #include <string_view>
 
 namespace caors::io {
+namespace detail {
+struct file_system_access;
+}
 
 /**
  * @brief 文件系统后端能力声明。
@@ -45,7 +48,7 @@ struct file_system_capabilities {
  */
 class CAORS_API file_system {
 public:
-  file_system() = default;
+  file_system();
   virtual ~file_system();
 
   file_system(const file_system&) = delete;
@@ -53,35 +56,13 @@ public:
   file_system(file_system&&) = delete;
   file_system& operator=(file_system&&) = delete;
 
-  /** @brief 无挂载叶根的进程内实例标记；不作为持久标识或内容修订号。 */
-  [[nodiscard]] std::uint64_t source_instance() const noexcept { return source_instance_; }
-
-  /** @brief 捕获内置路由的稳定状态；叶后端须使用 route_snapshot::capture 提供根所有权。 */
-  [[nodiscard]] result<route_snapshot> snapshot() const;
-
-  /** @brief 是否转发至可变化的路由；自定义路由必须覆盖为 true，并实现 freeze_routes。 */
-  [[nodiscard]] virtual bool routes_paths() const noexcept { return false; }
-
-  /** @brief 路由扩展：解析到最终拥有式后端；叶后端默认返回 unsupported。 */
-  [[nodiscard]] virtual result<resolved_file> resolve_owned(path_view location) const;
-
-  /**
-   * @brief 路由扩展：捕获不可变副本；默认仅允许有 owner 的叶后端。
-   * @note 自定义路由不能沿用叶实现，否则无法保证嵌套快照稳定；实现不得调用实时路由解析。
-   */
-  [[nodiscard]] virtual result<std::shared_ptr<file_system>>
-  freeze_routes(detail::snapshot_context& context, std::shared_ptr<void> owner) const;
-
-  /** @brief 原生异步打开可选能力；默认 unsupported，不进行同步回退。 */
-  [[nodiscard]] virtual io_error start_open(resolved_file location, memory_resource* resource,
-                                            io_completion<std::shared_ptr<async_file>> completion);
-  /** @brief 带访问选项的兼容协议；默认仅转发只读已有文件，其余返回 unsupported。 */
-  [[nodiscard]] virtual io_error
-  start_open_options(resolved_file location, open_options options, memory_resource* resource,
-                     io_completion<std::shared_ptr<async_file>> completion);
   /** @brief 显式同步 worker 适配的可选能力；默认 unsupported，不回退 open_read/read_all。 */
   [[nodiscard]] virtual io_result<std::shared_ptr<random_access_reader>>
   open_random_read(path_view location, memory_resource* resource = nullptr);
+
+  /** @brief 同步随机访问；默认仅支持打开已有只读文件，不回退整体读取。 */
+  [[nodiscard]] virtual io_result<std::shared_ptr<random_access_reader>>
+  open_random_access(path_view location, open_options options, memory_resource* resource = nullptr);
 
   /** @brief 判断路径是否存在。 */
   [[nodiscard]] virtual bool exists(path_view path) const = 0;
@@ -136,7 +117,8 @@ public:
   }
 
 private:
-  const std::uint64_t source_instance_ = detail::next_route_id();
+  friend struct detail::file_system_access;
+  const std::uint64_t source_instance_;
 };
 
 } // namespace caors::io

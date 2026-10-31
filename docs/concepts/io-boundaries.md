@@ -25,13 +25,14 @@
 ```
 
 服务内部路由使用自己的不可变挂载表，快照固定路由并保活后端；普通访问不经过旧 resolver。
-内置 native_backend 绑定 worker，复用 native_file_system 的实际文件操作；memory_backend
+内置原生工厂通过 make_worker_backend 绑定 worker，复用 native_file_system 的实际文件操作；memory_backend
 复用 memory_file_system 的存储与查询，并串行访问索引。它们不是两套独立的磁盘或内存存储实现。
 
-当前 file_system 仍混合同步访问、异步打开扩展和旧路由快照协议。
+file_system 只保留同步访问；异步接入统一使用 backend，旧路由快照由 legacy::route_provider 提供。
 旧 file_system_resolver、mount_file_system 仍被兼容配置与来源使用；
 resources::vfs_source 已直接捕获新 VFS，provider_snapshot 保存已有 backend_location。
-旧来源通过 file_source 内部的单向适配接入 backend；旧配置与路由消费仍是当前限制。
+旧 file_source 仅桥接已有 backend 能力或内存存储；不会替同步磁盘来源隐式选择 worker。
+旧配置与路由消费仍保留，独立于新服务的挂载表。
 
 ## 已确认的职责边界
 
@@ -51,8 +52,8 @@ backend 与同步实现处于不同层次：一个表达异步执行协议，一
 
 ## file_system 的处理条件
 
-现有 file_system 暂时保留，不承诺按固定日期删除。先处理其混入的路由和异步兼容扩展，
-再判断它是否仍是同步工具与具体实现共享的有效边界。
+file_system 保留为同步工具与具体实现共享的边界，不承诺按固定日期删除。
+其混入的异步打开与路由扩展已经移出，同步与异步适配可以共享同一个存储实例。
 若收敛后仅剩一套有明确调用者的同步文件协议，可以保留；若所有职责已有唯一归属且调用点已迁完，才删除空壳。
 不引入一套方法相同的接口来完成名义上的删除。
 

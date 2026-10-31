@@ -429,8 +429,8 @@ result<resolved_file> mount_file_system::resolve_owned(path_view location) const
   if (!entry->owner)
     return fail<resolved_file>({error_domain::io, errc::unsupported});
   auto target_path = resolve_path(*entry, parsed);
-  if (entry->target->routes_paths()) {
-    auto nested = entry->target->resolve_owned(target_path);
+  if (auto* routes = dynamic_cast<const legacy::route_provider*>(entry->target)) {
+    auto nested = routes->resolve_owned(target_path);
     if (!nested)
       return nested;
     auto owner = std::allocate_shared<owned_backend>(allocator<owned_backend>{resource()},

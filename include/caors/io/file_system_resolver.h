@@ -5,6 +5,7 @@
 #define CAORS_IO_FILE_SYSTEM_RESOLVER_H_
 
 #include "caors/io/file_system.h"
+#include "caors/io/route_snapshot.h"
 #include "caors/io/uri.h"
 
 #include "caors/core/detail/shared_snapshot.h"
@@ -23,7 +24,7 @@ namespace caors::io {
  * `file://project/config.json` 或普通虚拟路径交给它，由 resolver 转发到已注册的后端文件系统。
  * 借用挂载不拥有后端；拥有式挂载持有后端及可选宿主寿命凭据。
  */
-class CAORS_API file_system_resolver final : public file_system {
+class CAORS_API file_system_resolver final : public file_system, public legacy::route_provider {
 public:
   using file_system::write_all;
 
@@ -66,7 +67,6 @@ public:
   open_write(path_view location, memory_resource* result_resource = nullptr) override;
   [[nodiscard]] error write_all(path_view location, std::span<const std::byte> bytes) override;
 
-  [[nodiscard]] bool routes_paths() const noexcept override { return true; }
   [[nodiscard]] result<resolved_file> resolve_owned(path_view location) const override;
   [[nodiscard]] result<std::shared_ptr<file_system>>
   freeze_routes(detail::snapshot_context& context, std::shared_ptr<void> owner) const override;

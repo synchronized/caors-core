@@ -48,5 +48,20 @@ worker 适配器析构投递不等待的清理任务；队列拒绝/丢弃或分
 析构没有错误接收者，观察关闭错误必须显式 file.close；宿主必须维持 loop/worker 至关闭结束。
 
 
-旧 file_system 只有 start_open 时仅支持默认只读选项；支持可写模式需实现 start_open_options。
-新 backend 的选项由 VFS 桥原样转交，不要求宿主再实现旧文件系统类型。
+## 复用同步存储
+
+`file_system` 只声明同步操作，不再包含异步打开、路由解析或快照扩展。
+同步随机句柄与诊断分别位于 `random_access_reader.h`、`result.h`，无需引入异步请求头。
+
+`make_worker_backend(shared_files, worker)` 将已有同步存储适配为 backend，
+原生工厂也复用这个适配器。打开调用同步 `open_random_access`，整体写入、属性和目录查询调用
+同一个存储实例的方法；不会另建文件存储或路由表。缺少存储或 worker 返回空指针。
+同步基类默认仅支持打开已有只读随机句柄，原生实现覆盖可写打开。
+
+`make_memory_backend(shared_memory_files)` 可共享已有内存文件系统；空指针返回空指针。
+该适配器内部串行化自身索引操作，但直接同步访问、多个适配器之间的访问仍须由调用方协调，
+不能因复用了对象就假定所有入口共享锁。
+
+libuv、浏览器等原生异步后端直接实现 backend，无需继承 file_system。
+旧 file_source 仅桥接同时实现 backend 的对象或已有内存存储；其他同步来源返回 unsupported，
+不会隐式选择磁盘 worker。新代码优先使用 file_service 来源绑定。

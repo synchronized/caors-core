@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 #include "caors/io/backend.h"
+#include "caors/io/async_file.h"
 #include "caors/io/detail/error.h"
 #include "caors/io/memory_file_system.h"
 #include "caors/io/native_file_system.h"
@@ -93,10 +94,10 @@ private:
   bool dirty_ = false;
   io_error status_;
 };
-class native_backend final : public backend {
+class worker_backend final : public backend {
 public:
-  native_backend(path_view root, tasks::executor worker, memory_resource* resource)
-      : files_(std::make_shared<native_file_system>(root, resource)), worker_(std::move(worker)) {}
+  worker_backend(std::shared_ptr<file_system> files, tasks::executor worker)
+      : files_(std::move(files)), worker_(std::move(worker)) {}
   io_error open(path location, open_options options, memory_resource* resource,
                 io_completion<std::shared_ptr<async_file>> completion) override {
     if (!worker_)
@@ -155,7 +156,7 @@ public:
   }
 
 private:
-  std::shared_ptr<native_file_system> files_;
+  std::shared_ptr<file_system> files_;
   tasks::executor worker_;
 };
 } // namespace
@@ -167,12 +168,21 @@ io_error backend::stat(path, io_completion<file_status>) { return {io_errc::unsu
 io_error backend::list(path, memory_resource*, io_completion<directory_entry_list>) {
   return {io_errc::unsupported};
 }
+std::shared_ptr<backend> make_worker_backend(std::shared_ptr<file_system> files,
+                                             tasks::executor worker) {
+  if (!files || !worker)
+    return {};
+  return std::make_shared<worker_backend>(std::move(files), std::move(worker));
+}
 std::shared_ptr<backend> make_native_backend(path_view root, tasks::executor worker,
                                              memory_resource* resource) {
-  return std::make_shared<native_backend>(root, std::move(worker), resource);
+  return make_worker_backend(std::make_shared<native_file_system>(root, resource),
+                             std::move(worker));
 }
 memory_backend::memory_backend(memory_resource* resource)
     : files_(std::make_shared<memory_file_system>(resource)) {}
+memory_backend::memory_backend(std::shared_ptr<memory_file_system> files)
+    : files_(files ? std::move(files) : std::make_shared<memory_file_system>()) {}
 error memory_backend::store(path_view location, std::span<const std::byte> bytes) {
   std::lock_guard lock{*mutex_};
   return files_->write_all(location, bytes);
@@ -253,5 +263,10 @@ io_error memory_backend::list(path location, memory_resource* resource,
 }
 std::shared_ptr<memory_backend> make_memory_backend(memory_resource* resource) {
   return std::make_shared<memory_backend>(resource);
+}
+std::shared_ptr<memory_backend> make_memory_backend(std::shared_ptr<memory_file_system> files) {
+  if (!files)
+    return {};
+  return std::make_shared<memory_backend>(std::move(files));
 }
 } // namespace caors::io

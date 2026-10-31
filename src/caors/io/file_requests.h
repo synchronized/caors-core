@@ -7,6 +7,8 @@
 #include "caors/io/route_snapshot.h"
 // 仅供库内部编排与内部单元测试，不安装为公共 API。
 namespace caors::io::detail {
+/** @brief 旧来源仅桥接已声明异步能力或内存存储；磁盘同步存储必须显式配置 worker。 */
+[[nodiscard]] CAORS_API io_result<backend_location> adapt_legacy_file(resolved_file file);
 /** @brief 验证整数、打开长度、后端与请求预算，成功后通过 completion 通知；绝不隐式全文件回退。 */
 [[nodiscard]] CAORS_API io_result<io_request<byte_buffer>>
 read_file(std::shared_ptr<async_file> file, std::uint64_t offset, std::uint64_t length,
