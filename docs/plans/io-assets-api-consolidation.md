@@ -80,10 +80,10 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 | provider.exists/read/open_read/write/open_write | 移出定位职责，归具体字节访问适配 |
 | provider.snapshot / provider_snapshot.resolve | 映射固定与 VFS 路由冻结分清；保留语义至批次适配替代通过 |
 | file_system.exists/status/list | 功能保留，异步替代需定义缺失、权限和路径错误区别 |
-| file_system.read_all/open_read | 公共读取迁移至异步主线；同步实现作为 worker 适配细节 |
-| file_system.write_all/open_write | 异步写入/提交/关闭尚未设计完成，禁止提前删除 |
-| file_system.start_open/open_random_read | 移至后端接入协议 |
-| snapshot/routes_paths/resolve_owned/freeze_routes | 从普通文件访问中下沉到 VFS 路由与适配 |
+| file_system.read_all/open_read | 同步工具保留；普通文件读取使用 file_service，显式 worker 复用同步存储 |
+| file_system.write_all/open_write | 同步保存保留；异步整文件和范围写入已由 file_service/file 提供 |
+| file_system.start_open/open_random_read | start_open 已移除，异步统一 backend；open_random_read 留在同步存储，供显式适配使用 |
+| snapshot/routes_paths/resolve_owned/freeze_routes | 已从 file_system 移除，旧路由由 legacy::route_provider 提供快照、解析和冻结，不再使用 routes_paths 标记 |
 | resolver 与 mount_file_system 的 mount/unmount/clear/mount_count | 保留配置职责；URI 与虚拟路径匹配语义不机械合并 |
 | async_file.start_read/start_close | 后端协议，不作为普通用户主入口 |
 | async_file.size/source_id/max_read_size | 保留必要查询；来源诊断和预算限制与常规操作区分 |

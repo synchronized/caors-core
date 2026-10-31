@@ -18,6 +18,7 @@
 [IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)和[VFS 文件访问收敛](plans/vfs-api-consolidation.md)维护分批迁移方案；首批快照和工程装配入口已实现并验收，后续统一仍在推进，当前用法见模块参考。
 
 IO 分层与底层复用见[职责说明](concepts/io-boundaries.md)，不以删除类名替代职责收敛。
+同步存储与异步、旧路由扩展的分离进度见[验收记录](records/2026-10-31-sync-storage-boundary.md)。
 
 普通文件访问统一使用 file_service，固定批次使用 file_batch，迁移说明由 IO 参考维护。
 

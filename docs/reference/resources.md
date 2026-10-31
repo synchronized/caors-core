@@ -1152,6 +1152,9 @@ provider.unbind_source(source) 移除引用该来源的全部 GUID，返回移�
 `vfs_source` 直接捕获新 VFS，位置中的 backend 就是挂载后端，不经过旧 file_system。
 `file_source` 保留旧来源的单向适配以复用同步实现；旧路由仍捕获嵌套结构并检查借用边。
 解析位置用于统一异步读取，同步工具继续使用原 provider/source 的同步接口。
+异步位置仅接受同时实现 io::backend 的叶对象或内存存储；普通同步磁盘叶在解析阶段返回 unsupported，
+不会隐式启动阻塞读取。需要 worker 的同步存储先按[后端参考](io-backends.md#复用同步存储)适配，
+再挂到 file_service 并直接绑定为工程来源。
 
 `async_load_context` 仅持有 `load_snapshot` 基类，不要求文件系统。VFS loader 显式调用
 `snapshot_as<resources::provider_snapshot>()`，为空或类型不匹配时返回空指针；应先检查再解析。
