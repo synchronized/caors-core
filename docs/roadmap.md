@@ -22,6 +22,7 @@ CAORS 独立 Web 平台已交付；Gneiss 联调继续由关联计划跟踪，�
 基础身份、容器、错误和 IO 底座已提供；当前用法见[core](reference/core.md)、[error](reference/error.md)、[IO](reference/io.md)。
 `small_vector` 的正式性能与业务接入评估继续按[容器计划](plans/small-vector.md)跟踪。
 `stable_vector` 仅在真实地址稳定需求出现后另立范围。
+IO 按[收敛计划](plans/vfs-api-consolidation.md)减少重复路由及来源转换，保留同步能力并复用底层实现；不以删除 file_system 为硬性出口。
 
 ## 0.5. Math 基础数学类型
 

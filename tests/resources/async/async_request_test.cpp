@@ -24,7 +24,7 @@ public:
   int value = 0;
 };
 
-class async_loader final : public caors::resources::loader<async_resource> {
+class async_loader final : public caors::resources::sync_loader_adapter<async_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -53,7 +53,8 @@ public:
   using caors::resource::resource;
 };
 
-class async_material_loader final : public caors::resources::loader<async_material_resource> {
+class async_material_loader final
+    : public caors::resources::sync_loader_adapter<async_material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -70,7 +71,7 @@ public:
   caors::error status{};
 };
 
-class progress_async_loader final : public caors::resources::loader<async_resource> {
+class progress_async_loader final : public caors::resources::sync_loader_adapter<async_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -90,7 +91,8 @@ public:
   int next_value = 0;
 };
 
-class progress_texture_loader final : public caors::resources::loader<texture_resource> {
+class progress_texture_loader final
+    : public caors::resources::sync_loader_adapter<texture_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -109,7 +111,8 @@ public:
   int load_count = 0;
 };
 
-class progress_material_loader final : public caors::resources::loader<async_material_resource> {
+class progress_material_loader final
+    : public caors::resources::sync_loader_adapter<async_material_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<async_material_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
@@ -712,7 +715,8 @@ TEST_CASE("resources - database async load keeps newer request after cancelled t
   CHECK(third.cancelled());
 }
 
-TEST_CASE("resources - database async reload reuses pending request for same guid", "[resources]") {
+TEST_CASE("resources - database reload starts independent requests and publishes the latest",
+          "[resources]") {
   require_async_resource_metadata();
 
   caors::resource_cache<async_resource> cache;
@@ -734,18 +738,18 @@ TEST_CASE("resources - database async reload reuses pending request for same gui
 
   CHECK(first.status() == caors::resources::request_status::loading);
   CHECK(second.status() == caors::resources::request_status::loading);
-  CHECK(loader.load_count.load() == 1);
-  CHECK(completions.pending() == 1);
+  CHECK(loader.load_count.load() == 2);
+  CHECK(completions.pending() == 2);
 
-  CHECK(completions.drain() == 1);
+  CHECK(completions.drain() == 2);
 
   REQUIRE(first.loaded());
   REQUIRE(second.loaded());
   REQUIRE(first.try_get());
-  CHECK(first.try_get().get() == second.try_get().get());
+  CHECK(first.try_get().get() != second.try_get().get());
   CHECK(first.try_get()->value == 22);
-  CHECK(first.try_get().get() == cache.find(test_guid_a));
-  CHECK(loader.load_count.load() == 1);
+  CHECK(second.try_get().get() == cache.find(test_guid_a));
+  CHECK(loader.load_count.load() == 2);
 }
 
 TEST_CASE("resources - database async load reports missing registration", "[resources]") {

@@ -14,7 +14,7 @@ using namespace caors::tests::resources;
 namespace {
 using texture = texture_resource;
 
-class delayed_loader final : public caors::resources::async_loader<texture> {
+class delayed_loader final : public caors::resources::loader<texture> {
 public:
   struct operation {
     caors::resources::async_load_context context;
@@ -94,7 +94,7 @@ TEST_CASE("assets - native async loader releases worker while I/O waits",
   CHECK(f.completion.drain() == 1);
   CHECK(request.loaded());
   CHECK_FALSE(f.assets.database().has_active_operations());
-  CHECK(f.assets.load_handle<texture>(test_guid_a).succeeded());
+  CHECK(f.assets.request_load<texture>(test_guid_a).loaded());
   CHECK(f.assets.request_load<texture>(test_guid_a).loaded());
 }
 
@@ -184,22 +184,21 @@ TEST_CASE(
   CHECK(renewed.request_load<texture>(test_guid_a).loaded());
 }
 
-TEST_CASE("assets - async capability wins requests and keeps synchronous capability",
+TEST_CASE("assets - one loader registration rejects conflicting adapters and survives rebuild",
           "[assets][native-async]") {
   fixture f;
-  CHECK(f.assets.load_handle<texture>({}).status.value() == caors::errc::invalid_argument);
-  CHECK(f.assets.reload_handle<texture>({}).status.value() == caors::errc::invalid_argument);
-  CHECK(f.assets.load_handle<texture>(test_guid_a).status.value() == caors::errc::unsupported);
+  CHECK(f.assets.request_load<texture>({}).error().value() == caors::errc::invalid_argument);
+  CHECK(f.assets.request_reload<texture>({}).error().value() == caors::errc::invalid_argument);
   counting_texture_loader synchronous;
-  REQUIRE_FALSE(f.assets.register_type(f.cache, synchronous, caors::string_name{"group.texture"}));
+  CHECK(f.assets.register_type(f.cache, synchronous, caors::string_name{"group.texture"}).value() ==
+        caors::errc::already_exists);
+  REQUIRE_FALSE(f.assets.register_type(f.cache, f.loader, caors::string_name{"group.texture"}));
   auto request = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   CHECK(synchronous.load_count == 0);
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
-  CHECK(request.loaded());
-  CHECK(f.assets.load_handle<texture>(test_guid_b).succeeded());
-  CHECK(synchronous.load_count == 1);
+  REQUIRE(request.loaded());
   caors::assets::project_config config;
   REQUIRE_FALSE(caors::assets::project_builder{f.assets}.build(config));
   auto reload = f.assets.request_reload<texture>(test_guid_a);
@@ -245,15 +244,18 @@ TEST_CASE("assets - group preload routes asynchronous manifest types", "[assets]
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
   REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
   auto group = f.assets.create_group(f.worker.get_executor(), f.completion.get_executor());
-  auto batch = GENERATE(false, true) ? group.request_preload(test_guid_a)
-                                     : group.request_preload<texture>(test_guid_a);
+  auto batch = GENERATE(false, true)
+                   ? group.request_preload(test_guid_a)
+                   : f.assets.database().request_preload<texture>(
+                         test_guid_a, f.worker.get_executor(), f.completion.get_executor());
   CHECK(f.worker.drain() == 2);
   REQUIRE(f.loader.pending.size() == 2);
   f.loader.finish();
   f.loader.finish();
   CHECK(f.completion.drain() == 2);
   CHECK(batch.loaded());
-  auto typed = group.request_preload<texture>(test_guid_a);
+  auto typed = f.assets.database().request_preload<texture>(test_guid_a, f.worker.get_executor(),
+                                                            f.completion.get_executor());
   CHECK(typed.loaded());
 }
 
@@ -289,8 +291,10 @@ TEST_CASE("assets - native async reload commits a new generation", "[assets][nat
   auto old = first.try_get();
   auto reloading = group.request_reload<texture>(test_guid_a);
   auto shared = group.request_reload<texture>(test_guid_a);
-  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.worker.drain() == 2);
   REQUIRE(reloading.cancel());
+  f.loader.finish();
+  CHECK(f.cache.find(test_guid_a) == old.get());
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
   CHECK(shared.loaded());
@@ -319,7 +323,7 @@ TEST_CASE("assets - shared cancellation and late progress keep operation alive",
 TEST_CASE("assets - mixed preload uses native async and synchronous loaders",
           "[assets][native-async]") {
   fixture f;
-  class other_loader final : public caors::resources::loader<observed_resource> {
+  class other_loader final : public caors::resources::sync_loader_adapter<observed_resource> {
   public:
     caors::resources::load_result<observed_resource>
     load(caors::resource_guid guid, caors::memory_resource* resource) override {
@@ -490,7 +494,7 @@ TEST_CASE("assets - terminal callback may release native completion owner",
 
 TEST_CASE("assets - generic owned type factory accepts native async loader",
           "[assets][native-async]") {
-  class factory_loader final : public caors::resources::async_loader<texture> {
+  class factory_loader final : public caors::resources::loader<texture> {
   public:
     explicit factory_loader(const caors::resources::provider&) {}
     caors::error start(caors::resources::async_load_context context,
@@ -516,7 +520,10 @@ TEST_CASE("assets - generic owned type factory accepts native async loader",
   REQUIRE(worker.drain() == 1);
   REQUIRE(completion.drain() == 1);
   CHECK(request.loaded());
-  CHECK(assets.load_handle<texture>(test_guid_b).status.value() == caors::errc::unsupported);
+  auto second = group.request_load<texture>(test_guid_b);
+  (void)worker.drain();
+  (void)completion.drain();
+  CHECK(second.loaded());
 }
 
 TEST_CASE("assets - preload cancellation and abandonment signal only unused native operations",
@@ -566,7 +573,7 @@ std::string snapshot_text(const caors::resources::async_load_context& context,
   REQUIRE(sources);
   auto file = sources->resolve(guid);
   REQUIRE(file);
-  auto bytes = file->backend->read_all(file->path);
+  auto bytes = read_snapshot_bytes(file.value);
   REQUIRE(bytes);
   return {reinterpret_cast<const char*>(bytes->data()), bytes->size()};
 }
@@ -582,7 +589,8 @@ TEST_CASE("assets - first GUID operation freezes source before worker and remoun
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
   auto first = f.assets.request_load<texture>(test_guid_a);
   router->clear();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
@@ -606,13 +614,17 @@ TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[a
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_b, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_b, source, "assets/data"));
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
   REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
-  auto batch = GENERATE(false, true) ? f.assets.request_preload(test_guid_a)
-                                     : f.assets.request_preload<texture>(test_guid_a);
+  auto batch = GENERATE(false, true)
+                   ? f.assets.request_preload(test_guid_a)
+                   : f.assets.database().request_preload<texture>(
+                         test_guid_a, f.worker.get_executor(), f.completion.get_executor());
   REQUIRE(f.worker.poll_one() == 1);
   router->clear();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
@@ -621,7 +633,7 @@ TEST_CASE("assets - dependency preload shares one owning provider snapshot", "[a
   CHECK(f.loader.pending[0].context.snapshot == f.loader.pending[1].context.snapshot);
   for (auto& op : f.loader.pending)
     CHECK(snapshot_text(op.context, op.context.guid) == "old");
-  f.assets.provider().clear();
+  caors::assets::project_builder{f.assets}.provider().clear();
   CHECK(snapshot_text(f.loader.pending.front().context, test_guid_a) == "old");
   f.loader.finish();
   f.loader.finish();
@@ -646,25 +658,20 @@ TEST_CASE("assets - configured builtins expose owning snapshots after manager de
     REQUIRE_FALSE(memory->write_all("data", std::string_view{"factory"}));
     auto* source = caors::assets::project_builder{assets}.find_source(caors::string_name{"assets"});
     REQUIRE(source);
-    REQUIRE_FALSE(assets.provider().bind(test_guid_a, *source, "caors://assets/data"));
-    snapshot = assets.provider().snapshot();
+    REQUIRE_FALSE(caors::assets::project_builder{assets}.provider().bind(test_guid_a, *source,
+                                                                         "caors://assets/data"));
+    snapshot = caors::assets::project_builder{assets}.provider().snapshot();
   }
   auto file = snapshot->resolve(test_guid_a);
   REQUIRE(file);
-  auto opened = caors::io::request_open(std::move(file.value), caors::tasks::inline_executor());
-  REQUIRE(opened);
-  REQUIRE(opened->result());
-  REQUIRE(*opened->result());
-  auto stream = opened->result()->value;
-  auto read = caors::io::read_all_bounded(stream, 7, caors::tasks::inline_executor());
+  caors::resources::file_byte_reader reader;
+  auto read = caors::resources::request_bytes(
+      reader, {std::move(file.value), caors::tasks::inline_executor(), 7, nullptr},
+      caors::tasks::inline_executor());
   REQUIRE(read);
   REQUIRE(read->result());
   REQUIRE(*read->result());
   CHECK(read->result()->value.size() == 7);
-  auto closed = caors::io::request_close(stream, caors::tasks::inline_executor());
-  REQUIRE(closed);
-  REQUIRE(closed->result());
-  CHECK(*closed->result());
 }
 TEST_CASE("assets - configured owning route cycles fail before publishing edges", "[assets][vfs]") {
   caors::assets::asset_manager assets;
@@ -682,13 +689,14 @@ TEST_CASE("assets - refresh chooses new source while old load remains independen
   auto router = std::make_shared<caors::io::mount_file_system>();
   REQUIRE_FALSE(router->mount("assets", snapshot_files("old")));
   caors::resources::file_source source{router};
-  REQUIRE_FALSE(f.assets.provider().bind(test_guid_a, source, "assets/data"));
+  REQUIRE_FALSE(
+      caors::assets::project_builder{f.assets}.provider().bind(test_guid_a, source, "assets/data"));
   auto old = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(router->unmount("assets"));
   REQUIRE_FALSE(router->mount("assets", snapshot_files("new")));
   auto fresh = f.assets.create_group(f.worker.get_executor(), f.completion.get_executor())
-                   .request_refresh<texture>(test_guid_a);
+                   .request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 2);
   CHECK(snapshot_text(f.loader.pending[0].context, test_guid_a) == "old");
@@ -714,9 +722,9 @@ TEST_CASE("assets - failed latest refresh never restores an older publication in
   fixture f;
   auto original = f.cache.create_handle(test_guid_a, test_guid_a);
   REQUIRE(original);
-  auto older = f.assets.request_refresh<texture>(test_guid_a);
+  auto older = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
-  auto latest = f.assets.request_refresh<texture>(test_guid_a);
+  auto latest = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 2);
   CHECK(f.assets.request_load<texture>(test_guid_a).try_get().get() == original.get());
@@ -729,7 +737,7 @@ TEST_CASE("assets - failed latest refresh never restores an older publication in
   REQUIRE(older.loaded());
   CHECK(older.try_get().get() != original.get());
   CHECK(f.cache.find(test_guid_a) == original.get());
-  auto retry = f.assets.request_refresh<texture>(test_guid_a);
+  auto retry = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
@@ -745,18 +753,24 @@ TEST_CASE("assets - refresh supersedes an already queued reload commit", "[asset
   REQUIRE(f.worker.drain() == 1);
   f.loader.finish();
   REQUIRE(f.completion.pending() == 1);
-  auto fresh = f.assets.request_refresh<texture>(test_guid_a);
+  auto fresh = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.completion.drain() == 1);
   REQUIRE(old.loaded());
   CHECK(f.cache.find(test_guid_a) == original.get());
   REQUIRE(f.worker.drain() == 1);
-  auto shared = f.assets.request_reload<texture>(test_guid_a);
-  CHECK(f.worker.pending() == 0);
+  auto newest = f.assets.request_reload<texture>(test_guid_a);
+  CHECK(f.worker.pending() == 1);
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
-  REQUIRE(shared.loaded());
-  CHECK(shared.try_get().get() == fresh.try_get().get());
-  CHECK(f.cache.find(test_guid_a) == fresh.try_get().get());
+  REQUIRE(fresh.loaded());
+  CHECK_FALSE(newest.done());
+  CHECK(f.cache.find(test_guid_a) == original.get());
+  REQUIRE(f.worker.drain() == 1);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  REQUIRE(newest.loaded());
+  CHECK(newest.try_get().get() != fresh.try_get().get());
+  CHECK(f.cache.find(test_guid_a) == newest.try_get().get());
 }
 
 TEST_CASE("assets - rejected and cancelled refresh preserve cache and supersede older work",
@@ -764,13 +778,14 @@ TEST_CASE("assets - rejected and cancelled refresh preserve cache and supersede 
   for (int mode : {0, 1, 2}) {
     fixture f;
     auto original = f.cache.create_handle(test_guid_a, test_guid_a);
-    auto older = f.assets.request_refresh<texture>(test_guid_a);
+    auto older = f.assets.request_reload<texture>(test_guid_a);
     REQUIRE(f.worker.drain() == 1);
     caors::tasks::execution_context worker;
     caors::tasks::execution_context completion;
-    auto latest = f.assets.request_refresh<texture>(
-        test_guid_a, mode == 0 ? caors::tasks::executor{} : worker.get_executor(),
-        completion.get_executor());
+    auto latest = f.assets
+                      .create_group(mode == 0 ? caors::tasks::executor{} : worker.get_executor(),
+                                    completion.get_executor())
+                      .request_reload<texture>(test_guid_a);
     if (mode == 0) {
       CHECK(latest.failed());
     } else {
@@ -789,7 +804,7 @@ TEST_CASE("assets - rejected and cancelled refresh preserve cache and supersede 
     f.loader.finish();
     REQUIRE(f.completion.drain() == 1);
     REQUIRE(older.loaded());
-    CHECK(f.cache.find(test_guid_a) == original.get());
+    CHECK(f.cache.find(test_guid_a) == (mode == 0 ? older.try_get().get() : original.get()));
   }
 }
 
@@ -801,7 +816,7 @@ TEST_CASE("assets - refresh root does not silently refresh cached dependency clo
   REQUIRE(old_root);
   REQUIRE(dependency);
   REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
-  auto request = f.assets.request_refresh<texture>(test_guid_a);
+  auto request = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 1);
   CHECK(f.loader.pending.front().context.guid == test_guid_a);
@@ -864,8 +879,10 @@ TEST_CASE("assets - host capture shares preload batch and refreshes only new ope
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_a, "a", caors::string_name{"group.texture"}));
   REQUIRE_FALSE(f.assets.manifest().bind(test_guid_b, "b", caors::string_name{"group.texture"}));
   REQUIRE(f.assets.dependency_graph().add(test_guid_a, test_guid_b));
-  auto batch = GENERATE(false, true) ? f.assets.request_preload(test_guid_a)
-                                     : f.assets.request_preload<texture>(test_guid_a);
+  auto batch = GENERATE(false, true)
+                   ? f.assets.request_preload(test_guid_a)
+                   : f.assets.database().request_preload<texture>(
+                         test_guid_a, f.worker.get_executor(), f.completion.get_executor());
   CHECK(captures == 1);
   revision = 2;
   auto subscriber = f.assets.request_load<texture>(test_guid_a);
@@ -889,7 +906,7 @@ TEST_CASE("assets - host capture shares preload batch and refreshes only new ope
   auto cached = f.assets.request_load<texture>(test_guid_a);
   CHECK(cached.loaded());
   CHECK(captures == 1);
-  auto refreshed = f.assets.request_refresh<texture>(test_guid_a);
+  auto refreshed = f.assets.request_reload<texture>(test_guid_a);
   CHECK(captures == 2);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.front().context.snapshot_as<host_snapshot>());
@@ -903,8 +920,12 @@ TEST_CASE("assets - host capture shares preload batch and refreshes only new ope
 TEST_CASE("assets - explicit empty host capture does not fall back to VFS",
           "[assets][native-async][snapshot]") {
   fixture f;
-  REQUIRE_FALSE(f.assets.database().set_snapshot_capture(
-      [] { return std::shared_ptr<const caors::resources::load_snapshot>{}; }));
+  if (GENERATE(false, true)) {
+    REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+  } else {
+    REQUIRE_FALSE(f.assets.database().set_snapshot_capture(
+        [] { return std::shared_ptr<const caors::resources::load_snapshot>{}; }));
+  }
   auto request = f.assets.request_load<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   REQUIRE(f.loader.pending.size() == 1);
@@ -912,11 +933,122 @@ TEST_CASE("assets - explicit empty host capture does not fall back to VFS",
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
   CHECK(request.loaded());
-  REQUIRE_FALSE(f.assets.database().set_snapshot_capture({}));
+  REQUIRE_FALSE(caors::assets::project_builder{f.assets}.use_provider_snapshot());
   auto reload = f.assets.request_reload<texture>(test_guid_a);
   REQUIRE(f.worker.drain() == 1);
   CHECK(f.loader.pending.front().context.snapshot_as<caors::resources::provider_snapshot>());
   f.loader.finish();
   REQUIRE(f.completion.drain() == 1);
   CHECK(reload.loaded());
+}
+
+TEST_CASE("resources - standalone database loads without a provider or capture strategy",
+          "[resources][native-async][snapshot]") {
+  fixture f;
+  caors::resources::database database;
+  REQUIRE_FALSE(database.register_type(f.cache, f.loader, caors::string_name{"bare.texture"}));
+  auto request = database.request_load<texture>(test_guid_a, f.worker.get_executor(),
+                                                f.completion.get_executor());
+  REQUIRE(f.worker.drain() == 1);
+  REQUIRE(f.loader.pending.size() == 1);
+  CHECK_FALSE(f.loader.pending.front().context.snapshot);
+  f.loader.finish();
+  REQUIRE(f.completion.drain() == 1);
+  CHECK(request.loaded());
+  CHECK_FALSE(database.has_active_operations());
+}
+
+namespace {
+struct loader_prefix {
+  virtual ~loader_prefix() = default;
+  int marker = 9;
+};
+class offset_sync_loader final : public loader_prefix,
+                                 public caors::resources::sync_loader_adapter<texture> {
+public:
+  caors::resources::load_result<texture> load(caors::resource_guid guid,
+                                              caors::memory_resource* resource = nullptr) override {
+    ++calls;
+    return {{}, caors::memory::make_unique<texture>(resource, guid)};
+  }
+  int calls = 0;
+};
+template <typename T>
+concept has_synchronous_load = requires(T& value) { value.load(test_guid_a); };
+template <typename T>
+concept has_sync_orchestration =
+    requires(T& value) { value.template load<texture>(test_guid_a); } ||
+    requires(T& value) { value.template load_handle<texture>(test_guid_a); } ||
+    requires(T& value) { value.template reload<texture>(test_guid_a); } ||
+    requires(T& value) { value.template reload_handle<texture>(test_guid_a); } ||
+    requires(T& value) { value.preload(test_guid_a); } ||
+    requires(T& value) { value.template preload<texture>(test_guid_a); };
+template <typename T>
+concept has_removed_requests =
+    requires(T& value) { value.template request_refresh<texture>(test_guid_a); } ||
+    requires(T& value) { value.template request_preload<texture>(test_guid_a); } ||
+    requires(T& value, caors::tasks::executor executor) {
+      value.template request_load<texture>(test_guid_a, executor, executor);
+    } || requires(T& value, caors::tasks::executor executor) {
+      value.template request_reload<texture>(test_guid_a, executor, executor);
+    } || requires(T& value, caors::tasks::executor executor) {
+      value.request_preload(test_guid_a, executor, executor);
+    };
+static_assert(!has_removed_requests<caors::assets::asset_manager>);
+static_assert(!has_removed_requests<caors::assets::asset_group>);
+static_assert(!has_sync_orchestration<caors::assets::asset_manager>);
+static_assert(!has_sync_orchestration<caors::resources::database>);
+static_assert(!has_synchronous_load<caors::resources::loader<texture>>);
+static_assert(has_synchronous_load<caors::resources::sync_loader_adapter<texture>>);
+} // namespace
+
+TEST_CASE("assets - synchronous adapter preserves adjusted loader pointers across rebuild",
+          "[assets][native-async][adapter]") {
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::resources::cache<texture> cache;
+  offset_sync_loader loader;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  REQUIRE_FALSE(assets.register_type(cache, loader, caors::string_name{"adapter.texture"}));
+  REQUIRE_FALSE(caors::assets::project_builder{assets}.build(caors::assets::project_config{}));
+  auto request = assets.request_load<texture>(test_guid_a);
+  CHECK(loader.calls == 0);
+  REQUIRE(worker.drain() == 1);
+  CHECK(loader.calls == 1);
+  CHECK_FALSE(request.done());
+  REQUIRE(completion.drain() == 1);
+  CHECK(request.loaded());
+  auto second = assets.request_load<texture>(test_guid_b);
+  (void)worker.drain();
+  (void)completion.drain();
+  CHECK(second.loaded());
+  CHECK(loader.calls == 2);
+}
+
+TEST_CASE("assets - default JSON factory loads through configured asynchronous queues",
+          "[assets][json-factory][web]") {
+  require_serialized_resource_metadata();
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  caors::assets::project_builder project{assets};
+  const caors::string_name type{"json.protocol"};
+  REQUIRE_FALSE(caors::assets::json::register_type_factory<serialized_resource>(project, type));
+  caors::assets::project_config config;
+  config.resource_types.push_back(
+      {type, caors::string_name{"json"}, caors::string_name{"memory"}, {}});
+  REQUIRE_FALSE(project.build(config));
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(files->write_all("data", R"({"width":321})"));
+  caors::resources::file_source source{files};
+  REQUIRE_FALSE(project.provider().bind(test_guid_a, source, "data"));
+  auto request = assets.request_load<serialized_resource>(test_guid_a);
+  CHECK_FALSE(request.done());
+  for (int i = 0; i < 32 && !request.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(request.loaded());
+  CHECK(request.try_get()->width == 321);
+  CHECK_FALSE(assets.database().has_active_operations());
 }

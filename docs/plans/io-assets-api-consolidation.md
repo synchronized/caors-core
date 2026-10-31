@@ -7,16 +7,26 @@
 
 实施中，首批快照解耦与工程装配入口迁移已完成验收；2026-10-22 基于 main 3b543eb1 的公开接口审计。用户要求先整理 API 对照与调用示例，
 首批平台验证和安装迁移证据见[原型记录](../records/2026-10-22-load-snapshot-prototype.md)。
-后续接口统一仍待实施，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的标签或制品。
+后续接口统一分批实施，不宣布 v0.8.0 排期，不修改已发布 v0.7.0 的标签或制品。
 当前行为见 [IO 参考](../reference/io.md)、[资源参考索引](../reference/README.md)及公共头。
 本页为后续收敛方案的维护入口，之前 VFS/异步 loader 计划仍保留其已实现设计和历史证据。
 
 目标是减少普通调用者必须理解的概念、等价入口和跨层参数，不以移动目录或新增包装类作为完成标准。
 优先处理资源加载主线；文件写入、目录访问等既有能力不得因统一异步而无声丢失。
 
-## 当前职责与问题
+字节读取批新增统一 reader、VFS 编排适配和显式 JSON 异步接入，当前 API 见[资源参考](../reference/resources.md#统一字节读取适配)。
+本批实现与验证见[字节读取记录](../records/2026-10-22-byte-reader-protocol.md)。
+默认 JSON 工厂已迁移到异步 loader，旧 JSON 实现显式更名 sync_loader，见[迁移记录](../records/2026-10-22-json-factory-migration.md)；manager/database 旧同步执行入口及双注册槽已移除；低层同步组合仅接受显式 adapter，见[收口记录](../records/2026-10-22-single-load-entry.md)。远端验收和最终范围审计仍待完成，不记为整个重构完成。
 
-| 当前入口 | 实际职责 | 整理方向 |
+日常请求进一步收敛为 load/reload/preload 三类：refresh 合入 reload，manager/group 移除逐次调度参数及模板 preload；当前语义以参考为准，本批证据见[三类请求迁移记录](../records/2026-10-22-three-request-api.md)。
+
+VFS 主体重构按[VFS 收敛计划](vfs-api-consolidation.md)实施，本页保留资源侧与原始审计依据。
+
+## 原始审计职责与问题
+
+以下表格和后续迁移清单保留最初审计基线，不代表当前 API；已实施结果以本页进展摘要和专题参考为准。
+
+| 审计时入口 | 当时职责 | 整理方向 |
 | --- | --- | --- |
 | asset_manager::request_load/reload/preload | 资源请求、缓存与依赖加载入口 | 保留；已有名称具有区分语义，不为缩短名称全部改为 load |
 | asset_manager::create_group | 绑定一组 worker/completion 策略 | 保留；常规调用通过 manager 默认策略或 group |
@@ -38,7 +48,7 @@
 [source.h](../../include/caors/resources/source.h)、[file_system.h](../../include/caors/io/file_system.h)、
 [async_file.h](../../include/caors/io/async_file.h)。
 
-database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
+原始审计时 database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
 loader 可以忽略 sources，但当前 manager/配置/请求协议结构上仍依赖 VFS。
 provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes 和 resolved_file 的具体实现。
 
@@ -70,10 +80,10 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 | provider.exists/read/open_read/write/open_write | 移出定位职责，归具体字节访问适配 |
 | provider.snapshot / provider_snapshot.resolve | 映射固定与 VFS 路由冻结分清；保留语义至批次适配替代通过 |
 | file_system.exists/status/list | 功能保留，异步替代需定义缺失、权限和路径错误区别 |
-| file_system.read_all/open_read | 公共读取迁移至异步主线；同步实现作为 worker 适配细节 |
-| file_system.write_all/open_write | 异步写入/提交/关闭尚未设计完成，禁止提前删除 |
-| file_system.start_open/open_random_read | 移至后端接入协议 |
-| snapshot/routes_paths/resolve_owned/freeze_routes | 从普通文件访问中下沉到 VFS 路由与适配 |
+| file_system.read_all/open_read | 同步工具保留；普通文件读取使用 file_service，显式 worker 复用同步存储 |
+| file_system.write_all/open_write | 同步保存保留；异步整文件和范围写入已由 file_service/file 提供 |
+| file_system.start_open/open_random_read | start_open 已移除，异步统一 backend；open_random_read 留在同步存储，供显式适配使用 |
+| snapshot/routes_paths/resolve_owned/freeze_routes | 已从 file_system 移除，旧路由由 legacy::route_provider 提供快照、解析和冻结，不再使用 routes_paths 标记 |
 | resolver 与 mount_file_system 的 mount/unmount/clear/mount_count | 保留配置职责；URI 与虚拟路径匹配语义不机械合并 |
 | async_file.start_read/start_close | 后端协议，不作为普通用户主入口 |
 | async_file.size/source_id/max_read_size | 保留必要查询；来源诊断和预算限制与常规操作区分 |
@@ -91,12 +101,21 @@ provider 的基本定位职责不要求 VFS，当前依赖来自 freeze_routes �
 第一步以 load_snapshot 多态基类和 context.snapshot_as<T>() 替代上下文的 VFS 具体类型；
 现有 provider 捕获时机和批次共享规则不变。此批接口已通过平台验收，集成由 PR #57 跟踪；尚未发布。
 后续原型已提供 database::set_snapshot_capture；异步请求管线只接收通用捕获器，不再依赖 provider。
-database 暂时保留默认 provider 适配和既有同步访问，不新增公共 manager 配置外观；
+后续批次已从 database 移除 provider 与清单绑定方法，manifest_binding.h 提供可选绑定适配；
+工程 provider 移入私有工程状态，公开入口归 project_builder。manager 暂时安装兼容捕获策略，
+清空自定义捕获器即关闭捕获，use_provider_snapshot 可显式恢复；
 配置装配第一步已将 build/build_detailed 的编排、路由图校验和失败诊断实现迁到 project_builder；
 已移除 manager 的对应公共入口并迁移测试/示例。注册表、工厂、拥有对象表和配置标记已收进
 私有 project_state，具体容器与对象销毁类型移出公共头；状态仍由 manager 保活。公开绑定、配置工厂注册、create_owned 及工厂扩展类型已经归入
 project_builder；工厂通过 context.project() 使用装配入口。各阶段创建函数仍为 manager 私有实现，
 后续继续迁移，不宣称整个资源核心已与 VFS 解耦。
+
+第二批实现及本机结果见[来源边界记录](../records/2026-10-22-resource-source-boundary.md)；
+远端平台验收尚未执行，不沿用第一批结果作为本批通过。
+
+统一 loader 的实现已进入同分支，证据见[统一协议记录](../records/2026-10-22-unified-loader-protocol.md)：loader 仅提供异步 start，原同步实现迁移到 sync_loader_adapter；
+删除独立 async_loader 类型。兼容注册槽和旧同步辅助入口暂保留，不以阻塞等待模拟异步。
+provider 的 find/快照查询仍同步，字节访问协议拆分尚未实施。
 
 ### 调用点迁移边界
 
@@ -164,19 +183,9 @@ loader 的宿主依赖在构造时注入；不得让 manager 解释宿主路径�
 
 ### 独立文件访问
 
-```cpp
-// 候选形式；文件对象与注册流程在后续原型中确定。
-auto opening = files.open_read(path, on_open);
-auto reading = file.read_at(offset, length, on_read);
-auto closing = file.close(on_close);
-```
-
-这里只展示三个阶段，不表示可以在 on_open 前使用 file，或必须立即关闭。
-返回请求句柄用于取消、查询和回调投递失败兜底；忽略句柄不取消，文件通过打开结果交付。
-对外优先统一异步读取，后端允许 worker 适配阻塞操作；不在公共异步调用中偷偷阻塞文件读取。
-完成通知经指定调度入口；拒绝或丢弃时句柄仍可查询终态，不能承诺回调总会执行。
-若未来保证通知不内联，须显式迁移当前允许返回前完成的契约，并确认宿主调度器能够满足。
-不提供可在任意 loop 线程阻塞的通用 sync_wait。
+文件访问签名已在 [VFS 专项计划](vfs-api-consolidation.md)中确定并实施，
+当前 API 以 [IO 参考](../reference/io.md#vfs-与统一文件访问)为唯一说明入口。
+不再保留 open_read 等旧候选示例；统一使用 open，并通过选项表达后续访问模式。
 
 ## 必须保留的行为
 
@@ -207,5 +216,5 @@ auto closing = file.close(on_close);
 
 - 核心与 VFS 适配之间如何传递批次一致性：先做原型，不能仅靠 loader 构造注入解决依赖共享。
 - 资源同步主入口在替代完成后迁移退出；文件异步写入/枚举方案仍未决定，禁止提前删除现有能力。
-- 文件操作对象与函数命名：概念示例仅作评审，不提前形成兼容承诺。
+- 文件访问命名已经确定；可写句柄与旧配置退出继续在 VFS 专项计划实施。
 - 下一版本号、最终破坏性范围及 Gneiss 迁移：原型和调用点审计完成后确定；本批不修改上游。

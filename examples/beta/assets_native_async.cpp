@@ -15,7 +15,7 @@ public:
 };
 
 // 模拟宿主 I/O：start 不等待，宿主稍后从自己的事件回调调用 finish。
-class host_loader final : public caors::resources::async_loader<texture> {
+class host_loader final : public caors::resources::loader<texture> {
 public:
   caors::error start(caors::resources::async_load_context context,
                      caors::resources::load_completion<texture> completion) override {

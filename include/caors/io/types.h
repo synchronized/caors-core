@@ -12,6 +12,9 @@
 
 namespace caors::io {
 
+/** @brief 显式关闭成功时的结果。 */
+struct close_result {};
+
 /** @brief 字节缓冲区，使用 CAORS allocator 管理存储。 */
 using byte_buffer = vector<std::byte>;
 

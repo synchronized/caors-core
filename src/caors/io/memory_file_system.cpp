@@ -224,16 +224,6 @@ error memory_file_system::write_all(path_view path, std::span<const std::byte> b
   return {};
 }
 
-io_error memory_file_system::start_open(resolved_file location, memory_resource* resource,
-                                        io_completion<std::shared_ptr<async_file>> completion) {
-  auto reader = open_random_read(location.path, resource);
-  if (!reader)
-    return reader.error();
-  auto file = make_worker_file(std::move(reader.value), tasks::inline_executor(), location.backend);
-  (void)completion.complete({{}, std::move(file)});
-  return {};
-}
-
 io_result<std::shared_ptr<random_access_reader>>
 memory_file_system::open_random_read(path_view path, memory_resource* resource) {
   if (path.empty())

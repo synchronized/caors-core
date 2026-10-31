@@ -43,6 +43,14 @@ public:
   /** @brief 执行相同装配流程，并返回失败阶段及诊断。 */
   [[nodiscard]] asset_build_result build_detailed(const project_config& config);
 
+  /** @brief 访问工程字节来源定位与 VFS 适配；不属于日常资源请求接口。 */
+  [[nodiscard]] resources::provider& provider() noexcept { return manager_.project_provider(); }
+  /** @brief 只读访问工程来源。 */
+  [[nodiscard]] const resources::provider& provider() const noexcept {
+    return manager_.project_provider();
+  }
+  /** @brief 显式选择工程 provider 快照策略；实际操作未清理时返回 frozen。 */
+  [[nodiscard]] error use_provider_snapshot() { return manager_.use_project_provider_snapshot(); }
   /** @brief 查询装配使用的内存资源；由宿主保证其寿命。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return manager_.resource(); }
   /** @brief 借用绑定文件系统，宿主须维持后端寿命。 */
@@ -78,7 +86,17 @@ public:
   [[nodiscard]] error bind_source(core::string_name name, resources::source& source) {
     return manager_.bind_source(name, source);
   }
-  /** @brief 查询已绑定来源。 */
+  /** @brief 绑定既有文件服务为来源；工程拥有适配对象，借用服务至每次捕获完成。
+   * @note 名称重复返回 already_exists；最后名称解绑/清空时释放适配并清理其
+   * GUID，已有快照独立保活后端。
+   */
+  [[nodiscard]] error bind_source(core::string_name name, const io::file_service& service) {
+    return manager_.bind_service_source(name, service);
+  }
+  /** @brief 禁止借用临时服务。 */
+  error bind_source(core::string_name, io::file_service&&) = delete;
+  error bind_source(core::string_name, const io::file_service&&) = delete;
+  /** @brief 查询借用来源；工程拥有的服务适配在最后名称解绑后失效。 */
   [[nodiscard]] resources::source* find_source(core::string_name name) const {
     return manager_.find_source(name);
   }

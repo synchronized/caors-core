@@ -23,7 +23,7 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
   caors::resources::handle_result<serialized_resource> loaded =
@@ -54,7 +54,7 @@ TEST_CASE("resources - json loader result survives scratch rewind", "[resources]
   context.resolvers.memory.result_resource = &result_tracking;
   context.resolvers.memory.scratch_resource = &scratch;
 
-  caors::assets::json::loader<serialized_resource> loader{context, provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{context, provider};
   caors::resources::load_result<serialized_resource> loaded =
       loader.load(test_guid_a, &result_tracking);
   REQUIRE(loaded.succeeded());
@@ -88,7 +88,7 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resources::load_result<serialized_resource> loaded = loader.load(test_guid_a);
 
   REQUIRE(loaded.failed());
@@ -149,7 +149,7 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         R"({"width":640})");
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
   caors::resources::handle_result<serialized_resource> loaded =
       caors::resources::load_handle_into(cache, loader, test_guid_a);
@@ -341,4 +341,84 @@ TEST_CASE("assets - project config can save and roundtrip file systems", "[asset
       caors::assets::json::load_project_config(from_source, source, "project.caors").succeeded());
   CHECK(from_source.file_systems.size() == roundtrip.file_systems.size());
   CHECK(from_source.resources[0].guid == test_guid_a);
+}
+
+TEST_CASE("assets - byte loader reads captured backend through the unified reader",
+          "[assets][byte-reader]") {
+  require_serialized_resource_metadata();
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  caors::resources::file_byte_reader reader;
+  caors::assets::json::loader<serialized_resource> loader{reader};
+  caors::resources::cache<serialized_resource> cache;
+  caors::assets::asset_manager assets{{worker.get_executor(), completion.get_executor()}};
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(files->write_all("old", R"({"width":123})"));
+  REQUIRE_FALSE(files->write_all("new", R"({"width":456})"));
+  caors::resources::file_source source{files};
+  auto& provider = caors::assets::project_builder{assets}.provider();
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "old"));
+  REQUIRE_FALSE(assets.register_type(cache, loader, caors::string_name{"byte.json"}));
+  auto request = assets.request_load<serialized_resource>(test_guid_a);
+  REQUIRE_FALSE(provider.rebind(test_guid_a, source, "new"));
+  CHECK_FALSE(request.done());
+  for (int i = 0; i < 32 && !request.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(request.loaded());
+  CHECK(request.try_get()->width == 123);
+  auto refreshed = assets.request_reload<serialized_resource>(test_guid_a);
+  for (int i = 0; i < 32 && !refreshed.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(refreshed.loaded());
+  CHECK(refreshed.try_get()->width == 456);
+  REQUIRE_FALSE(files->write_all("new", "{"));
+  auto invalid = assets.request_reload<serialized_resource>(test_guid_a);
+  for (int i = 0; i < 32 && !invalid.done(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(invalid.failed());
+  REQUIRE(cache.find(test_guid_a));
+  CHECK(cache.find(test_guid_a)->width == 456);
+  CHECK_FALSE(assets.database().has_active_operations());
+}
+
+TEST_CASE("assets - byte reader enforces budget and cancellation", "[assets][byte-reader]") {
+  caors::tasks::execution_context worker;
+  caors::tasks::execution_context completion;
+  auto files = std::make_shared<caors::io::memory_file_system>();
+  REQUIRE_FALSE(files->write_all("data", "oversized"));
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
+  REQUIRE_FALSE(provider.bind(test_guid_a, source, "data"));
+  auto snapshot = provider.snapshot();
+  auto resolved = snapshot->resolve(test_guid_a);
+  REQUIRE(resolved);
+  caors::resources::file_byte_reader reader;
+  int notifications = 0;
+  auto request = caors::resources::request_bytes(
+      reader, {resolved.value, worker.get_executor(), 2, nullptr}, completion.get_executor(),
+      [&](const auto&) { ++notifications; });
+  REQUIRE(request);
+  for (int i = 0; i < 32 && !request.value.result(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(request.value.result());
+  CHECK(request.value.result()->error().value == caors::io::io_errc::limit_exceeded);
+  CHECK(notifications == 1);
+  auto cancelled = caors::resources::request_bytes(
+      reader, {resolved.value, worker.get_executor(), 32, nullptr}, completion.get_executor());
+  REQUIRE(cancelled);
+  cancelled.value.cancel();
+  for (int i = 0; i < 32 && !cancelled.value.result(); ++i) {
+    (void)worker.drain();
+    (void)completion.drain();
+  }
+  REQUIRE(cancelled.value.result());
+  CHECK(cancelled.value.result()->error().value == caors::io::io_errc::cancelled);
 }

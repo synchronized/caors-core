@@ -130,7 +130,7 @@ wrapper 的所有权与擦除结构。
   `write_value_to_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
   writer 写对象。这些用例用于判断完整 JSON 序列化成本主要来自 schema 注册表、字段查找、反射、DOM 构造、
   DOM 写出、reader 字段索引还是 writer 本身。
-- `resources::cache<T>` / `resources::provider` / `assets::json::loader<T>` /
+- `resources::cache<T>` / `resources::provider` / `assets::json::sync_loader<T>` /
   `resources::load_handle_into()`：cache 查找、已缓存加载、fake loader 未缓存加载、memory file system
   provider 读取，以及 provider -> JSON loader -> cache 的资源加载主路径。
 
@@ -205,7 +205,7 @@ math benchmark 分成两类：
 另测单资源 cache 命中、在途共享以及 typed/dispatched preload 的全命中、在途和依赖路径。
 
 CSV 输出耗时 p50/p95/p99/max、更新最大耗时、显式 allocator 分配次数/字节、
-新增保留量及包含 fixture 的峰值，以及 source::freeze_routes 调用次数。
+新增保留量及包含 fixture 的峰值，以及 source::capture 调用次数。
 分位数基于逐次样本，较少样本的尾部分位数分辨率有限；provider 首次捕获单列 first_capture（单样本，没有分位数统计意义），fixture 构造不计入捕获计时。
 当前计时捕获本身，正常请求对象析构和预加载结果处理的成本包含在相应请求用例中。
 显式计数不覆盖 STL 默认分配、所有共享指针控制块、后端 allocator 或进程总内存；不能据此报告全局分配总量。

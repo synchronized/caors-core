@@ -37,10 +37,6 @@ public:
   /** @brief 清空全部内容。 */
   void clear() noexcept;
 
-  /** @brief 内存后端立即建立拥有式文件；完成通知仍由调用方 executor 调度。 */
-  [[nodiscard]] io_error start_open(resolved_file location, memory_resource* resource,
-                                    io_completion<std::shared_ptr<async_file>> completion) override;
-
   /** @brief 打开独立随机读取句柄，不经 read_all 回退；句柄持有打开时的长度。 */
   [[nodiscard]] io_result<std::shared_ptr<random_access_reader>>
   open_random_read(path_view path, memory_resource* result_resource = nullptr) override;

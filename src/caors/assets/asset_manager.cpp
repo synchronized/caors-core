@@ -8,6 +8,7 @@
 #include "caors/io/mount_file_system.h"
 #include "caors/io/native_file_system.h"
 #include "caors/io/uri.h"
+#include "caors/resources/vfs_source.h"
 
 #include <string_view>
 #include <utility>
@@ -160,6 +161,8 @@ struct asset_manager::project_state {
   struct source_binding {
     resources::source* source = nullptr;
     bool config_created = false;
+    // 仅名称表持有适配所有权；别名共享，快照只保活后端。
+    std::shared_ptr<resources::source> owner{};
   };
 
   using file_system_map = core::hash_map<core::string_name, file_system_binding>;
@@ -191,7 +194,7 @@ struct asset_manager::project_state {
   using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
 
   explicit project_state(memory_resource* resource)
-      : file_systems_(typename file_system_map::allocator_type{resource}),
+      : provider_(resource), file_systems_(typename file_system_map::allocator_type{resource}),
         sources_(typename source_map::allocator_type{resource}),
         file_system_factories_(typename file_system_factory_map::allocator_type{resource}),
         source_factories_(typename source_factory_map::allocator_type{resource}),
@@ -199,6 +202,7 @@ struct asset_manager::project_state {
         owned_objects_(typename owned_object_list::allocator_type{resource}),
         manual_type_bindings_(typename manual_type_map::allocator_type{resource}) {}
 
+  resources::provider provider_;
   file_system_map file_systems_;
   source_map sources_;
   file_system_factory_map file_system_factories_;
@@ -277,8 +281,8 @@ error asset_manager::remember_manual_type_binding_erased(core::string_name type,
   auto& binding = position->second;
   if (binding.cache != next.cache || binding.bind != next.bind)
     return {error_domain::resources, errc::already_exists};
-  void*& slot = next.async_loader ? binding.async_loader : binding.loader;
-  void* value = next.async_loader ? next.async_loader : next.loader;
+  void*& slot = binding.loader;
+  void* value = next.loader;
   if (slot && slot != value)
     return {error_domain::resources, errc::already_exists};
   slot = value;
@@ -289,16 +293,30 @@ void asset_manager::clear_file_systems() noexcept { project_->file_systems_.clea
 std::size_t asset_manager::file_system_count() const noexcept {
   return project_->file_systems_.size();
 }
-void asset_manager::clear_sources() noexcept { project_->sources_.clear(); }
+void asset_manager::clear_sources() noexcept {
+  for (const auto& [name, binding] : project_->sources_) {
+    (void)name;
+    if (binding.owner)
+      (void)project_->provider_.unbind_source(*binding.source);
+  }
+  project_->sources_.clear();
+}
 std::size_t asset_manager::source_count() const noexcept { return project_->sources_.size(); }
+
+resources::provider& asset_manager::project_provider() noexcept { return project_->provider_; }
+const resources::provider& asset_manager::project_provider() const noexcept {
+  return project_->provider_;
+}
+error asset_manager::use_project_provider_snapshot() {
+  return database_.set_snapshot_capture([this] { return project_->provider_.snapshot(); });
+}
 
 asset_manager::asset_manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-      manifest_(resource_), provider_(resource_), dependency_graph_(resource_),
-      database_(resource_),
+      manifest_(resource_), dependency_graph_(resource_), database_(resource_),
       project_(memory::make<project_state>(resource_, resource_), project_deleter{resource_}) {
   database_.set_manifest(manifest_);
-  database_.set_provider(provider_);
+  (void)use_project_provider_snapshot();
   database_.set_dependency_graph(dependency_graph_);
   (void)register_builtin_file_system_factories();
   (void)register_builtin_source_factories();
@@ -306,7 +324,7 @@ asset_manager::asset_manager(memory_resource* resource)
 
 asset_manager::~asset_manager() {
   database_.clear_registered_types();
-  provider_.clear();
+  project_->provider_.clear();
   project_->sources_.clear();
   project_->file_systems_.clear();
   project_->type_factories_.clear();
@@ -410,13 +428,42 @@ error asset_manager::bind_source(core::string_name name, resources::source& sour
     return {};
   }
 
+  std::shared_ptr<resources::source> owner;
+  for (const auto& [binding_name, binding] : project_->sources_) {
+    (void)binding_name;
+    if (binding.source == &source && binding.owner) {
+      owner = binding.owner;
+      break;
+    }
+  }
   project_->sources_.emplace(
-      name, project_state::source_binding{&source, project_->building_config_runtime_});
+      name,
+      project_state::source_binding{&source, project_->building_config_runtime_, std::move(owner)});
+  return {};
+}
+
+error asset_manager::bind_service_source(core::string_name name, const io::file_service& service) {
+  if (!name)
+    return {error_domain::resources, errc::invalid_argument};
+  if (project_->sources_.contains(name))
+    return {error_domain::resources, errc::already_exists};
+  auto owner = std::allocate_shared<resources::vfs_source>(
+      allocator<resources::vfs_source>{resource_}, service);
+  auto* source = owner.get();
+  project_->sources_.emplace(
+      name,
+      project_state::source_binding{source, project_->building_config_runtime_, std::move(owner)});
   return {};
 }
 
 bool asset_manager::unbind_source(core::string_name name) {
-  return project_->sources_.erase(name) != 0;
+  const auto position = project_->sources_.find(name);
+  if (position == project_->sources_.end())
+    return false;
+  if (position->second.owner && position->second.owner.use_count() == 1)
+    (void)project_->provider_.unbind_source(*position->second.source);
+  project_->sources_.erase(position);
+  return true;
 }
 
 resources::source* asset_manager::find_source(core::string_name name) const {
@@ -717,6 +764,8 @@ error asset_manager::clear_config_runtime() {
 
   for (auto position = project_->sources_.begin(); position != project_->sources_.end();) {
     if (position->second.config_created) {
+      if (position->second.owner && position->second.owner.use_count() == 1)
+        (void)project_->provider_.unbind_source(*position->second.source);
       position = project_->sources_.erase(position);
     } else {
       ++position;
@@ -738,13 +787,11 @@ error asset_manager::clear_config_runtime() {
 error asset_manager::rebuild_manual_type_bindings() {
   for (const auto& pair : project_->manual_type_bindings_) {
     const manual_type_binding& binding = pair.second;
-    if (binding.bind == nullptr || binding.cache == nullptr ||
-        (binding.loader == nullptr && binding.async_loader == nullptr)) {
+    if (binding.bind == nullptr || binding.cache == nullptr || binding.loader == nullptr) {
       return {error_domain::resources, errc::invalid_argument};
     }
 
-    const error status =
-        binding.bind(*this, binding.cache, binding.loader, binding.async_loader, pair.first);
+    const error status = binding.bind(*this, binding.cache, binding.loader, pair.first);
     if (status) {
       return status;
     }

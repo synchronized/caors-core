@@ -120,6 +120,69 @@ private:
   const std::uint64_t size_;
 };
 
+class native_random_file final : public random_access_reader {
+public:
+  native_random_file(std::fstream file, std::uint64_t size, file_access access)
+      : file_(std::move(file)), size_(size), access_(access) {}
+  std::uint64_t size() const noexcept override { return size_; }
+  io_result<std::size_t> read_at(std::uint64_t offset, std::span<std::byte> bytes) override {
+    if (!file_.is_open())
+      return io_failure<std::size_t>({io_errc::closed});
+    if (access_ == file_access::write)
+      return io_failure<std::size_t>({io_errc::permission_denied});
+    if (offset > size_ ||
+        offset > static_cast<std::uint64_t>((std::numeric_limits<std::streamoff>::max)()))
+      return io_failure<std::size_t>({io_errc::out_of_range});
+    file_.clear();
+    file_.seekg(static_cast<std::streamoff>(offset));
+    if (!file_)
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    auto length =
+        (std::min)(bytes.size(),
+                   static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()));
+    if (length == 0)
+      return {{}, 0};
+    file_.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
+    if (file_.bad())
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    return {{}, static_cast<std::size_t>(file_.gcount())};
+  }
+  io_result<std::size_t> write_at(std::uint64_t offset, std::span<const std::byte> bytes) override {
+    if (!file_.is_open())
+      return io_failure<std::size_t>({io_errc::closed});
+    if (access_ == file_access::read)
+      return io_failure<std::size_t>({io_errc::permission_denied});
+    if (offset > static_cast<std::uint64_t>((std::numeric_limits<std::streamoff>::max)()) ||
+        bytes.size() >
+            static_cast<std::uint64_t>((std::numeric_limits<std::streamoff>::max)()) - offset)
+      return io_failure<std::size_t>({io_errc::out_of_range});
+    file_.clear();
+    file_.seekp(static_cast<std::streamoff>(offset));
+    if (!file_)
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    auto length =
+        (std::min)(bytes.size(),
+                   static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()));
+    file_.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(length));
+    if (!file_)
+      return io_failure<std::size_t>({io_errc::backend_failure, 1, errno});
+    size_ = (std::max)(size_, offset + length);
+    return {{}, length};
+  }
+  io_error close() override {
+    if (!file_.is_open())
+      return {};
+    // 保留写入失败状态；不能在 close 前 clear 而掩盖缓冲提交错误。
+    file_.close();
+    return file_.fail() ? io_error{io_errc::backend_failure, 1, errno} : io_error{};
+  }
+
+private:
+  std::fstream file_;
+  std::uint64_t size_;
+  file_access access_;
+};
+
 class native_input_stream final : public input_stream {
 public:
   explicit native_input_stream(std::ifstream input) : input_(std::move(input)) {}
@@ -386,6 +449,39 @@ native_file_system::open_random_read(path_view path, memory_resource* resource) 
                                                      static_cast<std::uint64_t>(end))};
 }
 
+io_result<std::shared_ptr<random_access_reader>>
+native_file_system::open_random_access(path_view location, open_options options,
+                                       memory_resource* resource) {
+  if (location.empty())
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::invalid_argument});
+  if (options.access == file_access::read && options.creation == file_creation::open_existing)
+    return open_random_read(location, resource);
+  if ((options.access != file_access::write && options.access != file_access::read_write) ||
+      (options.creation != file_creation::open_existing &&
+       options.creation != file_creation::create_always))
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::invalid_argument});
+  // in|out 保证 open_existing 不隐式创建或截断；只写权限由句柄协议额外限制。
+  auto mode = std::ios::binary | std::ios::in | std::ios::out;
+  if (options.creation == file_creation::create_always)
+    mode |= std::ios::trunc;
+  std::fstream file{native_path(root(), location), mode};
+  if (!file) {
+    auto code = errno;
+    auto kind = code == ENOENT   ? io_errc::not_found
+                : code == EACCES ? io_errc::permission_denied
+                                 : io_errc::backend_failure;
+    return io_failure<std::shared_ptr<random_access_reader>>({kind, 1, code});
+  }
+  file.seekg(0, std::ios::end);
+  auto end = file.tellg();
+  if (end < std::streampos{0})
+    return io_failure<std::shared_ptr<random_access_reader>>({io_errc::backend_failure, 1, errno});
+  return {{},
+          std::allocate_shared<native_random_file>(allocator<native_random_file>{resource},
+                                                   std::move(file), static_cast<std::uint64_t>(end),
+                                                   options.access)};
+}
+
 input_stream_result native_file_system::open_read(path_view path,
                                                   memory_resource* result_resource) {
   error status = validate_path(path);
@@ -455,6 +551,10 @@ error native_file_system::write_all(path_view path, std::span<const std::byte> b
     }
   }
 
+  // 输出缓冲可能直到关闭才失败，必须在交付成功之前观察提交错误。
+  output.close();
+  if (!output)
+    return {error_domain::io, errc::backend_failure};
   return {};
 }
 

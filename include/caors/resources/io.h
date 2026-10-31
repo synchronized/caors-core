@@ -34,7 +34,7 @@ struct progress_update {
 /**
  * @brief loader 可选使用的进度上报器。
  *
- * `progress_reporter` 是轻量非拥有回调视图，只在 `loader::load()` 调用期间有效。loader
+ * `progress_reporter` 是轻量非拥有回调视图，只在 `sync_loader_adapter::load()` 调用期间有效。loader
  * 不应保存它或跨线程延后调用。
  */
 class progress_reporter final {
@@ -233,25 +233,44 @@ template <typename T> struct load_completion_access {
 } // namespace detail
 
 /**
- * @brief 指定资源类型的加载器接口。
- *
- * `loader<T>` 不绑定文件路径、资源包或异步系统。实现类只需要按 GUID 构造资源并返回所有权；
- * 调用方可选择直接持有结果，或通过 `load_handle_into()` 转入 `resources::cache<T>`。
+ * @brief 按 GUID 异步交付资源的统一加载协议，不绑定文件系统或宿主事件循环。
+ * @note 接受后必须交付或销毁完成凭证；拒绝时不得保留凭证。允许返回前提交结果。
+ * 不创建线程，loader、宿主循环及 memory_resource 须覆盖实际操作和回调寿命。
  */
 template <typename T> class loader {
+  static_assert(std::is_base_of_v<resources::resource, T>);
+
+public:
+  using resource_type = T;
+  loader() = default;
+  virtual ~loader() = default;
+  loader(const loader&) = delete;
+  loader& operator=(const loader&) = delete;
+  loader(loader&&) = delete;
+  loader& operator=(loader&&) = delete;
+  /** @brief 发起加载并交付所有权；异常由请求管线转为失败，不得阻塞等待宿主 I/O。 */
+  [[nodiscard]] virtual error start(async_load_context context, load_completion<T> completion) = 0;
+};
+
+/**
+ * @brief 将已有同步构造逻辑适配到统一加载协议。
+ * @note start 在请求管线指定的 worker 上直接执行 load；阻塞后端必须配置可阻塞的 worker，
+ * Web 主线程不得用本适配器执行阻塞网络访问。它不通过阻塞等待适配异步操作。
+ */
+template <typename T> class sync_loader_adapter : public loader<T> {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
 
 public:
   using resource_type = T;
 
-  loader() = default;
-  virtual ~loader() = default;
+  sync_loader_adapter() = default;
+  virtual ~sync_loader_adapter() = default;
 
-  loader(const loader&) = delete;
-  loader& operator=(const loader&) = delete;
-  loader(loader&&) = delete;
-  loader& operator=(loader&&) = delete;
+  sync_loader_adapter(const sync_loader_adapter&) = delete;
+  sync_loader_adapter& operator=(const sync_loader_adapter&) = delete;
+  sync_loader_adapter(sync_loader_adapter&&) = delete;
+  sync_loader_adapter& operator=(sync_loader_adapter&&) = delete;
 
   /** @brief 按 GUID 加载资源，返回资源所有权。 */
   [[nodiscard]] virtual load_result<resource_type> load(resource_guid guid,
@@ -260,7 +279,7 @@ public:
   /**
    * @brief 按 GUID 加载资源，并可选择上报进度。
    *
-   * 默认实现忽略 reporter 并转调旧的两参数 `load()`，因此已有 loader 不需要修改。
+   * 默认实现忽略 reporter 并转调两参数 `load()`，同步实现可以只覆盖该钩子。
    */
   [[nodiscard]] virtual load_result<resource_type>
   load(resource_guid guid, memory_resource* resource, progress_reporter reporter) {
@@ -269,11 +288,10 @@ public:
   }
 
   /**
-   * @brief 在 worker 中发起加载；默认适配同步 load，已有实现无需修改。
-   * @note 覆盖实现接受后必须完成或销毁凭证；失败返回不得保留凭证或继续回调。
-   * context 可移动到宿主操作，禁止阻塞等待其 I/O；异常由请求入口转换为失败。
+   * @brief 在请求管线指定的 worker 中执行同步 load，并通过统一凭证交付。
+   * @note 同步结果立即提交给完成凭证；异常由请求入口转换为失败。
    */
-  [[nodiscard]] virtual error start(async_load_context context, load_completion<T> completion) {
+  [[nodiscard]] error start(async_load_context context, load_completion<T> completion) final {
     progress_reporter reporter{&context.progress, [](void* value, progress_update update) noexcept {
                                  static_cast<load_progress*>(value)->report(update.value,
                                                                             update.stage);
@@ -281,22 +299,6 @@ public:
     (void)completion.complete(load(context.guid, context.resource, reporter));
     return {};
   }
-};
-
-/**
- * @brief 延迟交付资源的 loader 协议；与同步 loader 共用请求管线。
- * @note 同步调用返回 unsupported。start 可在返回前完成，或将凭证移交宿主 I/O 回调。
- * 此类型不创建线程、不拥有宿主 loop；实现对象和 allocator 必须覆盖全部操作及回调。
- */
-template <typename T> class async_loader : public loader<T> {
-public:
-  /** @brief 原生异步实现不通过阻塞等待提供同步加载。 */
-  [[nodiscard]] load_result<T> load(resource_guid, memory_resource* = nullptr) override {
-    return {{error_domain::resources, errc::unsupported}, {}};
-  }
-  /** @brief 接受并异步交付资源，或立即返回拒绝原因；不得遗留未收口操作。 */
-  [[nodiscard]] virtual error start(async_load_context context,
-                                    load_completion<T> completion) override = 0;
 };
 
 /**
@@ -329,7 +331,7 @@ public:
  * 如果 cache 已包含该 GUID，直接返回已有强 handle。否则调用 loader 加载资源并把所有权转入 cache。
  */
 template <typename T>
-[[nodiscard]] handle_result<T> load_handle_into(cache<T>& target, loader<T>& source,
+[[nodiscard]] handle_result<T> load_handle_into(cache<T>& target, sync_loader_adapter<T>& source,
                                                 resource_guid guid) {
   if (!guid) {
     return {{error_domain::resources, errc::invalid_argument}, {}};
@@ -376,7 +378,7 @@ template <typename T>
  * 重新解析相关 `resource_ref<T>`。
  */
 template <typename T>
-[[nodiscard]] handle_result<T> reload_handle_into(cache<T>& target, loader<T>& source,
+[[nodiscard]] handle_result<T> reload_handle_into(cache<T>& target, sync_loader_adapter<T>& source,
                                                   resource_guid guid) {
   if (!guid) {
     return {{error_domain::resources, errc::invalid_argument}, {}};

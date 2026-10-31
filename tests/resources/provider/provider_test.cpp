@@ -322,10 +322,10 @@ TEST_CASE("resources - source snapshot owns strings and root lifetime independen
   snapshot.reset();
   CHECK_FALSE(pin.expired());
   CHECK(file->path.string_view() == "data");
-  auto bytes = file->backend->read_all(file->path);
+  auto bytes = read_snapshot_bytes(file.value);
   REQUIRE(bytes);
   CHECK(bytes_to_string(*bytes) == "owned");
-  file = caors::fail<caors::io::resolved_file>(
+  file = caors::fail<caors::io::backend_location>(
       {caors::error_domain::resources, caors::errc::cancelled});
   CHECK(pin.expired());
 }
@@ -354,15 +354,14 @@ public:
                                      caors::memory_resource* memory) override {
     return file_.read(location, memory);
   }
-  caors::result<std::shared_ptr<caors::io::file_system>>
-  freeze_routes(caors::io::detail::snapshot_context& context) const override {
+  caors::result<caors::resources::captured_source> capture() const override {
     ++calls;
     if (reject)
-      return caors::fail<std::shared_ptr<caors::io::file_system>>(
+      return caors::fail<caors::resources::captured_source>(
           {caors::error_domain::resources, caors::errc::unsupported});
     if (return_null)
-      return caors::ok(std::shared_ptr<caors::io::file_system>{});
-    return file_.freeze_routes(context);
+      return caors::ok(caors::resources::captured_source{});
+    return file_.capture();
   }
 
 private:
@@ -392,8 +391,8 @@ TEST_CASE("resources - snapshot freezes each source once but never reuses across
   auto after = fresh->resolve(test_guid_b);
   REQUIRE(after);
   CHECK(before->source_id != after->source_id);
-  CHECK(bytes_to_string(*before->backend->read_all(before->path)) == "old");
-  CHECK(bytes_to_string(*after->backend->read_all(after->path)) == "new");
+  CHECK(bytes_to_string(*read_snapshot_bytes(before.value)) == "old");
+  CHECK(bytes_to_string(*read_snapshot_bytes(after.value)) == "new");
   REQUIRE(provider.unbind(test_guid_b));
   REQUIRE_FALSE(provider.rebind(test_guid_a, source, "assets/missing"));
   auto changed = provider.snapshot();
@@ -467,7 +466,7 @@ TEST_CASE("resources - snapshot allocation failure leaves provider and previous 
     CHECK(provider.size() == 2);
     auto resolved = previous->resolve(test_guid_a);
     REQUIRE(resolved);
-    CHECK(bytes_to_string(*resolved->backend->read_all(resolved->path)) == "stable");
+    CHECK(bytes_to_string(*read_snapshot_bytes(resolved.value)) == "stable");
     auto retry = provider.snapshot();
     CHECK(retry->resolve(test_guid_b));
   }

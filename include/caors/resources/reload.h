@@ -34,7 +34,7 @@ template <typename T> using reload_signal = events::signal<void(const reload_eve
  * `reload_event<T>` 决定是否重新解析 `resource_ref<T>`、刷新运行期对象或记录诊断信息。
  */
 template <typename T>
-[[nodiscard]] handle_result<T> reload_and_notify(cache<T>& target, loader<T>& source,
+[[nodiscard]] handle_result<T> reload_and_notify(cache<T>& target, sync_loader_adapter<T>& source,
                                                  resource_guid guid, reload_signal<T>& signal) {
   handle_result<T> reloaded = reload_handle_into(target, source, guid);
   reload_event<T> event{guid, reloaded.status, reloaded.value.get()};

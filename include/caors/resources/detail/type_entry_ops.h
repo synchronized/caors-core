@@ -27,7 +27,6 @@ struct preload_request_state;
 /** @brief database 类型绑定条目使用的内部函数表。 */
 struct type_entry_ops {
   using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
-  using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
   using request_load_fn = error (*)(void* cache, void* loader, void* requests, preload_item item,
                                     const tasks::executor& executor,
                                     const tasks::executor& completion_executor,
@@ -38,7 +37,6 @@ struct type_entry_ops {
   using is_current_fn = bool (*)(void* cache, const void* reference);
 
   find_fn find = nullptr;
-  load_fn load = nullptr;
   request_load_fn request_load = nullptr;
   resolve_fn resolve = nullptr;
   is_current_fn is_current = nullptr;

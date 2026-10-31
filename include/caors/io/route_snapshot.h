@@ -13,6 +13,12 @@
 
 namespace caors::io {
 class file_system;
+namespace legacy {
+class route_provider;
+}
+namespace detail {
+class snapshot_context;
+}
 
 /** @brief 拥有后端寿命和路径的解析结果；allocator 必须覆盖本对象及后端的真实清理。 */
 struct resolved_file {
@@ -37,10 +43,25 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(root_); }
 
 private:
-  friend class file_system;
+  friend class legacy::route_provider;
   explicit route_snapshot(std::shared_ptr<file_system> root) : root_(std::move(root)) {}
   std::shared_ptr<file_system> root_;
 };
+
+namespace legacy {
+/** @brief 旧同步路由的快照扩展；仅路由器实现，不包含文件读写或异步操作。 */
+class CAORS_API route_provider {
+public:
+  virtual ~route_provider();
+  /** @brief 捕获路由状态；实现同时继承 file_system，借用叶边返回 unsupported。 */
+  [[nodiscard]] result<route_snapshot> snapshot() const;
+  /** @brief 解析到拥有式叶后端。 */
+  [[nodiscard]] virtual result<resolved_file> resolve_owned(path_view location) const = 0;
+  /** @brief 通过 context 递归捕获路由，检测环与共享节点；不得解析实时路由。 */
+  [[nodiscard]] virtual result<std::shared_ptr<file_system>>
+  freeze_routes(detail::snapshot_context& context, std::shared_ptr<void> owner) const = 0;
+};
+} // namespace legacy
 
 namespace detail {
 /** @brief 快照扩展上下文；自定义路由实现须通过 capture 递归，以统一检测循环和共享节点。 */

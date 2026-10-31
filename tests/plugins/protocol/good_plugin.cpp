@@ -2,6 +2,8 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/adapters/stl.h"
+#include "caors/io/async_file.h"
+#include "caors/io/backend.h"
 #include "caors/io/memory_file_system.h"
 #include "caors/object.h"
 #include "caors/plugins/abi.h"
@@ -106,7 +108,7 @@ struct unload_probe {
 };
 unload_probe resource_unload;
 void watch_resource_unload(int* count) { resource_unload.count = count; }
-class module_file_system final : public caors::io::file_system {
+class module_file_system final : public caors::io::file_system, public caors::io::backend {
 public:
   explicit module_file_system(int* destroyed) : destroyed_(destroyed) {
     (void)files_.write_all("data", std::string_view{"module"});
@@ -121,9 +123,18 @@ public:
     return files_.write_all(path, bytes);
   }
   caors::io::io_error
-  start_open(caors::io::resolved_file location, caors::memory_resource* resource,
-             caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion) override {
-    return files_.start_open(std::move(location), resource, std::move(completion));
+  open(caors::io::path location, caors::io::open_options options, caors::memory_resource* resource,
+       caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion) override {
+    if (options.access != caors::io::file_access::read ||
+        options.creation != caors::io::file_creation::open_existing)
+      return {caors::io::io_errc::unsupported};
+    auto opened = files_.open_random_read(location, resource);
+    if (!opened)
+      return opened.error();
+    (void)completion.complete(
+        {{},
+         caors::io::make_worker_file(std::move(opened.value), caors::tasks::inline_executor())});
+    return {};
   }
 
 private:

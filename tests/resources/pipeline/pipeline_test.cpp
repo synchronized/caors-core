@@ -60,7 +60,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   caors::resources::provider provider;
   REQUIRE(caors::resources::bind_manifest(provider, source, manifest).succeeded());
 
-  caors::assets::json::loader<serialized_resource> loader{provider};
+  caors::assets::json::sync_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
   caors::resources::resource_dependency_list dependencies;

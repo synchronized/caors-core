@@ -5,6 +5,7 @@
 #define CAORS_IO_MOUNT_FILE_SYSTEM_H_
 
 #include "caors/io/file_system.h"
+#include "caors/io/route_snapshot.h"
 
 #include "caors/core/detail/shared_snapshot.h"
 
@@ -21,7 +22,7 @@ namespace caors::io {
  * 借用挂载要求调用方保证后端寿命；拥有式挂载持有后端及可选宿主寿命凭据。
  * 虚拟路径使用 `/` 作为分隔符；目标路径语义仍由具体目标文件系统解释。
  */
-class CAORS_API mount_file_system final : public file_system {
+class CAORS_API mount_file_system final : public file_system, public legacy::route_provider {
 public:
   using file_system::write_all;
 
@@ -60,7 +61,6 @@ public:
                                             memory_resource* result_resource = nullptr) override;
   [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;
 
-  [[nodiscard]] bool routes_paths() const noexcept override { return true; }
   [[nodiscard]] result<resolved_file> resolve_owned(path_view location) const override;
   [[nodiscard]] result<std::shared_ptr<file_system>>
   freeze_routes(detail::snapshot_context& context, std::shared_ptr<void> owner) const override;

@@ -14,7 +14,8 @@ public:
   int width = 0;
 };
 
-class reload_notified_loader final : public caors::resources::loader<reload_notified_resource> {
+class reload_notified_loader final
+    : public caors::resources::sync_loader_adapter<reload_notified_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<reload_notified_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {

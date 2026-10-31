@@ -59,7 +59,8 @@ public:
   inline static int destroyed = 0;
 };
 
-class handled_resource_loader final : public caors::resources::loader<handled_resource> {
+class handled_resource_loader final
+    : public caors::resources::sync_loader_adapter<handled_resource> {
 public:
   [[nodiscard]] caors::resources::load_result<handled_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {

@@ -6,8 +6,13 @@ if(NOT EMSCRIPTEN)
 endif()
 add_executable(caors_web_protocol_test
   ../assets/asset_manager/asynchronous_loader_test.cpp
+  ../assets/asset_manager/vfs_source_test.cpp
   ../core/shared_snapshot/shared_snapshot_test.cpp
   ../version/version_test.cpp
+  ../resources/provider/byte_reader_test.cpp
+  ../io/vfs_context_test.cpp
+  ../io/vfs_write_test.cpp
+  ../io/removed_api_test.cpp
   ../io/async_file_test.cpp
   ../io/async_request_test.cpp
   ../io/chunked_file_test.cpp
