@@ -9,7 +9,10 @@
 #include "caors/resources/serialization.h"
 
 #include "caors/core/containers.h"
-#include "caors/io/legacy.h"
+#include "caors/io/file_system_resolver.h"
+#include "caors/io/memory_file_system.h"
+#include "caors/io/mount_file_system.h"
+#include "caors/io/native_file_system.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
 #include "caors/registration.h"

@@ -2,7 +2,8 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "../../../src/caors/io/file_requests.h"
-#include "caors/io/legacy.h"
+#include "caors/io/chunked_file.h"
+#include "caors/io/mount_file_system.h"
 #include "caors/plugins/plugin_binary.h"
 #include "caors/plugins/plugin_host.h"
 #include "caors/resources/source.h"

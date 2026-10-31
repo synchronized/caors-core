@@ -3,7 +3,15 @@
 
 #pragma once
 
-#include "caors/io/legacy.h"
+#include "caors/io/async_file.h"
+#include "caors/io/chunked_file.h"
+#include "caors/io/file_system_resolver.h"
+#include "caors/io/location.h"
+#include "caors/io/memory_file_system.h"
+#include "caors/io/mount_file_system.h"
+#include "caors/io/native_file_system.h"
+#include "caors/io/uri.h"
+#include "caors/io/walk.h"
 #include "caors/memory/tracking.h"
 
 #include <catch2/catch_all.hpp>

@@ -5,7 +5,7 @@
 
 本页维护普通文件访问的当前 API：统一异步操作、文件句柄和虚拟路由，为资源系统、配置及宿主来源接入提供底座。
 分层与底层实现复用见[IO 职责说明](../concepts/io-boundaries.md)。
-新文件访问优先使用下方 file_service；旧 file_system、路由器及同步流保留为迁移兼容与工具能力，使用时显式包含 `caors/io/legacy.h` 或对应单头。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
+新文件访问优先使用下方 file_service；同步 file_system、流及旧路由仍用于配置和工具，使用时显式包含所需类型的单独头文件。原 legacy.h 聚合头已删除。宿主接入见[异步 VFS 指南](../guides/async-vfs-integration.md)。
 
 ## VFS 与统一文件访问
 

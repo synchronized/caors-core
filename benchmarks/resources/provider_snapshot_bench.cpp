@@ -2,7 +2,9 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/assets/asset_manager.h"
-#include "caors/io/legacy.h"
+#include "caors/io/file_system_resolver.h"
+#include "caors/io/memory_file_system.h"
+#include "caors/io/mount_file_system.h"
 #include "caors/tasks/execution_context.h"
 #include <algorithm>
 #include <chrono>

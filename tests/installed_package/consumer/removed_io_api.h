@@ -2,9 +2,10 @@
 // Copyright (c) 2026 CAORS contributors
 #ifndef CAORS_TEST_REMOVED_IO_API_H_
 #define CAORS_TEST_REMOVED_IO_API_H_
-#include "caors/io/legacy.h"
+#include "caors/io/async_file.h"
+#include "caors/io/route_snapshot.h"
 #include <utility>
-// 故意包含完整兼容头，确保被删除函数没有通过旧聚合头重新暴露。
+// 包含底层文件协议，确保被删除函数没有通过其他公共头重新暴露。
 #if __has_include("caors/io/detail/read_operation.h") ||                                           \
                   __has_include("caors/io/detail/vfs_operations.h")
 #error "Internal IO orchestration headers must not be installed"
@@ -35,4 +36,8 @@ static_assert(!old_close<std::shared_ptr<io::async_file>>);
 
 #if __has_include("caors/io/context.h") || __has_include("caors/io/vfs.h")
 #error "Replaced file access headers must not be installed"
+#endif
+
+#if __has_include("caors/io/legacy.h")
+#error "Removed legacy aggregation header must not remain installed"
 #endif

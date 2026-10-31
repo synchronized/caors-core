@@ -3,7 +3,7 @@
 
 # IO 兼容接口
 
-本页维护旧文件系统、同步工具和显式组合函数。使用时包含 `caors/io/legacy.h` 或对应单头，
+本页维护同步工具、旧路由和显式组合函数。使用时包含所需类型的单独头文件，
 普通调用者从 [file_service/file](io.md) 开始；请求状态与错误约束也以主参考为准。
 同步文件能力仍用于配置、保存、工具与内置异步后端；不意味着这些实现都将删除。
 分层原则见[职责说明](../concepts/io-boundaries.md)，剩余迁移范围由 [VFS 计划](../plans/vfs-api-consolidation.md#兼容退出的剩余范围)维护。
@@ -15,7 +15,7 @@
 - `io::input_stream`：同步输入字节流接口。
 - `io::output_stream`：同步输出字节流接口。
 - `io::input_stream_ptr` / `io::output_stream_ptr`：拥有式流指针。
-- `io::file_system`：同步文件系统访问与后端异步打开接入。
+- `io::file_system`：同步文件系统访问，不包含异步打开接入。
 - `io::file_system_capabilities`：文件系统后端能力声明。
 - `io::file_system_resolver`：按 URI scheme / authority / 路径前缀路由到具体文件系统。
 - `io::walk()`：基于 `file_system::list()` 的通用递归遍历 helper。

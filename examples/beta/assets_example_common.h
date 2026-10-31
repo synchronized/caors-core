@@ -6,7 +6,7 @@
 
 #include "caors/assets.h"
 #include "caors/assets/json.h"
-#include "caors/io/legacy.h"
+#include "caors/io/memory_file_system.h"
 #include "caors/registration.h"
 #include "caors/resources.h"
 

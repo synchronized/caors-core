@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 删除 io/legacy.h 聚合头，测试、示例、基准和安装消费改为显式包含所需协议；同步能力与旧配置路由继续独立保留。
+
 - file_system 收缩为同步存储接口，移除 start_open/start_open_options 及路由扩展；旧同步路由实现 legacy::route_provider。异步能力统一使用 backend，新增 make_worker_backend(shared_files, worker) 和共享内存存储的 make_memory_backend 重载；同步随机句柄与诊断拆为独立头。迁移及并发约束见[后端参考](docs/reference/io-backends.md#复用同步存储)。
 
 - project_builder.bind_source(name, file_service) 可直接绑定既有服务，工程按名称管理适配寿命，重建保留手工绑定；最后名称解绑/清空释放适配并清理其 provider GUID，已有快照和请求不受影响。异步配置消费复用既有服务，保留同步工厂和 schema，见[文件服务来源](docs/reference/assets.md#文件服务来源)。

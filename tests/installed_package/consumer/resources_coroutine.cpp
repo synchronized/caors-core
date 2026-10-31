@@ -4,7 +4,7 @@
 #include "caors/assets.h"
 #include "caors/assets/json.h"
 #include "caors/io/file_service.h"
-#include "caors/io/legacy.h"
+#include "caors/io/memory_file_system.h"
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
