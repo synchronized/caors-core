@@ -15,7 +15,7 @@
 
 ## API 整理方案
 
-[IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)和[VFS 文件访问收敛](plans/vfs-api-consolidation.md)维护分批迁移方案；首批快照和工程装配入口已实现并验收，后续统一仍在推进，当前用法见模块参考。
+[宿主驱动的资源加载与 IO 退出](plans/host-driven-resource-loading.md)维护新一轮开发方向：宿主控制数据获取及资源键，核心保留异步资源机制和动态依赖，迁移后删除文件 IO 子系统。当前为计划，尚未实施；旧 IO/资源收敛计划保留历史设计与验收证据。
 
 IO 分层与底层复用见[职责说明](concepts/io-boundaries.md)，不以删除类名替代职责收敛。
 同步存储与异步、旧路由扩展的分离进度见[验收记录](records/2026-10-31-sync-storage-boundary.md)。

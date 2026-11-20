@@ -3,6 +3,8 @@
 
 # CAORS 路线图
 
+资源与 IO 的下一轮方向见[宿主驱动的资源加载与 IO 退出](plans/host-driven-resource-loading.md)：先验证宿主资源键、独立资源核心与动态异步依赖，再迁移消费者并删除文件 IO 子系统。当前为计划，尚未实施。
+
 本页维护后续方向、依赖和阶段摘要，不枚举当前 API，也不维护已完成提交清单。
 单项任务的范围与状态由[计划索引](plans/README.md)指向的 Plan 维护，当前能力见
 [文档中心](README.md)，稳定性边界见[API 政策](reference/api-stability.md)。

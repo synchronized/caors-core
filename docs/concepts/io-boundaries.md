@@ -3,6 +3,8 @@
 
 # IO 职责与实现复用
 
+本文说明现有实现边界；2026-11-20 确认的后续退出方向由[宿主驱动资源加载计划](../plans/host-driven-resource-loading.md)维护，下文的暂时保留条件不作为长期保留 IO 子系统的要求。
+
 本文说明同步文件能力、异步接入和虚拟路由之间的边界。当前接口与行为分别由
 [IO 参考](../reference/io.md)、[后端协议](../reference/io-backends.md)和
 [同步与兼容接口](../reference/io-legacy.md)维护；后续工作由[VFS 计划](../plans/vfs-api-consolidation.md)跟踪。
