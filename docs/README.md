@@ -15,7 +15,7 @@
 
 ## API 整理方案
 
-[宿主驱动的资源加载与 IO 退出](plans/host-driven-resource-loading.md)维护新一轮开发方向：宿主控制数据获取及资源键，核心保留异步资源机制和动态依赖，迁移后删除文件 IO 子系统。当前为计划，尚未实施；旧 IO/资源收敛计划保留历史设计与验收证据。
+[宿主驱动的资源加载与 IO 退出](plans/host-driven-resource-loading.md)已启动 P0 编译边界基线；后续实施宿主资源键、独立资源核心和动态依赖，最终删除文件 IO 子系统。旧 IO/资源收敛计划保留历史设计与验收证据。
 
 IO 分层与底层复用见[职责说明](concepts/io-boundaries.md)，不以删除类名替代职责收敛。
 同步存储与异步、旧路由扩展的分离进度见[验收记录](records/2026-10-31-sync-storage-boundary.md)。
