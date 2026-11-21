@@ -27,6 +27,8 @@ auto cached = assets.find<image>("textures/wood.png"); // 返回拥有式 handle
 注册、请求发起、查询与完成发布须统一串行化；宿主可从其他线程交付 loader 完成凭证。
 close 停止新请求，释放管理器绑定，不阻塞或撤回已发请求；在途任务拥有类型存储，
 可在管理器销毁后完成。loader、分配器、执行环境和实现模块必须覆盖真实清理及结果对象析构。
+对象在最后一个强句柄释放的位置析构；需要渲染线程等指定线程时由宿主提供相应析构策略。
+跨线程加载使用的分配器须支持对应的并发分配与清理。
 同类型重复注册返回 already_exists，未注册类型请求返回 not_found，关闭后请求返回 cancelled。
 
 低层 `cache<T, Key, Hash, Equal>`、`ref<T, Key>` 支持宿主键与普通对象；cache 插入和替换

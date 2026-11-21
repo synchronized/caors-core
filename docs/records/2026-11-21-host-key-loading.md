@@ -6,7 +6,8 @@
 ## 范围
 
 对应[宿主资源计划](../plans/host-driven-resource-loading.md)P1 及 P2 的运行原型，
-分支 feature/resource-source-boundary，基于 0f7b272b。代码提交与平台结果在验收收尾时补充。
+分支 feature/resource-source-boundary，基于 0f7b272b，功能提交 f015ac90cd6c7467c6d18b74c75cfa44f8eaccb2，
+独立探针 ASan 配置修复为 058955fe。当前契约保持实验性，PR #58 为开发草稿。
 当前 API 由[资源参考](../reference/resources.md#宿主资源键加载)维护，不复制完整声明。
 
 缓存、引用、loader、加载上下文和请求表支持宿主 Key，路径键不转换为 GUID，普通对象不保存内嵌身份。
@@ -25,7 +26,25 @@ Windows、Clang 23.1.1、Debug 动态库、Ninja 并发 2：
 - 无 IO 的独立编译、链接及运行原型通过；源码冻结复验通过。
 - 插件 resource_lifetime 专项、分块示例、原安装与重定位安装各 6 项消费测试通过。
 - 安装消费新增普通对象的宿主路径键管理器、引用解析和缓存归属验证。
-- 平台矩阵待本批验收，旧提交的绿色检查不能覆盖本批。
+- 本批平台结果及 ASan 修复专项见下表，旧提交的绿色检查不计入本批证据。
+
+## 平台证据与 ASan 配置修复
+
+| 检查 | 提交与运行 | 结果 |
+| --- | --- | --- |
+| Linux Clang 动态/静态、GCC、UBSan | f015ac90，[44904717075](https://github.com/synchronized/caors-core/actions/runs/44904717075) | 四组通过；该工作流整体因下述 ASan 覆盖检查失败而为失败状态 |
+| Windows Clang 动态/静态、MSVC | f015ac90，[44904717106](https://github.com/synchronized/caors-core/actions/runs/44904717106) | 三组全部通过 |
+| Emscripten | f015ac90，[44904717288](https://github.com/synchronized/caors-core/actions/runs/44904717288) | 通过，含安装消费及浏览器检查 |
+| Linux ASan 修复后专项 | 3a25c0db，[44905558958](https://github.com/synchronized/caors-core/actions/runs/44905558958) | 通过，包含覆盖检查及运行验证 |
+
+首次 ASan 在编译前的覆盖检查失败：独立目标没有链接单体 caors，也没有继承其 sanitizer 使用要求。
+058955fe 对对象探针、支持实现和运行程序显式设置 ASan 编译及链接参数，没有绕过覆盖检查。
+本机 Windows ASan 独立运行通过，已核对 8 条编译命令与最终链接命令的 sanitizer 参数；
+本机结果不代替 Linux 的泄漏检查。
+
+为避免重复其他四组矩阵，chore/resource-core-asan-validation 临时分支仅保留 ASan 矩阵项。
+3a25c0db 与 058955fe 的差异只有该工作流删去其他四组任务，已核对 include/src/tests/examples/benchmarks 完全一致。
+058955fe 相比 f015ac90 只增加独立探针的条件 ASan 配置；非 ASan 平台结果仍明确关联原功能提交。
 
 新增场景覆盖拥有式路径、GUID、组合键、哈希碰撞、可配置相等策略、跨类型隔离、
 引用替换和清空后的代次失效、跨缓存身份隔离、键持久化与未解析读回。
