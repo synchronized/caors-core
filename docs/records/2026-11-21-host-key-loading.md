@@ -70,6 +70,11 @@ tasks/execution_context、core/string_name 和 core/guid 六个基础实现，
 
 ## 剩余工作
 
+2026-11-22 插件边界补查：新增 platform/shared_library.cpp 的禁止 IO 编译目标，
+并确认插件清单使用的 serialization/operations.h 仍命中禁止 IO 诊断。
+Windows Clang 独立工程重新配置、构建及 caors.resource_boundary.runtime 通过。
+这只证明平台加载实现的编译边界；本批没有更改插件运行行为，也未新增插件运行或平台矩阵验收。
+
 P3 动态依赖仍未实现，包括解析后子请求、共享等待图、并发环检测和父订阅取消传播。
 当前 manager 调用与完成发布须统一串行化，loader 可跨线程交付完成；尚不提供可从任意线程
 直接发起依赖请求的上下文服务。宿主循环、借用 loader、分配器及模块必须覆盖真实清理。

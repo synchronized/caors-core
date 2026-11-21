@@ -26,6 +26,14 @@ target_compile_definitions(caors_resource_boundary PRIVATE CAORS_STATIC_DEFINE)
 target_include_directories(caors_resource_boundary BEFORE PRIVATE
   "${CAORS_BOUNDARY_POISON}" "${CAORS_BOUNDARY_ROOT}/include")
 
+# 平台动态库加载必须独立于文件服务；插件清单解析的序列化依赖另行迁移。
+add_library(caors_plugin_boundary OBJECT
+  "${CAORS_BOUNDARY_ROOT}/src/caors/platform/shared_library.cpp")
+target_compile_features(caors_plugin_boundary PRIVATE cxx_std_20)
+target_compile_definitions(caors_plugin_boundary PRIVATE CAORS_STATIC_DEFINE)
+target_include_directories(caors_plugin_boundary BEFORE PRIVATE
+  "${CAORS_BOUNDARY_POISON}" "${CAORS_BOUNDARY_ROOT}/include")
+
 # P2 的运行原型仅编译必要的基础设施，不链接 caors 单体或任何 IO/项目装配实现。
 add_library(caors_resource_boundary_support STATIC
   "${CAORS_BOUNDARY_ROOT}/src/caors/memory/resource.cpp"
@@ -52,16 +60,19 @@ if(CAORS_ENABLE_ASAN)
     message(FATAL_ERROR "资源边界探针的 ASan 仅支持 Clang 和 GCC")
   endif()
   target_compile_options(caors_resource_boundary PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_compile_options(caors_plugin_boundary PRIVATE -fsanitize=address -fno-omit-frame-pointer)
   target_compile_options(caors_resource_boundary_support PUBLIC -fsanitize=address -fno-omit-frame-pointer)
   target_link_options(caors_resource_boundary_support INTERFACE -fsanitize=address)
 endif()
 
 # 当前数据库与装配仍应命中被禁止的 IO 头；P2 迁移时须将其改为正向探针。
-foreach(CAORS_BOUNDARY_ENTRY IN ITEMS database assets)
+foreach(CAORS_BOUNDARY_ENTRY IN ITEMS database assets plugin_manifest)
   if(CAORS_BOUNDARY_ENTRY STREQUAL "database")
     set(CAORS_BOUNDARY_INCLUDE "caors/resources/database.h")
-  else()
+  elseif(CAORS_BOUNDARY_ENTRY STREQUAL "assets")
     set(CAORS_BOUNDARY_INCLUDE "caors/assets/asset_manager.h")
+  else()
+    set(CAORS_BOUNDARY_INCLUDE "caors/serialization/operations.h")
   endif()
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${CAORS_BOUNDARY_ENTRY}.cpp"
        "#include <${CAORS_BOUNDARY_INCLUDE}>\n")

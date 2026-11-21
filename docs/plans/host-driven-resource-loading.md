@@ -148,6 +148,14 @@ P3 因此需要把当前类型存储保活扩展为编排状态与注册信息�
 | 路径、URI、字节缓冲 | 逐个审计独立消费；需要的纯数据工具迁至合适模块，其余删除，不借 IO 命名继续残留 |
 | 插件清单及平台动态库加载 | 清单读取改由宿主提供数据；动态库打开属插件平台职责，不因 IO 退出误删 |
 
+插件依赖复核：动态库加载已位于 platform/shared_library，Windows 使用 LoadLibraryExW，
+其他受支持原生平台使用 dlopen，不经过 caors::io。保留平台动态库封装及插件模块寿命管理。
+manifest.cpp 的 load_plugin_manifest 使用 std::ifstream；即使删除 IO 目录，它仍是文件读取便利接口，
+须在 P4 迁移消费后退出。parse_plugin_manifest 虽接收内存文本，但当前包含 serialization/operations.h，
+仍间接引入 IO，须随纯数据序列化拆分消除，不能把无直接 include 误判为完整解耦。
+边界探针已补充平台加载实现的禁止 IO 编译检查及清单所用 operations 入口的负向依赖检查；
+该编译检查不代替插件加载、卸载与模块保活的运行验收。
+
 ## 分批实施与出口
 
 P0 的独立编译探针已落地，见[边界基线记录](../records/2026-11-21-resource-boundary-baseline.md)。
