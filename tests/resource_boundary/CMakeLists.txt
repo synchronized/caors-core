@@ -53,6 +53,11 @@ endif()
 add_executable(caors_resource_boundary_runtime runtime.cpp)
 target_link_libraries(caors_resource_boundary_runtime PRIVATE caors_resource_boundary_support)
 add_test(NAME caors.resource_boundary.runtime COMMAND caors_resource_boundary_runtime)
+if(NOT EMSCRIPTEN)
+  add_executable(caors_resource_wait_graph wait_graph.cpp)
+  target_link_libraries(caors_resource_wait_graph PRIVATE caors_resource_boundary_support)
+  add_test(NAME caors.resource_boundary.wait_graph COMMAND caors_resource_wait_graph)
+endif()
 
 # 独立目标不能靠链接 caors 继承 sanitizer；必须让模板、支持实现和最终链接一起受检。
 if(CAORS_ENABLE_ASAN)
