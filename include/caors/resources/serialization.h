@@ -93,6 +93,7 @@ make_resource_resolver(resources::database& database) noexcept {
 
 /** @brief 使用资源缓存创建资源引用 resolver。 */
 template <typename T>
+  requires std::is_base_of_v<resources::resource, T>
 [[nodiscard]] resource_ref_resolver_ops
 make_resource_resolver(resources::cache<T>& cache) noexcept {
   return resource_ref_resolver_ops{&detail::cache_resource_resolve<T>, &cache};
@@ -209,7 +210,9 @@ template <> struct codec_traits<resources::resource_guid> {
 };
 
 /** @brief 资源引用按稳定 `resource_guid` 序列化，不序列化运行期资源指针。 */
-template <typename T> struct codec_traits<resources::ref<T>> {
+template <typename T>
+  requires std::is_base_of_v<resources::resource, T>
+struct codec_traits<resources::ref<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
@@ -273,6 +276,49 @@ template <typename T> struct codec_traits<resources::ref<T>> {
     }
 
     return make_value(value);
+  }
+};
+
+/** @brief 宿主键引用仅保存键值；不序列化指针，不转换为 GUID，不自动解析宿主对象。 */
+template <typename T, typename Key>
+  requires(
+      !(std::is_base_of_v<resources::resource, T> && std::is_same_v<Key, resources::resource_guid>))
+struct codec_traits<resources::ref<T, Key>> {
+  static constexpr bool can_write = codec_traits<Key>::can_write;
+  static constexpr bool can_read = codec_traits<Key>::can_read;
+  static constexpr bool can_make_value = codec_traits<Key>::can_make_value;
+  [[nodiscard]] static error write(writer& output, const resources::ref<T, Key>& value) {
+    return value.key() ? codec_traits<Key>::write(output, *value.key()) : output.write_null();
+  }
+  [[nodiscard]] static error read(reader& input, resources::ref<T, Key>& value) {
+    if (input.is_null()) {
+      value.reset();
+      return {};
+    }
+    Key key{};
+    auto status = codec_traits<Key>::read(input, key);
+    if (!status)
+      value.reset(std::move(key));
+    return status;
+  }
+  [[nodiscard]] static variant_result make_value(const resources::ref<T, Key>& value) {
+    return value.key() ? codec_traits<Key>::make_value(*value.key())
+                       : variant_result{{}, variant::null()};
+  }
+  [[nodiscard]] static error read(const serialization::context& context, reader& input,
+                                  resources::ref<T, Key>& value) {
+    // 旧外部引用解析器只能处理 GUID；不能把 require_resolved 静默当作成功。
+    if (!input.is_null() &&
+        context.effective_external_ref_resolution() == external_ref_resolution::require_resolved)
+      return {error_domain::serialization, errc::unsupported};
+    return read(input, value);
+  }
+  [[nodiscard]] static error write(const serialization::context& context, writer& output,
+                                   const resources::ref<T, Key>& value) {
+    const auto* collector = context.effective_external_ref_collector();
+    if (value.key() && collector && collector->can_collect())
+      return {error_domain::serialization, errc::unsupported};
+    return write(output, value);
   }
 };
 

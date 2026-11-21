@@ -25,19 +25,164 @@ struct refresh_selection {
 }
 
 /**
+ * @brief 按宿主键拥有对象的缓存；每个实例具有独立的类型与代次空间。
+ * @note 不规范化键，不写入对象身份；Key 必须拥有其数据。访问与析构须由调用方同步。
+ * resource 须覆盖缓存、句柄、引用身份凭据和弱控制块的清理。Hash/Equal 必须满足标准容器契约。
+ */
+template <typename T, typename Key, typename Hash, typename Equal> class cache final {
+  struct entry {
+    handle<T> value;
+    resource_generation generation;
+  };
+  using map_type = core::hash_map<Key, entry, Hash, Equal>;
+  static_assert(!std::is_same_v<Key, std::string_view>, "Key must own its data");
+
+public:
+  using resource_type = T;
+  using key_type = Key;
+  static constexpr bool uses_embedded_identity = false;
+  explicit cache(memory_resource* resource = nullptr, Hash hash = {}, Equal equal = {})
+      : resource_(resource ? resource : get_default_memory_resource()),
+        identity_(std::allocate_shared<unsigned char>(allocator<unsigned char>{resource_}, 0)),
+        values_(0, std::move(hash), std::move(equal),
+                typename map_type::allocator_type{resource_}) {}
+  cache(const cache&) = delete;
+  cache& operator=(const cache&) = delete;
+  cache(cache&&) = delete;
+  cache& operator=(cache&&) = delete;
+  [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
+  [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
+  [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
+  [[nodiscard]] handle<T> find_handle(const Key& key) const {
+    auto found = values_.find(key);
+    return found == values_.end() ? handle<T>{} : found->second.value;
+  }
+  [[nodiscard]] T* find(const Key& key) const { return find_handle(key).get(); }
+  [[nodiscard]] bool contains(const Key& key) const { return values_.contains(key); }
+  [[nodiscard]] resource_generation generation_of(const Key& key) const {
+    auto found = values_.find(key);
+    return found == values_.end() ? 0 : found->second.generation;
+  }
+  /** @brief 新建键绑定；空对象或已有键失败，失败不替换现有对象。 */
+  bool insert(Key key, handle<T> value) {
+    if constexpr (std::is_same_v<Key, resource_guid>) {
+      if (!key)
+        return false;
+    }
+    if (!value || contains(key))
+      return false;
+    auto inserted =
+        values_.emplace(std::move(key), entry{std::move(value), next_generation_}).second;
+    if (inserted)
+      advance_generation();
+    return inserted;
+  }
+  bool insert(Key key, memory::unique_ptr<T> value) {
+    return insert(std::move(key), adopt_handle(std::move(value), resource_));
+  }
+  template <typename... Args> [[nodiscard]] handle<T> create_handle(Key key, Args&&... args) {
+    if (contains(key))
+      return {};
+    auto value = make_handle<T>(resource_, std::forward<Args>(args)...);
+    return insert(std::move(key), value) ? value : handle<T>{};
+  }
+  template <typename... Args> [[nodiscard]] T* create(Key key, Args&&... args) {
+    return create_handle(std::move(key), std::forward<Args>(args)...).get();
+  }
+  /** @brief 替换已有键；先发布新对象与代次，再释放旧句柄，旧外部句柄仍有效。 */
+  bool replace(const Key& key, handle<T> value) {
+    if (!value)
+      return false;
+    auto found = values_.find(key);
+    if (found == values_.end())
+      return false;
+    auto retired = std::move(found->second.value);
+    found->second = entry{std::move(value), next_generation_};
+    advance_generation();
+    return true;
+  }
+  bool replace(const Key& key, memory::unique_ptr<T> value) {
+    return replace(key, adopt_handle(std::move(value), resource_));
+  }
+  [[nodiscard]] handle<T> release(const Key& key) {
+    auto found = values_.find(key);
+    if (found == values_.end())
+      return {};
+    auto value = std::move(found->second.value);
+    values_.erase(found);
+    return value;
+  }
+  bool erase(const Key& key) { return static_cast<bool>(release(key)); }
+  /** @brief 先移除全部绑定再释放对象；保留代次计数，避免旧引用误认新对象。 */
+  void clear() {
+    map_type retired(0, values_.hash_function(), values_.key_eq(), values_.get_allocator());
+    retired.swap(values_);
+  }
+  template <typename U>
+    requires std::is_convertible_v<T*, U*>
+  [[nodiscard]] bool resolve(ref<U, Key>& reference) const {
+    if (!reference.key())
+      return false;
+    auto found = values_.find(*reference.key());
+    if (found == values_.end()) {
+      reference.unresolve();
+      return false;
+    }
+    if (!reference.resolve(found->second.value.get(), found->second.generation))
+      return false;
+    if constexpr (requires { reference.owner_; })
+      reference.owner_ = identity_;
+    return true;
+  }
+  template <typename U>
+    requires std::is_convertible_v<T*, U*>
+  [[nodiscard]] bool is_current(const ref<U, Key>& reference) const {
+    if (!reference.key() || !reference.has_generation())
+      return false;
+    if constexpr (requires { reference.owner_; }) {
+      if (reference.owner_.owner_before(identity_) || identity_.owner_before(reference.owner_))
+        return false;
+    }
+    auto found = values_.find(*reference.key());
+    return found != values_.end() && found->second.generation == reference.generation() &&
+           found->second.value.get() == reference.get();
+  }
+
+private:
+  friend class detail::load_request_access<T>;
+  using publication_map =
+      core::hash_map<Key, std::shared_ptr<detail::refresh_selection>, Hash, Equal>;
+  void advance_generation() noexcept {
+    if (++next_generation_ == 0)
+      ++next_generation_;
+  }
+  memory_resource* resource_;
+  std::shared_ptr<const void> identity_;
+  map_type values_;
+  resource_generation next_generation_ = 1;
+  publication_map publications_{0, values_.hash_function(), values_.key_eq(),
+                                typename publication_map::allocator_type{resource_}};
+};
+
+/**
  * @brief 拥有式资源缓存。
  *
  * `cache<T>` 按 `resource_guid` 持有 `T` 资源对象，并同步维护一个非拥有 `resources::manager`
  * 作为查询和引用解析索引。它不负责从文件加载资源，也不做异步调度；加载策略后续由 loader 层提供。
  */
-template <typename T> class cache final {
+template <typename T>
+  requires std::is_base_of_v<resources::resource, T>
+class cache<T, resource_guid, std::hash<resource_guid>, std::equal_to<resource_guid>> final {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
 
 public:
   using resource_type = T;
+  using key_type = resource_guid;
+  static constexpr bool uses_embedded_identity = true;
 
-  explicit cache(memory_resource* resource = nullptr)
+  explicit cache(memory_resource* resource = nullptr, std::hash<resource_guid> = {},
+                 std::equal_to<resource_guid> = {})
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
         index_(resource_), resources_by_guid_(typename resource_map::allocator_type{resource_}),
         publications_(typename publication_map::allocator_type{resource_}) {}
@@ -276,7 +421,9 @@ private:
 
 namespace caors {
 
-template <typename T> using resource_cache = resources::cache<T>;
+template <typename T, typename Key = resource_guid, typename Hash = std::hash<Key>,
+          typename Equal = std::equal_to<Key>>
+using resource_cache = resources::cache<T, Key, Hash, Equal>;
 
 } // namespace caors
 

@@ -7,9 +7,79 @@
 #include "caors/resources/resource.h"
 
 #include <cstddef>
+#include <memory>
+#include <optional>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::resources {
+
+/**
+ * @brief 持有宿主资源键的非拥有引用；不规范化键，不读取对象身份。
+ * @note Key 必须拥有所引用的数据，已解析指针不延长对象寿命，缓存替换后应重新解析。
+ */
+template <typename T = resource, typename Key = resource_guid> class ref {
+  static_assert(!std::is_same_v<Key, std::string_view>, "Key must own its data");
+
+public:
+  using resource_type = T;
+  using key_type = Key;
+  ref() = default;
+  explicit ref(Key key) : key_(std::move(key)) {
+    if constexpr (std::is_same_v<Key, resource_guid>) {
+      if (!*key_)
+        key_.reset();
+    }
+  }
+  /** @brief 获取拥有式键；空引用返回空 optional。 */
+  [[nodiscard]] const std::optional<Key>& key() const noexcept { return key_; }
+  [[nodiscard]] bool has_key() const noexcept { return key_.has_value(); }
+  [[nodiscard]] T* get() const noexcept { return instance_; }
+  [[nodiscard]] T& operator*() const noexcept { return *instance_; }
+  [[nodiscard]] T* operator->() const noexcept { return instance_; }
+  [[nodiscard]] bool resolved() const noexcept { return instance_ != nullptr; }
+  [[nodiscard]] resource_generation generation() const noexcept { return generation_; }
+  [[nodiscard]] bool has_generation() const noexcept { return generation_ != 0; }
+  [[nodiscard]] explicit operator bool() const noexcept { return has_key(); }
+  /** @brief 重置并清除身份。 */
+  void reset() noexcept {
+    key_.reset();
+    unresolve();
+  }
+  /** @brief 先构造新键，再替换引用；构造失败保留旧引用。 */
+  void reset(Key key) {
+    ref next{std::move(key)};
+    swap(next);
+  }
+  /** @brief 清除非拥有指针，保留资源键。 */
+  void unresolve() noexcept {
+    instance_ = nullptr;
+    generation_ = 0;
+    owner_.reset();
+  }
+  /** @brief 由宿主或缓存绑定指针与代次；不检查对象内嵌身份。 */
+  bool resolve(T* instance, resource_generation generation = 0) noexcept {
+    instance_ = instance;
+    generation_ = instance ? generation : 0;
+    owner_.reset();
+    return true;
+  }
+  void swap(ref& other) noexcept(std::is_nothrow_swappable_v<Key>) {
+    using std::swap;
+    swap(key_, other.key_);
+    swap(instance_, other.instance_);
+    swap(generation_, other.generation_);
+    swap(owner_, other.owner_);
+  }
+
+private:
+  template <typename, typename, typename, typename> friend class cache;
+  std::optional<Key> key_;
+  T* instance_ = nullptr;
+  resource_generation generation_ = 0;
+  std::weak_ptr<const void> owner_;
+};
 
 /**
  * @brief 轻量资源引用。
@@ -17,7 +87,9 @@ namespace caors::resources {
  * `ref<T>` 保存资源 GUID 和一个可选的已解析资源指针。它不拥有资源，也不延长资源生命周期。
  * 加载、缓存、卸载和 GUID 解析由后续 `resources::manager` 或上层系统负责。
  */
-template <typename T = resource> class ref {
+template <typename T>
+  requires std::is_base_of_v<resource, T>
+class ref<T, resource_guid> {
   static_assert(std::is_base_of_v<resource, T>, "T must derive from caors::resources::resource");
 
 public:
@@ -35,6 +107,11 @@ public:
 
   /** @brief 返回引用保存的稳定资源 GUID。 */
   [[nodiscard]] resource_guid guid() const noexcept { return guid_; }
+
+  /** @brief 迁移期提供统一键查询；nil GUID 表示没有键。 */
+  [[nodiscard]] std::optional<resource_guid> key() const noexcept {
+    return guid_ ? std::optional<resource_guid>{guid_} : std::nullopt;
+  }
 
   /** @brief 返回引用解析时记录的资源绑定版本；0 表示没有有效版本。 */
   [[nodiscard]] resource_generation generation() const noexcept { return generation_; }
@@ -120,7 +197,8 @@ private:
 
 namespace caors {
 
-template <typename T = resources::resource> using resource_ref = resources::ref<T>;
+template <typename T = resources::resource, typename Key = resource_guid>
+using resource_ref = resources::ref<T, Key>;
 
 } // namespace caors
 

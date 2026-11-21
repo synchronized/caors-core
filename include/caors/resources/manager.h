@@ -11,7 +11,9 @@
 #include <type_traits>
 
 namespace caors::resources {
-template <typename T> class cache;
+template <typename T, typename Key = resource_guid, typename Hash = std::hash<Key>,
+          typename Equal = std::equal_to<Key>>
+class cache;
 
 /**
  * @brief 非拥有资源索引。
@@ -217,7 +219,7 @@ public:
   }
 
 private:
-  template <typename T> friend class cache;
+  template <typename T, typename Key, typename Hash, typename Equal> friend class cache;
   // 先准备可能分配的反向索引，再修改既有条目；失败不能拆掉旧绑定。
   bool replace_binding(resource_guid guid, resources::resource* instance) {
     if (!instance || instance->guid() != guid)

@@ -8,6 +8,7 @@
 #include "caors/resources.h"
 #include "caors/resources/byte_reader.h"
 #include "caors/resources/coroutine.h"
+#include "caors/resources/resource_manager.h"
 #include "caors/tasks/execution_context.h"
 #include "caors/tasks/inline_executor.h"
 #include <optional>
@@ -17,6 +18,32 @@
 #include <utility>
 
 namespace {
+
+struct host_resource {
+  int value = 17;
+};
+class host_loader final : public caors::resources::loader<host_resource, std::string> {
+public:
+  caors::error start(caors::resources::basic_load_context<std::string> context,
+                     caors::resources::load_completion<host_resource> completion) override {
+    if (context.key != "host/item")
+      return {caors::error_domain::resources, caors::errc::not_found};
+    (void)completion.complete({{}, caors::memory::make_unique<host_resource>(context.resource)});
+    return {};
+  }
+};
+
+bool verify_host_manager() {
+  host_loader loader;
+  caors::resources::resource_manager<std::string> manager{
+      {caors::tasks::inline_executor(), caors::tasks::inline_executor()}};
+  if (manager.register_loader(loader))
+    return false;
+  auto request = manager.request_load<host_resource>("host/item");
+  caors::resources::ref<host_resource, std::string> reference{std::string{"host/item"}};
+  return request.result() && request.result().value->value == 17 && manager.resolve(reference) &&
+         manager.is_current(reference);
+}
 
 constexpr caors::resource_guid consumer_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x35, 0x40, 0x3d, 0xf4, 0x88, 0xe2, 0x4e, 0xe2, 0xa8, 0x93, 0x75, 0x13,
@@ -110,6 +137,8 @@ probe_coroutine wait_for_resource(caors::resources::load_request<consumer_resour
 } // namespace
 
 int main() {
+  if (!verify_host_manager())
+    return 100;
   {
     caors::io::file_service routes{{caors::tasks::inline_executor()}};
     auto memory = caors::io::make_memory_backend();

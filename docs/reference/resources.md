@@ -3,6 +3,48 @@
 
 # Resources
 
+## 宿主资源键加载
+
+新的环境无关入口为 `caors/resources/resource_manager.h`。`resource_manager<Key, Hash, Equal>`
+拥有按类型隔离的缓存和在途请求表，不创建项目配置、文件来源、网络服务或线程池。
+Key 由宿主选择，支持拥有式字符串、GUID 和可哈希组合键；Hash/Equal 策略同时用于缓存与请求共享。
+下文原 GUID 管线仍作为迁移兼容行为维护，不是使用新入口的前提。
+
+```cpp
+// worker、completion 和 image_loader 由宿主持有，image_loader 实现 loader<image, std::string>。
+caors::resources::resource_manager<std::string> assets{{worker, completion}};
+auto status = assets.register_loader(image_loader);
+auto request = assets.request_load<image>("textures/wood.png");
+auto reload = assets.request_reload<image>("textures/wood.png");
+auto cached = assets.find<image>("textures/wood.png"); // 返回拥有式 handle。
+```
+
+宿主 loader 的 start 接收 `basic_load_context<Key>` 和 `load_completion<T>`；非 GUID 上下文
+通过 key 字段提供拥有式资源键。GUID 上下文保留 guid 字段和 async_load_context 别名。
+对象无需继承 resource。结果交付、请求共享、协作取消和最新重载发布复用已有请求状态机。
+缓存命中可立即完成；宿主执行器也可能内联执行，调用者必须允许重入。
+
+注册、请求发起、查询与完成发布须统一串行化；宿主可从其他线程交付 loader 完成凭证。
+close 停止新请求，释放管理器绑定，不阻塞或撤回已发请求；在途任务拥有类型存储，
+可在管理器销毁后完成。loader、分配器、执行环境和实现模块必须覆盖真实清理及结果对象析构。
+同类型重复注册返回 already_exists，未注册类型请求返回 not_found，关闭后请求返回 cancelled。
+
+低层 `cache<T, Key, Hash, Equal>`、`ref<T, Key>` 支持宿主键与普通对象；cache 插入和替换
+显式传入键，不读取或写入对象 GUID。引用保留键、非拥有指针及绑定代次；缓存归属凭据防止
+不同缓存间误认同一绑定。分配器须覆盖引用身份弱凭据的清理；原 GUID 资源的兼容特化仍保留。
+std::string_view 不能作为拥有式键，宿主自定义 Key 同样必须拥有需保留的数据。
+
+包含 resources/serialization.h 后，宿主引用沿用 Key 的 codec 保存键值，空引用写为 null；
+读回保持未解析，不写对象指针、缓存凭据或代次。路径不转为 GUID，路径规范化和选项组合由宿主控制。
+旧 GUID 外部引用收集器不能收集宿主键；启用该收集器写出非空宿主引用，或要求自动解析非空宿主引用，
+会返回 unsupported，须由宿主在数据转换后显式解析。
+
+动态多层依赖接口、旧装配迁移、独立安装模块及 IO 删除仍在开发。
+无 IO 的编译、链接和运行原型位于 tests/resource_boundary，不能将其等同于正式安装目标已独立。
+范围与验收见[开发计划](../plans/host-driven-resource-loading.md)。
+
+## 原 GUID 管线
+
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
 加载/保存接口、非拥有资源 database 编排入口、异步 reload、同步兼容通知、预加载计划和

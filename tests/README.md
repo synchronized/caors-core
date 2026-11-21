@@ -82,7 +82,8 @@ include 路径。
 ## 头文件测试
 
 `tests/resource_boundary/` 为[宿主资源核心边界基线](../docs/records/2026-11-21-resource-boundary-baseline.md)，
-可独立配置编译；禁止 IO 头并验证宿主 loader 的模板路径，不代表独立链接或运行测试。
+可独立配置编译；禁止 IO 头并验证宿主 loader 的模板路径。新增独立链接与运行原型
+验证资源键、请求共享和管理器寿命，范围见[宿主键记录](../docs/records/2026-11-21-host-key-loading.md)，尚非正式安装模块。
 
 `tests/headers/` 除了生成所有公开头文件的自包含编译测试，也可以放置手写 include 边界测试。
 这类测试应使用公开 API，验证细粒度头只暴露约定能力，避免模块重新依赖隐式包含。

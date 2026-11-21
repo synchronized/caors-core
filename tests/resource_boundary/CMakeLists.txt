@@ -4,6 +4,7 @@
 cmake_minimum_required(VERSION 3.23)
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(caors_resource_boundary LANGUAGES CXX)
+  enable_testing()
 endif()
 
 get_filename_component(CAORS_BOUNDARY_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
@@ -24,6 +25,26 @@ target_compile_features(caors_resource_boundary PRIVATE cxx_std_20)
 target_compile_definitions(caors_resource_boundary PRIVATE CAORS_STATIC_DEFINE)
 target_include_directories(caors_resource_boundary BEFORE PRIVATE
   "${CAORS_BOUNDARY_POISON}" "${CAORS_BOUNDARY_ROOT}/include")
+
+# P2 的运行原型仅编译必要的基础设施，不链接 caors 单体或任何 IO/项目装配实现。
+add_library(caors_resource_boundary_support STATIC
+  "${CAORS_BOUNDARY_ROOT}/src/caors/memory/resource.cpp"
+  "${CAORS_BOUNDARY_ROOT}/src/caors/memory/detail/internal.cpp"
+  "${CAORS_BOUNDARY_ROOT}/src/caors/tasks/executor.cpp"
+  "${CAORS_BOUNDARY_ROOT}/src/caors/tasks/execution_context.cpp"
+  "${CAORS_BOUNDARY_ROOT}/src/caors/core/string_name.cpp"
+  "${CAORS_BOUNDARY_ROOT}/src/caors/core/guid.cpp")
+target_compile_features(caors_resource_boundary_support PUBLIC cxx_std_20)
+target_compile_definitions(caors_resource_boundary_support PUBLIC CAORS_STATIC_DEFINE)
+target_include_directories(caors_resource_boundary_support BEFORE PUBLIC
+  "${CAORS_BOUNDARY_POISON}" "${CAORS_BOUNDARY_ROOT}/include")
+if(NOT EMSCRIPTEN)
+  find_package(Threads REQUIRED)
+  target_link_libraries(caors_resource_boundary_support PUBLIC Threads::Threads)
+endif()
+add_executable(caors_resource_boundary_runtime runtime.cpp)
+target_link_libraries(caors_resource_boundary_runtime PRIVATE caors_resource_boundary_support)
+add_test(NAME caors.resource_boundary.runtime COMMAND caors_resource_boundary_runtime)
 
 # 当前数据库与装配仍应命中被禁止的 IO 头；P2 迁移时须将其改为正向探针。
 foreach(CAORS_BOUNDARY_ENTRY IN ITEMS database assets)

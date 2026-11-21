@@ -91,7 +91,31 @@ private:
  * @note resource 非拥有，必须覆盖结果和所有回调；worker 不拥有执行环境。
  * stop 仅表示协作取消，宿主负责转发到其 loop 线程并清理迟到回调。
  */
-struct async_load_context {
+template <typename Key> struct basic_load_context {
+  static_assert(!std::is_same_v<Key, std::string_view>, "Key must own its data");
+  /** @brief 待加载资源的稳定身份。 */
+  Key key{};
+  /** @brief 非拥有结果资源，必须覆盖对象、控制块和回调的实际寿命。 */
+  memory_resource* resource = nullptr;
+  /** @brief 发起及解析任务的调度入口；执行环境由宿主持有。 */
+  tasks::executor worker{};
+  /** @brief 共享操作的协作取消信号，不表示底层 I/O 已经停止。 */
+  std::stop_token stop{};
+  /** @brief 可复制、拥有状态的进度通道，不能形成强引用环。 */
+  load_progress progress{};
+  /** @brief 同次加载及依赖共享的不可变批次数据；不使用来源适配时可为空。 */
+  std::shared_ptr<const load_snapshot> snapshot{};
+
+  /** @brief 取得适配器的具体快照；为空或类型不匹配时返回空指针，不访问原来源。 */
+  template <typename Snapshot>
+  [[nodiscard]] std::shared_ptr<const Snapshot> snapshot_as() const noexcept {
+    static_assert(std::is_base_of_v<load_snapshot, Snapshot>);
+    return std::dynamic_pointer_cast<const Snapshot>(snapshot);
+  }
+};
+
+/** @brief GUID 迁移兼容上下文；普通宿主键通过 basic_load_context<Key> 传递。 */
+template <> struct basic_load_context<resource_guid> {
   /** @brief 待加载资源的稳定身份。 */
   resource_guid guid{};
   /** @brief 非拥有结果资源，必须覆盖对象、控制块和回调的实际寿命。 */
@@ -112,6 +136,7 @@ struct async_load_context {
     return std::dynamic_pointer_cast<const Snapshot>(snapshot);
   }
 };
+using async_load_context = basic_load_context<resource_guid>;
 
 namespace detail {
 template <typename T> struct load_completion_access;
@@ -237,7 +262,7 @@ template <typename T> struct load_completion_access {
  * @note 接受后必须交付或销毁完成凭证；拒绝时不得保留凭证。允许返回前提交结果。
  * 不创建线程，loader、宿主循环及 memory_resource 须覆盖实际操作和回调寿命。
  */
-template <typename T> class loader {
+template <typename T, typename Key = resource_guid> class loader {
 
 public:
   using resource_type = T;
@@ -248,7 +273,8 @@ public:
   loader(loader&&) = delete;
   loader& operator=(loader&&) = delete;
   /** @brief 发起加载并交付所有权；异常由请求管线转为失败，不得阻塞等待宿主 I/O。 */
-  [[nodiscard]] virtual error start(async_load_context context, load_completion<T> completion) = 0;
+  [[nodiscard]] virtual error start(basic_load_context<Key> context,
+                                    load_completion<T> completion) = 0;
 };
 
 /**
