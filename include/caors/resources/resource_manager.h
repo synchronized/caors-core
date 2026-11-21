@@ -19,7 +19,7 @@ struct resource_execution_options {
  * @brief 按宿主键管理异步加载与类型化缓存，不创建文件来源或项目装配。
  * @note 注册、查询、请求发起和 close 必须与完成发布统一串行化；loader 可从宿主线程交付结果。
  * loader 为借用，须覆盖真实在途清理；其实现模块还须覆盖结果对象的析构。
- * close 不阻塞，已发操作持有类型存储，可在管理器销毁后完成。
+ * close 不阻塞，已发操作持有全部类型注册与缓存，可在管理器销毁后完成。
  */
 template <typename Key = std::string, typename Hash = std::hash<Key>,
           typename Equal = std::equal_to<Key>>
@@ -36,11 +36,17 @@ class resource_manager final {
     loader<T, Key>* source;
   };
   using entry_map = core::hash_map<std::type_index, std::shared_ptr<entry_base>>;
+  struct runtime_state {
+    explicit runtime_state(memory_resource* resource)
+        : entries(typename entry_map::allocator_type{resource}) {}
+    entry_map entries;
+  };
 
 public:
   explicit resource_manager(resource_execution_options options, Hash hash = {}, Equal equal = {})
       : options_(resolve_options(std::move(options))), hash_(std::move(hash)),
-        equal_(std::move(equal)), entries_(typename entry_map::allocator_type{resource()}) {}
+        equal_(std::move(equal)), runtime_(std::allocate_shared<runtime_state>(
+                                      allocator<runtime_state>{resource()}, resource())) {}
   resource_manager(const resource_manager&) = delete;
   resource_manager& operator=(const resource_manager&) = delete;
   resource_manager(resource_manager&&) = delete;
@@ -52,11 +58,11 @@ public:
     if (closed_)
       return {error_domain::resources, errc::cancelled};
     auto key = std::type_index(typeid(T));
-    if (entries_.contains(key))
+    if (runtime_->entries.contains(key))
       return {error_domain::resources, errc::already_exists};
     auto value = std::allocate_shared<entry<T>>(allocator<entry<T>>{resource()}, resource(), source,
                                                 hash_, equal_);
-    entries_.emplace(key, std::move(value));
+    runtime_->entries.emplace(key, std::move(value));
     return {};
   }
   /** @brief 加载或加入同键在途操作；缓存命中直接返回已有句柄。 */
@@ -69,7 +75,7 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource());
     return detail::request_load_into_impl<T>(value->values, *value->source, std::move(key),
                                              options_.worker, options_.completion, &value->requests,
-                                             true, {}, {}, value);
+                                             true, {}, {}, runtime_);
   }
   /** @brief 独立重载，最新请求决定缓存绑定；失败保留旧值。 */
   template <typename T> [[nodiscard]] load_request<T> request_reload(Key key) {
@@ -81,7 +87,7 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::invalid_argument}, resource());
     return detail::request_reload_into_impl<T>(value->values, *value->source, std::move(key),
                                                options_.worker, options_.completion,
-                                               &value->requests, value);
+                                               &value->requests, runtime_);
   }
   /** @brief 查询当前缓存句柄，不启动加载。 */
   template <typename T> [[nodiscard]] handle<T> find(const Key& key) const {
@@ -107,8 +113,9 @@ public:
     if (closed_)
       return;
     closed_ = true;
-    entry_map retired{typename entry_map::allocator_type{resource()}};
-    retired.swap(entries_);
+    // 已接受操作需要整份注册表，后续解析出的依赖可能属于另一资源类型。
+    // 管理器释放入口，实际清理由最后一个在途运行期持有者触发。
+    runtime_.reset();
   }
   [[nodiscard]] bool closed() const noexcept { return closed_; }
   [[nodiscard]] memory_resource* resource() const noexcept { return options_.resource; }
@@ -122,13 +129,14 @@ private:
   template <typename T> std::shared_ptr<entry<T>> lookup() const {
     if (closed_)
       return {};
-    auto found = entries_.find(std::type_index(typeid(T)));
-    return found == entries_.end() ? nullptr : std::static_pointer_cast<entry<T>>(found->second);
+    auto found = runtime_->entries.find(std::type_index(typeid(T)));
+    return found == runtime_->entries.end() ? nullptr
+                                            : std::static_pointer_cast<entry<T>>(found->second);
   }
   resource_execution_options options_;
   Hash hash_;
   Equal equal_;
-  entry_map entries_;
+  std::shared_ptr<runtime_state> runtime_;
   bool closed_ = false;
 };
 } // namespace caors::resources

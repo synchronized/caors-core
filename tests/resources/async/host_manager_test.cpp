@@ -116,6 +116,42 @@ TEST_CASE("resources - host manager retains stores through late completion witho
   CHECK(memory.statistics().bytes_in_use == 0);
 }
 
+TEST_CASE("resources - accepted load retains other registered stores after close",
+          "[resources][host-key]") {
+  caors::tracking_resource memory(&caors::get_system_memory_resource());
+  {
+    deferred_loader<host_image> images;
+    deferred_loader<host_material> materials;
+    caors::tasks::execution_context worker, completion;
+    caors::resources::weak_handle<host_image> cached;
+    caors::resources::load_request<host_material> pending;
+    {
+      caors::resources::resource_manager<std::string> manager{
+          {worker.get_executor(), completion.get_executor(), &memory}};
+      REQUIRE_FALSE(manager.register_loader(images));
+      REQUIRE_FALSE(manager.register_loader(materials));
+      {
+        auto image = manager.request_load<host_image>("cached");
+        (void)worker.drain();
+        REQUIRE(images.finish());
+        (void)completion.drain();
+        cached = image.result().value;
+      }
+      pending = manager.request_load<host_material>("later");
+      manager.close();
+      CHECK_FALSE(manager.find<host_image>("cached"));
+      CHECK(manager.request_load<host_image>("new").error().value() == caors::errc::cancelled);
+    }
+    CHECK_FALSE(cached.expired());
+    (void)worker.drain();
+    REQUIRE(materials.finish());
+    (void)completion.drain();
+    REQUIRE(pending.result());
+    CHECK(cached.expired());
+  }
+  CHECK(memory.statistics().bytes_in_use == 0);
+}
+
 TEST_CASE("resources - host manager copies key policy into cache and request sharing",
           "[resources][host-key]") {
   deferred_loader<host_image> loader;
