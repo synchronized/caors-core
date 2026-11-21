@@ -46,6 +46,16 @@ add_executable(caors_resource_boundary_runtime runtime.cpp)
 target_link_libraries(caors_resource_boundary_runtime PRIVATE caors_resource_boundary_support)
 add_test(NAME caors.resource_boundary.runtime COMMAND caors_resource_boundary_runtime)
 
+# 独立目标不能靠链接 caors 继承 sanitizer；必须让模板、支持实现和最终链接一起受检。
+if(CAORS_ENABLE_ASAN)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU)$")
+    message(FATAL_ERROR "资源边界探针的 ASan 仅支持 Clang 和 GCC")
+  endif()
+  target_compile_options(caors_resource_boundary PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_compile_options(caors_resource_boundary_support PUBLIC -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(caors_resource_boundary_support INTERFACE -fsanitize=address)
+endif()
+
 # 当前数据库与装配仍应命中被禁止的 IO 头；P2 迁移时须将其改为正向探针。
 foreach(CAORS_BOUNDARY_ENTRY IN ITEMS database assets)
   if(CAORS_BOUNDARY_ENTRY STREQUAL "database")
