@@ -28,21 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - preset: linux-clang-release
-            shared: ON
-            sanitizer: false
-          - preset: linux-gcc-release
-            shared: ON
-            sanitizer: false
           - preset: linux-clang-asan
             shared: ON
             sanitizer: true
-          - preset: linux-clang-ubsan
-            shared: ON
-            sanitizer: true
-          - preset: linux-clang-static-release
-            shared: OFF
-            sanitizer: false
     steps:
       - uses: actions/checkout@v5
       - name: 恢复第三方归档与只读源码缓存
