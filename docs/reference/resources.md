@@ -197,6 +197,9 @@ if (auto locked = weak.lock()) {
 需要注意：
 
 - `handle<T>` 通过独立控制块拥有资源对象；最后一个强 handle 释放时销毁资源。
+- `handle<T>`、`weak_handle<T>`、`loader<T>` 和 `sync_loader_adapter<T>` 支持不继承 resource 的普通对象。
+  句柄的 guid() 仅对 resource 派生对象提供；普通对象不会被补写虚构的 GUID。
+  当前 cache、database、ref 和异步加载上下文仍使用 GUID，不能据此认为普通对象已可接入完整管理管线。
 - `weak_handle<T>` 不延长资源生命周期，资源销毁后 `lock()` 返回空 handle。
 - `make_handle<T>(resource, args...)` 会使用指定 `memory_resource` 构造资源对象和控制块。
 - `adopt_handle<T>(unique_ptr, resource)` 可以把 loader 返回的 `memory::unique_ptr<T>` 转成强 handle。

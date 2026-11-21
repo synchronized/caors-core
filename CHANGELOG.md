@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- 资源强弱句柄及 loader 协议支持普通对象，不再强制继承 resource；guid() 仅为原 GUID 资源提供。缓存、引用和加载上下文的资源键迁移尚未完成。
+
 - 删除 io/legacy.h 聚合头，测试、示例、基准和安装消费改为显式包含所需协议；同步能力与旧配置路由继续独立保留。
 
 - file_system 收缩为同步存储接口，移除 start_open/start_open_options 及路由扩展；旧同步路由实现 legacy::route_provider。异步能力统一使用 backend，新增 make_worker_backend(shared_files, worker) 和共享内存存储的 make_memory_backend 重载；同步随机句柄与诊断拆为独立头。迁移及并发约束见[后端参考](docs/reference/io-backends.md#复用同步存储)。

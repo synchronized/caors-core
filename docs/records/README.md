@@ -9,6 +9,8 @@
 
 ## 版本验收
 
+- [普通资源对象的所有权与异步交付](2026-11-21-plain-resource-objects.md)：P1 所有权解耦首批，支持无资源基类对象；宿主 Key 管线尚未实现。
+
 - [宿主资源核心编译边界基线](2026-11-21-resource-boundary-baseline.md)：无 IO 头的 loader/缓存/请求模板编译通过，数据库与装配耦合已固定；独立链接和运行尚未实现。
 
 - [同步存储职责收缩](2026-10-31-sync-storage-boundary.md)：同步、异步与旧路由职责分离，共享存储、插件、安装及 Linux/Windows/Web 验收全部通过。

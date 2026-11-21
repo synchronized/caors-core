@@ -42,8 +42,7 @@ template <typename T> void delete_handle_instance(void*, void* instance) noexcep
 struct handle_control_block {
   handle_control_block(void* destroy_user_data, memory_resource* control_resource,
                        handle_lifetime_ops ops) noexcept
-      : destroy_user_data(destroy_user_data), control_resource(control_resource), ops(ops) {
-  }
+      : destroy_user_data(destroy_user_data), control_resource(control_resource), ops(ops) {}
 
   std::atomic<std::size_t> strong_count{0};
   std::atomic<std::size_t> weak_count{1};
@@ -128,10 +127,9 @@ template <typename T> void destroy_handle_instance(void* resource, void* instanc
  * @brief 资源强引用句柄。
  *
  * `handle<T>` 通过独立控制块持有资源对象。它适合运行期共享资源生命周期；稳定身份和序列化仍应使用
- * `resource_guid` / `resource_ref<T>`。
+ * 宿主资源键。普通对象无需继承 resource；GUID 资源仍可使用 resource_ref<T>。
  */
 template <typename T> class handle {
-  static_assert(std::is_base_of_v<resource, T>, "T must derive from caors::resources::resource");
   static_assert(!std::is_const_v<T>, "T must not be const");
 
 public:
@@ -212,8 +210,10 @@ public:
   [[nodiscard]] T* operator->() const noexcept { return instance_; }
   [[nodiscard]] explicit operator bool() const noexcept { return instance_ != nullptr; }
 
-  /** @brief 获取资源 GUID。空句柄返回 nil GUID。 */
-  [[nodiscard]] resource_guid guid() const noexcept {
+  /** @brief 兼容 GUID 资源的身份查询；普通对象没有该接口，空句柄返回 nil。 */
+  [[nodiscard]] resource_guid guid() const noexcept
+    requires std::is_base_of_v<resource, T>
+  {
     return instance_ != nullptr ? instance_->guid() : resource_guid::nil();
   }
 
@@ -302,7 +302,6 @@ template <typename T> void swap(handle<T>& lhs, handle<T>& rhs) noexcept { lhs.s
  * `weak_handle<T>` 不延长资源生命周期。资源仍存活时可通过 `lock()` 尝试提升为 `handle<T>`。
  */
 template <typename T> class weak_handle {
-  static_assert(std::is_base_of_v<resource, T>, "T must derive from caors::resources::resource");
   static_assert(!std::is_const_v<T>, "T must not be const");
 
 public:
@@ -480,8 +479,6 @@ template <typename T> void swap(weak_handle<T>& lhs, weak_handle<T>& rhs) noexce
 /** @brief 使用指定内存资源创建资源对象并返回强引用句柄。 */
 template <typename T, typename... Args>
 [[nodiscard]] handle<T> make_handle(memory_resource* resource, Args&&... args) {
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
 
   memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
   auto* control = detail::try_make_handle_control_block(
@@ -510,8 +507,6 @@ template <typename T, typename... Args>
 template <typename T>
 [[nodiscard]] handle<T> adopt_handle(memory::unique_ptr<T> owned,
                                      memory_resource* control_resource) {
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
 
   if (owned == nullptr) {
     return {};
@@ -529,8 +524,7 @@ template <typename T>
 
   memory_resource* resolved_control =
       control_resource != nullptr ? control_resource : get_default_memory_resource();
-  auto* control =
-      detail::try_make_handle_control_block(destroy_user_data, resolved_control, ops);
+  auto* control = detail::try_make_handle_control_block(destroy_user_data, resolved_control, ops);
   if (control == nullptr) {
     return {};
   }

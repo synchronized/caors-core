@@ -233,12 +233,11 @@ template <typename T> struct load_completion_access {
 } // namespace detail
 
 /**
- * @brief 按 GUID 异步交付资源的统一加载协议，不绑定文件系统或宿主事件循环。
+ * @brief 按 GUID 异步交付对象的加载协议；对象无需继承 resource，不绑定文件系统或宿主事件循环。
  * @note 接受后必须交付或销毁完成凭证；拒绝时不得保留凭证。允许返回前提交结果。
  * 不创建线程，loader、宿主循环及 memory_resource 须覆盖实际操作和回调寿命。
  */
 template <typename T> class loader {
-  static_assert(std::is_base_of_v<resources::resource, T>);
 
 public:
   using resource_type = T;
@@ -258,8 +257,6 @@ public:
  * Web 主线程不得用本适配器执行阻塞网络访问。它不通过阻塞等待适配异步操作。
  */
 template <typename T> class sync_loader_adapter : public loader<T> {
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
 
 public:
   using resource_type = T;
