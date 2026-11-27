@@ -4,11 +4,8 @@
 #ifndef CAORS_BENCHMARKS_SUPPORT_BENCHMARK_SUPPORT_H_
 #define CAORS_BENCHMARKS_SUPPORT_BENCHMARK_SUPPORT_H_
 
-#include "caors/assets/json.h"
-#include "caors/io/memory_file_system.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
-#include "caors/resources.h"
 #include "caors/serialization.h"
 
 #include <cstddef>
@@ -55,39 +52,8 @@ struct benchmark_actor {
   [[nodiscard]] int take_i64(std::int64_t value) const noexcept { return static_cast<int>(value); }
 };
 
-inline constexpr caors::resource_guid benchmark_texture_guid{caors::guid::from_bytes(
-    caors::guid::byte_array{0x8f, 0x1b, 0x2a, 0x44, 0x90, 0x0a, 0x45, 0x36, 0x92, 0x74, 0x71, 0xee,
-                            0x4a, 0x51, 0x91, 0x09})};
-
 inline constexpr std::string_view benchmark_actor_json{
     R"({"id":7,"health":95.5,"active":true,"name":"Ada"})"};
-
-inline constexpr std::string_view benchmark_texture_json{R"({"width":256,"height":128})"};
-
-class benchmark_texture_resource : public caors::resource {
-public:
-  using caors::resource::resource;
-
-  int width = 0;
-  int height = 0;
-};
-
-class benchmark_texture_loader final
-    : public caors::resources::sync_loader_adapter<benchmark_texture_resource> {
-public:
-  [[nodiscard]] caors::resources::load_result<benchmark_texture_resource>
-  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override;
-};
-
-struct benchmark_resource_io_fixture {
-  explicit benchmark_resource_io_fixture(caors::memory_resource* resource = nullptr);
-
-  caors::io::memory_file_system files;
-  caors::resources::provider provider;
-  caors::resource_cache<benchmark_texture_resource> cache;
-  caors::resources::file_source source;
-  caors::assets::json::sync_loader<benchmark_texture_resource> loader;
-};
 
 [[nodiscard]] caors::serialization::type_schema make_benchmark_actor_schema();
 [[nodiscard]] caors::variant make_benchmark_actor_variant_direct(const benchmark_actor& actor);
@@ -108,8 +74,6 @@ void benchmark_method_calls(std::size_t iterations);
 void benchmark_any(std::size_t iterations);
 void benchmark_math(std::size_t iterations);
 void benchmark_serialization(std::size_t iterations);
-void benchmark_resources(std::size_t iterations);
-void benchmark_resource_coroutines(std::size_t iterations);
 void benchmark_task_coroutines(std::size_t iterations);
 void benchmark_memory_pools(std::size_t iterations);
 void print_meta_wrapper_layout_samples();

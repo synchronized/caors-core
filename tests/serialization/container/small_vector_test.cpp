@@ -55,7 +55,7 @@ TEST_CASE("serialization - small vector MessagePack roundtrip hides storage mode
   source.values.emplace_back("dynamic");
   REQUIRE_FALSE(source.values.uses_inline_storage());
 
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(source);
+  const caors::serialization::byte_buffer_result encoded = caors::to_messagepack(source);
   REQUIRE(encoded.succeeded());
 
   small_vector_actor decoded{&tracking};

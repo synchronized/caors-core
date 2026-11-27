@@ -53,11 +53,11 @@ tests/<topic>/<leaf>/ -> caors_<topic_identifier>_<leaf_identifier>_test
 caors.<topic>.<leaf>
 ```
 
-例如 `tests/serialization/resource/` 会生成：
+例如 `tests/serialization/core/` 会生成：
 
 ```text
-caors_serialization_resource_test
-caors.serialization.resource
+caors_serialization_core_test
+caors.serialization.core
 ```
 
 如果一级主题目录本身就是叶子目录，也会直接生成 `caors.<topic>`，例如 `tests/config/`。
@@ -80,10 +80,6 @@ include 路径。
 - 新增功能时优先补充对应叶子主题测试，避免把无关测试塞进已有文件。
 
 ## 头文件测试
-
-`tests/resource_boundary/` 为[宿主资源核心边界基线](../docs/records/2026-11-21-resource-boundary-baseline.md)，
-可独立配置编译；禁止 IO 头并验证宿主 loader 的模板路径。新增独立链接与运行原型
-验证资源键、请求共享和管理器寿命，范围见[宿主键记录](../docs/records/2026-11-21-host-key-loading.md)，尚非正式安装模块。
 
 `tests/headers/` 除了生成所有公开头文件的自包含编译测试，也可以放置手写 include 边界测试。
 这类测试应使用公开 API，验证细粒度头只暴露约定能力，避免模块重新依赖隐式包含。

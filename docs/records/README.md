@@ -7,6 +7,8 @@
 [文档中心](../README.md)、[路线图](../roadmap.md)和[计划索引](../plans/README.md)。
 性能测量继续存放在 [benchmarks/results](../../benchmarks/results/README.md)。
 
+- [资源、资产与 IO 移除记录](2026-11-27-application-modules-removal.md)。
+
 ## 版本验收
 
 - [宿主资源键加载与独立运行原型](2026-11-21-host-key-loading.md)：宿主键管线及无 IO 原型通过平台验证；动态依赖等待图原语已补充，状态机接入与后续迁移待完成。

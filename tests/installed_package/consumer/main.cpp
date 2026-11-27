@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/io.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
 #include "caors/serialization.h"
@@ -28,42 +27,6 @@ struct consumer_record {
   return false;
 }
 
-[[nodiscard]] bool check_owned_io() {
-  std::weak_ptr<caors::io::memory_backend> weak;
-  caors::io::file_batch snapshot;
-  {
-    caors::io::file_service routes{{caors::tasks::inline_executor()}};
-    auto memory = caors::io::make_memory_backend();
-    if (memory->store("data", "payload") || routes.mount("caors://assets", memory))
-      return false;
-    weak = memory;
-    auto captured = routes.snapshot();
-    if (!captured)
-      return false;
-    snapshot = std::move(captured.value);
-    routes.clear();
-  }
-  if (weak.expired())
-    return false;
-  {
-    auto io = std::move(snapshot);
-    auto reading = io.read("caors://assets/data", {.max_bytes = 7});
-    if (!reading.done() || !*reading.result() || reading.result()->value.size() != 7)
-      return false;
-    auto opening = io.open("caors://assets/data");
-    if (!opening.done() || !*opening.result())
-      return false;
-    auto handle = opening.result()->value;
-    auto range = handle.read({.offset = 1, .length = 3});
-    if (!range.done() || !*range.result() || range.result()->value.size() != 3)
-      return false;
-    auto closed = handle.close();
-    if (!closed.done() || !*closed.result())
-      return false;
-  }
-  return weak.expired();
-}
-
 [[nodiscard]] bool register_consumer_record() {
   return check(caors::registration::type_<consumer_record>("caors.test.installed.consumer_record")
                    .meta()
@@ -84,7 +47,7 @@ int main() {
     return 1;
   }
 
-  if (!check_owned_io() || !register_consumer_record()) {
+  if (!register_consumer_record()) {
     return 1;
   }
 

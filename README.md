@@ -18,7 +18,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 
 ## 当前状态
 
-当前已提供 core、memory、math、IO、events、tasks、meta、objects、resources/assets 和序列化模块，
+当前已提供 core、memory、math、events、tasks、meta、objects、plugins 和纯数据序列化模块，
 并配有可运行示例、行为测试和 CMake install/export。
 具体 API、限制和阅读入口见[文档中心](docs/README.md)，后续方向见[路线图](docs/roadmap.md)。
 

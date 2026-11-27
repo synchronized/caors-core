@@ -17,7 +17,7 @@ Windows x64 Clang 23.1.1 / MSVC ABI，共享 Debug；Emscripten 5.0.6 静态 Deb
 - 工程工厂测试、alpha 依赖管线、beta 加载与重载示例迁到 request 入口；`assets_sync_load.cpp` 更名 `assets_load.cpp`，构建目标同步更名。
 - 外部文件系统工厂测试从借用指针绑定迁到共享所有权绑定，使其可以捕获拥有式快照；同步序列化、资源核心及基准用例明确使用 sync_loader。
 
-当前接口与迁移步骤维护于[assets 参考](../reference/assets.md#json-异步字节接入)，不由本记录维护第二套 API。
+当前接口与迁移步骤维护于[assets 参考](../reference/assets.md)，不由本记录维护第二套 API。
 
 ## 验证
 

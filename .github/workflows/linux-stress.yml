@@ -62,12 +62,12 @@ jobs:
           --output-on-failure
           --repeat until-fail:10
           -R '^(caors\.memory\.|caors\.serialization\.messagepack$)'
-      - name: VFS 与异步加载压力测试
+      - name: 任务与插件压力测试
         run: >-
           ctest --test-dir build/linux-clang-asan
           --output-on-failure
           --repeat until-fail:20
-          -R '^(caors\.io|caors\.assets\.asset_manager|caors\.resources\.(async|provider))$'
+          -R '^(caors\.tasks\..*|caors\.plugins\..*)$'
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v6

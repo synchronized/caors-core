@@ -16,7 +16,7 @@
 目标是减少普通调用者必须理解的概念、等价入口和跨层参数，不以移动目录或新增包装类作为完成标准。
 优先处理资源加载主线；文件写入、目录访问等既有能力不得因统一异步而无声丢失。
 
-字节读取批新增统一 reader、VFS 编排适配和显式 JSON 异步接入，当前 API 见[资源参考](../reference/resources.md#统一字节读取适配)。
+字节读取批新增统一 reader、VFS 编排适配和显式 JSON 异步接入，当前 API 见[资源参考](../reference/resources.md)。
 本批实现与验证见[字节读取记录](../records/2026-10-22-byte-reader-protocol.md)。
 默认 JSON 工厂已迁移到异步 loader，旧 JSON 实现显式更名 sync_loader，见[迁移记录](../records/2026-10-22-json-factory-migration.md)；manager/database 旧同步执行入口及双注册槽已移除；低层同步组合仅接受显式 adapter，见[收口记录](../records/2026-10-22-single-load-entry.md)。远端验收和最终范围审计仍待完成，不记为整个重构完成。
 
@@ -45,10 +45,10 @@ VFS 主体重构按[VFS 收敛计划](vfs-api-consolidation.md)实施，本页�
 | read_all_bounded/read_all_chunked/consume_chunks | 有预算的整文件或逐块处理 | 保留语义差别；整文件入口考虑合并预算与分块选项，逐块消费独立 |
 | path / uri / location | 不同地址语义及拥有/借用形式 | 逐一审查隐式转换；先明确边界，不机械合并为 string |
 
-源码核对入口：[asset_manager.h](../../include/caors/assets/asset_manager.h)、
-[database.h](../../include/caors/resources/database.h)、[资源加载协议](../../include/caors/resources/io.h)、
-[source.h](../../include/caors/resources/source.h)、[file_system.h](../../include/caors/io/file_system.h)、
-[async_file.h](../../include/caors/io/async_file.h)。
+源码核对入口：[asset_manager.h](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/assets/asset_manager.h)、
+[database.h](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/resources/database.h)、[资源加载协议](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/resources/io.h)、
+[source.h](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/resources/source.h)、[file_system.h](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/io/file_system.h)、
+[async_file.h](https://github.com/synchronized/caors-core/blob/c912d089/include/caors/io/async_file.h)。
 
 原始审计时 database 请求路径会捕获 provider 快照并交给 loader，预加载闭包共享快照；
 loader 可以忽略 sources，但当前 manager/配置/请求协议结构上仍依赖 VFS。
@@ -186,7 +186,7 @@ loader 的宿主依赖在构造时注入；不得让 manager 解释宿主路径�
 ### 独立文件访问
 
 文件访问签名已在 [VFS 专项计划](vfs-api-consolidation.md)中确定并实施，
-当前 API 以 [IO 参考](../reference/io.md#vfs-与统一文件访问)为唯一说明入口。
+当前 API 以 [IO 参考](../reference/io.md)为唯一说明入口。
 不再保留 open_read 等旧候选示例；统一使用 open，并通过选项表达后续访问模式。
 
 ## 必须保留的行为

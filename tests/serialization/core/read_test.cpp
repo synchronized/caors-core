@@ -5,8 +5,6 @@
 
 #include "serialization_test_support.h"
 
-#include "caors/io/memory_file_system.h"
-#include "caors/io/stream.h"
 #include "caors/memory/tracking.h"
 #include "caors/serialization/config_validation.h"
 
@@ -232,62 +230,6 @@ TEST_CASE("serialization - json text reader applies duplicate key policy", "[ser
   CHECK(result.value() == caors::errc::duplicate_name);
 }
 
-TEST_CASE("serialization - reads json from io file system and deserializes reflected fields",
-          "[serialization]") {
-  require_reader_actor_metadata();
-
-  caors::io::memory_file_system fs;
-  REQUIRE(fs.write_all("actors/ada.json", R"({"id":8,"health":88.5,"active":false,"name":"Ada"})")
-              .succeeded());
-
-  caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::serialization::variant_result parsed =
-      caors::serialization::parse_json_from(fs, "actors/ada.json", &tracking);
-
-  REQUIRE(parsed.succeeded());
-  REQUIRE(parsed->is_object());
-
-  reader_actor actor{};
-  const caors::error result =
-      caors::serialization::read_json_from(actor, fs, "actors/ada.json", &tracking);
-
-  REQUIRE(result.succeeded());
-  CHECK(actor.id == 8);
-  CHECK(actor.health == Catch::Approx(88.5));
-  CHECK_FALSE(actor.active);
-  CHECK(actor.name == "Ada");
-}
-
-TEST_CASE("serialization - json stream convenience rewinds context scratch", "[serialization]") {
-  require_reader_actor_metadata();
-
-  std::string_view text = R"({"id":9,"health":77.5,"active":true,"name":"Grace"})";
-  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
-  for (const unsigned char character : text) {
-    bytes.push_back(static_cast<std::byte>(character));
-  }
-  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
-
-  caors::tracking_resource scratch_tracking{&caors::get_system_memory_resource()};
-  caors::stack_resource scratch{64, &scratch_tracking};
-  caors::serialization::context context{};
-  context.resolvers.memory.scratch_resource = &scratch;
-
-  reader_actor actor{};
-  REQUIRE(caors::serialization::read_json_from(context, actor, *stream).succeeded());
-  CHECK(scratch.active_scope_count() == 0);
-  scratch.reset();
-  CHECK(scratch_tracking.statistics().bytes_in_use == 0);
-  CHECK(actor.id == 9);
-  CHECK(actor.name == "Grace");
-}
-
-// 原测试文件：serialization_read_rejects_invalid_char_and_enum_values_test.cpp
-
-#include "serialization_test_support.h"
-
-using namespace caors::tests::serialization;
-
 TEST_CASE("serialization - rejects invalid char and enum values", "[serialization]") {
   require_scalar_actor_metadata();
 
@@ -354,50 +296,6 @@ TEST_CASE("serialization - json parser applies parser side options", "[serializa
   REQUIRE(id != nullptr);
   REQUIRE(id->try_as_u64() != nullptr);
   CHECK(*id->try_as_u64() == 2U);
-}
-
-TEST_CASE("serialization - json parser reads from input stream without staging text",
-          "[serialization]") {
-  std::string_view text = R"({"id":1,})";
-  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
-  for (const unsigned char character : text) {
-    bytes.push_back(static_cast<std::byte>(character));
-  }
-
-  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
-  caors::serialization::json_options options{};
-  options.allow_trailing_commas = true;
-
-  caors::serialization::variant_result parsed = caors::serialization::parse_json(*stream, options);
-  REQUIRE(parsed.succeeded());
-
-  const caors::variant* id = parsed->find_member_variant(caors::string_name{"id"});
-  REQUIRE(id != nullptr);
-  REQUIRE(id->try_as_u64() != nullptr);
-  CHECK(*id->try_as_u64() == 1U);
-}
-
-TEST_CASE("serialization - json stream parser uses the result resource", "[serialization]") {
-  std::string_view text = R"({"items":["first","second"]})";
-  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
-  for (const unsigned char character : text) {
-    bytes.push_back(static_cast<std::byte>(character));
-  }
-
-  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
-  caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
-  caors::serialization::variant_result parsed =
-      caors::serialization::parse_json(*stream, &result_resource);
-  REQUIRE(parsed.succeeded());
-  CHECK(parsed->resource() == &result_resource);
-
-  const caors::variant* items = parsed->find_member_variant(caors::string_name{"items"});
-  REQUIRE(items != nullptr);
-  REQUIRE(items->try_as_array() != nullptr);
-  CHECK(items->resource() == &result_resource);
-  REQUIRE(items->as_array().size() == 2U);
-  CHECK(items->as_array()[0].resource() == &result_resource);
-  CHECK(items->as_array()[1].resource() == &result_resource);
 }
 
 TEST_CASE("serialization - json parser decodes unicode escapes as utf8", "[serialization]") {

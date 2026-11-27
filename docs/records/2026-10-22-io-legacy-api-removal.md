@@ -6,7 +6,7 @@
 ## 范围
 
 基于 b89a6a42，分支 feature/resource-source-boundary，PR #58。
-删除五个重复公共请求入口，不提供旧名别名；逐项替代以 [IO 迁移参考](../reference/io.md#已移除入口的迁移)为准。
+删除五个重复公共请求入口，不提供旧名别名；逐项替代以 [IO 迁移参考](../reference/io.md)为准。
 原有有界读取、打开和关闭算法由 src/caors/io/file_requests.h 私有声明复用，命名移入 detail，
 不安装给调用方。原公开的 detail/read_operation.h、detail/vfs_operations.h 也移入 src。
 async_file 宿主协议不再因旧请求函数而包含路由快照；resources::byte_reader 自行显式包含其来源类型。

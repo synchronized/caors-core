@@ -45,10 +45,6 @@ struct plugin_manifest {
 /** @brief 解析 UTF-8 JSON manifest；该过程不依赖 meta 注册。 */
 [[nodiscard]] CAORS_API result<plugin_manifest> parse_plugin_manifest(std::string_view text);
 
-/** @brief 从显式路径读取并解析 manifest。 */
-[[nodiscard]] CAORS_API result<plugin_manifest>
-load_plugin_manifest(const std::filesystem::path& path);
-
 /** @brief 依赖解析产生的正序加载和逆序停止下标。 */
 struct plugin_dependency_order {
   std::vector<std::size_t> load{};

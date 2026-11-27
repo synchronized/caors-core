@@ -4,7 +4,6 @@
 #ifndef CAORS_SERIALIZATION_JSON_WRITER_H_
 #define CAORS_SERIALIZATION_JSON_WRITER_H_
 
-#include "caors/io/stream.h"
 #include "caors/serialization/json_options.h"
 #include "caors/serialization/writer.h"
 
@@ -19,10 +18,6 @@ public:
   explicit json_writer(string& output);
   json_writer(string& output, json_options options);
   json_writer(string& output, json_options options, memory::memory_resource* scratch_resource);
-  explicit json_writer(io::output_stream& output) noexcept;
-  json_writer(io::output_stream& output, json_options options) noexcept;
-  json_writer(io::output_stream& output, json_options options,
-              memory::memory_resource* scratch_resource) noexcept;
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
@@ -73,7 +68,6 @@ private:
   json_options options_{};
   string owned_text_{};
   string* text_ = nullptr;
-  io::output_stream* stream_ = nullptr;
   vector<context> contexts_;
   bool expecting_value_ = false;
   bool root_written_ = false;

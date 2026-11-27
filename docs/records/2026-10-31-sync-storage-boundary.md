@@ -8,7 +8,7 @@
 分支 `feature/resource-source-boundary`，代码提交 `af20a05dcea65dd5f6656e60bc6b6b2d1594ed56`，
 并入现有 [PR #58](https://github.com/synchronized/caors-core/pull/58)。
 本批不合并 main、不调整版本或创建标签；PR 实时状态以 GitHub 为准。
-当前契约由[IO 后端参考](../reference/io-backends.md#复用同步存储)维护，
+当前契约由[IO 后端参考](../reference/io-backends.md)维护，
 任务范围见[VFS 收敛计划](../plans/vfs-api-consolidation.md#同步存储职责收缩已完成)。
 
 file_system 保留同步读写、流、属性、目录和随机访问；异步打开统一使用已有 backend。

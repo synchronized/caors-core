@@ -19,7 +19,7 @@ Windows x64 Clang 23.1.1 / MSVC ABI 共享 Debug；Emscripten 5.0.6 静态 Debug
 - 添加 vfs_basic 示例、安装消费、真实浏览器及新 API 边界测试。
 - vfs_snapshot 不暴露旧 resolve_owned 等路由协议；活跃上下文不能借用临时 vfs。
 
-当前用法见[IO 参考](../reference/io.md#vfs-与统一文件访问)，不在记录复制声明。
+当前用法见[IO 参考](../reference/io.md)，不在记录复制声明。
 
 ## 本机验证
 

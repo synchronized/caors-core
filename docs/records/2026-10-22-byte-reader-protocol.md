@@ -17,7 +17,7 @@
 
 新增 `assets::json::byte_loader<T>`，借用 reader，来源取自请求的 provider 快照，读取后在 worker 解析。
 简化 VFS 示例；安装 consumer 和真实浏览器接入新增 reader。
-当前协议与接入维护于[资源参考](../reference/resources.md#统一字节读取适配)和[assets 参考](../reference/assets.md#json-异步字节接入)。
+当前协议与接入维护于[资源参考](../reference/resources.md)和[assets 参考](../reference/assets.md)。
 
 ## 方法与结果
 

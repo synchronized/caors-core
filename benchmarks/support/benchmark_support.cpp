@@ -37,36 +37,6 @@ std::size_t parse_iterations(int argc, char** argv) {
   return iterations;
 }
 
-caors::resources::load_result<benchmark_texture_resource>
-benchmark_texture_loader::load(caors::resource_guid guid, caors::memory_resource* resource) {
-  auto value = caors::memory::make_unique<benchmark_texture_resource>(resource);
-  if (value == nullptr) {
-    return {{caors::error_domain::resources, caors::errc::out_of_memory}, {}};
-  }
-
-  value->set_guid(guid);
-  value->width = 256;
-  value->height = 128;
-  return {{}, std::move(value)};
-}
-
-benchmark_resource_io_fixture::benchmark_resource_io_fixture(caors::memory_resource* resource)
-    : files(resource), provider(resource), cache(resource), source(files), loader(provider) {
-  const caors::error write_status =
-      files.write_all("textures/hero.texture.json", benchmark_texture_json);
-  if (write_status.failed()) {
-    std::cerr << "写入 benchmark 内存文件失败\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  const caors::error bind_status =
-      provider.bind(benchmark_texture_guid, source, "textures/hero.texture.json");
-  if (bind_status.failed()) {
-    std::cerr << "绑定 benchmark provider 失败\n";
-    std::exit(EXIT_FAILURE);
-  }
-}
-
 caors::serialization::type_schema make_benchmark_actor_schema() {
   return caors::serialization::make_type_schema({
       caors::serialization::make_field("id"),
@@ -212,20 +182,6 @@ void ensure_benchmark_types_registered() {
           .commit();
   if (registration_status.failed()) {
     std::cerr << "注册 benchmark 类型失败\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  const caors::error texture_registration_status =
-      caors::registration::type_<benchmark_texture_resource>("caors.benchmark.texture_resource")
-          .meta()
-          .property("width", &benchmark_texture_resource::width)
-          .property("height", &benchmark_texture_resource::height)
-          .serialization()
-          .field("width")
-          .field("height")
-          .commit();
-  if (texture_registration_status.failed()) {
-    std::cerr << "注册 benchmark 资源类型失败\n";
     std::exit(EXIT_FAILURE);
   }
 

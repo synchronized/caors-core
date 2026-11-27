@@ -3,7 +3,7 @@
 
 # CAORS 路线图
 
-资源与 IO 的下一轮方向见[宿主驱动的资源加载与 IO 退出](plans/host-driven-resource-loading.md)：P0 编译边界基线已启动；后续验证宿主资源键、独立资源核心与动态异步依赖，再迁移消费者并删除文件 IO 子系统。
+资源、资产及 IO 已退出底座，应用策略由宿主负责，见[退出指南](guides/application-modules-removal.md)。
 
 本页维护后续方向、依赖和阶段摘要，不枚举当前 API，也不维护已完成提交清单。
 单项任务的范围与状态由[计划索引](plans/README.md)指向的 Plan 维护，当前能力见
@@ -21,10 +21,9 @@ CAORS 独立 Web 平台已交付；Gneiss 联调继续由关联计划跟踪，�
 
 ## 0. Core 基础设施
 
-基础身份、容器、错误和 IO 底座已提供；当前用法见[core](reference/core.md)、[error](reference/error.md)、[IO](reference/io.md)。
+基础身份、容器和错误底座已提供；当前用法见[core](reference/core.md)、[error](reference/error.md)。
 `small_vector` 的正式性能与业务接入评估继续按[容器计划](plans/small-vector.md)跟踪。
 `stable_vector` 仅在真实地址稳定需求出现后另立范围。
-IO 按[收敛计划](plans/vfs-api-consolidation.md)减少重复路由及来源转换，保留同步能力并复用底层实现；不以删除 file_system 为硬性出口。
 
 ## 0.5. Math 基础数学类型
 
@@ -62,17 +61,10 @@ IO 按[收敛计划](plans/vfs-api-consolidation.md)减少重复路由及来源�
 JSON、MessagePack、codec 和 resolver 的现状及限制见[序列化参考](reference/serialization.md)。
 后续 schema 演进、字段迁移与未知字段保留需要先定义兼容和失败行为，不能以已有底座替代完整承诺。
 
-## 6. 资源系统
+## 6. 应用策略边界
 
-当前资源、清单、provider/database 和 Assets 编排见[resources](reference/resources.md)、[assets](reference/assets.md)。
-Tasks/Resources 协程迁移和延期验证的状态见[计划索引](plans/README.md)。后续方向：
-
-- 异步 loader 已按[计划](plans/asynchronous-resource-loader.md)交付；资源包、远程资源与异步 saver 仍为独立候选。
-- 跨 cache/version 的引用失效、弱引用和调试诊断策略。
-- 跨对象、场景和资源包的依赖图，以及 reload 影响范围计算。
-- 编辑器 file server 与 runtime remote file system，保持逻辑 URI 与具体后端解耦。
-- 进程内与跨进程文件服务协议、热更新、导入管线、资源数据库及工具层。
-  仅在需要独立生命周期、后台工作或 UI 协议时拆分专用模块。
+资源、资产及文件服务由下游实现，不继续维护内建资源系统或动态加载依赖图。
+变更及迁移见[退出指南](guides/application-modules-removal.md)。
 
 ## 7. 任务调度
 

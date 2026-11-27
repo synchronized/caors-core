@@ -7,7 +7,7 @@
 
 2026-10-30，feature/resource-source-boundary，PR #58，本记录与实现同批提交。
 Windows Clang Debug 共享库、Emscripten 静态构建，Chrome 155.0.8059.85。
-对应[VFS 收敛计划](../plans/vfs-api-consolidation.md)，当前接口及迁移由[IO 参考](../reference/io.md#统一服务迁移)维护。
+对应[VFS 收敛计划](../plans/vfs-api-consolidation.md)，当前接口及迁移由[IO 参考](../reference/io.md)维护。
 
 file_service 直接拥有挂载状态和调度配置，file_batch 提供固定路由访问并继承服务配置。
 普通访问、批次与资源捕获共用原后端及不可变路由表，不再公开 vfs/io_context/vfs_snapshot 和两个旧公共头。

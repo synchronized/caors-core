@@ -33,7 +33,7 @@ Linux [39715036479](https://github.com/synchronized/caors-core/actions/runs/3971
 - 独立重载与最新发布测试覆盖无缓存创建、多个重载独立结果、旧提交不得覆盖、最新失败/取消后旧意图不恢复。
 - 安装原前缀及重定位消费测试各 **6/6**；通用基准及来源快照基准编译通过，后者以 3 样本/1000 绑定完成可运行性检查，不作为性能验收。
 - Emscripten Node 协议 **1/1**；真实 Chrome 协议通过，保留默认 JSON 工厂及 reader 跨事件循环验证。
-- 本机脚本及日志位于忽略的 `build/api-three-requests-*`，不是发布制品；当前 API 维护于[assets 参考](../reference/assets.md#三个日常请求入口)。
+- 本机脚本及日志位于忽略的 `build/api-three-requests-*`，不是发布制品；当前 API 维护于[assets 参考](../reference/assets.md)。
 
 ## 未完成范围
 

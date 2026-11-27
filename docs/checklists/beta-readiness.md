@@ -31,7 +31,7 @@ rg -n 'namespace caors::|using .*::' include/caors
 
 构建和安装命令统一见[构建指南](../guides/build.md)，跨平台步骤见[Linux 清单](linux-validation.md)，
 基准构建及用例见[Benchmark 指南](../guides/benchmarking.md)，示例顺序见
-[Beta 示例](../../examples/beta/README.md)。
+[Beta 示例](https://github.com/synchronized/caors-core/blob/c912d089/examples/beta/README.md)。
 
 每轮检查记录被验证提交、环境、实际命令、通过/失败、未验证项及延期影响，结果写入
 [独立记录](../records/README.md)，不在本清单追加无日期的“本轮扫描通过”。

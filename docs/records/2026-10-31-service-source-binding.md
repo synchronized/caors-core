@@ -7,7 +7,7 @@
 
 2026-10-31，feature/resource-source-boundary，PR #58，本记录与实现同批提交。
 本机为 Windows Clang Debug 共享库与 Emscripten 静态库，Chrome 156.0.8078.48。
-范围由[VFS 计划](../plans/vfs-api-consolidation.md)维护，当前用法见[文件服务来源](../reference/assets.md#文件服务来源)。
+范围由[VFS 计划](../plans/vfs-api-consolidation.md)维护，当前用法见[文件服务来源](../reference/assets.md)。
 
 project_builder.bind_source(name, file_service) 复用现有来源表，按绑定持有适配对象，不进入通用长期对象列表。
 名称别名共享所有权；最后解绑或清空前移除 provider 中的引用，避免悬空 GUID，已有快照与请求不受影响。

@@ -11,7 +11,8 @@ namespace caors::benchmarks {
 void print_allocation_samples() {
   constexpr std::size_t iterations = 1'000;
   const benchmark_actor actor{7, 95.5F, true, "Ada"};
-  const caors::io::byte_buffer_result encoded_actor_messagepack = caors::to_messagepack(actor);
+  const caors::serialization::byte_buffer_result encoded_actor_messagepack =
+      caors::to_messagepack(actor);
   if (encoded_actor_messagepack.failed()) {
     std::cerr << "准备 MessagePack 分配统计输入失败\n";
     std::exit(EXIT_FAILURE);
@@ -100,27 +101,6 @@ void print_allocation_samples() {
               << ", peak_chunks=" << temporary_statistics.peak_chunk_count
               << ", marks=" << temporary_statistics.mark_count
               << ", rewinds=" << temporary_statistics.rewind_count << '\n';
-  }
-
-  {
-    caors::tracking_resource tracking{&caors::get_system_memory_resource()};
-    {
-      benchmark_resource_io_fixture fixture{&tracking};
-      for (std::size_t index = 0; index < iterations; ++index) {
-        (void)fixture.cache.erase(benchmark_texture_guid);
-        caors::resources::handle_result<benchmark_texture_resource> result =
-            caors::resources::load_handle_into(fixture.cache, fixture.loader,
-                                               benchmark_texture_guid);
-        if (result.failed()) {
-          std::cerr << "统计资源 JSON 加载分配失败\n";
-          std::exit(EXIT_FAILURE);
-        }
-        consume_address(result.value.get());
-      }
-      fixture.cache.clear();
-    }
-    print_memory_statistics("resources.load_handle_into.json_uncached", tracking.statistics(),
-                            iterations);
   }
 }
 

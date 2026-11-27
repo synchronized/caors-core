@@ -8,7 +8,7 @@
 承接 [VFS 计划](../plans/vfs-api-consolidation.md)，基于 a8de4509，仍使用 feature/resource-source-boundary / PR #58。
 统一 open 增加 write/read_write 权限与 create_always，默认 read/open_existing 不变；
 file.write 使用显式 offset 和拥有式缓冲，返回单层 request<uint64_t>。
-当前契约与后端限制以 [IO 参考](../reference/io.md#vfs-与统一文件访问)为准。
+当前契约与后端限制以 [IO 参考](../reference/io.md)为准。
 
 复用 worker 文件的在途计数与关闭流程，累计短写，清理任务丢弃也释放计数；
 关闭拒绝新操作并等待已接受读写，取消不回滚副作用。旧宿主默认不支持写入，不作同步回退。

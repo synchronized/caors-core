@@ -8,7 +8,7 @@
 对应[宿主资源计划](../plans/host-driven-resource-loading.md)P1 及 P2 的运行原型，
 分支 feature/resource-source-boundary，基于 0f7b272b，功能提交 f015ac90cd6c7467c6d18b74c75cfa44f8eaccb2，
 独立探针 ASan 配置修复为 058955fe。当前契约保持实验性，PR #58 为开发草稿。
-当前 API 由[资源参考](../reference/resources.md#宿主资源键加载)维护，不复制完整声明。
+当前 API 由[资源参考](../reference/resources.md)维护，不复制完整声明。
 
 缓存、引用、loader、加载上下文和请求表支持宿主 Key，路径键不转换为 GUID，普通对象不保存内嵌身份。
 原 GUID 派生资源通过受约束兼容特化继续工作；后续调用迁移前不删除这部分行为。

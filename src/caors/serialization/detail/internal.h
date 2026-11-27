@@ -34,8 +34,8 @@ struct type_runtime_schema {
 
 /** @brief 访问公开 type_schema 隐藏的内部调度缓存。 */
 struct type_schema_access {
-  [[nodiscard]] static const type_runtime_schema* runtime(
-      const serialization::type_schema& schema) noexcept {
+  [[nodiscard]] static const type_runtime_schema*
+  runtime(const serialization::type_schema& schema) noexcept {
     return schema.runtime_.get();
   }
 
@@ -49,8 +49,8 @@ struct type_schema_access {
                                                         const serialization::field_schema& field);
 [[nodiscard]] error compile_type_schema(const meta::type& owner_type,
                                         serialization::type_schema& schema);
-[[nodiscard]] const type_runtime_schema* runtime_schema(
-    const serialization::type_schema& schema) noexcept;
+[[nodiscard]] const type_runtime_schema*
+runtime_schema(const serialization::type_schema& schema) noexcept;
 [[nodiscard]] core::string_name
 serialized_field_name(const serialization::field_schema& data) noexcept;
 [[nodiscard]] bool field_visible_in_context(const serialization::field_schema& field,
@@ -80,8 +80,6 @@ serialized_field_name(const serialization::field_schema& data) noexcept;
                                                    const field_runtime_schema* field);
 [[nodiscard]] variant_result parse_json_value(std::string_view text, json_options options,
                                               memory::memory_resource* result_resource = nullptr);
-[[nodiscard]] variant_result parse_json_stream(io::input_stream& stream, json_options options,
-                                               memory::memory_resource* result_resource = nullptr);
 [[nodiscard]] error write_serialized_value(writer& writer, const any_ref& value,
                                            const serialization::context& context);
 [[nodiscard]] error write_serialized_value(writer& writer, const any_ref& value,

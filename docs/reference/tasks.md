@@ -70,7 +70,7 @@ scheduler，也不是完整作业系统：
 - 不做 work stealing。当前没有细粒度任务图和大量短任务场景，固定线程池更容易验证生命周期和停止边界。
 - 不做 fiber。C++20 coroutine 适配由显式头 `caors/tasks/coroutine.h` 提供。
 - 不做任务图。资源依赖闭包和预加载顺序目前由资源数据库管理，任务层只负责执行单个 callable。
-- 不做平台异步 IO。provider/source 仍以同步读取为主；后续如果加入文件包、远程资源或平台 IO，再在资源层评估接入方式。
+- 不实现平台异步 IO，文件与网络服务由宿主提供。
 - 不做强制取消。`request::cancel()` 只改变请求状态，不中断正在运行的线程或 callable。
 
 后续只有在资源导入、热重载、编辑器工具或大量后台作业暴露出明确需求后，才会继续评估优先级、等待 API、
@@ -242,7 +242,7 @@ pool.shutdown(caors::tasks::shutdown_mode::drain);
 - `thread_pool` 自身不保存每个任务的返回错误；需要状态时使用 `submit_request()` 包装任务。
 - 当启用异常时，worker 会捕获逃逸异常以避免后台线程终止进程，但当前不会保存异常信息。
 - `shutdown(cancel)` 不是强制中断；已经开始执行的任务仍会跑完。
-- 资源 cache、manifest、provider 和对象状态仍不应在后台 worker 中被隐式修改。
+- 宿主对象状态不应在后台 worker 中被隐式修改。
 
 ## execution_context 手动 pump
 
@@ -321,21 +321,10 @@ caors::error status = co_await caors::tasks::async_wait(request);
 - `async_wait()` 本身不改变取消传播语义；取消等待方的 running request 不会自动取消被等待的 request。
 - 每个等待操作的辅助状态使用被等待 request 的长期 `memory_resource`，终止或销毁等待方后释放。
 
-## 与资源系统的关系
+## 应用策略边界
 
-资源系统同时提供同步 API 和基于 executor 的异步请求。`tasks` 模块为异步资源流程提供底层拼装件：
-
-- 后台阶段：通过 executor 读取 provider、调用 loader、构造资源对象。
-- 主线程阶段：通过轻量 completion executor 把成功结果插入 cache、替换资源、更新 generation，并发送
-  reload 通知；该 executor 通常来自主线程 `execution_context`。
-- 请求状态：资源层使用 `resources::load_request<T>` 保存 queued/loading/loaded/failed/cancelled、错误和结果 handle。
-
-resources 和 assets 异步入口都接收后台 executor 与 completion executor。需要帧循环手动 pump 时，
-可通过主线程 `execution_context::get_executor()` 取得轻量句柄并作为 completion executor；等待资源
-请求的 coroutine 适配位于显式可选的
-`caors/resources/coroutine.h`。
-
-第一阶段不会让资源 cache、manifest、provider 或对象系统在后台线程被隐式修改。
+tasks 只提供通用调度与请求组合，不接管资源缓存、文件来源或资产依赖。
+下游可以用宿主 executor 和 execution_context 调度自己的加载逻辑，线程与对象状态由宿主约束。
 
 ## 外部 executor
 

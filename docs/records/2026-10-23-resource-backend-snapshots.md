@@ -8,7 +8,7 @@
 2026-10-23，feature/resource-source-boundary，PR #58。
 被验证代码提交为 20a1a68cfeb7d8d407aadcb16afe97c8df93d82c；后续文档补充不改实现。
 环境为 Windows Clang Debug 共享库、Emscripten 静态构建与 Chrome 155.0.8059.85。
-范围见[VFS 计划](../plans/vfs-api-consolidation.md)，当前 API 由[资源参考](../reference/resources.md#加载来源快照)维护。
+范围见[VFS 计划](../plans/vfs-api-consolidation.md)，当前 API 由[资源参考](../reference/resources.md)维护。
 
 provider_snapshot 在捕获时保存 backend_location，逐 source 捕获一次、逐 GUID 解析位置，
 后续查询不再访问解析函数。source::capture 返回拥有式函数，没有新增快照继承层。

@@ -4,12 +4,12 @@
 #ifndef CAORS_SERIALIZATION_OPERATIONS_H_
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
-#include "caors/io/file_system.h"
 #include "caors/meta/object.h"
 #include "caors/meta/property.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/object.h"
+#include "caors/serialization/bytes.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/detail/scratch_memory.h"
@@ -95,24 +95,6 @@ template <typename T>
 
 /** @brief 按格式选项解析 JSON 文本为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text, json_options options);
-
-/** @brief 从输入流读取 JSON 并解析为序列化 DOM 中间值。 */
-[[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream,
-                                                  memory_resource* result_resource = nullptr);
-
-/** @brief 从输入流读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
-[[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream, json_options options,
-                                                  memory_resource* result_resource = nullptr);
-
-/** @brief 从文件系统路径读取 JSON 并解析为序列化 DOM 中间值。 */
-[[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
-                                                       io::path_view path,
-                                                       memory_resource* result_resource = nullptr);
-
-/** @brief 从文件系统路径读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
-[[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
-                                                       io::path_view path, json_options options,
-                                                       memory_resource* result_resource = nullptr);
 
 namespace detail {
 
@@ -631,121 +613,6 @@ template <typename T>
   return detail::read_json_text_from(context, object, text, options);
 }
 
-/** @brief 从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(T& object, io::input_stream& stream,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{scratch_resource};
-  variant_result value = parse_json(stream, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(object, value.value);
-}
-
-/** @brief 从 JSON 输入流按格式选项读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(T& object, io::input_stream& stream, json_options options,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{scratch_resource};
-  variant_result value = parse_json(stream, options, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(object, value.value);
-}
-
-/** @brief 按上下文从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
-                                   io::input_stream& stream,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{
-      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
-  variant_result value = parse_json(stream, json_options{}, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(context, object, value.value);
-}
-
-/** @brief 按上下文和 JSON 格式选项从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
-                                   io::input_stream& stream, json_options options,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{
-      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
-  variant_result value = parse_json(stream, options, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(context, object, value.value);
-}
-
-/** @brief 从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{scratch_resource};
-  variant_result value = parse_json_from(file_system, path, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(object, value.value);
-}
-
-/** @brief 从文件系统路径按格式选项读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
-                                   json_options options,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{scratch_resource};
-  variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(object, value.value);
-}
-
-/** @brief 按上下文从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
-                                   io::file_system& file_system, io::path_view path,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{
-      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
-  variant_result value =
-      parse_json_from(file_system, path, json_options{}, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(context, object, value.value);
-}
-
-/** @brief 按上下文和格式选项从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
-template <typename T>
-[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
-                                   io::file_system& file_system, io::path_view path,
-                                   json_options options,
-                                   memory_resource* scratch_resource = nullptr) {
-  detail::scratch_memory_scope scratch_scope{
-      scratch_resource != nullptr ? scratch_resource : context.effective_scratch_resource()};
-  variant_result value = parse_json_from(file_system, path, options, scratch_scope.resource());
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return read_value_from(context, object, value.value);
-}
-
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象转换为序列化 DOM 中间值。 */
 template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
   serialization::context context{};
@@ -798,47 +665,12 @@ template <typename T> [[nodiscard]] error write_text_to(const T& object, string&
   return serialize(object, writer);
 }
 
-/** @brief 把对象写入输出流；当前简单文本路径会先生成临时 buffer。 */
-template <typename T>
-[[nodiscard]] error write_text_to(const T& object, io::output_stream& output) {
-  string buffer;
-  const error status = write_text_to(object, buffer);
-  if (status) {
-    return status;
-  }
-
-  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
-  if (written) {
-    return written;
-  }
-
-  return output.flush();
-}
-
 /** @brief 按上下文把对象写入简单文本 buffer。 */
 template <typename T>
 [[nodiscard]] error write_text_to(const serialization::context& context, const T& object,
                                   string& output) {
   serialization::text_writer writer{output};
   return serialize(context, object, writer);
-}
-
-/** @brief 按上下文把对象写入输出流；当前简单文本路径会先生成临时 buffer。 */
-template <typename T>
-[[nodiscard]] error write_text_to(const serialization::context& context, const T& object,
-                                  io::output_stream& output) {
-  string buffer;
-  const error status = write_text_to(context, object, buffer);
-  if (status) {
-    return status;
-  }
-
-  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
-  if (written) {
-    return written;
-  }
-
-  return output.flush();
 }
 
 /** @brief 把对象转换为简单文本。 */
@@ -871,28 +703,11 @@ template <typename T> [[nodiscard]] error write_json_to(const T& object, string&
   return serialize(object, writer);
 }
 
-/** @brief 把对象直接写入 JSON 输出流。 */
-template <typename T>
-[[nodiscard]] error write_json_to(const T& object, io::output_stream& output) {
-  serialization::json_writer writer{output};
-  const error status = serialize(object, writer);
-  return status ? status : output.flush();
-}
-
 /** @brief 按 JSON 格式选项把对象写入 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error write_json_to(const T& object, string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(object, writer);
-}
-
-/** @brief 按 JSON 格式选项把对象直接写入 JSON 输出流。 */
-template <typename T>
-[[nodiscard]] error write_json_to(const T& object, io::output_stream& output,
-                                  json_options options) {
-  serialization::json_writer writer{output, options};
-  const error status = serialize(object, writer);
-  return status ? status : output.flush();
 }
 
 /** @brief 按上下文把对象写入 JSON buffer。 */
@@ -904,16 +719,6 @@ template <typename T>
   return serialize(context, object, writer);
 }
 
-/** @brief 按上下文把对象直接写入 JSON 输出流。 */
-template <typename T>
-[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
-                                  io::output_stream& output) {
-  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, {}, scratch_scope.resource()};
-  const error status = serialize(context, object, writer);
-  return status ? status : output.flush();
-}
-
 /** @brief 按上下文和 JSON 格式选项把对象写入 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
@@ -921,16 +726,6 @@ template <typename T>
   detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
   serialization::json_writer writer{output, options, scratch_scope.resource()};
   return serialize(context, object, writer);
-}
-
-/** @brief 按上下文和 JSON 格式选项把对象直接写入 JSON 输出流。 */
-template <typename T>
-[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
-                                  io::output_stream& output, json_options options) {
-  detail::scratch_memory_scope scratch_scope{context.effective_scratch_resource()};
-  serialization::json_writer writer{output, options, scratch_scope.resource()};
-  const error status = serialize(context, object, writer);
-  return status ? status : output.flush();
 }
 
 /** @brief 把对象转换为 JSON 字符串。 */
@@ -983,8 +778,8 @@ template <typename T>
 }
 
 /** @brief 把对象编码为 MessagePack 字节。 */
-template <typename T> [[nodiscard]] io::byte_buffer_result to_messagepack(const T& object) {
-  io::byte_buffer output = io::make_byte_buffer();
+template <typename T> [[nodiscard]] byte_buffer_result to_messagepack(const T& object) {
+  byte_buffer output = make_byte_buffer();
   messagepack_writer writer{output};
   const error status = serialize(object, writer);
   return {status, std::move(output)};
@@ -992,9 +787,9 @@ template <typename T> [[nodiscard]] io::byte_buffer_result to_messagepack(const 
 
 /** @brief 按上下文把对象编码为 MessagePack 字节。 */
 template <typename T>
-[[nodiscard]] io::byte_buffer_result to_messagepack(const serialization::context& context,
-                                                    const T& object) {
-  io::byte_buffer output = io::make_byte_buffer(context.effective_result_resource());
+[[nodiscard]] byte_buffer_result to_messagepack(const serialization::context& context,
+                                                const T& object) {
+  byte_buffer output = make_byte_buffer(context.effective_result_resource());
   messagepack_writer writer{output, context.effective_scratch_resource()};
   const error status = serialize(context, object, writer);
   return {status, std::move(output)};
