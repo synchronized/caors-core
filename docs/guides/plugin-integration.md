@@ -152,9 +152,9 @@ registry layer detach、旧 lease 和 in-flight 调用；任一前置条件未�
 测试拓扑，覆盖跨 DLL 类型身份、并发首次解析、插件重载、模型冲突、capability key 和 plugin host
 extension 查询一致性。共享构建建议使用 `--parallel 1`，避免大型模板测试并行编译导致内存不足。
 
-## 宿主显式保活资源模块
+## 宿主显式保活插件对象
 
-通用资源句柄的寿命边界由[资源参考](../reference/resources.md#模块卸载与资源寿命)维护。
+应用对象若依赖插件实现，宿主须维持模块租约到对象析构及分配器清理完成；库不再提供资源句柄。
 宿主在模块对象或 allocator 进入外部缓存前获取 `plugin_binary::library_lease()`；不要在收到卸载请求后才获取。
 宿主卸载入口先停止新请求，对仍有资源、弱引用或工作中的模块返回 pending/拒绝，并保留原 pin。
 在模块的 allocator/服务销毁前，完成以下顺序：

@@ -6,7 +6,7 @@
 ## 状态与问题
 
 已完成，C51-08，目标范围见 [v0.5.0](../versions/v0.5.0.md)。2026-10-20 用户确认采用下列推荐方案；替代方案保留为取舍依据。
-当前行为见[资源参考](../reference/resources.md#加载来源快照)。源码基线为 cbe41b75：
+当前行为见[资源参考](../reference/resources.md)。源码基线为 cbe41b75：
 request_reload_into_impl 要求已有缓存，同 GUID 有在途操作时优先加入它，然后才可能捕获新快照。
 因此 remount 后 reload 不保证立即选择新来源；这是既有共享契约，不追认成已证实缺陷。
 

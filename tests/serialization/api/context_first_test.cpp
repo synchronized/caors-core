@@ -3,11 +3,6 @@
 
 #include "serialization_test_support.h"
 
-#include "caors/assets.h"
-#include "caors/assets/json.h"
-#include "caors/io.h"
-#include "caors/resources.h"
-
 #include <limits>
 
 using namespace caors::tests::serialization;
@@ -26,17 +21,6 @@ struct context_local_actor {
   int value = 0;
 };
 
-class context_api_resource : public caors::resource {
-public:
-  using caors::resource::resource;
-
-  int value = 0;
-};
-
-constexpr caors::resource_guid resource_guid{caors::guid::from_bytes(
-    caors::guid::byte_array{0x5c, 0x7a, 0x41, 0x10, 0x9b, 0x19, 0x4c, 0x27, 0x9a, 0x2a, 0x61, 0x8c,
-                            0x6d, 0x9f, 0x5a, 0x20})};
-
 [[nodiscard]] std::int64_t context_offset(const caors::serialization::context& context) noexcept {
   return static_cast<std::int64_t>(context.config.fields.schema_version) * 100;
 }
@@ -47,11 +31,6 @@ void require_context_codec_metadata() {
                                      .commit()));
   require_serializable_property_type<context_codec_actor>(
       "caors.test.serialization.api.context_codec_actor", "value", &context_codec_actor::value);
-}
-
-void require_context_resource_metadata() {
-  require_serializable_property_type<context_api_resource>(
-      "caors.test.serialization.api.context_api_resource", "value", &context_api_resource::value);
 }
 
 } // namespace caors::tests::serialization::api
@@ -230,34 +209,6 @@ TEST_CASE("serialization - context can use an explicit type context", "[serializ
   context_local_actor decoded{};
   REQUIRE(caors::serialization::read_json_from(context, decoded, json_output).succeeded());
   CHECK(decoded.value == 42);
-}
-
-TEST_CASE("resources - json loader and saver accept context first", "[resources]") {
-  using namespace caors::tests::serialization::api;
-
-  require_context_resource_metadata();
-
-  caors::io::memory_file_system files;
-  caors::resources::file_source source{files};
-  caors::resources::provider provider;
-  REQUIRE(provider.bind(resource_guid, source, "assets/context-resource.json").succeeded());
-
-  caors::serialization::context context{};
-  caors::assets::json::saver<context_api_resource> saver{context, provider};
-
-  context_api_resource value{resource_guid};
-  value.value = 42;
-  REQUIRE(saver.save(value).succeeded());
-
-  caors::assets::json::loader<context_api_resource> loader{context, provider};
-  caors::resource_cache<context_api_resource> cache;
-  caors::resources::handle_result<context_api_resource> loaded =
-      caors::resources::load_handle_into(cache, loader, resource_guid);
-
-  REQUIRE(loaded.succeeded());
-  REQUIRE(loaded.value);
-  CHECK(loaded.value->guid() == resource_guid);
-  CHECK(loaded.value->value == 42);
 }
 
 } // namespace

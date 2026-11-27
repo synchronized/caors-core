@@ -27,7 +27,7 @@ const server = http.createServer((request, response) => {
     await page.goto(`http://127.0.0.1:${server.address().port}/browser.html`);
     await page.waitForFunction(() => document.body.dataset.caorsStatus !== "pending", null, {timeout: 30000});
     if (await page.getAttribute("body", "data-caors-status") !== "passed" || errors.length) throw new Error(errors.join("\n") || "protocol failed");
-    console.log("Browser delayed completion, cancellation, queue discard and handle lifetime passed");
+    console.log("Browser host event loop and queued task passed");
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

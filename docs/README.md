@@ -13,9 +13,10 @@
 - 参与开发：[开发规范](guides/development.md) → [文档规范](../DOCUMENTATION_GUIDE.md) →
   [路线图](roadmap.md) → [相关计划](plans/README.md) → [测试组织](../tests/README.md)。
 
-## API 整理方案
+## 模块范围调整
 
-[IO、VFS 与资源加载 API 收敛](plans/io-assets-api-consolidation.md)维护分批迁移方案；首批快照和工程装配入口已实现并验收，后续统一仍在推进，当前用法见模块参考。
+资源、资产和 IO 已退出底座；接入与破坏性变化见[退出指南](guides/application-modules-removal.md)。
+原宿主资源加载计划已停止，历史版本的资源和文件能力不代表当前工作树仍提供这些接口。
 
 ## 当前版本
 
@@ -28,7 +29,7 @@
 上一版本 [v0.5.0：资源显式刷新与分块读取](versions/v0.5.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；固定 Linux 性能复验延期，设计见关联开发计划。
 
 [v0.4.0：统一 VFS 与异步范围读取](versions/v0.4.0.md)已发布 alpha 源码并完成最终验收与公开下载复核；设计与范围见[实施计划](plans/asynchronous-vfs.md)。
-宿主原生 I/O 接入见[异步 VFS 指南](guides/async-vfs-integration.md)。
+原宿主原生 I/O 接入仅保留历史入口，当前迁移见[退出指南](guides/application-modules-removal.md)。
 
 上一版本为 [v0.3.0：异步 loader 与宿主 I/O 接入](versions/v0.3.0.md)，已发布 alpha 源码并完成公开下载复核；
 具体设计见[异步资源 loader 计划](plans/asynchronous-resource-loader.md)，实际 API 与验收状态分别由参考及执行记录维护。

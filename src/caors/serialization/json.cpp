@@ -49,19 +49,6 @@ serialization::json_writer::json_writer(string& output, json_options options,
   reset();
 }
 
-serialization::json_writer::json_writer(io::output_stream& output) noexcept
-    : json_writer(output, json_options{}) {}
-
-serialization::json_writer::json_writer(io::output_stream& output, json_options options) noexcept
-    : json_writer(output, options, nullptr) {}
-
-serialization::json_writer::json_writer(io::output_stream& output, json_options options,
-                                        memory::memory_resource* scratch_resource) noexcept
-    : options_(options), text_(&owned_text_), stream_(&output),
-      contexts_(memory::allocator<context>{scratch_resource}) {
-  reset();
-}
-
 serialization::format_features serialization::json_writer::features() const noexcept {
   return serialization::format_features::named_fields |
          serialization::format_features::ordered_fields |
@@ -362,9 +349,7 @@ error serialization::json_writer::end_object() {
 }
 
 void serialization::json_writer::reset() {
-  if (stream_ == nullptr) {
-    output().clear();
-  }
+  output().clear();
   contexts_.clear();
   expecting_value_ = false;
   root_written_ = false;
@@ -396,21 +381,13 @@ void serialization::json_writer::mark_value_written() noexcept {
 }
 
 error serialization::json_writer::write_char(char value) {
-  if (stream_ == nullptr) {
-    output().push_back(value);
-    return {};
-  }
-
-  return stream_->write_all(std::string_view{&value, 1});
+  output().push_back(value);
+  return {};
 }
 
 error serialization::json_writer::write_text(std::string_view value) {
-  if (stream_ == nullptr) {
-    output().append(value.data(), value.size());
-    return {};
-  }
-
-  return stream_->write_all(value);
+  output().append(value.data(), value.size());
+  return {};
 }
 
 error serialization::json_writer::write_json_string(std::string_view value) {
@@ -522,30 +499,6 @@ variant_result parse_json(std::string_view text) { return parse_json(text, json_
 
 variant_result parse_json(std::string_view text, json_options options) {
   return detail::parse_json_value(text, options);
-}
-
-variant_result parse_json(io::input_stream& stream, memory_resource* result_resource) {
-  return parse_json(stream, json_options{}, result_resource);
-}
-
-variant_result parse_json(io::input_stream& stream, json_options options,
-                          memory_resource* result_resource) {
-  return detail::parse_json_stream(stream, options, result_resource);
-}
-
-variant_result parse_json_from(io::file_system& file_system, io::path_view path,
-                               memory_resource* result_resource) {
-  return parse_json_from(file_system, path, json_options{}, result_resource);
-}
-
-variant_result parse_json_from(io::file_system& file_system, io::path_view path,
-                               json_options options, memory_resource* result_resource) {
-  io::input_stream_result stream = file_system.open_read(path, result_resource);
-  if (stream.failed()) {
-    return {rethrow_as(stream.error(), error_domain::serialization), {}};
-  }
-
-  return parse_json(*stream.value, options, result_resource);
 }
 
 } // namespace caors::serialization

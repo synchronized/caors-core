@@ -53,11 +53,11 @@ tests/<topic>/<leaf>/ -> caors_<topic_identifier>_<leaf_identifier>_test
 caors.<topic>.<leaf>
 ```
 
-例如 `tests/serialization/resource/` 会生成：
+例如 `tests/serialization/core/` 会生成：
 
 ```text
-caors_serialization_resource_test
-caors.serialization.resource
+caors_serialization_core_test
+caors.serialization.core
 ```
 
 如果一级主题目录本身就是叶子目录，也会直接生成 `caors.<topic>`，例如 `tests/config/`。

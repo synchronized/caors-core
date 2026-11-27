@@ -22,7 +22,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `serialization::text_writer` 和 `serialization::to_text()`，通过反射字段读取对象并输出调试用简单文本结构。
 - 提供 `serialization::json_writer`、`serialization::json_reader`、`to_json()`、`serialization::parse_json()` 和 `read_json_from()` JSON 便捷路径。
-- `serialization::json_writer` 可写入 `caors::string`，也可直接写入 `io::output_stream`。
+- `serialization::json_writer` 写入内存字符串；宿主自行保存或发送编码结果。
 - 提供 `serialization::variant_reader` 和 `read_value_from()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持指定 meta 类型上下文、按 schema version 过滤字段、配置多态
   envelope 字段名、传递运行期资源、解析资源引用和收集资源依赖。
@@ -77,7 +77,6 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
   `serialization::write_value_to()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。
 - `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
-- `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
 - `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口。
 
@@ -111,12 +110,10 @@ buffer：
 | `serialization::write_value_to(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
 | `to_json(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
 | `serialization::to_text()` / `serialization::write_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
-| `serialization::write_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
+| `serialization::write_json_to()` | 输出 JSON 到调用方字符串 | 适合复用字符串缓冲区 |
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 支持 parser 侧 `json_options` |
-| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 通过 `io::input_stream` token reader 解析；底层文件系统可选择真实流或内存流 |
 | `read_value_from(object, value)` | 从 `variant` DOM 读回对象 | 内部使用 `variant_reader` |
 | `read_json_from(object, text)` | 从 JSON 文本读回对象 | 默认使用 `json_reader` 直接按字段读入；开启未知字段保留或严格模式时先解析为 DOM |
-| `serialization::read_json_from(object, stream/path)` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 当前解析为 DOM 后复用 `read_value_from()` |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.type_context` | 本次读写使用的 meta 类型上下文 | 为空时使用 `meta::default_context()` |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
@@ -617,14 +614,6 @@ caors::serialization::serialization_text_result text = caors::to_json(instance);
 caors::string output;
 caors::error write_status = caors::serialization::write_json_to(instance, output);
 
-caors::io::memory_file_system files;
-caors::io::output_stream_result stream = files.open_write("config/player.json");
-if (stream) {
-  write_status = caors::serialization::write_json_to(instance, *stream.value);
-  if (!write_status) {
-    write_status = stream.value->close();
-  }
-}
 ```
 
 JSON DOM 入口仍然通过 `parse_json()` 解析为 `variant`：
@@ -639,25 +628,7 @@ JSON 文本对象读入入口会使用 `serialization::json_reader` 直接按字
 caors::error status = caors::read_json_from(instance, text);
 ```
 
-也可以从统一 IO 抽象读取 JSON，而不是直接绑定宿主文件系统路径：
-
-```cpp
-caors::io::memory_file_system files;
-files.write_all("config/player.json", R"({"id":1})");
-
-caors::serialization::variant_result value =
-    caors::serialization::parse_json_from(files, "config/player.json");
-caors::error status =
-    caors::serialization::read_json_from(instance, files, "config/player.json");
-```
-
-`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 会通过 JSON
-token reader 从 `io::input_stream` 读取，不再在序列化层先构造完整 JSON 字符串。解析结果仍是
-`variant` DOM，因此对象树本身会完整驻留内存；底层 `file_system` 可以选择真实文件流、内存流或其他
-输入流实现。当前 `read_json_from(stream/file_system)` 仍复用这条 DOM 路径；文本
-`read_json_from(object, text)` 已经改为 `json_reader` 直接读入。
-`serialization::write_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，不再先构造完整
-JSON 字符串。
+文件与网络读取由宿主完成，解析入口只接收完整内存文本。
 
 当前 JSON parser 支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。字符串支持常见转义、
 完整 `\uXXXX` UTF-8 解码和 surrogate pair。字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
@@ -688,7 +659,7 @@ MessagePack 后端不依赖第三方库。`messagepack_writer` 实现通用 `ser
 schema、context、codec 和 `variant_reader` 读入路径：
 
 ```cpp
-caors::io::byte_buffer_result bytes = caors::to_messagepack(context, object);
+caors::serialization::byte_buffer_result bytes = caors::to_messagepack(context, object);
 if (bytes.succeeded()) {
   caors::error status = caors::read_messagepack_from(context, decoded, bytes.value);
 }
@@ -698,23 +669,7 @@ if (bytes.succeeded()) {
 null、bool、整数、float32/float64、字符串、数组和 map；写出浮点统一使用 float64。bin、extension 和
 timestamp extension 尚未实现，遇到这些标记会返回 `errc::unsupported`。
 
-MessagePack 支持 byte span 和 `io::input_stream` 读入，也可以把通用 writer 事件写入
-`io::output_stream`：
-
-```cpp
-caors::serialization::variant_result value =
-    caors::serialization::parse_messagepack(input_stream, options, result_resource);
-
-caors::serialization::messagepack_writer writer{output_stream, scratch_resource};
-caors::error status = caors::serialize(context, object, writer);
-if (!status) {
-  status = output_stream.flush();
-}
-```
-
-输入流入口会处理短读并一直读取到 EOF，随后解析一个完整根值；它不是增量 parser。输出流入口通过
-`output_stream::write_all()` 处理短写。无进展读写和底层失败返回 `error_domain::io`，格式错误返回
-`error_domain::serialization`。
+MessagePack 接收完整 byte span，编码结果为拥有式内存字节缓冲区；不提供文件或流接口。
 
 `messagepack_options` 的 `max_parse_depth`、`max_string_size` 和 `max_container_size` 会在对应分配前
 限制嵌套深度、字符串字节数及单个 array/map 的元素数量，`0` 表示不限制。多字节整数和长度始终按
@@ -791,74 +746,6 @@ context.resolvers.external_refs.resolver = &resolver;
 - 非空引用写出时无法映射到 id，或读入 id 找不到对象时返回 `errc::not_found`。
 - 读入对象不能转换为 `T*` 时返回 `errc::invalid_type`。
 
-### 资源引用 resolver
-
-`caors::resource_ref<T>` 默认只按稳定 `resource_guid` 读写，不展开资源对象。需要反序列化时立即解析
-资源引用时，需要包含 `caors/resources/serialization.h` 或 `caors/resources.h`，并在
-`serialization::context` 中挂通用外部引用 resolver：
-
-```cpp
-caors::resource_cache<texture> cache;
-caors::resources::resource_ref_resolver_ops resolver = caors::resources::make_resource_resolver(cache);
-
-caors::serialization::context context{};
-context.resolvers.external_refs.resolver = &resolver;
-context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
-
-material decoded{};
-caors::read_json_from(context, decoded, json_text);
-```
-
-当前内置 resolver 创建入口：
-
-- `make_resource_resolver(resources::manager&)`：从非拥有资源索引查找已存在资源。
-- `make_resource_resolver(resources::database&)`：从非拥有资源 database 查询已注册 cache 中的资源。
-- `make_resource_resolver(resources::cache<T>&)`：从拥有式 cache 查找已加载资源。
-- `assets::make_resource_resolver(assets::asset_manager&)`：从高层 asset manager 的内部 database 查询资源。
-
-解析策略：
-
-- `keep_unresolved`：默认策略，只恢复 GUID。
-- `resolve_if_present`：尽量解析；缺资源时保持 unresolved 并返回成功。
-- `require_resolved`：必须解析成功；缺少 resolver 返回 `serialization / invalid_argument`，缺资源返回
-  `resources / not_found`，类型不匹配返回 `resources / invalid_type`。
-
-资源依赖收集通过 `context.resolvers.external_refs.collector` 完成。序列化和反序列化遍历到非空 `resource_ref<T>`
-时会记录 `{resource_guid, type_id}`：
-
-```cpp
-caors::resources::resource_dependency_list dependencies;
-caors::resources::resource_dependency_collector_ops collector =
-    caors::resources::make_resource_dependency_collector(dependencies);
-
-caors::serialization::context context{};
-context.resolvers.external_refs.collector = &collector;
-
-caors::to_json(context, material_value);
-
-caors::resource_dependency_graph graph;
-caors::resources::replace_resource_dependencies(graph, material_resource_guid, dependencies);
-```
-
-依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
-热更新和资源数据库。`resource_dependency_list` 是一次遍历得到的依赖事实列表；`resources::dependency_graph`
-是运行期资源数据库里的关系索引。需要把事实写入索引时，应显式调用
-`resources::add_resource_dependencies()` 或 `resources::replace_resource_dependencies()`。
-
-推荐的同步预加载链路是：
-
-1. 先用带 `context.resolvers.external_refs.collector` 的序列化或反序列化遍历收集所有资源 GUID。
-2. 如果当前遍历对象本身是资源，调用 `replace_resource_dependencies(graph, resource_guid, dependencies)`
-   刷新依赖图。
-3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
-4. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
-5. 使用 `resources::load_handle_into(cache, loader, guid)` 把资源放入拥有式 cache。
-6. 创建 `resources::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
-   `resolvers.external_refs.resolver` 和 `resolvers.external_refs.resolution`。
-
-依赖收集器只提供“需要哪些资源”的事实，不决定加载顺序、缺资源策略或异步调度。资源缺失是否报错由后续解析阶段的
-`resolvers.external_refs.resolution` 决定。
-
 ### object handles
 
 `caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
@@ -874,7 +761,7 @@ caors::resources::replace_resource_dependencies(graph, material_resource_guid, d
 ```
 
 反序列化时只恢复身份，不自动查询全局对象表，也不保证对象仍然存活。调用方需要显式交给
-`objects::manager`、场景数据库或资源系统解析：
+`objects::manager` 或宿主身份索引解析：
 
 ```cpp
 caors::objects::typed_handle<player> target;
@@ -1198,7 +1085,7 @@ template <> struct codec_traits<custom_value> {
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `meta::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
 - JSON 文本 reader 已支持按字段直接读入；当启用 schema migration、缺失字段宽松策略、未知字段保留或严格拒绝时会先走
-  DOM parser，以便检查、跳过或改写完整对象成员。输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、跨对象迁移调度
+  DOM parser，以便检查、跳过或改写完整对象成员。二进制格式、跨对象迁移调度
   和未知字段按对象树位置保留尚未实现。
 
 ### caors::variant

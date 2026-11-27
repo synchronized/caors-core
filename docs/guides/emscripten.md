@@ -3,7 +3,8 @@
 
 # Emscripten 单线程接入
 
-本指南描述 v0.7.0 的接入能力，CAORS 独立平台集成已通过；
+本指南维护单线程平台接入；v0.7.0 的原平台集成已通过。资源、资产和 IO 已移除，见[退出指南](application-modules-removal.md)。
+历史版本信息：
 v0.7.0 已发布 alpha 源码，v0.6.0 不包含这些修复。
 范围与未完成项见[版本页](../versions/v0.7.0.md)，实际证据见[集成记录](../records/2026-10-20-emscripten-integration.md)。
 
@@ -33,13 +34,13 @@ thread_pool 默认线程数为 0，构造抛出 operation_not_supported 的 syst
 禁用异常时构造会终止程序。调用方应先检查能力并选用宿主 executor 或 execution_context。
 该类不会悄悄模拟 inline 线程池。
 
-worker 和 completion 表示调度位置，可以绑定同一个协作队列；使用 poll/drain 在浏览器每帧或
+宿主 executor 表示调度位置，可以绑定协作队列；使用 poll/drain 在浏览器每帧或
 事件回调中非阻塞推进。避免在浏览器主线程阻塞等待尚未发生的 I/O、完成回执或未来事件。
 库不安装浏览器主循环，不自动启用 Asyncify；fetch/libuv 等加载适配仍由宿主提供。
-async_loader 的拥有型完成凭证及取消/关闭语义保持原接口。
+
 
 config::has_dynamic_libraries 为 false，shared_library::open 对非空路径返回 platform/unsupported；
-空路径仍为 invalid_argument。静态类型注册、meta、资源缓存与 VFS 快照不因此关闭。
+空路径仍为 invalid_argument。静态类型注册与 meta 继续可用。
 
 共享快照依照标准特性宏选择原子 shared_ptr；缺少特化时使用互斥保护的 shared_ptr 槽。
 CAS 比较地址和拥有者，旧快照保活；旧值和失败 expected 在解锁后释放，避免析构重入死锁。
@@ -48,7 +49,7 @@ GUID 哈希先按 64 位混合再折叠到 32 位，GUID 本身不变；哈希�
 
 ## 测试、浏览器与安装
 
-Web 测试入口包括独立公共头和选定异步协议回归；原生线程/DSO 测试没有被宣称可在 Web 运行。
+Web 测试入口包括独立公共头和基础平台回归；原生线程/DSO 测试没有被宣称可在 Web 运行。
 Node 运行不代替浏览器事件循环测试：
 
 ```sh
@@ -58,7 +59,7 @@ node tests/web/browser_test.cjs build/emscripten-static-release/tests/web
 
 浏览器驱动 playwright-core 固定 1.62.1（Apache-2.0），仅为测试开发依赖；npm ci 会下载锁定驱动，
 不下载浏览器。默认使用 /usr/bin/google-chrome，其他安装通过 CHROME_PATH 指定可执行文件。
-测试用 HTTP 提供 .wasm/JS，验证跨事件循环的完成、取消、队列丢弃和句柄存活。
+测试用 HTTP 提供 .wasm/JS，验证任务延迟到下一轮事件循环才被执行；不再验证已删除的资源/文件协议。
 
 cmake --install 可安装静态包；独立消费端位于 tests/web/consumer，使用 Emscripten 工具链配置，
 通过 caors_DIR 指向安装的 lib/cmake/caors，并保持 -fexceptions 与 -sDISABLE_EXCEPTION_CATCHING=0。

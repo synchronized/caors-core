@@ -7,8 +7,6 @@
 #include "caors/serialization/operations.h"
 
 #include <algorithm>
-#include <fstream>
-#include <iterator>
 #include <limits>
 
 namespace caors::plugins {
@@ -151,18 +149,6 @@ result<plugin_manifest> parse_plugin_manifest(std::string_view text) {
     return fail<plugin_manifest>(manifest_error());
   }
   return ok(std::move(manifest));
-}
-
-result<plugin_manifest> load_plugin_manifest(const std::filesystem::path& path) {
-  std::ifstream stream{path, std::ios::binary};
-  if (!stream) {
-    return fail<plugin_manifest>(manifest_error(errc::not_found));
-  }
-  const std::string text{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
-  if (!stream.good() && !stream.eof()) {
-    return fail<plugin_manifest>(manifest_error(errc::backend_failure));
-  }
-  return parse_plugin_manifest(text);
 }
 
 result<plugin_dependency_order>

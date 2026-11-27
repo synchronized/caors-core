@@ -7,7 +7,47 @@
 [文档中心](../README.md)、[路线图](../roadmap.md)和[计划索引](../plans/README.md)。
 性能测量继续存放在 [benchmarks/results](../../benchmarks/results/README.md)。
 
+- [资源、资产与 IO 移除记录](2026-11-27-application-modules-removal.md)。
+
 ## 版本验收
+
+以下为对应提交和版本的历史证据；已移除能力不代表当前工作树仍提供。
+
+- [宿主资源键加载与独立运行原型](2026-11-21-host-key-loading.md)：宿主键管线及无 IO 原型通过平台验证；动态依赖等待图原语已补充，状态机接入与后续迁移待完成。
+
+- [普通资源对象的所有权与异步交付](2026-11-21-plain-resource-objects.md)：P1 所有权解耦首批，支持无资源基类对象；宿主 Key 管线尚未实现。
+
+- [宿主资源核心编译边界基线](2026-11-21-resource-boundary-baseline.md)：无 IO 头的 loader/缓存/请求模板编译通过，数据库与装配耦合已固定；独立链接和运行尚未实现。
+
+- [同步存储职责收缩](2026-10-31-sync-storage-boundary.md)：同步、异步与旧路由职责分离，共享存储、插件、安装及 Linux/Windows/Web 验收全部通过。
+
+- [文件服务直接绑定与配置消费](2026-10-31-service-source-binding.md)：工程按名称拥有来源适配，解绑清理 GUID，异步配置复用服务；本机、三类平台及 PR 范围复核通过。
+
+- [统一文件服务](2026-10-30-file-service.md)：服务统一挂载与访问、批次继承配置、自动关闭范围读取，本机及平台验收通过，含 GCC 声明歧义修复。
+
+- [资源后端快照迁移](2026-10-23-resource-backend-snapshots.md)：快照及字节读取直接使用 backend_location，新 VFS 传输桥删除；本机及 Linux/Windows/Web 平台验收通过。
+
+- [VFS 路由独立](2026-10-22-vfs-independent-routing.md)：新路由及普通访问脱离旧文件系统，本机及 Linux/Windows/Web 验收通过；后续范围按职责收敛计划推进。
+
+- [IO 重复公共请求入口删除](2026-10-22-io-legacy-api-removal.md)：五个旧函数无别名移除、私有头退出安装包，本机与 Linux/Windows/Web 验收通过。
+
+- [VFS 可写文件句柄](2026-10-22-vfs-writable-file.md)：统一 open 的权限/创建选项与范围写入，本机及四类远端验收通过，兼容退出仍延期。
+
+- [VFS 整体操作与消费迁移](2026-10-22-vfs-operations-migration.md)：整文件写入、元数据、新来源与兼容头隔离，本机及四类远端验收通过，整体迁移未完成。
+
+- [VFS 统一只读入口](2026-10-22-vfs-read-context.md)：vfs/backend/io_context/file/request 主线与共享读取编排，本机原生/Web/安装通过，整体迁移仍实施中。
+
+- [三类日常资源请求接口迁移](2026-10-22-three-request-api.md)：合并 reload/refresh、特殊调度转 group、修复来源快照基准；新代码远端验收待完成。
+
+- [统一资源请求入口收口](2026-10-22-single-load-entry.md)：移除 manager/database 同步加载与双注册槽，本机原生、安装和 Web 通过，远端验收待完成。
+
+- [默认 JSON 工厂异步迁移](2026-10-22-json-factory-migration.md)：统一 JSON loader 名称与默认工厂，原生、安装和 Web 通过，旧同步入口退出及远端验收待完成。
+
+- [异步字节读取协议](2026-10-22-byte-reader-protocol.md)：reader/VFS/JSON 显式异步接入，本机原生、安装与 Web 通过，默认工厂迁移及远端验收待完成。
+
+- [统一 loader 协议](2026-10-22-unified-loader-protocol.md)：统一异步入口与显式同步适配，本机原生/Web/浏览器/安装通过，远端验收待执行。
+
+- [资源核心与来源适配边界](2026-10-22-resource-source-boundary.md)：第二批 provider 边界迁移，本机原生/Web/安装通过，远端验收待执行。
 
 - [加载快照解耦原型验证](2026-10-22-load-snapshot-prototype.md)：首批快照/工程装配迁移，原生矩阵、Web、安装与压力验证通过。
 

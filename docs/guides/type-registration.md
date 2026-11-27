@@ -175,8 +175,6 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
   它不是业务类型注册，也不替代稳定 name/GUID/父类型等 meta 注册数据。
 - 公开业务注册不应直接调用 `meta::registry::register_type()`、`meta::detail::register_capability*()`、
   `meta::detail::*` 或各模块内部写入函数。这些入口只服务 builder、内部兼容桥接或低层测试。
-- `assets::asset_manager::register_*()`、`resources::database::register_*()` 等运行期资源工厂注册不是
-  meta 类型注册 builder，不受本节统一类型注册入口约束。
 
 ## 显式初始化
 

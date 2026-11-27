@@ -11,7 +11,7 @@ file(WRITE "${test_root}/input/fixture/entry.txt" "cache contract fixture")
 string(REPEAT "dependency-cache\n" 65536 payload)
 file(WRITE "${test_root}/input/fixture/payload.txt" "${payload}")
 set(archive "${test_root}/fixture.tar.gz")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E tar cfz "${archive}" --format=gnutar fixture
+execute_process(ENCODING UTF-8 COMMAND "${CMAKE_COMMAND}" -E tar cfz "${archive}" --format=gnutar fixture
   WORKING_DIRECTORY "${test_root}/input" RESULT_VARIABLE packed)
 if(NOT packed EQUAL 0)
   message(FATAL_ERROR "无法生成测试归档")
@@ -42,7 +42,7 @@ if(DEFINED WAIT_FOR)
     if(EXISTS "${WAIT_FOR}")
       break()
     endif()
-    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
+    execute_process(ENCODING UTF-8 COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
   endforeach()
   if(NOT EXISTS "${WAIT_FOR}")
     message(FATAL_ERROR "等待锁持有者超时")
@@ -55,7 +55,7 @@ endif()
 ]=] @ONLY NEWLINE_STYLE UNIX)
 
 function(run_worker label cache offline expect_success)
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${cache}" "-DOFFLINE=${offline}"
+  execute_process(ENCODING UTF-8 COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${cache}" "-DOFFLINE=${offline}"
     "-DURL=${archive_url}" "-DHASH=${digest}" -DMARKER=entry.txt ${ARGN} -P "${worker}"
     RESULT_VARIABLE code OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 30)
   file(WRITE "${test_root}/${label}.log" "${output}${errors}")
@@ -132,7 +132,7 @@ endif()
 
 # execute_process 的多个 COMMAND 并发运行；同项竞争必须只发布一个完整结果。
 set(shared_cache "${test_root}/parallel")
-execute_process(
+execute_process(ENCODING UTF-8
   COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${shared_cache}" -DOFFLINE=OFF
     "-DURL=${archive_url}" "-DHASH=${digest}" -DMARKER=entry.txt
     "-DOUTPUT_FILE=${test_root}/parallel-a.txt" -P "${worker}"
@@ -153,7 +153,7 @@ endif()
 file(MAKE_DIRECTORY "${test_root}/input-two/fixture")
 file(WRITE "${test_root}/input-two/fixture/entry.txt" "revision two")
 set(second_archive "${test_root}/version-two.tar.gz")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E tar cfz "${second_archive}" --format=gnutar fixture
+execute_process(ENCODING UTF-8 COMMAND "${CMAKE_COMMAND}" -E tar cfz "${second_archive}" --format=gnutar fixture
   WORKING_DIRECTORY "${test_root}/input-two" RESULT_VARIABLE packed)
 if(NOT packed EQUAL 0)
   message(FATAL_ERROR "无法生成第二修订归档")
@@ -161,7 +161,7 @@ endif()
 file(SHA256 "${second_archive}" second_digest)
 string(REGEX REPLACE "fixture\\.tar\\.gz$" "version-two.tar.gz" second_url "${archive_url}")
 set(revision_cache "${test_root}/parallel_revisions")
-execute_process(
+execute_process(ENCODING UTF-8
   COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${revision_cache}" -DOFFLINE=OFF
     "-DURL=${archive_url}" "-DHASH=${digest}" -DMARKER=entry.txt
     "-DOUTPUT_FILE=${test_root}/revision-a.txt" -P "${worker}"
@@ -186,7 +186,7 @@ file(CONFIGURE OUTPUT "${holder}" CONTENT [=[
 file(MAKE_DIRECTORY "${CACHE_ROOT}/locks")
 file(LOCK "${CACHE_ROOT}/locks/sample-@digest@.lock" GUARD PROCESS TIMEOUT 0)
 file(WRITE "${READY}" "ready")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 3)
+execute_process(ENCODING UTF-8 COMMAND "${CMAKE_COMMAND}" -E sleep 3)
 ]=] @ONLY NEWLINE_STYLE UNIX)
 foreach(mode IN ITEMS timeout independent)
   set(cache "${test_root}/lock_${mode}")
@@ -195,7 +195,7 @@ foreach(mode IN ITEMS timeout independent)
   if(mode STREQUAL "independent")
     set(name other)
   endif()
-  execute_process(
+  execute_process(ENCODING UTF-8
     COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${cache}" "-DREADY=${ready}" -P "${holder}"
     COMMAND "${CMAKE_COMMAND}" "-DCACHE_ROOT=${cache}" -DOFFLINE=OFF -DLOCK_TIMEOUT=0
       "-DNAME=${name}" "-DWAIT_FOR=${ready}" "-DURL=${archive_url}" "-DHASH=${digest}"

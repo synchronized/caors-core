@@ -10,7 +10,7 @@ provider::snapshot 遍历全部 GUID 绑定，复制位置并捕获路由，成�
 普通单资源 request_load 的 cache 命中及在途共享先于快照捕获；database 的两类 preload
 在仍有待处理项时捕获批次快照；全缓存命中的批次提前返回。已在途项仍可触发批次捕获，
 这些路径须分开测量。该边界已由基准 smoke 调用计数补正，不以入口位置推断全部路径。
-现有实现与契约见[资源参考](../reference/resources.md#加载来源快照)。
+现有实现与契约见[资源参考](../reference/resources.md)。
 
 ## 基准计划
 

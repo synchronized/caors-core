@@ -29,18 +29,18 @@ constexpr error unsupported_messagepack() noexcept {
   return {error_domain::serialization, errc::unsupported};
 }
 
-void append_byte(io::byte_buffer& output, std::uint8_t value) {
+void append_byte(byte_buffer& output, std::uint8_t value) {
   output.push_back(static_cast<std::byte>(value));
 }
 
-template <typename T> void append_big_endian(io::byte_buffer& output, T value) {
+template <typename T> void append_big_endian(byte_buffer& output, T value) {
   static_assert(std::is_unsigned_v<T>);
   for (std::size_t shift = sizeof(T); shift != 0; --shift) {
     append_byte(output, static_cast<std::uint8_t>(value >> ((shift - 1U) * 8U)));
   }
 }
 
-void append_unsigned(io::byte_buffer& output, std::uint64_t value) {
+void append_unsigned(byte_buffer& output, std::uint64_t value) {
   if (value <= 0x7FU) {
     append_byte(output, static_cast<std::uint8_t>(value));
   } else if (value <= std::numeric_limits<std::uint8_t>::max()) {
@@ -58,7 +58,7 @@ void append_unsigned(io::byte_buffer& output, std::uint64_t value) {
   }
 }
 
-void append_signed(io::byte_buffer& output, std::int64_t value) {
+void append_signed(byte_buffer& output, std::int64_t value) {
   if (value >= 0) {
     append_unsigned(output, static_cast<std::uint64_t>(value));
   } else if (value >= -32) {
@@ -78,7 +78,7 @@ void append_signed(io::byte_buffer& output, std::int64_t value) {
   }
 }
 
-error append_size(io::byte_buffer& output, std::size_t size, std::uint8_t fixed_marker,
+error append_size(byte_buffer& output, std::size_t size, std::uint8_t fixed_marker,
                   std::uint8_t marker16, std::uint8_t marker32) {
   if (size <= 15U) {
     append_byte(output, static_cast<std::uint8_t>(fixed_marker | size));
@@ -94,7 +94,7 @@ error append_size(io::byte_buffer& output, std::size_t size, std::uint8_t fixed_
   return {};
 }
 
-error append_string(io::byte_buffer& output, std::string_view value) {
+error append_string(byte_buffer& output, std::string_view value) {
   if (value.size() <= 31U) {
     append_byte(output, static_cast<std::uint8_t>(0xA0U | value.size()));
   } else if (value.size() <= std::numeric_limits<std::uint8_t>::max()) {
@@ -115,7 +115,7 @@ error append_string(io::byte_buffer& output, std::string_view value) {
   return {};
 }
 
-error append_value(io::byte_buffer& output, const variant& value) {
+error append_value(byte_buffer& output, const variant& value) {
   switch (value.kind()) {
   case meta::variant_kind::null:
     append_byte(output, 0xC0U);
@@ -325,10 +325,9 @@ private:
       return parse_string(marker & 0x1FU);
     }
     if (marker >= 0xE0U) {
-      return {
-          {},
-          variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)),
-                        result_resource_)};
+      return {{},
+              variant::from(static_cast<std::int64_t>(static_cast<std::int8_t>(marker)),
+                            result_resource_)};
     }
 
     std::uint8_t u8 = 0;
@@ -478,20 +477,12 @@ public:
     begin_scratch_scope();
   }
 
-  implementation(io::byte_buffer& output, memory_resource* scratch_resource)
+  implementation(byte_buffer& output, memory_resource* scratch_resource)
       : scratch_resource_(scratch_resource != nullptr ? scratch_resource
                                                       : &memory::library_temporary_resource()),
         output_(&output), frames_(vector<frame>::allocator_type{scratch_resource_}) {
     begin_scratch_scope();
     output_->clear();
-  }
-
-  implementation(io::output_stream& output, memory_resource* scratch_resource)
-      : scratch_resource_(scratch_resource != nullptr ? scratch_resource
-                                                      : &memory::library_temporary_resource()),
-        output_(&owned_output_), stream_(&output),
-        frames_(vector<frame>::allocator_type{scratch_resource_}) {
-    begin_scratch_scope();
   }
 
   [[nodiscard]] error begin_container(frame_kind kind, std::size_t expected_size) {
@@ -547,15 +538,9 @@ public:
     }
 
     if (frames_.empty()) {
-      io::byte_buffer_result encoded =
-          encode_messagepack(value, output_->get_allocator().resource());
+      byte_buffer_result encoded = encode_messagepack(value, output_->get_allocator().resource());
       if (encoded.failed()) {
         return encoded.status;
-      }
-      if (stream_ != nullptr) {
-        if (const error status = stream_->write_all(encoded.value); status) {
-          return status;
-        }
       }
       *output_ = std::move(encoded.value);
       root_written_ = true;
@@ -615,9 +600,8 @@ public:
 
   memory_resource* scratch_resource_ = nullptr;
   std::optional<memory::stack_scope> scratch_scope_{};
-  io::byte_buffer owned_output_{};
-  io::byte_buffer* output_ = nullptr;
-  io::output_stream* stream_ = nullptr;
+  byte_buffer owned_output_{};
+  byte_buffer* output_ = nullptr;
   vector<frame> frames_;
   bool root_written_ = false;
 };
@@ -627,10 +611,7 @@ messagepack_writer::messagepack_writer() : implementation_(std::make_unique<impl
 messagepack_writer::messagepack_writer(memory_resource* scratch_resource)
     : implementation_(std::make_unique<implementation>(scratch_resource)) {}
 
-messagepack_writer::messagepack_writer(io::byte_buffer& output, memory_resource* scratch_resource)
-    : implementation_(std::make_unique<implementation>(output, scratch_resource)) {}
-
-messagepack_writer::messagepack_writer(io::output_stream& output, memory_resource* scratch_resource)
+messagepack_writer::messagepack_writer(byte_buffer& output, memory_resource* scratch_resource)
     : implementation_(std::make_unique<implementation>(output, scratch_resource)) {}
 
 messagepack_writer::~messagepack_writer() = default;
@@ -830,14 +811,12 @@ error messagepack_writer::end_object() {
   return implementation_->end_container(implementation::frame_kind::object);
 }
 
-const io::byte_buffer& messagepack_writer::bytes() const noexcept {
-  return *implementation_->output_;
-}
+const byte_buffer& messagepack_writer::bytes() const noexcept { return *implementation_->output_; }
 
 void messagepack_writer::reset() { implementation_->reset(); }
 
-io::byte_buffer_result encode_messagepack(const variant& value, memory_resource* result_resource) {
-  io::byte_buffer bytes = io::make_byte_buffer(result_resource);
+byte_buffer_result encode_messagepack(const variant& value, memory_resource* result_resource) {
+  byte_buffer bytes = make_byte_buffer(result_resource);
   error status = append_value(bytes, value);
   return {status, std::move(bytes)};
 }
@@ -860,49 +839,6 @@ variant_result parse_messagepack(std::span<const std::byte> bytes, messagepack_o
   if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
     scratch_scope.emplace(*stack);
   }
-  return parser{bytes, options, result_resource, resolved_scratch}.parse();
-}
-
-variant_result parse_messagepack(io::input_stream& stream, messagepack_options options) {
-  return parse_messagepack(stream, options, nullptr, nullptr);
-}
-
-variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* result_resource) {
-  return parse_messagepack(stream, options, result_resource, nullptr);
-}
-
-variant_result parse_messagepack(io::input_stream& stream, messagepack_options options,
-                                 memory_resource* result_resource,
-                                 memory_resource* scratch_resource) {
-  memory_resource* resolved_scratch =
-      scratch_resource != nullptr ? scratch_resource : &memory::library_temporary_resource();
-  std::optional<memory::stack_scope> scratch_scope;
-  if (auto* stack = dynamic_cast<memory::stack_resource*>(resolved_scratch); stack != nullptr) {
-    scratch_scope.emplace(*stack);
-  }
-
-  io::byte_buffer bytes = io::make_byte_buffer(resolved_scratch);
-  std::array<std::byte, 4096> chunk{};
-  while (true) {
-    io::size_result read = stream.read(chunk);
-    if (read.failed()) {
-      return {read.error(), {}};
-    }
-    if (*read > chunk.size()) {
-      return {{error_domain::io, errc::backend_failure}, {}};
-    }
-    if (*read != 0) {
-      bytes.insert(bytes.end(), chunk.begin(), chunk.begin() + static_cast<std::ptrdiff_t>(*read));
-    }
-    if (stream.eof()) {
-      break;
-    }
-    if (*read == 0) {
-      return {{error_domain::io, errc::backend_failure}, {}};
-    }
-  }
-
   return parser{bytes, options, result_resource, resolved_scratch}.parse();
 }
 

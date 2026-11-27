@@ -1,63 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Examples
+# 示例
 
-本目录存放 CAORS 的可运行示例。示例用于展示公共 API 的基础用法，不承担完整设计文档职责；更完整的主题说明见 [docs/README.md](../docs/README.md)。
+保留 memory、math、meta、object、serialization、tasks 和 version 示例。
+资源、资产及 IO 专用 alpha/beta 示例随模块删除，不提供兼容装配。
 
-## 构建
-
-CAORS 作为顶层项目配置时，示例默认开启。也可以显式控制：
-
-```sh
-cmake --preset windows-clang-debug -DCAORS_BUILD_EXAMPLES=ON
-cmake --preset windows-clang-debug -DCAORS_BUILD_EXAMPLES=OFF
-```
-
-构建所有示例：
-
-```sh
-cmake --build --preset windows-clang-debug
-```
-
-只构建某个示例目标：
-
-```sh
-cmake --build --preset windows-clang-debug --target caors_example_version_basic
-```
-
-## 目录
-
-示例按主题目录组织：
-
-- `alpha/`：注册、资源配置、asset manager、资源加载、引用解析和保存的最小闭环。
-- `beta/`：beta 前主路径示例，包括资源同步加载、异步加载、同步重载、资源管线和 typed factory options；
-  阅读顺序见 [beta/README.md](beta/README.md)。
-- `version/`：版本信息 API。
-- `tasks/`：宿主队列适配为外部 executor 的基础用法。
-- `memory/`：内存资源、分配器、策略资源和调试跟踪。
-- `meta/`：类型级 capability facade、运行期值和静态类型数据能力查询。
-- `math/`：基础向量、矩阵、变换、相机 view/projection、frustum 裁剪、project/unproject 和 math 字段序列化。
-- `object/`：对象注册、对象创建、生命周期管理器和销毁。
-- `serialization/`：meta 属性序列化、普通类多态 wrapper、factory 和内存资源上下文。
-
-具体示例以各主题目录下的 `*.cpp` 文件为准。异步来源快照与范围读取示例见 [beta 示例](beta/README.md)。
-分块读取与消费见 [io_chunked_read.cpp](beta/io_chunked_read.cpp)，完整 API 契约见 [IO 参考](../docs/reference/io.md)。
-
-## 新增示例
-
-新增示例时遵循以下规则：
-
-- 按主题放入对应子目录，例如 `examples/memory/`。
-- 新主题需要新增子目录和该目录下的 `CMakeLists.txt`。
-- 示例目标命名使用 `caors_example_<主题>_<名称>`。
-- 示例代码应尽量短，只展示一个明确场景。
-- 基础示例优先展示公开入口和绑定后的 view，例如 `meta::type`、`any_ref::get_capability<Capability>()`
-  或模块级 `find()` / `class_()` 入口；只有 capability 扩展、registry 管理或生命周期管理示例才直接展示
-  类型级 capability、registry 或其他高级入口。
-- 复杂背景说明放到 `docs/` 对应主题文档中，不写进示例源码。
-
-## 动态库 preset
-
-不含 `static` 的 preset 现在构建动态库。直接启动示例前，按[Shared 运行时库](../docs/guides/build.md#shared-运行时库)
-配置动态库搜索路径；需要独立静态链接时使用对应的 `*-static-debug/release` preset。
+构建方式见[构建指南](../docs/guides/build.md)，迁移见[退出指南](../docs/guides/application-modules-removal.md)。

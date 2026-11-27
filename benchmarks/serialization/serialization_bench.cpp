@@ -35,7 +35,8 @@ void benchmark_serialization(std::size_t iterations) {
     std::cerr << "解析 benchmark JSON 输入失败\n";
     std::exit(EXIT_FAILURE);
   }
-  const caors::io::byte_buffer_result encoded_actor_messagepack = caors::to_messagepack(actor);
+  const caors::serialization::byte_buffer_result encoded_actor_messagepack =
+      caors::to_messagepack(actor);
   if (encoded_actor_messagepack.failed()) {
     std::cerr << "编码 benchmark MessagePack 输入失败\n";
     std::exit(EXIT_FAILURE);

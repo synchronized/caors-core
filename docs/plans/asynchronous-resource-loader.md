@@ -19,7 +19,7 @@
 
 新增独立异步 loader 协议，保留原同步 `loader<T>`，不要求所有已有实现重写。
 采用 `async_loader<T>`、`async_load_context` 与 move-only `load_completion<T>`；
-精确当前协议由[资源参考](../reference/resources.md#原生异步-loader)及公共头维护。
+精确当前协议由[资源参考](../reference/resources.md)及公共头维护。
 
 同一类型允许注册同步与异步能力。异步请求优先异步能力，只有同步 loader 时通过现有后台 executor 适配。
 启动被拒绝或运行失败不自动回退重试另一 loader，避免重复 I/O 和掩盖错误。
@@ -30,7 +30,7 @@
 
 在构造或运行期初始化 asset_manager 时传入默认 `worker` 与 `completion` executor，
 默认值属于运行期调度配置，不写入可序列化的 `project_config`。保留原构造方式，兼容仅使用同步入口的调用方。
-配置类型为 asset_execution_options，构造/初始化和 group 用法以[Assets 参考](../reference/assets.md#默认调度与-asset_group)为准。以下保留设计示例：
+配置类型为 asset_execution_options，构造/初始化和 group 用法以[Assets 参考](../reference/assets.md)为准。以下保留设计示例：
 
 ```cpp
 // 通过构造或 set_execution_options 配置默认调度组合。

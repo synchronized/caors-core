@@ -63,7 +63,7 @@ template <> struct codec_traits<caors::tests::serialization::nested_messagepack_
     }
 
     const caors::tests::serialization::nested_messagepack_inner_actor inner_value{value.value};
-    const caors::io::byte_buffer_result inner = to_messagepack(context, inner_value);
+    const caors::serialization::byte_buffer_result inner = to_messagepack(context, inner_value);
     if (value.state != nullptr) {
       value.state->inner_succeeded = inner.succeeded();
       if (stack != nullptr) {
@@ -85,62 +85,10 @@ namespace {
 using caors::meta::variant;
 using namespace caors::tests::serialization;
 
-[[nodiscard]] std::uint8_t byte_at(const caors::io::byte_buffer& bytes, std::size_t index) {
+[[nodiscard]] std::uint8_t byte_at(const caors::serialization::byte_buffer& bytes,
+                                   std::size_t index) {
   return std::to_integer<std::uint8_t>(bytes[index]);
 }
-
-class chunked_input_stream final : public caors::io::input_stream {
-public:
-  chunked_input_stream(std::span<const std::byte> bytes, std::size_t chunk_size)
-      : bytes_(bytes), chunk_size_(chunk_size) {}
-
-  [[nodiscard]] caors::io::size_result read(std::span<std::byte> buffer) override {
-    const std::size_t count = std::min({buffer.size(), chunk_size_, bytes_.size() - position_});
-    std::copy_n(bytes_.begin() + static_cast<std::ptrdiff_t>(position_), count, buffer.begin());
-    position_ += count;
-    return caors::ok(count);
-  }
-
-  [[nodiscard]] bool eof() const noexcept override { return position_ == bytes_.size(); }
-
-private:
-  std::span<const std::byte> bytes_{};
-  std::size_t chunk_size_ = 0;
-  std::size_t position_ = 0;
-};
-
-class failing_input_stream final : public caors::io::input_stream {
-public:
-  [[nodiscard]] caors::io::size_result read(std::span<std::byte>) override {
-    return caors::fail<std::size_t>({caors::error_domain::io, caors::errc::backend_failure});
-  }
-
-  [[nodiscard]] bool eof() const noexcept override { return false; }
-};
-
-class chunked_output_stream final : public caors::io::output_stream {
-public:
-  explicit chunked_output_stream(
-      std::size_t chunk_size,
-      std::size_t fail_after_writes = std::numeric_limits<std::size_t>::max())
-      : chunk_size_(chunk_size), fail_after_writes_(fail_after_writes) {}
-
-  [[nodiscard]] caors::io::size_result write(std::span<const std::byte> buffer) override {
-    if (write_count_++ >= fail_after_writes_) {
-      return caors::fail<std::size_t>({caors::error_domain::io, caors::errc::backend_failure});
-    }
-    const std::size_t count = std::min(buffer.size(), chunk_size_);
-    bytes.insert(bytes.end(), buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(count));
-    return caors::ok(count);
-  }
-
-  caors::io::byte_buffer bytes{};
-
-private:
-  std::size_t chunk_size_ = 0;
-  std::size_t fail_after_writes_ = 0;
-  std::size_t write_count_ = 0;
-};
 
 void require_messagepack_schema_actor_metadata() {
   REQUIRE(registration_result_ok(caors::registration::type_<reader_unknown_field_actor>(
@@ -182,21 +130,21 @@ migrate_messagepack_schema_actor(const caors::serialization::schema_migration_re
 
 TEST_CASE("serialization - MessagePack encodes scalar values with standard markers",
           "[serialization][messagepack]") {
-  const caors::io::byte_buffer_result positive =
+  const caors::serialization::byte_buffer_result positive =
       caors::serialization::encode_messagepack(variant::from(std::uint64_t{128}));
   REQUIRE(positive.succeeded());
   REQUIRE(positive.value.size() == 2);
   CHECK(byte_at(positive.value, 0) == 0xCC);
   CHECK(byte_at(positive.value, 1) == 0x80);
 
-  const caors::io::byte_buffer_result negative =
+  const caors::serialization::byte_buffer_result negative =
       caors::serialization::encode_messagepack(variant::from(std::int64_t{-33}));
   REQUIRE(negative.succeeded());
   REQUIRE(negative.value.size() == 2);
   CHECK(byte_at(negative.value, 0) == 0xD0);
   CHECK(byte_at(negative.value, 1) == 0xDF);
 
-  const caors::io::byte_buffer_result floating =
+  const caors::serialization::byte_buffer_result floating =
       caors::serialization::encode_messagepack(variant::from(1.0));
   REQUIRE(floating.succeeded());
   REQUIRE(floating.value.size() == 9);
@@ -216,7 +164,8 @@ TEST_CASE("serialization - MessagePack DOM round trips nested values",
   REQUIRE(values.push_back(variant::from(std::string_view{"text"})));
   REQUIRE(root.add_member(caors::string_name{"values"}, 0, std::move(values)));
 
-  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::serialization::encode_messagepack(root);
   REQUIRE(encoded.succeeded());
 
   const caors::serialization::variant_result decoded =
@@ -235,38 +184,6 @@ TEST_CASE("serialization - MessagePack DOM round trips nested values",
   CHECK(decoded_values->as_array()[1].as_u64() == 500);
   REQUIRE(decoded_values->as_array()[2].is_string());
   CHECK(decoded_values->as_array()[2].as_string() == "text");
-}
-
-TEST_CASE("serialization - MessagePack streams handle short reads and writes",
-          "[serialization][messagepack][stream]") {
-  const variant source = variant::from(std::string_view{"messagepack-stream"});
-  const caors::io::byte_buffer_result expected = caors::serialization::encode_messagepack(source);
-  REQUIRE(expected.succeeded());
-
-  chunked_output_stream output{2};
-  caors::serialization::messagepack_writer writer{output};
-  REQUIRE(caors::serialization::write_value_to(writer, source).succeeded());
-  CHECK(output.bytes == expected.value);
-
-  chunked_input_stream input{output.bytes, 3};
-  const caors::serialization::variant_result decoded =
-      caors::serialization::parse_messagepack(input);
-  REQUIRE(decoded.succeeded());
-  REQUIRE(decoded.value.is_string());
-  CHECK(decoded.value.as_string() == "messagepack-stream");
-}
-
-TEST_CASE("serialization - MessagePack streams propagate backend failures",
-          "[serialization][messagepack][stream]") {
-  failing_input_stream input;
-  const caors::serialization::variant_result read = caors::serialization::parse_messagepack(input);
-  CHECK(read.status == caors::error{caors::error_domain::io, caors::errc::backend_failure});
-
-  chunked_output_stream output{1, 1};
-  caors::serialization::messagepack_writer writer{output};
-  const caors::error written = writer.write_string("failure");
-  CHECK(written == caors::error{caors::error_domain::io, caors::errc::backend_failure});
-  CHECK(output.bytes.size() == 1);
 }
 
 TEST_CASE("serialization - MessagePack DOM recursively uses the result resource",
@@ -399,7 +316,7 @@ TEST_CASE("serialization - MessagePack temporary storage remains isolated across
 TEST_CASE("serialization - MessagePack releases deep map staging after success and failure",
           "[serialization][messagepack][memory][stress]") {
   constexpr std::size_t depth = 64;
-  caors::io::byte_buffer encoded;
+  caors::serialization::byte_buffer encoded;
   encoded.reserve(depth * 3 + 1);
   for (std::size_t index = 0; index < depth; ++index) {
     encoded.push_back(std::byte{0x81});
@@ -439,7 +356,7 @@ TEST_CASE("serialization - MessagePack releases deep map staging after success a
 TEST_CASE("serialization - MessagePack releases temporary storage for large arrays",
           "[serialization][messagepack][memory][stress]") {
   constexpr std::size_t element_count = 4096;
-  caors::io::byte_buffer encoded;
+  caors::serialization::byte_buffer encoded;
   encoded.reserve(element_count + 5);
   encoded.push_back(std::byte{0xDD});
   encoded.push_back(std::byte{0x00});
@@ -514,7 +431,7 @@ TEST_CASE("serialization - MessagePack writer uses and rewinds a temporary stack
           "[serialization][messagepack][memory]") {
   caors::tracking_resource tracking{&caors::get_system_memory_resource()};
   caors::stack_resource temporary{64, &tracking};
-  caors::io::byte_buffer output;
+  caors::serialization::byte_buffer output;
 
   {
     caors::serialization::messagepack_writer writer{output, &temporary};
@@ -540,37 +457,13 @@ TEST_CASE("serialization - MessagePack writer uses and rewinds a temporary stack
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-TEST_CASE("serialization - MessagePack owned results use the requested resource",
-          "[serialization][messagepack][memory]") {
-  caors::tracking_resource result_resource{&caors::get_system_memory_resource()};
-  const variant source = variant::from(std::string_view{"resource-owned-messagepack"});
-
-  {
-    const caors::io::byte_buffer_result encoded =
-        caors::serialization::encode_messagepack(source, &result_resource);
-    REQUIRE(encoded.succeeded());
-    CHECK(encoded.value.get_allocator().resource() == &result_resource);
-
-    caors::io::byte_buffer stream_bytes{encoded.value.begin(), encoded.value.end(),
-                                        caors::io::byte_buffer::allocator_type{&result_resource}};
-    caors::io::byte_buffer_input_stream stream{std::move(stream_bytes)};
-    const caors::serialization::variant_result decoded = caors::serialization::parse_messagepack(
-        stream, caors::serialization::messagepack_options{}, &result_resource);
-    REQUIRE(decoded.succeeded());
-    CHECK(decoded.value.resource() == &result_resource);
-    REQUIRE(decoded.value.is_string());
-    CHECK(decoded.value.as_string() == "resource-owned-messagepack");
-  }
-
-  CHECK(result_resource.statistics().bytes_in_use == 0);
-}
-
 TEST_CASE("serialization - MessagePack selects string length markers",
           "[serialization][messagepack]") {
   const auto require_marker = [](std::size_t size, std::uint8_t marker) {
     const std::string text(size, 'x');
-    const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(
-        variant::from(std::string_view{text.data(), text.size()}));
+    const caors::serialization::byte_buffer_result encoded =
+        caors::serialization::encode_messagepack(
+            variant::from(std::string_view{text.data(), text.size()}));
     REQUIRE(encoded.succeeded());
     REQUIRE_FALSE(encoded.value.empty());
     CHECK(byte_at(encoded.value, 0) == marker);
@@ -590,7 +483,7 @@ TEST_CASE("serialization - MessagePack selects container length markers",
                                        std::span<const std::uint8_t> encoded_size) {
     variant::array_type values;
     values.resize(size);
-    const caors::io::byte_buffer_result encoded =
+    const caors::serialization::byte_buffer_result encoded =
         caors::serialization::encode_messagepack(variant::array(std::move(values)));
     REQUIRE(encoded.succeeded());
     CHECK(byte_at(encoded.value, 0) == marker);
@@ -603,7 +496,7 @@ TEST_CASE("serialization - MessagePack selects container length markers",
                                      std::span<const std::uint8_t> encoded_size) {
     variant::dictionary_type entries;
     entries.resize(size);
-    const caors::io::byte_buffer_result encoded =
+    const caors::serialization::byte_buffer_result encoded =
         caors::serialization::encode_messagepack(variant::dictionary(std::move(entries)));
     REQUIRE(encoded.succeeded());
     CHECK(byte_at(encoded.value, 0) == marker);
@@ -633,7 +526,7 @@ TEST_CASE("serialization - MessagePack typed APIs round trip reflected objects",
   require_reader_actor_metadata();
   const reader_actor source{7, 95.5F, true, "Ada"};
 
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(source);
+  const caors::serialization::byte_buffer_result encoded = caors::to_messagepack(source);
   REQUIRE(encoded.succeeded());
 
   reader_actor decoded{};
@@ -660,7 +553,7 @@ TEST_CASE("serialization - MessagePack typed APIs preserve context semantics",
       &codec_string_view_actor::name);
 
   const codec_string_view_actor source{"Mina"};
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(source);
+  const caors::serialization::byte_buffer_result encoded = caors::to_messagepack(source);
   REQUIRE(encoded.succeeded());
 
   codec_string_view_actor rejected{};
@@ -717,7 +610,7 @@ TEST_CASE("serialization - nested MessagePack codec preserves outer temporary fr
   nested_messagepack_callback_state callback_state{};
   const nested_messagepack_callback_actor source{
       11, nested_messagepack_callback_value{22, &callback_state}, 33};
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source);
+  const caors::serialization::byte_buffer_result encoded = caors::to_messagepack(context, source);
 
   CAPTURE(encoded.status.domain(), encoded.status.value(), callback_state.inner_succeeded,
           callback_state.scope_count_before, callback_state.scope_count_after);
@@ -751,7 +644,8 @@ TEST_CASE("serialization - MessagePack typed APIs preserve unknown field policie
   variant root = variant::object({});
   REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::int64_t{7})));
   REQUIRE(root.add_member(caors::string_name{"extra"}, 0, variant::from(std::int64_t{99})));
-  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::serialization::encode_messagepack(root);
   REQUIRE(encoded.succeeded());
 
   reader_unknown_field_actor ignored{};
@@ -787,7 +681,8 @@ TEST_CASE("serialization - preserved MessagePack fields outlive temporary storag
   variant root = variant::object({});
   REQUIRE(root.add_member(caors::string_name{"id"}, 0, variant::from(std::int64_t{7})));
   REQUIRE(root.add_member(caors::string_name{"extra"}, 0, std::move(extra)));
-  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::serialization::encode_messagepack(root);
   REQUIRE(encoded.succeeded());
 
   caors::tracking_resource result_tracking{&caors::get_system_memory_resource()};
@@ -829,7 +724,8 @@ TEST_CASE("serialization - MessagePack typed APIs migrate DOM before strict vali
   variant root = variant::object({});
   REQUIRE(root.add_member(caors::string_name{"legacy_id"}, 0, variant::from(std::int64_t{42})));
   REQUIRE(root.add_member(caors::string_name{"removed"}, 0, variant::from(std::int64_t{99})));
-  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::serialization::encode_messagepack(root);
   REQUIRE(encoded.succeeded());
 
   caors::serialization::schema_migration_ops migration{&migrate_messagepack_schema_actor};
@@ -868,7 +764,8 @@ TEST_CASE("serialization - MessagePack typed APIs round trip nested and standard
                                                     "entry", &variant_actor::entry);
 
   const nested_actor nested_source{7, nested_stats{3, 12.5F}};
-  const caors::io::byte_buffer_result nested_bytes = caors::to_messagepack(nested_source);
+  const caors::serialization::byte_buffer_result nested_bytes =
+      caors::to_messagepack(nested_source);
   REQUIRE(nested_bytes.succeeded());
   nested_actor nested_decoded{};
   REQUIRE(caors::read_messagepack_from(nested_decoded, nested_bytes.value).succeeded());
@@ -877,14 +774,15 @@ TEST_CASE("serialization - MessagePack typed APIs round trip nested and standard
   CHECK(nested_decoded.stats.score == 12.5F);
 
   const vector_actor vector_source{{1, 2, 3}};
-  const caors::io::byte_buffer_result vector_bytes = caors::to_messagepack(vector_source);
+  const caors::serialization::byte_buffer_result vector_bytes =
+      caors::to_messagepack(vector_source);
   REQUIRE(vector_bytes.succeeded());
   vector_actor vector_decoded{};
   REQUIRE(caors::read_messagepack_from(vector_decoded, vector_bytes.value).succeeded());
   CHECK(vector_decoded.scores == caors::vector<int>{1, 2, 3});
 
   const tuple_actor tuple_source{{9, caors::string{"nine"}, 2.5F}};
-  const caors::io::byte_buffer_result tuple_bytes = caors::to_messagepack(tuple_source);
+  const caors::serialization::byte_buffer_result tuple_bytes = caors::to_messagepack(tuple_source);
   REQUIRE(tuple_bytes.succeeded());
   tuple_actor tuple_decoded{};
   REQUIRE(caors::read_messagepack_from(tuple_decoded, tuple_bytes.value).succeeded());
@@ -894,7 +792,8 @@ TEST_CASE("serialization - MessagePack typed APIs round trip nested and standard
 
   variant_actor variant_source{};
   variant_source.entry = caors::string{"selected"};
-  const caors::io::byte_buffer_result variant_bytes = caors::to_messagepack(variant_source);
+  const caors::serialization::byte_buffer_result variant_bytes =
+      caors::to_messagepack(variant_source);
   REQUIRE(variant_bytes.succeeded());
   variant_actor variant_decoded{};
   REQUIRE(caors::read_messagepack_from(variant_decoded, variant_bytes.value).succeeded());
@@ -913,7 +812,8 @@ TEST_CASE("serialization - MessagePack typed APIs preserve polymorphic envelopes
   const actor& source_base = source;
 
   caors::serialization::context context;
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source_base);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::to_messagepack(context, source_base);
   REQUIRE(encoded.succeeded());
 
   player decoded{};
@@ -936,7 +836,7 @@ TEST_CASE("serialization - MessagePack typed APIs preserve external references",
   context.resolvers.external_refs.resolver = &resolver;
 
   const object_ptr_actor source{caors::object_ptr<object_ptr_target>{&target}};
-  const caors::io::byte_buffer_result encoded = caors::to_messagepack(context, source);
+  const caors::serialization::byte_buffer_result encoded = caors::to_messagepack(context, source);
   REQUIRE(encoded.succeeded());
 
   object_ptr_actor decoded{};
@@ -955,7 +855,8 @@ TEST_CASE("serialization - MessagePack typed read failures stop at the failing f
   REQUIRE(root.add_member(caors::string_name{"active"}, 0, variant::from(false)));
   REQUIRE(
       root.add_member(caors::string_name{"name"}, 0, variant::from(std::string_view{"changed"})));
-  const caors::io::byte_buffer_result encoded = caors::serialization::encode_messagepack(root);
+  const caors::serialization::byte_buffer_result encoded =
+      caors::serialization::encode_messagepack(root);
   REQUIRE(encoded.succeeded());
 
   reader_actor target{7, 95.5F, true, "original"};

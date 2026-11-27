@@ -23,9 +23,9 @@ ctest --test-dir build/v030-clang-debug -R '^caors.assets.asset_manager$' --outp
 三个目标构建成功。宿主示例输出 width=256，验证延迟交付、请求复用和完成线程提交；
 这是模拟宿主事件，不是真实 libuv 文件读取。VFS 示例原生异步与 worker 适配均输出 hello VFS。
 asset_manager CTest 目标 1/1 通过；其中既有测试覆盖重挂载后的旧来源保留、预加载共享快照等场景。
-相关源码：[宿主示例](../../examples/beta/assets_native_async.cpp)、
-[VFS 示例](../../examples/beta/assets_async_vfs.cpp)、
-[资源请求测试](../../tests/assets/asset_manager/asynchronous_loader_test.cpp)。
+相关源码：[宿主示例](https://github.com/synchronized/caors-core/blob/c912d089/examples/beta/assets_native_async.cpp)、
+[VFS 示例](https://github.com/synchronized/caors-core/blob/c912d089/examples/beta/assets_async_vfs.cpp)、
+[资源请求测试](https://github.com/synchronized/caors-core/blob/c912d089/tests/assets/asset_manager/asynchronous_loader_test.cpp)。
 
 文档还修正了 IO 参考开头声称“不支持异步”的旧说明；当前协议与具体后端能力分别表述。
 详细 API 去向集中维护于 Plan，不在本记录重复维护第二份清单。

@@ -4,8 +4,7 @@
 #ifndef CAORS_SERIALIZATION_MESSAGEPACK_H_
 #define CAORS_SERIALIZATION_MESSAGEPACK_H_
 
-#include "caors/io/stream.h"
-#include "caors/io/types.h"
+#include "caors/serialization/bytes.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"
 
@@ -32,10 +31,7 @@ public:
   messagepack_writer();
   /** @brief 使用指定 scratch 资源构造 writer；为空时使用线程局部 scratch 资源。 */
   explicit messagepack_writer(memory_resource* scratch_resource);
-  explicit messagepack_writer(io::byte_buffer& output, memory_resource* scratch_resource = nullptr);
-  /** @brief 将完成的根值写入输出流；短写由 `output_stream::write_all()` 处理。 */
-  explicit messagepack_writer(io::output_stream& output,
-                              memory_resource* scratch_resource = nullptr);
+  explicit messagepack_writer(byte_buffer& output, memory_resource* scratch_resource = nullptr);
   ~messagepack_writer() override;
 
   [[nodiscard]] format_features features() const noexcept override;
@@ -63,7 +59,7 @@ public:
   [[nodiscard]] error end_object() override;
 
   /** @brief 返回当前根值编码后的字节。 */
-  [[nodiscard]] const io::byte_buffer& bytes() const noexcept;
+  [[nodiscard]] const byte_buffer& bytes() const noexcept;
   /** @brief 清空输出和未完成的 writer 状态。 */
   void reset();
 
@@ -73,7 +69,7 @@ private:
 };
 
 /** @brief 将 DOM 值编码为标准 MessagePack 字节。 */
-[[nodiscard]] CAORS_API io::byte_buffer_result
+[[nodiscard]] CAORS_API byte_buffer_result
 encode_messagepack(const variant& value, memory_resource* result_resource = nullptr);
 
 /**
@@ -96,21 +92,6 @@ encode_messagepack(const variant& value, memory_resource* result_resource = null
  * `scratch_resource` 为空时使用当前线程的库 scratch 资源。返回 DOM 不引用 scratch 资源。
  */
 [[nodiscard]] CAORS_API variant_result parse_messagepack(std::span<const std::byte> bytes,
-                                                         messagepack_options options,
-                                                         memory_resource* result_resource,
-                                                         memory_resource* scratch_resource);
-
-/** @brief 从输入流读取到 EOF 后解析一个完整 MessagePack 根值。 */
-[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
-                                                         messagepack_options options = {});
-
-/** @brief 使用指定结果资源从输入流解析一个完整 MessagePack 根值。 */
-[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
-                                                         messagepack_options options,
-                                                         memory_resource* result_resource);
-
-/** @brief 使用指定结果资源和 scratch 资源从输入流解析一个完整 MessagePack 根值。 */
-[[nodiscard]] CAORS_API variant_result parse_messagepack(io::input_stream& stream,
                                                          messagepack_options options,
                                                          memory_resource* result_resource,
                                                          memory_resource* scratch_resource);

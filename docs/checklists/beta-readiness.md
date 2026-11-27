@@ -12,7 +12,6 @@
 - [ ] 公开头明确所有权、内存资源、借用有效期、线程、回调线程、错误和失败行为。
 - [ ] detail/raw ops 不进入普通用户示例或高层主路径，内部边界测试明确其用途。
 - [ ] Meta、对象、资源和序列化最小闭环均有可运行示例与对应测试。
-- [ ] `examples/beta/` 覆盖 project config、VFS/provider、同步/异步加载、preload、resolver、reload/save 和 typed options。
 - [ ] 相关平台全量构建、全量测试、示例和 Release benchmark 冒烟通过，正式性能基线具备可复现环境。
 - [ ] 路线图和计划中的未来能力没有被描述成现有稳定 API，未验证项及其影响已记录。
 
@@ -23,7 +22,7 @@
 ```sh
 rg -n 'get_raw_ops|deprecated|CAORS_.*DEPRECATED' include/caors docs examples tests
 rg -n '#include.*caors/.*/detail/' include/caors docs examples tests
-rg -n 'meta::detail|serialization::detail|resources::detail|objects::detail|caors::detail' docs examples tests
+rg -n 'meta::detail|serialization::detail|objects::detail|caors::detail' docs examples tests
 rg -n 'namespace caors::|using .*::' include/caors
 ```
 
@@ -31,7 +30,7 @@ rg -n 'namespace caors::|using .*::' include/caors
 
 构建和安装命令统一见[构建指南](../guides/build.md)，跨平台步骤见[Linux 清单](linux-validation.md)，
 基准构建及用例见[Benchmark 指南](../guides/benchmarking.md)，示例顺序见
-[Beta 示例](../../examples/beta/README.md)。
+[Beta 示例](https://github.com/synchronized/caors-core/blob/c912d089/examples/beta/README.md)。
 
 每轮检查记录被验证提交、环境、实际命令、通过/失败、未验证项及延期影响，结果写入
 [独立记录](../records/README.md)，不在本清单追加无日期的“本轮扫描通过”。

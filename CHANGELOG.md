@@ -9,15 +9,16 @@
 
 ## Unreleased
 
-- 文件系统/source 绑定、配置工厂注册、`create_owned` 和工厂扩展类型的公开入口迁至 `project_builder`；工厂通过 `context.project()` 使用装配操作。JSON/通用类型工厂 helper 改为接收 builder，manager 保留手动资源类型注册和请求主线。
+### 破坏性变更
+
+- 移除 resources、assets 及 io 模块和专用示例/消费；宿主负责资源与文件策略。
+- 序列化保留内存接口，删除文件/流入口；MessagePack 字节结果使用 serialization 命名空间。
+- 插件清单由宿主读取，保留文本解析及平台动态库加载。
+- 迁移见[退出指南](docs/guides/application-modules-removal.md)。
+
+### 其他
 
 - 工程注册与配置对象状态移入私有实现，保持既有生命周期；修复 `create_owned` 在拥有表扩容失败时新对象未释放的问题。
-
-- 工程构建入口迁至 `assets::project_builder{manager}.build(config)` / `build_detailed(config)`，删除 manager 上的同名入口；配置对象仍由 manager 保活。已有配置驱动接入需要迁移调用点。
-
-- 异步加载管线改用通用快照捕获器；低层 database 可配置宿主策略，默认保留 provider 适配。缓存命中与共享请求不重复捕获，预加载闭包共享批次结果。
-
-- 加载上下文的 `sources` 改为通用 `snapshot`；VFS loader 使用 `snapshot_as<resources::provider_snapshot>()` 并检查结果。loader 协议头不再传递包含具体文件来源；自定义快照可按批次保活。此变更需迁移调用代码并统一重编译库及使用方，尚未发布。
 
 ## v0.7.0 — 2026-10-21（alpha，已发布）
 

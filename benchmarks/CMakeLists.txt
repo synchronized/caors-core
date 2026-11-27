@@ -17,8 +17,6 @@ target_sources(
           meta/value_bench.cpp
           math/math_bench.cpp
           serialization/serialization_bench.cpp
-          resources/resources_bench.cpp
-          resources/coroutine_bench.cpp
           tasks/coroutine_bench.cpp
           memory/pool_bench.cpp
           memory/allocation_samples.cpp)
@@ -34,9 +32,3 @@ target_compile_features(caors_scheduler_benchmarks PRIVATE cxx_std_20)
 caors_target_compile_warnings(caors_scheduler_benchmarks)
 target_link_libraries(caors_scheduler_benchmarks PRIVATE caors::caors)
 set_target_properties(caors_scheduler_benchmarks PROPERTIES FOLDER "Benchmarks")
-
-add_executable(caors_provider_snapshot_benchmarks resources/provider_snapshot_bench.cpp)
-target_compile_features(caors_provider_snapshot_benchmarks PRIVATE cxx_std_20)
-caors_target_compile_warnings(caors_provider_snapshot_benchmarks)
-target_link_libraries(caors_provider_snapshot_benchmarks PRIVATE caors::caors)
-set_target_properties(caors_provider_snapshot_benchmarks PROPERTIES FOLDER "Benchmarks")

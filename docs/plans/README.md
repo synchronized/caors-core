@@ -13,9 +13,17 @@
 
 ## 状态索引
 
-### API 收敛实施中
+### 宿主驱动资源加载（已取代）
 
-- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：首批快照解耦与工程装配入口迁移通过原生/Web/压力和安装验收，后续接口统一未完成。
+- [宿主驱动的资源加载与 IO 退出](host-driven-resource-loading.md)：已停止，改为整体移除资源、资产及 IO；见[退出指南](../guides/application-modules-removal.md)。
+
+### 旧 API 收敛计划
+
+以下计划保留已实现设计与验收历史；未完成的资源/文件后续方向已停止，改为由宿主负责。
+
+- [VFS 文件访问接口收敛](vfs-api-consolidation.md)：保留统一文件服务、路由独立及同步存储收缩的设计和验收；后续方向已取代。
+
+- [IO、VFS 与资源加载 API 收敛](io-assets-api-consolidation.md)：保留快照解耦、工程装配迁移及原始审计依据；未完成后续由新计划维护。
 
 ### v0.7.0 独立平台范围已完成
 
