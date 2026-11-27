@@ -61,8 +61,13 @@ int main(int argc, char** argv) {
   caors::plugins::plugin_host host{};
   std::string log_message{};
   host.set_log(&capture_log, &log_message);
-  auto good_result = caors::plugins::plugin_binary::load(argv[1], &host.abi());
+  caors::plugins::plugin_build_compatibility_diagnostic build_diagnostic;
+  auto good_result = caors::plugins::plugin_binary::load(argv[1], &host.abi(), &build_diagnostic);
   if (!good_result) {
+    std::cerr << "加载错误=" << static_cast<int>(good_result.error().value())
+              << ", 构建差异=" << static_cast<unsigned>(build_diagnostic.mismatches)
+              << ", 宿主编译器=" << build_diagnostic.host.compiler_version
+              << ", 插件编译器=" << build_diagnostic.plugin.compiler_version << '\n';
     return fail("无法加载有效插件");
   }
   auto plugin = std::move(*good_result);

@@ -77,7 +77,6 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
   `serialization::write_value_to()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。
 - `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
-- `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
 - `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口。
 
@@ -747,74 +746,6 @@ context.resolvers.external_refs.resolver = &resolver;
 - 非空引用写出时无法映射到 id，或读入 id 找不到对象时返回 `errc::not_found`。
 - 读入对象不能转换为 `T*` 时返回 `errc::invalid_type`。
 
-### 资源引用 resolver
-
-`caors::resource_ref<T>` 默认只按稳定 `resource_guid` 读写，不展开资源对象。需要反序列化时立即解析
-资源引用时，需要包含 `caors/resources/serialization.h` 或 `caors/resources.h`，并在
-`serialization::context` 中挂通用外部引用 resolver：
-
-```cpp
-caors::resource_cache<texture> cache;
-caors::resources::resource_ref_resolver_ops resolver = caors::resources::make_resource_resolver(cache);
-
-caors::serialization::context context{};
-context.resolvers.external_refs.resolver = &resolver;
-context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
-
-material decoded{};
-caors::read_json_from(context, decoded, json_text);
-```
-
-当前内置 resolver 创建入口：
-
-- `make_resource_resolver(resources::manager&)`：从非拥有资源索引查找已存在资源。
-- `make_resource_resolver(resources::database&)`：从非拥有资源 database 查询已注册 cache 中的资源。
-- `make_resource_resolver(resources::cache<T>&)`：从拥有式 cache 查找已加载资源。
-- `assets::make_resource_resolver(assets::asset_manager&)`：从高层 asset manager 的内部 database 查询资源。
-
-解析策略：
-
-- `keep_unresolved`：默认策略，只恢复 GUID。
-- `resolve_if_present`：尽量解析；缺资源时保持 unresolved 并返回成功。
-- `require_resolved`：必须解析成功；缺少 resolver 返回 `serialization / invalid_argument`，缺资源返回
-  `resources / not_found`，类型不匹配返回 `resources / invalid_type`。
-
-资源依赖收集通过 `context.resolvers.external_refs.collector` 完成。序列化和反序列化遍历到非空 `resource_ref<T>`
-时会记录 `{resource_guid, type_id}`：
-
-```cpp
-caors::resources::resource_dependency_list dependencies;
-caors::resources::resource_dependency_collector_ops collector =
-    caors::resources::make_resource_dependency_collector(dependencies);
-
-caors::serialization::context context{};
-context.resolvers.external_refs.collector = &collector;
-
-caors::to_json(context, material_value);
-
-caors::resource_dependency_graph graph;
-caors::resources::replace_resource_dependencies(graph, material_resource_guid, dependencies);
-```
-
-依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
-热更新和资源数据库。`resource_dependency_list` 是一次遍历得到的依赖事实列表；`resources::dependency_graph`
-是运行期资源数据库里的关系索引。需要把事实写入索引时，应显式调用
-`resources::add_resource_dependencies()` 或 `resources::replace_resource_dependencies()`。
-
-推荐的预加载链路是：
-
-1. 先用带 `context.resolvers.external_refs.collector` 的序列化或反序列化遍历收集所有资源 GUID。
-2. 如果当前遍历对象本身是资源，调用 `replace_resource_dependencies(graph, resource_guid, dependencies)`
-   刷新依赖图。
-3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
-4. 调用 `request_preload`，通过匹配 loader 异步读取并构造资源；来源策略由工程配置提供。
-5. 推进所配置的 worker/completion 或宿主循环，检查请求结果后使用已提交的拥有式 cache。
-6. 创建 `resources::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
-   `resolvers.external_refs.resolver` 和 `resolvers.external_refs.resolution`。
-
-依赖收集器只提供“需要哪些资源”的事实，不决定加载顺序、缺资源策略或异步调度。资源缺失是否报错由后续解析阶段的
-`resolvers.external_refs.resolution` 决定。
-
 ### object handles
 
 `caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
@@ -830,7 +761,7 @@ caors::resources::replace_resource_dependencies(graph, material_resource_guid, d
 ```
 
 反序列化时只恢复身份，不自动查询全局对象表，也不保证对象仍然存活。调用方需要显式交给
-`objects::manager`、场景数据库或资源系统解析：
+`objects::manager` 或宿主身份索引解析：
 
 ```cpp
 caors::objects::typed_handle<player> target;

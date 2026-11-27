@@ -200,18 +200,9 @@ events.update<resource_reloaded>(); // 派发这一类事件。
 - dispatcher 不拥有监听对象，也不延长对象生命周期。
 - 事件类型 key 只用于当前进程内队列索引，不是稳定类型 ID，不能用于序列化或跨模块协议。
 
-## 与资源系统的关系
+## 应用事件
 
-资源系统已经可以在当前事件层上显式发出重载通知，例如：
-
-```cpp
-caors::resources::reload_signal<texture> reloaded;
-auto result = caors::resources::reload_and_notify(cache, loader, texture_id, reloaded);
-```
-
-第一阶段资源 cache 仍只负责加载、替换和失败保留，不会隐式广播。`reload_and_notify()` 只是显式 helper：
-调用方传入 signal，成功或失败都会收到一次同步事件。需要延迟批量处理时，可以把 reload 结果转换为
-dispatcher 事件，在主循环或资源系统更新阶段统一 `update()`。是否刷新对象、重新解析引用、级联刷新依赖资源，
-仍由资源管理器、资源依赖图或编辑器工具层决定。
+宿主可用 signal 或 dispatcher 表达自身业务事件；底座不提供资源重载或资产依赖策略。
+事件监听与对象生命周期由宿主约束。
 
 相关测试位于 `tests/events/`，测试组织规则见 [tests/README.md](../../tests/README.md)。
