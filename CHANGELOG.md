@@ -16,14 +16,9 @@
 - 插件清单由宿主读取，保留文本解析及平台动态库加载。
 - 迁移见[退出指南](docs/guides/application-modules-removal.md)。
 
-
-- 日常请求收敛为 load/reload/preload 三类：request_refresh 合入 request_reload，每次重载独立启动、无缓存也可创建、最新重载决定默认绑定。manager/group 删除逐次 worker/completion 参数和模板 preload，特殊调度使用 group，同类型 preload 在低层 database 使用。
-
-- 加载协议统一为 `resources::loader<T>::start`，删除独立 `async_loader<T>`。原生异步实现改继承 loader；已有同步实现改继承 `sync_loader_adapter<T>` 并保留 load 钩子。旧同步入口仅使用显式适配能力，不等待异步 loader。
+### 其他
 
 - 工程注册与配置对象状态移入私有实现，保持既有生命周期；修复 `create_owned` 在拥有表扩容失败时新对象未释放的问题。
-
-
 
 ## v0.7.0 — 2026-10-21（alpha，已发布）
 

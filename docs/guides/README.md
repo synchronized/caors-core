@@ -18,6 +18,5 @@
 
 指南围绕任务组织，只引用必要接口；详细 API 声明与限制由对应 Reference 维护。
 
-- [接入宿主异步 VFS](async-vfs-integration.md)：拥有式挂载、原生 loop 后端与 loader 的接入步骤。
 
 - [资源、资产及 IO 退出与宿主迁移](application-modules-removal.md)。

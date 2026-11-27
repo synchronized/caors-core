@@ -67,7 +67,7 @@ jobs:
           ctest --test-dir build/linux-clang-asan
           --output-on-failure
           --repeat until-fail:20
-          -R '^(caors\.tasks\..*|caors\.plugins\..*)$'
+          -R '^(caors[.]tasks[.].*|caors[.]plugins[.].*)$'
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v6

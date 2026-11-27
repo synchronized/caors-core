@@ -445,36 +445,25 @@ int main(int argc, char** argv) {
     return fail("pinned 插件没有拒绝提前 unload 或诊断不正确");
   }
 
-  // 显式宿主 pin 必须覆盖最后弱控制块和排队回调，而非只覆盖资源对象。
+  // 排队任务保存模块租约，避免宿主入口先释放后读取插件静态数据。
   {
     auto loaded = caors::plugins::plugin_binary::load(argv[1], &host.abi());
     if (!loaded) {
-      return fail("资源寿命测试无法加载插件");
+      return fail("排队任务寿命测试无法加载插件");
     }
-    auto resource_plugin = std::move(*loaded);
-    auto pin = resource_plugin.library_lease();
-    const auto* native = static_cast<const caors_native_resource_test_extension*>(
-        resource_plugin.get_extension("caors.test.native-resource", 1));
-    if (!native) {
-      return fail("缺少资源寿命测试扩展");
-    }
-    int destroyed = 0;
-    int deallocated = 0;
-    auto strong = native->create(&destroyed, &deallocated);
-    caors::resource_weak_handle<caors::resource> weak = strong;
-    resource_plugin = {};
-    strong.reset();
-    if (destroyed != 1 || deallocated != 1 || !weak.expired()) {
-      return fail("资源释放时错误释放弱控制块");
+    auto module = std::move(*loaded);
+    auto pin = module.library_lease();
+    const auto* answer = static_cast<const int*>(module.get_extension("caors.test.answer", 1));
+    if (!answer || !pin.valid()) {
+      return fail("缺少通用扩展或模块租约");
     }
     bool callback_ran = false;
-    caors::tasks::task queued{[pin, weak = std::move(weak), &callback_ran]() mutable {
-      weak.reset();
-      callback_ran = true;
-    }};
+    caors::tasks::task queued{
+        [pin, answer, &callback_ran] { callback_ran = pin.valid() && *answer == 42; }};
+    module = {};
     pin = {};
-    if (queued.run() || !callback_ran || deallocated != 2) {
-      return fail("模块保活未覆盖最终弱引用和回调");
+    if (queued.run() || !callback_ran) {
+      return fail("模块保活未覆盖排队回调");
     }
     queued.reset();
   }
